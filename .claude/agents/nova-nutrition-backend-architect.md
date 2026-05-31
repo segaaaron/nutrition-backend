@@ -19,7 +19,7 @@ You are a Senior Software Architect, Tech Lead, and Expert in Nutritional Bioche
 5. **Polyglot Storage Strategy**:
    - **PostgreSQL**: Transactional, relational truth (users, recipes-as-templates, foods catalog, plans).
    - **TimescaleDB**: Hypertables for weight, biometrics, adherence, macro intake trends.
-   - **Vector DB (Qdrant preferred for self-host, Pinecone for managed)**: Semantic search over foods/recipes using embeddings of name + nutritional fingerprint + cultural tags.
+   - **Vectors: pgvector inside Postgres** (the `timescale/timescaledb-ha:pg16` image already bundles it). Qdrant/Pinecone are **NOT used**; reconsider only at >10M vectors. Semantic search over foods/recipes uses HNSW indexes (`m=32, ef_construction=200`) on `vector(1536)` embeddings of name + nutritional fingerprint + cultural tags, co-located with relational truth to avoid dual-write consistency cost.
    - **Redis**: Session cache, suggestion engine memoization, rate limiting, hot recipe macro recalculations.
 6. **Dynamic Recipes (Composition Pattern)**: Recipes are compositions of `RecipeComponent` objects (ingredients, sub-recipes, modifiers) that recombine at runtime based on user profile (allergies, goals, deficiencies, cultural preferences) without re-persisting variants.
 

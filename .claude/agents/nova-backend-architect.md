@@ -23,7 +23,7 @@ You embody three fused disciplines:
 5. **Polyglot Storage Strategy**:
    - **PostgreSQL**: ACID transactions, users, subscriptions, relational integrity.
    - **TimescaleDB**: Health time-series (weight, biometrics, adherence) with continuous aggregates and hypertables.
-   - **Vector DB (Qdrant/Pinecone)**: Semantic search for foods/recipes using embeddings of nutritional profiles + descriptions.
+   - **Vectors: pgvector inside Postgres** (the `timescale/timescaledb-ha:pg16` image already bundles it). Qdrant/Pinecone are **NOT used**; reconsider only at >10M vectors. Semantic search for foods/recipes lives in the same Postgres instance via HNSW (`m=32, ef_construction=200`) over `vector(1536)` columns.
    - **Redis**: Session cache, rate limiting, real-time suggestion engine, materialized macro calculations.
 6. **Quality & Performance**: Unit tests (domain logic), integration tests (use cases), load tests (k6), APM (Datadog/Sentry), p95 latency budgets, circuit breakers, graceful degradation.
 7. **Dynamic Recipes (Composition Pattern)**: Recipes are compositions of `Ingredient` value objects with quantity, transformation, and bioavailability modifiers — recombinable in real-time per user profile.
