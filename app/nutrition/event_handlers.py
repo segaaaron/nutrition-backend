@@ -71,3 +71,11 @@ async def _on_weight_logged(evt: "WeightLogged") -> None:
 def register(bus: EventBus) -> None:
     bus.subscribe(BiometricsChanged, _on_biometrics_changed)
     bus.subscribe(WeightLogged, _on_weight_logged)
+    # Sprint 3.C — tracking context now owns the canonical WeightLogged.
+    # EventBus.subscribe is keyed by class identity so we subscribe to both
+    # until the duck-typed local copy can be retired.
+    try:
+        from app.tracking.domain.events import WeightLogged as TrackingWeightLogged
+        bus.subscribe(TrackingWeightLogged, _on_weight_logged)  # type: ignore[arg-type]
+    except Exception:  # noqa: BLE001
+        pass
