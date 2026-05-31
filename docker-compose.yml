@@ -1,0 +1,134 @@
+# Hostinger KVM 2 tuned (8 GB RAM / 2 vCPU / 100 GB NVMe).
+# Container budget: db 3G + api 0.6G + worker 1.5G + redis 0.4G = 5.5G
+# OS + Dokploy + Traefik ≈ 0.7G → ≈ 1.8G headroom for spikes.
+# See spec §23 for the tuning matrix and upgrade signals.
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    env_file: .env
+    environment:
+      WEB_CONCURRENCY: "2"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    command: >
+      uvicorn app.main:app
+      --host 0.0.0.0
+      --port 8000
+      --workers 2
+      --limit-concurrency 200
+      --timeout-keep-alive 30
+    deploy:
+      resources:
+        limits:
+          memory: 600M
+          cpus: "1.0"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/healthz"]
+      interval: 30s
+      timeout: 10s
+      start_period: 15s
+      retries: 3
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    env_file: .env
+    environment:
+      ARQ_MAX_JOBS: "2"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["arq", "worker.main.WorkerSettings"]
+    deploy:
+      resources:
+        limits:
+          memory: 1500M
+          cpus: "1.0"
+    restart: unless-stopped
+    healthcheck:
+      # Arq has no built-in health endpoint; ensure process can import settings.
+      test: ["CMD", "python", "-c", "import worker.main"]
+      interval: 60s
+      timeout: 15s
+      start_period: 20s
+      retries: 3
+
+  db:
+    build:
+      context: ./docker
+      dockerfile: db.Dockerfile
+    environment:
+      POSTGRES_USER: nova
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-novapass}
+      POSTGRES_DB: nova
+      # Tuning for 8GB host (spec §23.2).
+      POSTGRES_SHARED_BUFFERS: 2GB
+      POSTGRES_MAX_CONNECTIONS: "75"
+      POSTGRES_WORK_MEM: 16MB
+      POSTGRES_MAINTENANCE_WORK_MEM: 256MB
+      POSTGRES_EFFECTIVE_CACHE_SIZE: 4GB
+      POSTGRES_RANDOM_PAGE_COST: "1.1"
+      POSTGRES_WAL_BUFFERS: 16MB
+    command: >
+      postgres
+      -c shared_buffers=2GB
+      -c max_connections=75
+      -c work_mem=16MB
+      -c maintenance_work_mem=256MB
+      -c effective_cache_size=4GB
+      -c random_page_cost=1.1
+      -c wal_buffers=16MB
+      -c shared_preload_libraries=timescaledb
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    shm_size: 1g
+    deploy:
+      resources:
+        limits:
+          memory: 3000M
+          cpus: "1.0"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nova -d nova"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    command: >
+      redis-server
+      --maxmemory 300mb
+      --maxmemory-policy allkeys-lru
+      --save ""
+      --appendonly no
+    volumes:
+      - redisdata:/data
+    deploy:
+      resources:
+        limits:
+          memory: 400M
+          cpus: "0.5"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata: {}
+  redisdata: {}
