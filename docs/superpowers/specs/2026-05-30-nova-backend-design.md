@@ -814,6 +814,37 @@ unlisted cell raises `IllegalTransition`.
 6. Persist `plans` + `plan_days` + `plan_meals`.
 7. Expand grocery list asynchronously.
 
+### 9.5.1 Layer implementations (Sprint 3/4)
+
+The deterministic + LLM-augmented pipeline lives in `app/plan/application/`
+and is orchestrated by `create_plan.py`:
+
+- Layer 1 (eligibility, SQL deterministic, <50 ms) —
+  `app/plan/application/layer1_eligibility.py`. Hard-excludes allergens
+  (closed `allergen_enum`, ADR-0001), region overlap (ADR-0008),
+  contraindications, plus per-condition clinical gates (diabetes_t2
+  sugar≤15, hypertension sodium≤600, hypercholesterolemia sat_fat≤5, ckd
+  protein≤W*0.8/3, gout no organ_meat/shellfish).
+- Layer 2 (macro-balanced shortlist, <200 ms) —
+  `app/plan/application/layer2_shortlist.py`. Knapsack-lite ranker by
+  `-|kcal − kcal_share| + 0.1·(protein/protein_share)` honouring a
+  rolling 7-day repetition-cap `forbidden_ids` set.
+- Layer 3 (hybrid ranking, <400 ms) —
+  `app/plan/application/layer3_ranking.py`. Composite score
+  `0.40·cos(taste_vec, recipe.emb) + 0.20·cultural_fit + 0.20·prep_fit +
+  0.10·novelty + 0.10·adherence`. Taste vector is a 24h-cached Redis
+  EMA built by `app/plan/application/taste_profile.py`.
+- Layer 4 (LLM coherence, <3 s, one call) —
+  `app/plan/application/layer4_coherence.py` +
+  `app/plan/infrastructure/openai_coherence_client.py`. Strict JSON
+  schema, 24h Redis cache keyed by `(profile_hash, candidate_set_hash)`,
+  hard $0.02/plan cost ceiling.
+- Cross-cutting:
+  - Cost cap (ADR-0004) — `app/core/cost_cap.py`.
+  - Circuit breaker — `app/core/circuit_breaker.py`.
+  - Metrics — `plan_generation_layer_duration_seconds{layer}` defined in
+    `app/plan/application/create_plan.py`.
+
 ## 10. Image compression (`app/imaging/`)
 
 ### Domain port
