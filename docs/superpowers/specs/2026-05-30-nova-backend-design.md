@@ -18,13 +18,17 @@ Build the backend for NOVA — Neural Nutrition AI: a multi-platform nutrition a
 | DB image | `timescale/timescaledb-ha:pg16` (Timescale + pgvector + Postgres) |
 | Cache / broker | Redis 7 |
 | Workers | Arq (async, Redis-backed) |
-| AI provider | OpenAI (`gpt-4o` vision+chat, `whisper-1` STT, `text-embedding-3-large`) |
+| AI provider | OpenAI (`gpt-4o-2024-08-06` vision, `gpt-4o-mini` coach+plan L4, `whisper-1` STT, `text-embedding-3-large` 1536-dim) |
 | Auth | Own JWT (RS256) + refresh + Google/Apple OAuth + email OTP |
 | Image compression | `pyvips` (libvips) + `pillow-heif` for iOS HEIC |
 | Image storage | Deferred (URL field nullable; Firestore/Firebase to be added later) |
 | Deploy | Dokploy via `docker-compose.yml` |
 | Observability | OpenTelemetry + Sentry + Prometheus `/metrics` |
 | Scope | MVP + AI (vision, coach, STT) |
+| Payments | Stripe (US/CA/EU) + Mercado Pago (LatAm) |
+| **Language strategy** | **EN canonical IDs + i18n display layer** (locales: `en`, `es`, `pt`, `fr`, `de`). Reverses earlier round-2 ES-canonical decision. |
+| Multi-region catalog | `recipes.regions[]` + 14-allergen superset (US+EU). Regions: `us`, `ca`, `eu`, `uk`, `latam`. |
+| **Target VPS** | **Hostinger KVM 2 — 8 GB RAM / 100 GB NVMe / 2 vCPU** (tunable up to Contabo/Hetzner later — see §23). |
 
 ## 3. Service topology (4 containers)
 
@@ -68,7 +72,9 @@ Cross-cutting: `core/` (config, logging, DI, errors, in-process event bus), `sha
 - `Kg(decimal, 20..300)`, `Cm(decimal, 50..250)`
 - `KcalRange(min, max)` — `max - min == 200` (UI shows range, not single value — adherence improvement vs Fitia)
 - `ActivityFactor(decimal in {1.20, 1.375, 1.55, 1.725, 1.90})`
-- `MifflinStJeor.compute(sexo, peso_kg, talla_cm, edad) -> Calories`
+- `MifflinStJeor.compute(sex, weight_kg, height_cm, age) -> Calories`
+- `Locale` — `Literal['en','es','pt','fr','de']`. Default `en`. Derived from `Accept-Language` header when absent on the user record.
+- `Region` — `Literal['us','ca','eu','uk','latam']`. Derived from `user_profiles.country` via the `regions` table (`countries[]` lookup). Drives recipe catalog filtering and allergen subset.
 
 ## 7. Database schema (PostgreSQL + Timescale + pgvector)
 
@@ -107,15 +113,23 @@ otp_codes(user_id uuid not null references users(id) on delete cascade,
 ### Profile
 ```sql
 user_profiles(user_id uuid primary key references users(id) on delete cascade,
-              nombre text, edad int check(12<=edad<=100),
-              sexo enum('hombre','mujer'), unidades enum('metrico','imperial'),
-              peso_kg numeric(5,2), talla_cm numeric(5,2),
-              objetivo enum('bajar','mantener','ganar_musculo','ganar_peso','salud'),
-              nivel_actividad enum('sedentario','ligero','moderado','activo','atleta'),
-              condiciones_medicas text[], otra_condicion text,
-              alergias text[], otra_alergia text,
-              pais char(2), idioma char(2), tema enum('claro','oscuro'),
+              name text, age int check(12<=age<=100),
+              sex enum('male','female'),
+              units enum('metric','imperial'),
+              weight_kg numeric(5,2), height_cm numeric(5,2),
+              goal enum('weight_loss','maintain','muscle_gain','weight_gain','health'),
+              activity_level enum('sedentary','lightly_active','moderately_active','very_active','extra_active'),
+              medical_conditions text[],  -- canonical EN ids (see ADR-0001 Appendix A revised)
+              other_condition text,
+              allergies allergen_enum[],  -- typed array; closed vocab
+              other_allergy text,
+              country char(2),            -- ISO-3166-1 alpha-2
+              region char(5),             -- derived from country via regions table
+              locale char(2),             -- 'en'|'es'|'pt'|'fr'|'de'
+              theme enum('light','dark'),
               updated_at timestamptz);
+CREATE INDEX ON user_profiles(region);
+CREATE INDEX ON user_profiles(locale);
 ```
 
 ### Nutrition (derived goals + history)
@@ -123,59 +137,91 @@ user_profiles(user_id uuid primary key references users(id) on delete cascade,
 nutritional_goals(id uuid pk,
                   user_id uuid not null references users(id) on delete cascade,
                   kcal_min int, kcal_max int,
-                  proteina_g int, carbos_g int, grasas_g int, agua_ml int,
-                  bmr int, tdee int, factor_actividad numeric(4,3),
-                  motivo enum('onboarding','weight_change','goal_change','plateau','manual'),
-                  vigente_desde timestamptz, vigente_hasta timestamptz null,
+                  protein_g int, carbs_g int, fat_g int, water_ml int,
+                  bmr int, tdee int, activity_factor numeric(4,3),
+                  reason enum('onboarding','weight_change','goal_change','plateau','manual'),
+                  valid_from timestamptz, valid_to timestamptz null,
                   created_at timestamptz);
--- Exactly one row per user with vigente_hasta IS NULL (current); others historical.
+-- Exactly one row per user with valid_to IS NULL (current); others historical.
 CREATE UNIQUE INDEX one_current_goals
-    ON nutritional_goals(user_id) WHERE vigente_hasta IS NULL;
+    ON nutritional_goals(user_id) WHERE valid_to IS NULL;
+CREATE INDEX ON nutritional_goals(user_id, valid_from DESC);
 ```
 
 ### Recipes
 ```sql
-foods(id uuid pk, nombre text, nombre_norm text, marca text, pais char(2),
-      porcion_g numeric, kcal numeric, p numeric, c numeric, g numeric, fibra numeric,
-      azucar numeric, sodio_mg numeric, grasa_sat numeric,
-      micronutrientes jsonb, codigo_barras text unique null,
-      verificado bool default false, fuente text, embedding vector(1536));
+-- Foods: per-100g canonical nutrition. EN canonical column names.
+foods(id uuid pk,
+      name_en text not null, name_norm text not null,  -- normalised for trigram search
+      name_translations jsonb not null default '{}',   -- {locale: localised_name}
+      brand text, country char(2),
+      portion_g numeric, kcal numeric,
+      protein_g numeric, carbs_g numeric, fat_g numeric,
+      fiber_g numeric, sugar_g numeric, sodium_mg numeric, sat_fat_g numeric,
+      micronutrients jsonb,
+      barcode text unique null,
+      verified bool default false, source text,
+      embedding vector(1536));
 CREATE INDEX ON foods USING hnsw (embedding vector_cosine_ops)
     WITH (m = 32, ef_construction = 200);
-CREATE INDEX ON foods USING gin (nombre_norm gin_trgm_ops);
+CREATE INDEX ON foods USING gin (name_norm gin_trgm_ops);
+CREATE INDEX ON foods(barcode) WHERE barcode IS NOT NULL;
 
-recipes(id uuid pk, nombre text, descripcion text, imagen_url text,
-        kcal int, p int, c int, g int,
-        -- Aggregated micros for clinical filters (finding #7): diabetes filters by
-        -- `azucar_g`, hypertension by `sodio_mg`, dyslipidaemia by `grasa_sat_g`.
-        -- Recomputed by `sync_recipe_aggregates()` trigger (below) on any
-        -- recipe_components INSERT/UPDATE/DELETE; do NOT update directly.
-        fibra_g int not null default 0,
-        azucar_g int not null default 0,
-        sodio_mg int not null default 0,
-        grasa_sat_g int not null default 0,
+-- Closed allergen vocabulary (ADR-0001, round-3: 14-item US+EU superset).
+-- Declared BEFORE recipe_allergens so the FK column can reference the enum type.
+-- US top-9 (FALCPA 2023): dairy, gluten, tree_nuts, peanuts, shellfish, fish, egg, soy, sesame.
+-- EU additions (EU 1169/2011 Annex II): celery, mustard, lupin, sulphites, molluscs.
+CREATE TYPE allergen_enum AS ENUM (
+    'dairy','gluten','tree_nuts','peanuts','shellfish','fish','egg','soy','sesame',
+    'celery','mustard','lupin','sulphites','molluscs'
+);
+
+recipes(id uuid pk,
+        -- i18n: EN canonical + per-locale display fields.
+        name_en text not null,
+        name_translations jsonb not null default '{}',          -- {es: '...', pt: '...', ...}
+        description_en text,
+        description_translations jsonb not null default '{}',
+        image_url text null,
+        kcal int, protein_g int, carbs_g int, fat_g int,
+        -- Aggregated micros for clinical filters: diabetes uses sugar_g,
+        -- hypertension uses sodium_mg, dyslipidaemia uses sat_fat_g.
+        -- Recomputed by sync_recipe_aggregates() on recipe_components mutation.
+        fiber_g int not null default 0,
+        sugar_g int not null default 0,
+        sodium_mg int not null default 0,
+        sat_fat_g int not null default 0,
         tags text[],
-        meal_time enum('desayuno','almuerzo','cena','snack'),
-        prep_min int, instrucciones text[], verificada_por text,
-        -- Provenance (lets us quarantine a bad LLM batch later, finding #26).
+        meal_time enum('breakfast','lunch','dinner','snack'),
+        prep_min int,
+        instructions_en text[],
+        instructions_translations jsonb not null default '{}',
+        verified_by text,
+        -- Provenance (lets us quarantine a bad LLM batch later).
         source_batch text null,
-        -- Denormalised allergen list for fast WHERE NOT (allergens && $1) filtering.
+        source_catalog text null,                               -- e.g. 'nova_seed_v1', 'usda_fdc'
+        -- Multi-region targeting: filter candidate recipes by user's region.
+        regions char(5)[] not null default '{}',                -- subset of regions.code
+        -- Denormalised allergen list for fast NOT(allergens && $1) filtering.
         -- Source of truth remains recipe_allergens; trigger keeps this column in sync.
-        allergens text[] not null default '{}',
-        embedding vector(1536), created_at timestamptz);
+        allergens allergen_enum[] not null default '{}',
+        embedding vector(1536),
+        created_at timestamptz);
+
+CREATE INDEX ON recipes USING gin (regions);
+CREATE INDEX ON recipes USING gin (allergens);
+CREATE INDEX ON recipes USING gin (tags);
+CREATE INDEX ON recipes(meal_time);
+CREATE INDEX ON recipes(source_batch) WHERE source_batch IS NOT NULL;
 
 recipe_components(id uuid pk,
                   recipe_id uuid not null references recipes(id) on delete cascade,
                   food_id uuid null references foods(id) on delete restrict,
                   sub_recipe_id uuid null references recipes(id) on delete restrict,
-                  cantidad_g numeric, modificador text, posicion int);
+                  amount_g numeric, modifier text, position int);
+CREATE INDEX ON recipe_components(recipe_id);
+CREATE INDEX ON recipe_components(food_id) WHERE food_id IS NOT NULL;
 -- Composition Pattern: recipes compose foods + sub-recipes + modifiers.
-
--- Closed allergen vocabulary (ADR-0001). Sesame included per FALCPA 2023 (top-9).
--- Declared BEFORE recipe_allergens so the FK column can reference the enum type.
-CREATE TYPE allergen_enum AS ENUM (
-    'dairy','gluten','tree_nuts','peanuts','shellfish','fish','egg','soy','sesame'
-);
 
 recipe_allergens(recipe_id uuid not null references recipes(id) on delete cascade,
                  allergen allergen_enum not null,
@@ -203,10 +249,10 @@ BEGIN
 
     UPDATE recipes
        SET allergens = COALESCE((
-            SELECT array_agg(allergen::text ORDER BY allergen)
+            SELECT array_agg(allergen ORDER BY allergen)
               FROM recipe_allergens
              WHERE recipe_id = affected_recipe
-       ), '{}'::text[])
+       ), '{}'::allergen_enum[])
      WHERE id = affected_recipe;
 
     RETURN NULL;
@@ -232,16 +278,16 @@ BEGIN
     affected_recipe := COALESCE(NEW.recipe_id, OLD.recipe_id);
 
     UPDATE recipes r
-       SET fibra_g    = COALESCE(agg.fibra,    0),
-           azucar_g   = COALESCE(agg.azucar,   0),
-           sodio_mg   = COALESCE(agg.sodio_mg, 0),
-           grasa_sat_g= COALESCE(agg.grasa_sat,0)
+       SET fiber_g   = COALESCE(agg.fiber,    0),
+           sugar_g   = COALESCE(agg.sugar,    0),
+           sodium_mg = COALESCE(agg.sodium_mg,0),
+           sat_fat_g = COALESCE(agg.sat_fat,  0)
       FROM (
           SELECT
-              SUM(f.fibra      * rc.cantidad_g / 100.0)::int AS fibra,
-              SUM(f.azucar     * rc.cantidad_g / 100.0)::int AS azucar,
-              SUM(f.sodio_mg   * rc.cantidad_g / 100.0)::int AS sodio_mg,
-              SUM(f.grasa_sat  * rc.cantidad_g / 100.0)::int AS grasa_sat
+              SUM(f.fiber_g    * rc.amount_g / 100.0)::int AS fiber,
+              SUM(f.sugar_g    * rc.amount_g / 100.0)::int AS sugar,
+              SUM(f.sodium_mg  * rc.amount_g / 100.0)::int AS sodium_mg,
+              SUM(f.sat_fat_g  * rc.amount_g / 100.0)::int AS sat_fat
             FROM recipe_components rc
             JOIN foods f ON f.id = rc.food_id
            WHERE rc.recipe_id = affected_recipe
@@ -256,102 +302,149 @@ CREATE TRIGGER trg_sync_recipe_aggregates
     AFTER INSERT OR UPDATE OR DELETE ON recipe_components
     FOR EACH ROW EXECUTE FUNCTION sync_recipe_aggregates();
 
--- Defence-in-depth: CHECK constraint pins the denorm column to the closed vocabulary
--- (cast through the enum array so unknown tokens cannot survive a manual UPDATE).
-ALTER TABLE recipes
-    ADD CONSTRAINT recipes_allergens_closed_vocab
-    CHECK (allergens <@ ARRAY[
-        'dairy','gluten','tree_nuts','peanuts','shellfish','fish','egg','soy','sesame'
-    ]::text[]);
-
--- HNSW index tuning (finding #20). Recall@10 ≥ 0.95 gated in tests/perf/test_vector_recall.py.
+-- HNSW index tuning. Recall@10 ≥ 0.95 gated in tests/perf/test_vector_recall.py.
 CREATE INDEX ON recipes USING hnsw (embedding vector_cosine_ops)
     WITH (m = 32, ef_construction = 200);
-CREATE INDEX ON recipes USING gin (allergens);
+-- NB: allergens is allergen_enum[] so the type system already pins the closed vocab;
+-- no CHECK constraint required.
 ```
+
+### i18n + region support tables (round-3)
+
+```sql
+-- Per-locale display strings for closed vocabularies (allergens, conditions, goals, etc).
+-- Read by the presentation layer keyed by (scope, key, Accept-Language locale).
+i18n_translations(scope text not null,         -- 'allergen'|'condition'|'goal'|'meal_time'|'ui_label'|'activity_level'
+                  key text not null,           -- canonical EN id (e.g. 'tree_nuts', 'weight_loss')
+                  locale char(2) not null,     -- 'en'|'es'|'pt'|'fr'|'de'
+                  value text not null,
+                  updated_at timestamptz default now(),
+                  primary key (scope, key, locale));
+CREATE INDEX ON i18n_translations(scope, locale);
+
+-- Lexicon: ingredient (normalised, locale-tagged) → allergen tag.
+-- Used by catalog ingest gate 5 and by the manual food-log NLP parser.
+ingredient_allergens(ingredient_norm text not null,
+                     allergen allergen_enum not null,
+                     locale char(2) not null,
+                     primary key (ingredient_norm, allergen, locale));
+CREATE INDEX ON ingredient_allergens(allergen);
+
+-- Synonym collapse table for medical condition tokens fed by upstream LLM batches.
+condition_synonyms(synonym text primary key,
+                   canonical text not null,    -- maps to ADR-0001 Appendix A code
+                   reason text);
+
+-- Region metadata: drives recipe filtering and locale defaults.
+regions(code char(5) primary key,              -- 'us'|'ca'|'eu'|'uk'|'latam'
+        name text not null,
+        allergen_set allergen_enum[] not null, -- effective allergen subset for that region
+        countries char(2)[] not null,          -- ISO-3166-1 alpha-2 list belonging to this region
+        default_locale char(2) not null);
+CREATE INDEX ON regions USING gin (countries);
+```
+
+Seed rows for `regions` (loaded by migration 0001):
+
+| code | allergen_set | countries | default_locale |
+|---|---|---|---|
+| `us` | 9 US FALCPA top-9 | `{US}` | `en` |
+| `ca` | 11 (US-9 + mustard, sulphites) | `{CA}` | `en` |
+| `eu` | 14 (full superset) | `{DE,FR,IT,ES,PT,NL,BE,…}` | `en` (override per country via `i18n_translations`) |
+| `uk` | 14 (full superset) | `{GB}` | `en` |
+| `latam` | 9 US FALCPA top-9 | `{MX,PE,CO,AR,CL,BR,VE,EC,UY,PY,BO,CR,PA,GT,HN,SV,NI,DO,PR}` | `es` (`pt` for BR) |
 
 ### Plan
 ```sql
 plans(id uuid pk,
       user_id uuid not null references users(id) on delete cascade,
-      tipo enum('dia','semana','mes'),
-      total_dias int, dia_actual int,
-      estado enum('activo','completado','cancelado'),
-      objetivo text, comidas_por_dia int, preferencias text[],
-      kcal_objetivo int,
-      -- Optimistic-locking version for the state machine (finding #17).
+      type enum('day','week','month'),
+      total_days int, current_day int,
+      status enum('active','completed','cancelled'),
+      goal text, meals_per_day int, preferences text[],
+      kcal_target int,
+      -- Optimistic-locking version for the state machine (§9.3).
       version int not null default 0,
       created_at timestamptz);
-CREATE UNIQUE INDEX one_active_plan ON plans(user_id) WHERE estado='activo';
+CREATE UNIQUE INDEX one_active_plan ON plans(user_id) WHERE status='active';
+CREATE INDEX ON plans(user_id, created_at DESC);
 
 plan_days(id uuid pk,
           plan_id uuid not null references plans(id) on delete cascade,
-          indice_dia int, fecha date, completado bool);
+          day_index int, date date, completed bool);
+CREATE INDEX ON plan_days(plan_id, day_index);
+
 plan_meals(id uuid pk,
            plan_day_id uuid not null references plan_days(id) on delete cascade,
-           tiempo enum('desayuno','almuerzo','cena','snack'),
+           meal_time enum('breakfast','lunch','dinner','snack'),
            recipe_id uuid null references recipes(id) on delete restrict,
-           kcal int, p int, c int, g int,
-           agua_ml int, agua_pct numeric, completada bool,
+           kcal int, protein_g int, carbs_g int, fat_g int,
+           water_ml int, water_pct numeric, completed bool,
            swapped_from uuid null);
+CREATE INDEX ON plan_meals(plan_day_id);
 ```
 
 ### Tracking
 ```sql
 food_logs(id uuid pk,
           user_id uuid not null references users(id) on delete cascade,
-          fecha date,
-          tiempo enum('desayuno','almuerzo','cena','snack'),
+          date date,
+          meal_time enum('breakfast','lunch','dinner','snack'),
           food_id uuid null references foods(id) on delete restrict,
           recipe_id uuid null references recipes(id) on delete restrict,
-          nombre_libre text null,
-          cantidad_g numeric, kcal int, p int, c int, g int,
-          metodo enum('foto','voz','texto','codigo','busqueda','manual'),
-          confianza numeric(4,3) null, source_image_url text null,
-          -- Idempotency-Key support (§8, finding #11). Hash retained 24h, then NULLed by job.
+          free_text_name text null,
+          amount_g numeric, kcal int, protein_g int, carbs_g int, fat_g int,
+          method enum('photo','voice','text','barcode','search','manual'),
+          confidence numeric(4,3) null, source_image_url text null,
+          -- Idempotency-Key support (§8). Hash retained 24h, then NULLed by job.
           idempotency_key text null,
-          -- Prompt provenance for vision/text-parse paths (finding #13).
+          -- Prompt provenance for vision/text-parse paths.
           prompt_sha256 text null,
           created_at timestamptz);
-CREATE INDEX ON food_logs(user_id, fecha);
+CREATE INDEX ON food_logs(user_id, date DESC);
+CREATE INDEX ON food_logs(user_id, date, meal_time);
 CREATE UNIQUE INDEX one_log_per_idem_key
     ON food_logs(user_id, idempotency_key) WHERE idempotency_key IS NOT NULL;
 
 -- Timescale hypertables. FK to users for cascade; hypertable chunks inherit it.
 water_logs(time timestamptz,
            user_id uuid not null references users(id) on delete cascade,
-           ml int, meta_ml int);
+           ml int, target_ml int);
 SELECT create_hypertable('water_logs','time');
+CREATE INDEX ON water_logs(user_id, time DESC);
 
 weight_logs(time timestamptz,
             user_id uuid not null references users(id) on delete cascade,
-            peso_kg numeric,
-            grasa_pct numeric null, cintura_cm numeric null, foto_url text null);
+            weight_kg numeric,
+            body_fat_pct numeric null, waist_cm numeric null, photo_url text null);
 SELECT create_hypertable('weight_logs','time');
+CREATE INDEX ON weight_logs(user_id, time DESC);
 
 -- Continuous aggregate: biometric_aggregates_daily (14d / 30d rolling means)
 
 fasting_sessions(id uuid pk,
                  user_id uuid not null references users(id) on delete cascade,
-                 metodo_h int check(metodo_h in (16,18,20)),
-                 inicio_ts timestamptz, fin_ts timestamptz null,
-                 duracion_s int null, meta_s int, cumplido bool);
+                 method_h int check(method_h in (16,18,20)),
+                 start_ts timestamptz, end_ts timestamptz null,
+                 duration_s int null, target_s int, achieved bool);
+CREATE INDEX ON fasting_sessions(user_id, start_ts DESC);
 
 daily_goals(user_id uuid not null references users(id) on delete cascade,
-            fecha date,
-            item enum('desayuno','almuerzo','cena','agua'),
-            completado bool, auto bool, completado_at timestamptz,
-            primary key(user_id,fecha,item));
+            date date,
+            item enum('breakfast','lunch','dinner','water'),
+            completed bool, auto bool, completed_at timestamptz,
+            primary key(user_id,date,item));
 
 grocery_lists(id uuid pk,
               plan_id uuid not null references plans(id) on delete cascade,
-              generada_en timestamptz);
+              generated_at timestamptz);
 grocery_items(id uuid pk,
               list_id uuid not null references grocery_lists(id) on delete cascade,
-              categoria enum('frutas_verduras','proteinas','lacteos','despensa','otros'),
-              nombre text, cantidad text, comprado bool);
+              category enum('fruits_vegetables','proteins','dairy','pantry','other'),
+              name text, amount text, purchased bool);
+CREATE INDEX ON grocery_items(list_id);
 
--- Progress photos (ADR-0005 lists this table in the hard-delete cascade; finding #32).
+-- Progress photos (ADR-0005 lists this table in the hard-delete cascade).
 progress_photos(id uuid pk,
                 user_id uuid not null references users(id) on delete cascade,
                 taken_at timestamptz not null,
@@ -365,18 +458,20 @@ CREATE INDEX ON progress_photos(user_id, taken_at desc);
 ### Gamification
 ```sql
 streaks(user_id uuid not null references users(id) on delete cascade,
-        tipo enum('diaria','ayuno','proteina'),
-        valor int, ultimo_dia date, primary key(user_id,tipo));
+        type enum('daily','fasting','protein'),
+        value int, last_day date, primary key(user_id,type));
 achievements(user_id uuid not null references users(id) on delete cascade,
-             codigo text, desbloqueado_en timestamptz,
-             primary key(user_id,codigo));
+             code text, unlocked_at timestamptz,
+             primary key(user_id,code));
 ```
 
 ### Coach
 ```sql
 coach_conversations(id uuid pk,
                     user_id uuid not null references users(id) on delete cascade,
-                    titulo text, created_at timestamptz);
+                    title text, locale char(2) not null default 'en',
+                    created_at timestamptz);
+CREATE INDEX ON coach_conversations(user_id, created_at DESC);
 coach_messages(id uuid pk,
                conv_id uuid not null references coach_conversations(id) on delete cascade,
                role enum('user','assistant','system'),
@@ -481,6 +576,9 @@ GET    /me/export                 # data portability → 200 {download_url} (sig
 POST   /me/onboarding
 GET    /me/targets
 GET    /me/targets/history
+GET    /me/locale
+PATCH  /me/locale
+GET    /i18n/{scope}                # ?locale=es — cached 5 min
 
 # Plans
 POST   /plans
@@ -555,6 +653,31 @@ Auth: Bearer JWT (RS256, 15min) + opaque rotating refresh.
 Rate limit (Redis sliding window): 60/min user, 5/min `/ai/*`, 10/min `/auth/*`.
 OpenAPI auto + ReDoc at `/docs`.
 
+### i18n contract (round-3)
+
+- Every request MAY carry an `Accept-Language: <BCP-47>` header. The server
+  collapses it to a supported `Locale` (`en`, `es`, `pt`, `fr`, `de`) via the
+  `match_locale(accept_lang) -> Locale` resolver. If the header is missing the
+  user's `user_profiles.locale` is used; if still null, the user's region's
+  `regions.default_locale`; if still null, `en`.
+- `GET /me/locale` → `{"locale":"es"}`.
+- `PATCH /me/locale` body `{"locale":"pt"}` → 200, updates `user_profiles.locale`.
+- Responses returning catalog content (recipes, foods, conditions, allergens,
+  goals) include localised display strings via the `i18n_translations` table.
+  Identifier fields (`meal_time`, `goal`, allergen codes, condition codes) are
+  always returned as EN canonical IDs; the client renders them through the
+  bundled translation map or the on-demand `GET /i18n/{scope}?locale=` endpoint.
+- `GET /i18n/{scope}?locale=` (cached 5 min in Redis) → `{key: localised_value}`
+  for `scope ∈ {allergen, condition, goal, meal_time, activity_level, ui_label}`.
+
+### Region auto-detect
+
+On profile creation/update, the API derives `user_profiles.region` from
+`country` using `regions.countries` (`SELECT code FROM regions WHERE $country = ANY(countries)`).
+If `country` is null or unknown → `region := 'us'` (safest allergen-disclosure
+default — US FALCPA top-9). The derived region drives plan generation candidate
+filtering (§9.5) and the effective allergen subset surfaced to the UI.
+
 ### GDPR/LGPD erasure response contracts (finding #31)
 
 - `DELETE /me` → `202 Accepted`, body
@@ -591,9 +714,9 @@ guarantee survives Redis eviction.
 5. Worker:
    - `pyvips` decode (HEIC via `pillow-heif`) → resize 1024px → JPEG q=85 buffer.
    - OpenAI `gpt-4o` vision with system prompt + strict JSON schema:
-     `{items:[{nombre, cantidad_estimada_g, kcal, p, c, g, confianza}]}`.
-   - For each item: trigram + embedding lookup in `foods`. Match if confianza > 0.7.
-   - Insert `food_logs(metodo='foto', confianza=…)`.
+     `{items:[{name, estimated_amount_g, kcal, protein_g, carbs_g, fat_g, confidence}]}`.
+   - For each item: trigram + embedding lookup in `foods`. Match if `confidence > 0.7`.
+   - Insert `food_logs(method='photo', confidence=…)`.
    - Publish `FoodLogged` event → handlers (daily_goals, streak).
    - Notify client via Redis pubsub `user:{id}` → SSE.
 
@@ -601,12 +724,12 @@ guarantee survives Redis eviction.
 Triggered by `WeightLogged`. Formal contract — see ADR-0002 for the rationale.
 
 Inputs (last 14d):
-- `weights = [(day_index, peso_kg)]` (require `len(weights) >= 7`, else **skip**).
+- `weights = [(day_index, weight_kg)]` (require `len(weights) >= 7`, else **skip**).
 - `kcal_in[14d]` daily intake series from `food_logs`.
-- `tdee_actual` from the current `nutritional_goals` row.
+- `tdee_current` from the current `nutritional_goals` row.
 
 Pre-processing (ADR-0002 §"Edge cases" — single-day measurement noise):
-- Before slope regression, **winsorise** the 14-day `peso_kg` series at the
+- Before slope regression, **winsorise** the 14-day `weight_kg` series at the
   5th / 95th percentiles of the window: every value below P5 is clamped to
   P5; every value above P95 is clamped to P95. This kills single-day spikes
   from scale-calibration error or fluid swings without dropping data. OLS
@@ -615,13 +738,13 @@ Pre-processing (ADR-0002 §"Edge cases" — single-day measurement noise):
 Definitions:
 - `weights_w = winsorise(weights, p_low=0.05, p_high=0.95)`.
 - `slope_kg_per_day = OLS_linear_regression(weights_w).slope`  (ordinary least
-  squares of `peso_kg` against `day_index`).
+  squares of `weight_kg` against `day_index`).
 - `observed_tdee_inferred = mean(kcal_in[14d]) - slope_kg_per_day * 7700`.
-- `mifflin_recalc = MifflinStJeor(sexo, peso_kg_actual, talla, edad) * factor_actividad`.
-- `tdee_nuevo = round( 0.5 * mifflin_recalc + 0.5 * observed_tdee_inferred )`
-  clamped to `tdee_actual ± 15%`.
-- `esperado_kg_dia = (mean(kcal_in[14d]) - tdee_actual) / 7700`.
-- `delta_ratio = slope_kg_per_day / esperado_kg_dia` (skip if `|esperado_kg_dia| < 1e-4`).
+- `mifflin_recalc = MifflinStJeor(sex, weight_kg_now, height_cm, age) * activity_factor`.
+- `tdee_new = round( 0.5 * mifflin_recalc + 0.5 * observed_tdee_inferred )`
+  clamped to `tdee_current ± 15%`.
+- `expected_kg_per_day = (mean(kcal_in[14d]) - tdee_current) / 7700`.
+- `delta_ratio = slope_kg_per_day / expected_kg_per_day` (skip if `|expected_kg_per_day| < 1e-4`).
 
 Trigger (all must hold):
 1. `|delta_ratio - 1| > 0.5`.
@@ -629,13 +752,13 @@ Trigger (all must hold):
 3. `days_since_last_recalibration >= 14`  (cool-down to prevent oscillation).
 
 On trigger:
-- Expire current `nutritional_goals` row (`vigente_hasta = now()`).
+- Expire current `nutritional_goals` row (`valid_to = now()`).
 - Insert new row with new TDEE, derived macros and water target,
-  `motivo='plateau' | 'weight_change'`.
+  `reason='plateau' | 'weight_change'`.
 - Publish `GoalsRecalibrated`.
 
 Edge cases (covered by tests, see ADR-0002):
-- Athlete bulk: positive slope expected → no trigger if `objetivo='ganar_musculo'`
+- Athlete bulk: positive slope expected → no trigger if `goal='muscle_gain'`
   and `delta_ratio ∈ [0.7, 1.5]`.
 - Post-partum / illness markers: feature-flag `recalibration.enabled` per user can
   pause until cleared.
@@ -645,17 +768,17 @@ Edge cases (covered by tests, see ADR-0002):
 ### 9.3 Plan lifecycle (state machine)
 
 Formal transition table (finding #17). The domain entity `Plan.advance(event)`
-is the **only** path that mutates `plans.estado` or `plans.dia_actual`; any
+is the **only** path that mutates `plans.status` or `plans.current_day`; any
 other write raises `IllegalTransition` (409, §11).
 
 | from | event | guard | to | side effects |
 |---|---|---|---|---|
-| `activo` | `MealCompleted` | not all meals done | `activo` | mark `plan_meals.completada=true`, update `daily_goals` |
-| `activo` | `DayCompleted` | `all_meals_completed` AND `dia_actual < total_dias` AND `tipo != 'dia'` | `activo` (`dia_actual++`) | streak +1, `daily_goals` row closed |
-| `activo` | `DayCompleted` | `all_meals_completed` AND `dia_actual == total_dias` AND `tipo != 'dia'` | `completado` | celebration event, CTA `newplan` |
-| `activo` | `DayCompleted` | `all_meals_completed` AND `tipo == 'dia'` | `activo` | flag `regenerate_tomorrow`, streak +1 |
-| `activo` | `UserCancelled` | — | `cancelado` | revoke active plan unique index slot |
-| `completado` / `cancelado` | any | — | — | `IllegalTransition` |
+| `active` | `MealCompleted` | not all meals done | `active` | mark `plan_meals.completed=true`, update `daily_goals` |
+| `active` | `DayCompleted` | `all_meals_completed` AND `current_day < total_days` AND `type != 'day'` | `active` (`current_day++`) | streak +1, `daily_goals` row closed |
+| `active` | `DayCompleted` | `all_meals_completed` AND `current_day == total_days` AND `type != 'day'` | `completed` | celebration event, CTA `newplan` |
+| `active` | `DayCompleted` | `all_meals_completed` AND `type == 'day'` | `active` | flag `regenerate_tomorrow`, streak +1 |
+| `active` | `UserCancelled` | — | `cancelled` | revoke active plan unique index slot |
+| `completed` / `cancelled` | any | — | — | `IllegalTransition` |
 
 Optimistic locking: `plans.version` is incremented on every transition;
 `Plan.advance` accepts `expected_version` and raises `ConflictError` (409) on
@@ -678,15 +801,16 @@ unlisted cell raises `IllegalTransition`.
    same `(profile_snapshot, catalog_version, seed)` triple yields byte-identical plans.
    Re-generation accepts an optional `seed` body field to reproduce a user-reported plan.
 2. Select recipes: **hard-exclude by allergies** using the closed `allergen_enum` and the
-   denormalised `recipes.allergens` array (`NOT (recipes.allergens && $alergias)`); filter
-   by objective + meal_time + tag preferences; filter contra-indicated conditions.
+   denormalised `recipes.allergens` array (`NOT (recipes.allergens && $allergies)`);
+   **hard-filter by region** (`recipes.regions && ARRAY[$user_region]::char(5)[]`);
+   filter by goal + meal_time + tag preferences; filter contra-indicated conditions.
 3. Seeded shuffle + embedding similarity score against profile vector.
-4. Per-day macro balancing: `sum(kcal) ∈ kcal_objetivo ± 5%`, `protein >= goal * 0.95`.
-5. **Repetition cap** (deterministic, applies to `tipo in ('semana','mes')`):
+4. Per-day macro balancing: `sum(kcal) ∈ kcal_target ± 5%`, `protein >= goal * 0.95`.
+5. **Repetition cap** (deterministic, applies to `type in ('week','month')`):
    - At most **2** occurrences of the same `recipe_id` in **any rolling 7-day window**.
-   - For `tipo='mes'`: additionally at most **4** occurrences of the same recipe in the
+   - For `type='month'`: additionally at most **4** occurrences of the same recipe in the
      full 30-day plan (prevents the same dish appearing every Monday).
-   - For `tipo='dia'`: rule does not apply.
+   - For `type='day'`: rule does not apply.
 6. Persist `plans` + `plan_days` + `plan_meals`.
 7. Expand grocery list asynchronously.
 
@@ -867,7 +991,15 @@ EXIF and asserts the post-compress buffer has zero `GPS*` keys across every
 - `tests/compliance/` — GDPR/LGPD:
   - `test_gdpr_erasure_cascade.py` (ADR-0005 — every owned table cascades)
 - `tests/data/` — catalog ingest gates (`test_catalog_ingest_gates.py`,
-  one test per gate from §20; catalog-ingest spec is the authority).
+  one test per gate from §20; catalog-ingest spec is the authority) and
+  `test_multi_region_filtering.py` (asserts plan-gen only returns recipes
+  whose `regions[]` overlaps the user's region; asserts US-region users never
+  receive recipes tagged `eu`-only when allergens differ).
+- `tests/i18n/` — `test_translation_completeness.py`: every canonical key in
+  closed scopes (`allergen`, `condition`, `goal`, `meal_time`,
+  `activity_level`) MUST have a translation row in every supported locale
+  (`en, es, pt, fr, de`). Missing rows fail the test with a structured diff.
+  Asserts `i18n_translations` is closed-over-canonical-set per scope.
 - `tests/perf/` — `test_vector_recall.py` (HNSW recall@10 ≥ 0.95),
   pytest-benchmark baselines per endpoint SLO.
 - factory-boy fixtures.
@@ -999,74 +1131,50 @@ data-quality gates and exits non-zero on the first failure, producing a structur
 The ingest path itself (`scripts/seed_recipes.py`) refuses to run unless the latest
 audit report is green.
 
-## 21. Vocabulary & i18n contract
+## 21. Vocabulary & i18n contract (round-3, reverts round-2 ES-canonical)
 
-- **System identifiers** (enums, column names, JSON keys in DB rows): **Spanish**
-  snake_case as already defined in §7. Rationale: domain language of the product
-  is Spanish; localisation effort is towards en-US, not away from it. (Reverses the
-  earlier note in `nova-clinical-nutrition-generator.md`; the generator agent is to
-  be updated separately.)
-- **External catalog inputs** (`nova_meals_catalog.json`): currently English. The
-  ingest pipeline §20 translates via a fixed mapping table. The mapping is the
-  authoritative bridge — no other code path translates enum values.
+- **System identifiers** (Postgres ENUMs, column names, JSON keys in API
+  responses): **English snake_case**. Rationale: clinical / regulatory codes
+  (ICD-10, FALCPA, EU 1169) are English-anchored; the product targets US +
+  LatAm + EU from day one and EN canonical IDs let every other locale be
+  added by inserting rows in `i18n_translations` instead of altering enums.
+- **Display strings** (recipe names, descriptions, instructions, UI labels,
+  allergen labels, condition labels): per-locale text via
+  `i18n_translations(scope, key, locale, value)` or per-row
+  `*_translations jsonb` columns (recipes only).
+- **External catalog inputs** (`nova_meals_catalog.json`): already EN
+  canonical for identifiers; display strings may be in any language and are
+  loaded into the appropriate `*_translations` slot with auto-detected
+  locale (default `es` for the existing seed batch, which is Spanish-written).
 
-**Authoritative mapping table** — the ingest pipeline (§20) and the application
-both read this table; no other code path may translate enum values. Source of
-truth: this section. The catalog-ingest spec mirrors it.
+**Locale resolution order** (per request):
+1. `Accept-Language` header parsed to BCP-47 → first supported.
+2. `user_profiles.locale`.
+3. `regions.default_locale` for the user's `region`.
+4. `'en'` (final fallback).
 
-Meal times (`meal_time` enum):
+**Pluralisation**. Use ICU MessageFormat (`babel.support.Translations`) for
+counted strings. Stored under `scope='ui_label'` with the ICU template as the
+`value` and the key including a `.plural` suffix.
 
-| Catalog (en) | DB (es) |
-|---|---|
-| `breakfast` | `desayuno` |
-| `lunch`     | `almuerzo` |
-| `dinner`    | `cena` |
-| `snack`     | `snack` |
+**Unit formatting per locale**:
+- `metric` users (default everywhere except US): `kg`, `cm`, `ml`, `°C`.
+- `imperial` users (US default): `lb`, `in`, `fl oz`, `°F`.
+- Format strings come from `app/shared/units.py::format_for_locale(value, unit, locale)`.
 
-Goals (`objetivo` enum):
+**Closed scopes that MUST have a translation row in every supported locale**
+(asserted by `tests/i18n/test_translation_completeness.py`):
+`allergen` (14 keys), `condition` (25 keys, ADR-0001 Appendix A in EN),
+`goal` (5 keys), `meal_time` (4 keys), `activity_level` (5 keys).
 
-| Catalog (en) | DB (es) |
-|---|---|
-| `weight_loss` | `bajar` |
-| `weight_maintenance` | `mantener` |
-| `weight_gain` | `ganar_peso` |
-| `muscle_building` / `build_muscle` / `muscle_hypertrophy` | `ganar_musculo` |
-| `general_health` / `general_wellness` | `salud` |
+**Region filtering**. Plan generation (§9.5) hard-filters candidate recipes
+by `recipes.regions && ARRAY[user_region]::char(5)[]`. Allergen disclosure UI
+uses `regions.allergen_set` for the user's region as the visible checkbox set
+(US users do not see `celery`/`mustard`/`lupin`/`sulphites`/`molluscs`
+checkboxes unless they explicitly opt into "show EU-extended allergens").
 
-Activity (`nivel_actividad` enum):
-
-| Catalog (en) | DB (es) |
-|---|---|
-| `sedentary` | `sedentario` |
-| `light` / `lightly_active` | `ligero` |
-| `moderate` / `moderately_active` | `moderado` |
-| `active` | `activo` |
-| `very_active` / `athlete` | `atleta` |
-
-Allergens (`allergen_enum`, ADR-0001):
-
-| Catalog (en) | DB (es) |
-|---|---|
-| `dairy` | `dairy` |
-| `gluten` | `gluten` |
-| `tree_nuts` | `tree_nuts` |
-| `peanuts` | `peanuts` |
-| `shellfish` | `shellfish` |
-| `fish` | `fish` |
-| `egg` | `egg` |
-| `soy` | `soy` |
-| `sesame` | `sesame` |
-
-(Allergens keep English tokens in the DB enum: they are clinical / regulatory
-identifiers, not user-facing strings; localisation happens at the presentation
-layer the same way as for ICD-10 codes.)
-
-Conditions (`canonical_conditions`, ADR-0001 Appendix A): full mapping table
-lives in ADR-0001 Appendix A; ingest gate 4 rejects any condition outside the
-canonical set.
-
-User-facing strings (recipe names, descriptions) are stored as-is and localised at
-the presentation layer.
+No other code path may translate enum values — `i18n_translations` is the
+single source of truth.
 
 ## 22. Snack catalog gap (blocker)
 
@@ -1079,7 +1187,14 @@ Two mutually exclusive resolutions; **(a) is the chosen path**:
 
 (a) **Generate ≥100 snack recipes** via `nova-clinical-nutrition-generator` before
     plan generation goes live. Recommended target: 200 (≈10% of corpus). Distribution:
-    sweet, savoury, high-protein, low-kcal, kid-friendly buckets.
+    sweet, savoury, high-protein, low-kcal, kid-friendly buckets. **Round-3 update**:
+    snacks MUST be emitted in EN canonical identifiers (`meal_time: 'snack'`,
+    `targetGoals`, `allergens` from 14-superset) with a `regions` field. For universal
+    snacks set `regions: ['us','ca','eu','uk','latam']`; for culturally specific snacks
+    (e.g. Peruvian `causa`, Brazilian `pão de queijo`) tag only the applicable region(s).
+    Display strings (name, description, ingredients, instructions) may be in any
+    language; the ingest pipeline routes them into the appropriate
+    `*_translations` slot based on detected locale.
 
 (b) Drop `snack` from `meal_time` enum and clamp `comidas_por_dia` to `[3]` for MVP.
     Re-add snacks post-MVP when curation bandwidth exists.
@@ -1116,11 +1231,73 @@ the source of truth (no parallel spreadsheet).
 ### 22.6 Snack inventory gate (operational rule)
 
 Until the snack inventory reaches **≥ 100** approved records (validated by the
-ingest pipeline §20), `comidas_por_dia` is constrained at the API layer to
-`∈ {1, 2, 3}`. A request with `comidas_por_dia == 4` is rejected with `422
+ingest pipeline §20), `meals_per_day` is constrained at the API layer to
+`∈ {1, 2, 3}`. A request with `meals_per_day == 4` is rejected with `422
 BusinessRuleViolation` body `{"detail":"snack_slot_unavailable","required":100,
 "have":<n>}`. When inventory crosses the threshold (asserted by a Prometheus
 gauge `recipes_inventory_count{meal_time="snack"}`), the cap is raised to
 `≤ 4` and the feature flag `plans.snack_slot.enabled` is flipped via the
 admin-feature-flag endpoint (see §13 ops). No code deploy is required for the
 flip; the API reads the gauge + flag on every plan-creation request.
+
+## 23. VPS resource constraints (round-3)
+
+### 23.1 Baseline target — Hostinger KVM 2
+
+| Resource | Capacity |
+|---|---|
+| RAM | 8 GB |
+| CPU | 2 vCPU (shared, AMD EPYC class) |
+| Disk | 100 GB NVMe |
+| Bandwidth | 8 TB / month |
+| OS | Ubuntu 24.04 LTS |
+
+Stack runs under Dokploy + Traefik. OS + Dokploy + Traefik footprint ≈ 700 MB
+resident. Budget for the application stack is therefore ≤ 5.5 GB resident,
+leaving ≈ 1.8 GB headroom for spikes (vision worker peak ≈ 750 MB per job).
+
+### 23.2 Container resource matrix (docker-compose limits)
+
+| Container | mem_limit | cpu_limit | Key tuning |
+|---|---|---|---|
+| `db` (timescale/timescaledb-ha:pg16) | **3 GB** | 1.0 | `shared_buffers=2GB`, `max_connections=75`, `work_mem=16MB`, `effective_cache_size=4GB`, `shm_size=1g`, `maintenance_work_mem=256MB`, `wal_buffers=16MB`, `random_page_cost=1.1` (NVMe) |
+| `api` (FastAPI/uvicorn) | **600 MB** | 1.0 | `WEB_CONCURRENCY=2` workers, `--limit-concurrency=200`, asyncpg pool `size=15, max_overflow=10` |
+| `worker` (Arq) | **1.5 GB** | 1.0 | `ARQ_MAX_JOBS=2` (vision pyvips peak ≈ 750 MB/job), `job_timeout=180s`, `health_check_interval=15s` |
+| `redis` (redis:7-alpine) | **400 MB** | 0.5 | `maxmemory=300mb`, `maxmemory-policy=allkeys-lru`, `save ""` (no RDB for cache role) |
+| **Total** | **5.5 GB** | 3.5 (CPU over-subscription OK on 2 vCPU host — spikes absorb) | — |
+
+Swap: 4 GB OS swap as **safety net only**. Sustained swap activity → page
+alert. Use `vm.swappiness=10` so Linux only swaps under real pressure.
+
+### 23.3 Connection / concurrency budget
+
+| Layer | Sized to |
+|---|---|
+| Postgres `max_connections` | 75 |
+| API asyncpg pool | 15 + 10 overflow per worker × 2 workers = 50 max |
+| Worker asyncpg pool | 8 + 5 overflow × 2 jobs = 26 max |
+| Reserve | 75 − 50 − 26 = -1 → **shrink worker pool to 5 + 3 overflow** in `config.py` to leave 25 headroom for psql/migrations |
+
+### 23.4 Bottleneck-prevention principles (apply in every PR)
+
+1. Every FK + every WHERE column indexed; partial indexes on filtered queries; composite indexes for multi-column WHERE.
+2. N+1 forbidden — every list endpoint uses `selectinload`/`joinedload`; SQLAlchemy event hook fails tests on N+1 in dev/CI.
+3. Cursor pagination on every list endpoint (no `OFFSET` on large tables).
+4. Redis cache for hot reads; invalidation via explicit domain events.
+5. Async everywhere; CPU-bound work to Arq workers.
+6. asyncpg pool sized to Postgres `max_connections` (§23.3).
+7. Every POST that creates state accepts `Idempotency-Key` (§8).
+8. Rate limit per endpoint (Redis sliding window): `/auth/*` 10/min, `/ai/*` 5/min, `/api/*` 60/min/user.
+9. Backpressure: Arq queue depth max 100 — reject 429 if full.
+10. Circuit breaker: every OpenAI call wrapped (3 fails → open 30s).
+
+### 23.5 Upgrade signals (when to bump VPS)
+
+Any of these sustained > 24 h triggers VPS upsizing (Hostinger KVM 4 → 16 GB / 4 vCPU, or migrate to Contabo VPS L / Hetzner CPX31):
+
+- Resident RAM > 80% of 8 GB for > 1 h.
+- 5-min load average > 1.6 (CPU > 70% on 2 vCPU).
+- Arq vision queue depth > 15.
+- Active monthly users > 1500.
+- Postgres `pg_stat_database.numbackends` consistently > 60.
+- p95 `POST /plans` latency > 1500 ms (plan-gen is CPU-bound on this host).
