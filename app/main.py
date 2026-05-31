@@ -19,6 +19,7 @@ from app.core.config import get_settings
 from app.core.db import dispose_engine, get_engine
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging, get_logger
+from app.core.metrics import ARQ_QUEUE_DEPTH, HttpMetricsMiddleware, get_arq_queue_depth
 from app.core.redis import close_redis, get_redis
 from app.identity.presentation.router import router as identity_router
 from app.nutrition.presentation.router import router as nutrition_router
@@ -60,6 +61,7 @@ def create_app() -> FastAPI:
     )
     app.add_middleware(GZipMiddleware, minimum_size=512)
     app.add_middleware(RequestIdMiddleware)
+    app.add_middleware(HttpMetricsMiddleware)
 
     register_exception_handlers(app)
 
@@ -96,6 +98,14 @@ def create_app() -> FastAPI:
             checks["redis"] = "ok"
         except Exception as exc:  # noqa: BLE001
             checks["redis"] = f"down: {exc!s}"
+
+        try:
+            depth = await get_arq_queue_depth(get_redis())
+            ARQ_QUEUE_DEPTH.set(depth)
+            cap = settings.arq_max_queue_depth
+            checks["arq_queue"] = "ok" if depth < cap else f"backpressure: depth={depth}>={cap}"
+        except Exception as exc:  # noqa: BLE001
+            checks["arq_queue"] = f"down: {exc!s}"
 
         ok = all(v == "ok" for v in checks.values())
         return JSONResponse(status_code=200 if ok else 503, content=checks)
