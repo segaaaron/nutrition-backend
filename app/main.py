@@ -20,6 +20,7 @@ from app.core.db import dispose_engine, get_engine
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging, get_logger
 from app.core.redis import close_redis, get_redis
+from app.identity.presentation.router import router as identity_router
 
 
 class RequestIdMiddleware(BaseHTTPMiddleware):
@@ -56,6 +57,9 @@ def create_app() -> FastAPI:
     app.add_middleware(RequestIdMiddleware)
 
     register_exception_handlers(app)
+
+    # --- Bounded-context routers ---
+    app.include_router(identity_router)
 
     @app.get("/healthz", tags=["ops"])
     async def healthz() -> dict[str, str]:
