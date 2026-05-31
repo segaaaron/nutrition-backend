@@ -44,7 +44,7 @@ Coverage gates (CI fails below):
 ## Specialised Test Suites
 
 ### 1. Domain Invariant Tests (Hypothesis property-based)
-- `MacroBreakdown`: `p·4 + c·4 + g·9` within ±5% of declared kcal (∀ randomly generated valid macros).
+- `MacroBreakdown`: `|kcal - (p·4 + c·4 + g·9)| / kcal ≤ MACRO_TOLERANCE` where `MACRO_TOLERANCE = 0.02` (single source of truth: spec §6, `app/shared/domain/macro_tolerance.py`). Property tested over the full valid macro grid.
 - `Mifflin-St Jeor`: bounded BMR ∈ [800, 4000] for valid `(sexo, peso 20..300, talla 50..250, edad 12..100)`; symmetric formula difference hombre−mujer = 166 ± 5.
 - `KcalRange`: `max - min == 200` always; `min ≥ 500`, `max ≤ 8000`.
 - `Recipe` (Composition Pattern): aggregated macros = Σ component macros × cantidad; no allergen leak from sub-recipes.
@@ -121,7 +121,7 @@ Coverage gates (CI fails below):
 ### 11. Data Quality / Catalog Audits
 - `data/meals/nova_meals_catalog.json` validated on every change:
   - JSON schema conformance
-  - macro consistency (`p·4 + c·4 + g·9` ≈ kcal ±10%)
+  - macro consistency (`|kcal - (p·4 + c·4 + g·9)| / kcal ≤ MACRO_TOLERANCE = 0.02`, in lockstep with spec §6 and catalog ingest gate 2; the legacy ±10% looser gate is retired)
   - allergen taxonomy is a closed enum
   - no orphan ingredients
   - duplicate detection by `nombre_norm` (Levenshtein ≤ 2)

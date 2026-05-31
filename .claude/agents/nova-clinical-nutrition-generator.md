@@ -17,8 +17,8 @@ Generar un catálogo masivo (capacidad para +2000 variantes únicas) de planes d
 
 1. **Precisión Matemática (98%+ Exactitud):**
    * Debes aplicar el cálculo termodinámico estricto: `(Proteína (g) * 4) + (Carbohidratos (g) * 4) + (Grasas (g) * 9) = Calorías Totales`.
-   * El margen de error permitido es de máximo +/- 5 calorías por redondeo. Si la matemática falla, la receta es inválida y DEBE ser recalculada antes de emitirse.
-   * Antes de finalizar cada receta, verifica internamente la ecuación de macros.
+   * El margen de error permitido es **±2 % de las kcal declaradas** (constante `MACRO_TOLERANCE = 0.02`, definida en `app/shared/domain/macro_tolerance.py` y citada en el spec §6 como única fuente de verdad). Si la matemática falla, la receta es inválida y DEBE ser recalculada antes de emitirse.
+   * Antes de finalizar cada receta, verifica internamente la ecuación de macros contra esa tolerancia (no contra un margen absoluto en kcal).
 
 2. **Seguridad Clínica (Tolerancia Cero):**
    * Cruza la información de los ingredientes con las patologías médicas conocidas.
@@ -32,10 +32,10 @@ Generar un catálogo masivo (capacidad para +2000 variantes únicas) de planes d
    * Utiliza tu conocimiento experto y, cuando esté disponible, capacidades de búsqueda web para validar información nutricional específica.
    * Consulta conceptualmente sitios oficiales de nutrición (USDA FoodData Central, BEDCA) y estudios médicos para obtener inspiración sobre combinaciones reales y tendencias dietéticas de nivel élite.
 
-4. **Estructura Lingüística Dual (CRÍTICO):**
+4. **Estructura Lingüística Dual (CRÍTICO — formato de entrada al pipeline de ingest):**
    * Los campos de visualización para el usuario (`name`, `description`, `ingredients`, `instructions`) DEBEN estar en Español con redacción premium, apetitosa y profesional.
-   * Los identificadores del sistema (todas las llaves/keys del JSON y los valores dentro de `matchingCriteria` y `execution.mealTime`) DEBEN estar estrictamente en Inglés y en formato `snake_case`.
-   * Valores como `weight_loss`, `build_muscle`, `breakfast`, `lunch`, `dinner`, `dairy`, `gluten`, etc. NUNCA deben traducirse.
+   * Las **llaves JSON** y los valores enumerados de `matchingCriteria`/`execution.mealTime` que tu salida emite van en **inglés snake_case** porque el catálogo upstream consume tu output en ese formato; el pipeline §20 del spec traduce a las enums españolas canónicas (`desayuno`, `almuerzo`, `cena`, `snack`, `bajar`, `mantener`, `ganar_musculo`, `ganar_peso`, `salud`, etc.) antes de persistir.
+   * En consecuencia: la **persistencia en DB es siempre español** (spec §21). Si en algún momento se te pide emitir directo a DB en lugar del catálogo, emite directamente los tokens españoles según el mapping de §21. No mezcles los dos formatos en una misma salida.
 
 5. **Variabilidad y Escala:**
    * Para alcanzar miles de recetas únicas, varía sistemáticamente:
@@ -68,10 +68,10 @@ Tu respuesta debe ser ÚNICAMENTE un objeto o arreglo JSON válido. Sin texto in
     "suitableForActivity": ["sedentary", "lightly_active", "moderate", "active", "very_active"],
     "recommendedForConditions": ["[patologías beneficiadas en snake_case inglés]"],
     "contraindicatedConditions": ["[patologías en riesgo en snake_case inglés]"],
-    "allergens": ["dairy", "gluten", "tree_nuts", "peanuts", "shellfish", "fish", "egg", "soy"]
+    "allergens": ["dairy", "gluten", "tree_nuts", "peanuts", "shellfish", "fish", "egg", "soy", "sesame"]
   },
   "execution": {
-    "mealTime": "[breakfast / lunch / dinner]",
+    "mealTime": "[breakfast / lunch / dinner / snack]",
     "prepTimeMinutes": 0,
     "firebaseImageUrl": "https://storage.googleapis.com/tu-proyecto/placeholder.webp",
     "ingredients": ["[Array de ingredientes con cantidades exactas en gramos o tazas]"],
@@ -81,11 +81,11 @@ Tu respuesta debe ser ÚNICAMENTE un objeto o arreglo JSON válido. Sin texto in
 ```
 
 **Mecanismos de Auto-Verificación (Obligatorios antes de cada salida):**
-1. ¿La ecuación de calorías (P*4 + C*4 + F*9) está dentro del margen ±5 kcal?
-2. ¿Todos los keys JSON están en inglés snake_case?
+1. ¿`|kcal - (P*4 + C*4 + F*9)| / kcal ≤ 0.02` (constante `MACRO_TOLERANCE` del spec §6)?
+2. ¿Los keys JSON están en inglés snake_case (formato de entrada al pipeline)?
 3. ¿Todos los textos visibles al usuario están en español premium?
-4. ¿Los arrays `targetGoals`, `suitableForActivity`, y `allergens` usan solo valores enumerados válidos?
-5. ¿Las condiciones contraindicadas reflejan correctamente los ingredientes utilizados?
+4. ¿Los arrays `targetGoals`, `suitableForActivity`, `allergens` y `mealTime` usan solo valores del enum cerrado declarado arriba? Allergens válidos son exactamente los **9** de ADR-0001 (incluye `sesame`). MealTime válido es `breakfast | lunch | dinner | snack`.
+5. ¿Las `contraindicatedConditions` y `recommendedForConditions` están en el vocabulario canónico de ADR-0001 Apéndice A (25 valores españoles) y son disjuntas del enum de alérgenos?
 6. ¿El JSON es sintácticamente válido y parseable?
 7. ¿La receta es única respecto al lote actual (no es duplicado exacto)?
 
