@@ -64,7 +64,7 @@ Cross-cutting: `core/` (config, logging, DI, errors, in-process event bus), `sha
 ## 6. Domain — key value objects & invariants
 
 - `Calories(int, 500..8000)`
-- `MacroBreakdown(p, c, g)` — must satisfy `kcal == p*4 + c*4 + g*9 ± 5%`
+- `MacroBreakdown(p, c, g)` — must satisfy `kcal == p*4 + c*4 + g*9 ± 2%` (current catalog audit deviation is 0 kcal; tolerance is strict on purpose). The same `2%` constant is reused by the catalog ingest gate (§20) and the QA suite. Single source of truth: `app/shared/domain/macro_tolerance.py::MACRO_TOLERANCE = 0.02`.
 - `Kg(decimal, 20..300)`, `Cm(decimal, 50..250)`
 - `KcalRange(min, max)` — `max - min == 200` (UI shows range, not single value — adherence improvement vs Fitia)
 - `ActivityFactor(decimal in {1.20, 1.375, 1.55, 1.725, 1.90})`
@@ -78,12 +78,27 @@ Extensions: `timescaledb`, `vector`, `pgcrypto`, `pg_trgm`, `unaccent`.
 ```sql
 users(id uuid pk, email citext unique, password_hash text null,
       oauth_provider text null, oauth_subject text null,
-      email_verified bool, created_at timestamptz, last_login_at timestamptz);
+      email_verified bool, created_at timestamptz, last_login_at timestamptz,
+      -- GDPR/LGPD soft-delete (ADR-0005). Hard delete via background job after 30d grace.
+      deletion_requested_at timestamptz null,
+      deleted_at timestamptz null);
+
+-- Refresh token family / reuse-detection (ADR aligned; OAuth2 RFC 6819 §5.2.2.3).
 refresh_tokens(id uuid pk, user_id uuid fk, token_hash text,
-               expires_at timestamptz, revoked_at timestamptz);
+               family_id uuid not null,
+               parent_id uuid null references refresh_tokens(id),
+               expires_at timestamptz, revoked_at timestamptz,
+               reused_at timestamptz null);
+CREATE INDEX ON refresh_tokens(family_id);
+-- Reuse semantics: if a token with revoked_at IS NOT NULL is presented at /auth/refresh,
+-- set reused_at=now() and revoke every row sharing its family_id.
+
 otp_codes(user_id uuid, code_hash text,
           purpose enum('register','reset','login'),
-          expires_at timestamptz, attempts int);
+          expires_at timestamptz, attempts int,
+          locked_until timestamptz null);
+-- Lockout policy: 5 consecutive failed attempts on a single (user_id, purpose) row
+-- set locked_until = now() + interval '15 minutes'. Verify endpoint MUST 423 while locked.
 ```
 
 ### Profile
@@ -109,6 +124,8 @@ nutritional_goals(id uuid pk, user_id uuid fk,
                   vigente_desde timestamptz, vigente_hasta timestamptz null,
                   created_at timestamptz);
 -- Exactly one row per user with vigente_hasta IS NULL (current); others historical.
+CREATE UNIQUE INDEX one_current_goals
+    ON nutritional_goals(user_id) WHERE vigente_hasta IS NULL;
 ```
 
 ### Recipes
@@ -118,13 +135,19 @@ foods(id uuid pk, nombre text, nombre_norm text, marca text, pais char(2),
       azucar numeric, sodio_mg numeric, grasa_sat numeric,
       micronutrientes jsonb, codigo_barras text unique null,
       verificado bool default false, fuente text, embedding vector(1536));
-CREATE INDEX ON foods USING hnsw (embedding vector_cosine_ops);
+CREATE INDEX ON foods USING hnsw (embedding vector_cosine_ops)
+    WITH (m = 32, ef_construction = 200);
 CREATE INDEX ON foods USING gin (nombre_norm gin_trgm_ops);
 
 recipes(id uuid pk, nombre text, descripcion text, imagen_url text,
         kcal int, p int, c int, g int, fibra int, tags text[],
         meal_time enum('desayuno','almuerzo','cena','snack'),
         prep_min int, instrucciones text[], verificada_por text,
+        -- Provenance (lets us quarantine a bad LLM batch later, finding #26).
+        source_batch text null,
+        -- Denormalised allergen list for fast WHERE NOT (allergens && $1) filtering.
+        -- Source of truth remains recipe_allergens; trigger keeps this column in sync.
+        allergens text[] not null default '{}',
         embedding vector(1536), created_at timestamptz);
 
 recipe_components(id uuid pk, recipe_id uuid fk,
@@ -132,7 +155,16 @@ recipe_components(id uuid pk, recipe_id uuid fk,
                   cantidad_g numeric, modificador text, posicion int);
 -- Composition Pattern: recipes compose foods + sub-recipes + modifiers.
 
-recipe_allergens(recipe_id uuid, allergen text);
+recipe_allergens(recipe_id uuid, allergen allergen_enum);
+
+-- Closed allergen vocabulary (ADR-0001). Sesame included per FALCPA 2023 (top-9).
+CREATE TYPE allergen_enum AS ENUM (
+    'dairy','gluten','tree_nuts','peanuts','shellfish','fish','egg','soy','sesame'
+);
+
+-- HNSW index tuning (finding #20). Recall@10 ≥ 0.95 gated in tests/perf/test_vector_recall.py.
+CREATE INDEX ON recipes USING hnsw (embedding vector_cosine_ops)
+    WITH (m = 32, ef_construction = 200);
 ```
 
 ### Plan
@@ -161,8 +193,14 @@ food_logs(id uuid pk, user_id uuid fk, fecha date,
           cantidad_g numeric, kcal int, p int, c int, g int,
           metodo enum('foto','voz','texto','codigo','busqueda','manual'),
           confianza numeric(4,3) null, source_image_url text null,
+          -- Idempotency-Key support (§8, finding #11). Hash retained 24h, then NULLed by job.
+          idempotency_key text null,
+          -- Prompt provenance for vision/text-parse paths (finding #13).
+          prompt_sha256 text null,
           created_at timestamptz);
 CREATE INDEX ON food_logs(user_id, fecha);
+CREATE UNIQUE INDEX one_log_per_idem_key
+    ON food_logs(user_id, idempotency_key) WHERE idempotency_key IS NOT NULL;
 
 -- Timescale hypertables
 water_logs(time timestamptz, user_id uuid, ml int, meta_ml int);
@@ -212,6 +250,37 @@ audit_log(id bigserial pk, ts timestamptz default now(),
           user_id uuid null, actor_type enum('user','system','admin'),
           action text, target_type text, target_id text, metadata jsonb);
 -- Append-only; row-level revoke of UPDATE/DELETE.
+-- GDPR/LGPD note (ADR-0005): on hard-delete user_id is pseudonymised to NULL; row is retained.
+```
+
+### AI / ops / determinism support
+```sql
+-- Prompt versioning + kill-switch (finding #13).
+ai_prompts(id uuid pk, name text not null, version int not null,
+           body text not null, model text not null,
+           params jsonb not null default '{}'::jsonb,
+           active bool not null default false,
+           created_at timestamptz default now());
+CREATE UNIQUE INDEX one_active_prompt_per_name
+    ON ai_prompts(name) WHERE active = true;
+
+feature_flags(key text primary key, enabled bool not null default false,
+              rollout_pct int not null default 0 check(rollout_pct between 0 and 100),
+              payload jsonb not null default '{}'::jsonb,
+              updated_at timestamptz default now());
+-- Canonical keys: vision.enabled, coach.enabled, recalibration.enabled,
+--                 cost_cap.global_kill, plans.snack_slot.
+
+-- Deterministic plan generation (finding #23).
+plan_generation_seeds(plan_id uuid primary key references plans(id) on delete cascade,
+                      seed bigint not null);
+
+-- Short-lived SSE tickets for browser EventSource (finding #19). TTL ≤ 30s.
+coach_sse_tickets(token_hash text primary key,
+                  user_id uuid not null references users(id) on delete cascade,
+                  conv_id uuid not null,
+                  expires_at timestamptz not null);
+CREATE INDEX ON coach_sse_tickets(expires_at);
 ```
 
 ## 8. REST API (maps spec §13)
@@ -229,6 +298,8 @@ POST   /auth/logout
 # Profile + goals
 GET    /me
 PATCH  /me
+DELETE /me                        # GDPR/LGPD erasure (ADR-0005)
+GET    /me/export                 # data portability (JSON dump of all PII + logs)
 POST   /me/onboarding
 GET    /me/targets
 GET    /me/targets/history
@@ -278,7 +349,8 @@ GET    /gamification/streak
 GET    /gamification/achievements
 
 # Coach
-POST   /coach/chat                # SSE stream
+POST   /coach/sse-ticket          # returns {ticket, expires_in} for browser EventSource
+POST   /coach/chat                # SSE stream (Authorization: Bearer  OR  ?ticket=<one-shot>)
 GET    /coach/conversations
 GET    /coach/conversations/{id}/messages
 
@@ -289,6 +361,19 @@ POST   /images/compress
 Auth: Bearer JWT (RS256, 15min) + opaque rotating refresh.
 Rate limit (Redis sliding window): 60/min user, 5/min `/ai/*`, 10/min `/auth/*`.
 OpenAPI auto + ReDoc at `/docs`.
+
+### Idempotency
+All mutating endpoints listed below accept an `Idempotency-Key: <client-uuid>` header.
+The server stores `SHA256(user_id || endpoint || key)` in Redis for 24h with the original
+response payload. Replays within the window return the original `2xx` response and the
+header `Idempotent-Replayed: true`. Required on:
+- `POST /logs/food`, `POST /logs/food/text`, `POST /logs/food/voice`, `POST /logs/food/photo`
+- `POST /logs/water`, `POST /logs/weight`
+- `POST /plans`
+- `POST /fasting/start`
+For `POST /logs/food*` the key is **also** persisted on the row via
+`food_logs.idempotency_key` (`one_log_per_idem_key` partial unique index) so the
+guarantee survives Redis eviction.
 
 ## 9. Critical flows
 
@@ -307,16 +392,41 @@ OpenAPI auto + ReDoc at `/docs`.
    - Notify client via Redis pubsub `user:{id}` → SSE.
 
 ### 9.2 Dynamic metabolic recalibration
-Triggered by `WeightLogged`:
-1. Fetch last 14d `weight_logs` + `food_logs`.
-2. `observado_kg_dia = slope(weight)`.
-3. `esperado_kg_dia = (mean(kcal_consumido) - tdee_actual) / 7700`.
-4. `delta_ratio = observado / esperado`.
-5. If `|delta_ratio - 1| > 0.5` and days >= 14:
-   - `tdee_nuevo = blend(mifflin_recalc, energy_balance_inferred)`.
-   - Expire current `nutritional_goals` row (`vigente_hasta = now()`).
-   - Insert new row with `motivo='plateau' | 'weight_change'`.
-6. Publish `GoalsRecalibrated`.
+Triggered by `WeightLogged`. Formal contract — see ADR-0002 for the rationale.
+
+Inputs (last 14d):
+- `weights = [(day_index, peso_kg)]` (require `len(weights) >= 7`, else **skip**).
+- `kcal_in[14d]` daily intake series from `food_logs`.
+- `tdee_actual` from the current `nutritional_goals` row.
+
+Definitions:
+- `slope_kg_per_day = OLS_linear_regression(weights).slope`  (ordinary least squares
+  of `peso_kg` against `day_index`).
+- `observed_tdee_inferred = mean(kcal_in[14d]) - slope_kg_per_day * 7700`.
+- `mifflin_recalc = MifflinStJeor(sexo, peso_kg_actual, talla, edad) * factor_actividad`.
+- `tdee_nuevo = round( 0.5 * mifflin_recalc + 0.5 * observed_tdee_inferred )`
+  clamped to `tdee_actual ± 15%`.
+- `esperado_kg_dia = (mean(kcal_in[14d]) - tdee_actual) / 7700`.
+- `delta_ratio = slope_kg_per_day / esperado_kg_dia` (skip if `|esperado_kg_dia| < 1e-4`).
+
+Trigger (all must hold):
+1. `|delta_ratio - 1| > 0.5`.
+2. `n_days >= 14`.
+3. `days_since_last_recalibration >= 14`  (cool-down to prevent oscillation).
+
+On trigger:
+- Expire current `nutritional_goals` row (`vigente_hasta = now()`).
+- Insert new row with new TDEE, derived macros and water target,
+  `motivo='plateau' | 'weight_change'`.
+- Publish `GoalsRecalibrated`.
+
+Edge cases (covered by tests, see ADR-0002):
+- Athlete bulk: positive slope expected → no trigger if `objetivo='ganar_musculo'`
+  and `delta_ratio ∈ [0.7, 1.5]`.
+- Post-partum / illness markers: feature-flag `recalibration.enabled` per user can
+  pause until cleared.
+- Insufficient data (`< 7` weight points in 14d): skip silently, emit
+  `recalibration_skipped_total{reason="insufficient_data"}`.
 
 ### 9.3 Plan lifecycle (state machine)
 ```
@@ -338,11 +448,21 @@ PATCH /plans/{id}/meals/{mid}/complete
 5. Detect intents (e.g., "intercambiar comida X") → invoke plan swap inline.
 
 ### 9.5 Plan generation
-1. `POST /plans` enqueues `generate_plan_task`.
-2. Select recipes: hard-exclude by allergies, filter by objective + meal_time + tag prefs.
-3. Random shuffle + embedding similarity score against profile.
+1. `POST /plans` enqueues `generate_plan_task`. The use case generates (or accepts) a
+   deterministic `seed: int64` and persists it in `plan_generation_seeds`. The seed
+   feeds every RNG call in the pipeline (shuffle, tie-breaking, slot ordering) so the
+   same `(profile_snapshot, catalog_version, seed)` triple yields byte-identical plans.
+   Re-generation accepts an optional `seed` body field to reproduce a user-reported plan.
+2. Select recipes: **hard-exclude by allergies** using the closed `allergen_enum` and the
+   denormalised `recipes.allergens` array (`NOT (recipes.allergens && $alergias)`); filter
+   by objective + meal_time + tag preferences; filter contra-indicated conditions.
+3. Seeded shuffle + embedding similarity score against profile vector.
 4. Per-day macro balancing: `sum(kcal) ∈ kcal_objetivo ± 5%`, `protein >= goal * 0.95`.
-5. Avoid repeating same recipe >2× per week.
+5. **Repetition cap** (deterministic, applies to `tipo in ('semana','mes')`):
+   - At most **2** occurrences of the same `recipe_id` in **any rolling 7-day window**.
+   - For `tipo='mes'`: additionally at most **4** occurrences of the same recipe in the
+     full 30-day plan (prevents the same dish appearing every Monday).
+   - For `tipo='dia'`: rule does not apply.
 6. Persist `plans` + `plan_days` + `plan_meals`.
 7. Expand grocery list asynchronously.
 
@@ -386,6 +506,20 @@ class VipsImageCompressor:
 Sync compression on upload (<200ms for 4MP). Batch / heavy → Arq task.
 Requires apt deps in `api.Dockerfile`: `libvips42`, `libheif1`.
 
+### EXIF strip verification (mandatory CI gate)
+After `write_to_buffer(..., strip)`, re-parse the **output bytes** with `exifread`
+and assert:
+- No key starts with `GPS` (latitude/longitude/altitude/timestamp).
+- No `Image Make`, `Image Model`, `Image Software`, `Exif DateTimeOriginal` tags.
+- `Image Orientation` may remain (already applied via `autorot()`).
+
+Implementation: `VipsImageCompressor.compress()` calls `_assert_exif_stripped(out)`;
+the helper raises `EXIFLeakError` if any disallowed key survives, surfacing as a 500
+to fail-closed rather than silently store a GPS-leaking blob. Test fixture
+`tests/integration/imaging/test_exif_strip.py` feeds an image with deliberate GPS
+EXIF and asserts the post-compress buffer has zero `GPS*` keys across every
+`CompressionProfile`.
+
 ## 11. Errors
 
 - Hierarchy: `DomainError` → `ValidationError`, `NotFoundError`, `ConflictError`, `BusinessRuleViolation`.
@@ -405,6 +539,35 @@ Requires apt deps in `api.Dockerfile`: `libvips42`, `libheif1`.
 - Strict Pydantic (no `extra=allow`).
 - Secrets via Dokploy env vars; nothing in repo.
 - `audit_log` table append-only for health-data access.
+
+### OpenAI cost cap (ADR-0004)
+- **Per-user daily hard cap**: USD 1.50 by default (≈150 vision calls or ≈30k coach
+  output tokens). Tracked in Redis sorted set keyed by `cost:{user_id}:{yyyymmdd}`,
+  TTL 48h. Each OpenAI call increments by `prompt_tokens * in_price + completion_tokens
+  * out_price + image_units * image_price` (priced from a versioned constants module).
+- **Per-org global daily cap**: configurable via `feature_flags.cost_cap.global_kill`
+  payload `{ "usd_daily": <float> }`. When exceeded, every `/ai/*` and `/coach/*`
+  endpoint returns 429 with body `{detail:"daily_cost_cap_exceeded"}` and headers
+  `Retry-After`, `X-Cost-Limit-Reset` (epoch seconds at next UTC midnight).
+- **Alarms**: page at 80% of either cap; kill-switch flag `cost_cap.global_kill.enabled`
+  short-circuits every AI call to 503 instantly (no deploy required).
+
+### SSE auth ticket (finding #19)
+- Browser EventSource cannot set `Authorization`. Flow:
+  1. Client `POST /coach/sse-ticket` with bearer JWT → server inserts
+     `coach_sse_tickets(token_hash=SHA256(ticket), user_id, conv_id, expires_at=now()+30s)`
+     and returns `{ticket, expires_in: 30}`.
+  2. Client opens `EventSource("/coach/chat?ticket=<ticket>")`.
+  3. Server hashes the query-string ticket, looks it up, **deletes the row** (one-shot),
+     and only then opens the stream. Expired/missing ticket → 401 before any AI call.
+- Mobile clients keep using `Authorization: Bearer`. JWTs MUST NOT appear in
+  request-path query strings (compliance: server log scrubber strips `?ticket=` value).
+
+### Secrets / key rotation
+- JWT signing keys live on disk via Dokploy secret mounts; `kid` header on every token;
+  active+previous key pair held in memory; rotation runbook in `docs/ops/jwt-rotation.md`
+  (to be authored before first prod deploy).
+- OpenAI key rotated quarterly; rotation procedure documented in same ops folder.
 
 ## 13. Observability
 
@@ -524,6 +687,76 @@ ENV=dev
 ## 19. Open follow-ups
 
 - Confirm Apple OAuth flow specifics (Sign in with Apple revocation handling).
-- Decide cost cap policy for OpenAI per-user (token budget per day).
+- ~~Decide cost cap policy for OpenAI per-user (token budget per day).~~ **Resolved by ADR-0004.**
 - Localization corpus for `es-MX`, `es-PE`, `pt-BR`, `en-US`.
 - Verified-food curation workflow (admin tooling) — likely separate spec.
+
+## 20. Catalog ingest pipeline (overview)
+
+Full design contract: `docs/superpowers/specs/2026-05-30-catalog-ingest-pipeline.md`.
+Summary: every batch of `nova_meals_catalog.json` (or any upstream JSON) is processed
+by `scripts/audit_catalog.py` before SQL touches happen. The script runs 8 ordered
+data-quality gates and exits non-zero on the first failure, producing a structured
+`reports/catalog_audit_<ts>.json` for CI artifacts.
+
+| # | Gate | Pass criterion |
+|---|---|---|
+| 1 | JSON Schema conformance | every record validates against `schemas/catalog_record.json` |
+| 2 | Macro consistency | `|kcal - (p*4+c*4+g*9)| / kcal <= 0.02` (§6 constant) |
+| 3 | Allergen taxonomy (closed) | `allergens ⊆ allergen_enum` (sesame included) |
+| 4 | Condition vocabulary | `conditions ⊆ canonical_conditions` AND `conditions ∩ allergen_enum == ∅` |
+| 5 | Allergen completeness | ingredient lexicon (≥40 entries) finds no missing allergen tag |
+| 6 | Duplicate detection | normalised-name Levenshtein > 2 between any two records |
+| 7 | Outlier detection | kcal z-score ≤ 4 within each `meal_time` cluster |
+| 8 | Image URL sanity | placeholder Firebase URL → set to `NULL`; non-https → reject |
+
+The ingest path itself (`scripts/seed_recipes.py`) refuses to run unless the latest
+audit report is green.
+
+## 21. Vocabulary & i18n contract
+
+- **System identifiers** (enums, column names, JSON keys in DB rows): **Spanish**
+  snake_case as already defined in §7. Rationale: domain language of the product
+  is Spanish; localisation effort is towards en-US, not away from it. (Reverses the
+  earlier note in `nova-clinical-nutrition-generator.md`; the generator agent is to
+  be updated separately.)
+- **External catalog inputs** (`nova_meals_catalog.json`): currently English. The
+  ingest pipeline §20 translates via a fixed mapping table. The mapping is the
+  authoritative bridge — no other code path translates enum values.
+
+Mapping table (excerpt, full table lives in the catalog-ingest spec):
+
+| Catalog (en) | DB (es) |
+|---|---|
+| `breakfast` | `desayuno` |
+| `lunch`     | `almuerzo` |
+| `dinner`    | `cena` |
+| `snack`     | `snack` |
+| `weight_loss` | `bajar` |
+| `weight_maintenance` | `mantener` |
+| `muscle_building` / `build_muscle` / `muscle_hypertrophy` | `ganar_musculo` |
+| `weight_gain` | `ganar_peso` |
+| `general_health` / `general_wellness` | `salud` |
+
+User-facing strings (recipe names, descriptions) are stored as-is and localised at
+the presentation layer.
+
+## 22. Snack catalog gap (blocker)
+
+The current `data/meals/nova_meals_catalog.json` contains **0** records with
+`mealtime='snack'` (audit: `{breakfast: 600, lunch: 800, dinner: 600, snack: 0}`).
+The spec mandates `snack` in `meal_time` enum and `comidas_por_dia` can include
+snack slots. Plans generated today with snack slots would be empty or crash.
+
+Two mutually exclusive resolutions; **(a) is the chosen path**:
+
+(a) **Generate ≥100 snack recipes** via `nova-clinical-nutrition-generator` before
+    plan generation goes live. Recommended target: 200 (≈10% of corpus). Distribution:
+    sweet, savoury, high-protein, low-kcal, kid-friendly buckets.
+
+(b) Drop `snack` from `meal_time` enum and clamp `comidas_por_dia` to `[3]` for MVP.
+    Re-add snacks post-MVP when curation bandwidth exists.
+
+**Dependency**: implementation of `POST /plans` is blocked on resolution. Tracked by
+`tests/data/test_catalog_coverage.py::test_every_meal_time_has_minimum_records`
+(min 100 per enum value).
