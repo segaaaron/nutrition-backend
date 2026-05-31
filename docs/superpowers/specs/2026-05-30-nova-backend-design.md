@@ -84,16 +84,19 @@ users(id uuid pk, email citext unique, password_hash text null,
       deleted_at timestamptz null);
 
 -- Refresh token family / reuse-detection (ADR aligned; OAuth2 RFC 6819 §5.2.2.3).
-refresh_tokens(id uuid pk, user_id uuid fk, token_hash text,
+refresh_tokens(id uuid pk,
+               user_id uuid not null references users(id) on delete cascade,
+               token_hash text,
                family_id uuid not null,
-               parent_id uuid null references refresh_tokens(id),
+               parent_id uuid null references refresh_tokens(id) on delete cascade,
                expires_at timestamptz, revoked_at timestamptz,
                reused_at timestamptz null);
 CREATE INDEX ON refresh_tokens(family_id);
 -- Reuse semantics: if a token with revoked_at IS NOT NULL is presented at /auth/refresh,
 -- set reused_at=now() and revoke every row sharing its family_id.
 
-otp_codes(user_id uuid, code_hash text,
+otp_codes(user_id uuid not null references users(id) on delete cascade,
+          code_hash text,
           purpose enum('register','reset','login'),
           expires_at timestamptz, attempts int,
           locked_until timestamptz null);
@@ -103,7 +106,8 @@ otp_codes(user_id uuid, code_hash text,
 
 ### Profile
 ```sql
-user_profiles(user_id uuid pk fk, nombre text, edad int check(12<=edad<=100),
+user_profiles(user_id uuid primary key references users(id) on delete cascade,
+              nombre text, edad int check(12<=edad<=100),
               sexo enum('hombre','mujer'), unidades enum('metrico','imperial'),
               peso_kg numeric(5,2), talla_cm numeric(5,2),
               objetivo enum('bajar','mantener','ganar_musculo','ganar_peso','salud'),
@@ -116,7 +120,8 @@ user_profiles(user_id uuid pk fk, nombre text, edad int check(12<=edad<=100),
 
 ### Nutrition (derived goals + history)
 ```sql
-nutritional_goals(id uuid pk, user_id uuid fk,
+nutritional_goals(id uuid pk,
+                  user_id uuid not null references users(id) on delete cascade,
                   kcal_min int, kcal_max int,
                   proteina_g int, carbos_g int, grasas_g int, agua_ml int,
                   bmr int, tdee int, factor_actividad numeric(4,3),
@@ -150,46 +155,108 @@ recipes(id uuid pk, nombre text, descripcion text, imagen_url text,
         allergens text[] not null default '{}',
         embedding vector(1536), created_at timestamptz);
 
-recipe_components(id uuid pk, recipe_id uuid fk,
-                  food_id uuid fk null, sub_recipe_id uuid fk null,
+recipe_components(id uuid pk,
+                  recipe_id uuid not null references recipes(id) on delete cascade,
+                  food_id uuid null references foods(id) on delete restrict,
+                  sub_recipe_id uuid null references recipes(id) on delete restrict,
                   cantidad_g numeric, modificador text, posicion int);
 -- Composition Pattern: recipes compose foods + sub-recipes + modifiers.
 
-recipe_allergens(recipe_id uuid, allergen allergen_enum);
-
 -- Closed allergen vocabulary (ADR-0001). Sesame included per FALCPA 2023 (top-9).
+-- Declared BEFORE recipe_allergens so the FK column can reference the enum type.
 CREATE TYPE allergen_enum AS ENUM (
     'dairy','gluten','tree_nuts','peanuts','shellfish','fish','egg','soy','sesame'
 );
 
+recipe_allergens(recipe_id uuid not null references recipes(id) on delete cascade,
+                 allergen allergen_enum not null,
+                 primary key (recipe_id, allergen));
+
+-- Denormalisation rule (finding #27).
+-- Source of truth = recipe_allergens. App code MUST NOT write recipes.allergens directly;
+-- only this trigger updates the cached array. Plan generation reads recipes.allergens
+-- (with an array-overlap GIN index) for the allergen hard-exclude filter (§9.5).
+CREATE OR REPLACE FUNCTION sync_recipe_allergens()
+    RETURNS trigger
+    LANGUAGE plpgsql
+    SECURITY DEFINER
+AS $$
+DECLARE
+    affected_recipe uuid;
+BEGIN
+    -- Statement-level fires once per statement; consolidate via transition tables.
+    -- For row-level usage (simpler), we recompute for the affected recipe_id.
+    IF TG_OP = 'DELETE' THEN
+        affected_recipe := OLD.recipe_id;
+    ELSE
+        affected_recipe := NEW.recipe_id;
+    END IF;
+
+    UPDATE recipes
+       SET allergens = COALESCE((
+            SELECT array_agg(allergen::text ORDER BY allergen)
+              FROM recipe_allergens
+             WHERE recipe_id = affected_recipe
+       ), '{}'::text[])
+     WHERE id = affected_recipe;
+
+    RETURN NULL;
+END;
+$$;
+
+CREATE TRIGGER trg_sync_recipe_allergens
+    AFTER INSERT OR UPDATE OR DELETE ON recipe_allergens
+    FOR EACH ROW EXECUTE FUNCTION sync_recipe_allergens();
+
+-- Defence-in-depth: CHECK constraint pins the denorm column to the closed vocabulary
+-- (cast through the enum array so unknown tokens cannot survive a manual UPDATE).
+ALTER TABLE recipes
+    ADD CONSTRAINT recipes_allergens_closed_vocab
+    CHECK (allergens <@ ARRAY[
+        'dairy','gluten','tree_nuts','peanuts','shellfish','fish','egg','soy','sesame'
+    ]::text[]);
+
 -- HNSW index tuning (finding #20). Recall@10 ≥ 0.95 gated in tests/perf/test_vector_recall.py.
 CREATE INDEX ON recipes USING hnsw (embedding vector_cosine_ops)
     WITH (m = 32, ef_construction = 200);
+CREATE INDEX ON recipes USING gin (allergens);
 ```
 
 ### Plan
 ```sql
-plans(id uuid pk, user_id uuid fk,
+plans(id uuid pk,
+      user_id uuid not null references users(id) on delete cascade,
       tipo enum('dia','semana','mes'),
       total_dias int, dia_actual int,
       estado enum('activo','completado','cancelado'),
       objetivo text, comidas_por_dia int, preferencias text[],
-      kcal_objetivo int, created_at timestamptz);
+      kcal_objetivo int,
+      -- Optimistic-locking version for the state machine (finding #17).
+      version int not null default 0,
+      created_at timestamptz);
 CREATE UNIQUE INDEX one_active_plan ON plans(user_id) WHERE estado='activo';
 
-plan_days(id uuid pk, plan_id uuid fk, indice_dia int, fecha date, completado bool);
-plan_meals(id uuid pk, plan_day_id uuid fk,
+plan_days(id uuid pk,
+          plan_id uuid not null references plans(id) on delete cascade,
+          indice_dia int, fecha date, completado bool);
+plan_meals(id uuid pk,
+           plan_day_id uuid not null references plan_days(id) on delete cascade,
            tiempo enum('desayuno','almuerzo','cena','snack'),
-           recipe_id uuid fk, kcal int, p int, c int, g int,
+           recipe_id uuid null references recipes(id) on delete restrict,
+           kcal int, p int, c int, g int,
            agua_ml int, agua_pct numeric, completada bool,
            swapped_from uuid null);
 ```
 
 ### Tracking
 ```sql
-food_logs(id uuid pk, user_id uuid fk, fecha date,
+food_logs(id uuid pk,
+          user_id uuid not null references users(id) on delete cascade,
+          fecha date,
           tiempo enum('desayuno','almuerzo','cena','snack'),
-          food_id uuid null, recipe_id uuid null, nombre_libre text null,
+          food_id uuid null references foods(id) on delete restrict,
+          recipe_id uuid null references recipes(id) on delete restrict,
+          nombre_libre text null,
           cantidad_g numeric, kcal int, p int, c int, g int,
           metodo enum('foto','voz','texto','codigo','busqueda','manual'),
           confianza numeric(4,3) null, source_image_url text null,
@@ -202,55 +269,92 @@ CREATE INDEX ON food_logs(user_id, fecha);
 CREATE UNIQUE INDEX one_log_per_idem_key
     ON food_logs(user_id, idempotency_key) WHERE idempotency_key IS NOT NULL;
 
--- Timescale hypertables
-water_logs(time timestamptz, user_id uuid, ml int, meta_ml int);
+-- Timescale hypertables. FK to users for cascade; hypertable chunks inherit it.
+water_logs(time timestamptz,
+           user_id uuid not null references users(id) on delete cascade,
+           ml int, meta_ml int);
 SELECT create_hypertable('water_logs','time');
 
-weight_logs(time timestamptz, user_id uuid, peso_kg numeric,
+weight_logs(time timestamptz,
+            user_id uuid not null references users(id) on delete cascade,
+            peso_kg numeric,
             grasa_pct numeric null, cintura_cm numeric null, foto_url text null);
 SELECT create_hypertable('weight_logs','time');
 
 -- Continuous aggregate: biometric_aggregates_daily (14d / 30d rolling means)
 
-fasting_sessions(id uuid pk, user_id uuid fk,
+fasting_sessions(id uuid pk,
+                 user_id uuid not null references users(id) on delete cascade,
                  metodo_h int check(metodo_h in (16,18,20)),
                  inicio_ts timestamptz, fin_ts timestamptz null,
                  duracion_s int null, meta_s int, cumplido bool);
 
-daily_goals(user_id uuid, fecha date,
+daily_goals(user_id uuid not null references users(id) on delete cascade,
+            fecha date,
             item enum('desayuno','almuerzo','cena','agua'),
             completado bool, auto bool, completado_at timestamptz,
             primary key(user_id,fecha,item));
 
-grocery_lists(id uuid pk, plan_id uuid fk, generada_en timestamptz);
-grocery_items(id uuid pk, list_id uuid fk,
+grocery_lists(id uuid pk,
+              plan_id uuid not null references plans(id) on delete cascade,
+              generada_en timestamptz);
+grocery_items(id uuid pk,
+              list_id uuid not null references grocery_lists(id) on delete cascade,
               categoria enum('frutas_verduras','proteinas','lacteos','despensa','otros'),
               nombre text, cantidad text, comprado bool);
+
+-- Progress photos (ADR-0005 lists this table in the hard-delete cascade; finding #32).
+progress_photos(id uuid pk,
+                user_id uuid not null references users(id) on delete cascade,
+                taken_at timestamptz not null,
+                weight_kg numeric null,
+                image_url text null,
+                blurhash text null,
+                created_at timestamptz not null default now());
+CREATE INDEX ON progress_photos(user_id, taken_at desc);
 ```
 
 ### Gamification
 ```sql
-streaks(user_id uuid, tipo enum('diaria','ayuno','proteina'),
+streaks(user_id uuid not null references users(id) on delete cascade,
+        tipo enum('diaria','ayuno','proteina'),
         valor int, ultimo_dia date, primary key(user_id,tipo));
-achievements(user_id uuid, codigo text, desbloqueado_en timestamptz,
+achievements(user_id uuid not null references users(id) on delete cascade,
+             codigo text, desbloqueado_en timestamptz,
              primary key(user_id,codigo));
 ```
 
 ### Coach
 ```sql
-coach_conversations(id uuid pk, user_id uuid fk, titulo text, created_at timestamptz);
-coach_messages(id uuid pk, conv_id uuid fk,
+coach_conversations(id uuid pk,
+                    user_id uuid not null references users(id) on delete cascade,
+                    titulo text, created_at timestamptz);
+coach_messages(id uuid pk,
+               conv_id uuid not null references coach_conversations(id) on delete cascade,
                role enum('user','assistant','system'),
-               content text, tokens_in int, tokens_out int, created_at timestamptz);
+               content text, tokens_in int, tokens_out int,
+               -- Prompt provenance (finding #30; mirrors food_logs.prompt_sha256).
+               -- 64-char hex SHA256 of the rendered system+user prompt at call time.
+               prompt_sha256 text null,
+               created_at timestamptz);
+CREATE INDEX ON coach_messages(prompt_sha256) WHERE prompt_sha256 IS NOT NULL;
 ```
+
+`coach_messages.conv_id` cascade-deletes when a conversation is removed, so the
+ADR-0005 erasure chain `users → coach_conversations → coach_messages` runs in
+one statement against `users`.
 
 ### Audit
 ```sql
 audit_log(id bigserial pk, ts timestamptz default now(),
-          user_id uuid null, actor_type enum('user','system','admin'),
+          user_id uuid null references users(id) on delete set null,
+          actor_type enum('user','system','admin'),
           action text, target_type text, target_id text, metadata jsonb);
 -- Append-only; row-level revoke of UPDATE/DELETE.
--- GDPR/LGPD note (ADR-0005): on hard-delete user_id is pseudonymised to NULL; row is retained.
+-- GDPR/LGPD note (ADR-0005): audit_log is the **only** owned table that does NOT cascade
+-- on user delete. Instead the FK uses ON DELETE SET NULL so the row survives as a
+-- pseudonymised security/fraud trace (24-month retention, legitimate-interest basis).
+-- Every other table referencing users(id) cascades hard, matching the ADR-0005 list.
 ```
 
 ### AI / ops / determinism support
@@ -275,13 +379,33 @@ feature_flags(key text primary key, enabled bool not null default false,
 plan_generation_seeds(plan_id uuid primary key references plans(id) on delete cascade,
                       seed bigint not null);
 
--- Short-lived SSE tickets for browser EventSource (finding #19). TTL ≤ 30s.
+-- Short-lived SSE tickets for browser EventSource (finding #19). TTL = 30s.
 coach_sse_tickets(token_hash text primary key,
                   user_id uuid not null references users(id) on delete cascade,
-                  conv_id uuid not null,
+                  conv_id uuid not null references coach_conversations(id) on delete cascade,
                   expires_at timestamptz not null);
 CREATE INDEX ON coach_sse_tickets(expires_at);
+-- Cleanup (finding #29): Arq cron `cleanup_expired_sse_tickets` runs every 5 minutes:
+--   DELETE FROM coach_sse_tickets WHERE expires_at < now();
+-- Emits `sse_tickets_expired_total` counter; see §13.
 ```
+
+### Cascade & retention policy (summary — finding #28)
+
+Every table owned by a `users.id` row above carries an explicit
+`REFERENCES users(id) ON DELETE CASCADE` (directly or transitively through a
+parent like `plans → plan_days → plan_meals`, `coach_conversations →
+coach_messages`, `grocery_lists → grocery_items`). The single exception is
+`audit_log`, which uses `ON DELETE SET NULL` to preserve a pseudonymised
+security trace for 24 months per ADR-0005 §"Audit-log retention exception".
+Hard-delete of a `users` row is therefore one statement; no application-level
+fan-out is required.
+
+The cascade chain is enforced by integration test
+`tests/compliance/test_gdpr_erasure_cascade.py::test_all_owned_tables_cascade_on_user_delete`
+which inserts one row per owned table for a synthetic user, deletes the user,
+and asserts `count(*) = 0` on each (and `count(*) = N, user_id IS NULL` on
+`audit_log`).
 
 ## 8. REST API (maps spec §13)
 
