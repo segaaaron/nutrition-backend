@@ -25,6 +25,7 @@ from app.nutrition.presentation.router import router as nutrition_router
 from app.profile.presentation.router import router as profile_router
 from app.plan.presentation.router import router as plan_router
 from app.recipes.presentation.router import router as recipes_router
+from app.tracking.presentation.router import router as tracking_router
 
 
 class RequestIdMiddleware(BaseHTTPMiddleware):
@@ -68,6 +69,7 @@ def create_app() -> FastAPI:
     app.include_router(nutrition_router)
     app.include_router(recipes_router)
     app.include_router(plan_router)
+    app.include_router(tracking_router)
 
     # --- Domain event subscriptions ---
     from app.core.event_bus import get_event_bus
