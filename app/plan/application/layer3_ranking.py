@@ -1,0 +1,92 @@
+"""Layer 3 — Hybrid ranking (taste-EMA + cultural + prep + novelty + adherence).
+
+Composite score per candidate:
+
+    0.40 * cosine(taste_profile, recipe.embedding)
+  + 0.20 * cultural_fit(user.country, recipe.regions)
+  + 0.20 * prep_time_fit(user.prep_pref_min, recipe.prep_min)
+  + 0.10 * novelty(times_seen_last_30d)
+  + 0.10 * adherence(completion_rate_for_similar)
+
+The 0.40 vector weight is the largest because pgvector cosine is the most
+discriminative signal (1536-dim semantic match). The 0.20+0.20 contextual
+band keeps recommendations regionally and operationally relevant. The
+0.10+0.10 long-tail band ensures we don't recommend the same dish forever
+and that the model preferentially picks recipes the user actually completes.
+
+Budget: <400 ms for K=20 candidates.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Protocol
+from uuid import UUID
+
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.plan.application.taste_profile import (
+    adherence,
+    cosine,
+    cultural_fit,
+    novelty,
+    prep_time_fit,
+)
+
+
+class _ProfileCtx(Protocol):
+    async def get_ranking_context(self, user_id: UUID) -> dict: ...
+
+
+@dataclass(slots=True)
+class Layer3Ranking:
+    session: AsyncSession
+    profile_ctx: _ProfileCtx
+    taste_vector: list[float]
+
+    async def __call__(
+        self,
+        *,
+        user_id: UUID,
+        candidate_ids: list[UUID],
+        meal_time: str,
+        novelty_counts: dict[UUID, int] | None = None,
+        adherence_rates: dict[UUID, float] | None = None,
+    ) -> list[tuple[UUID, float]]:
+        if not candidate_ids:
+            return []
+        ctx = await self.profile_ctx.get_ranking_context(user_id)
+        country = (ctx.get("country") or "").lower() or None
+        prep_pref = ctx.get("prep_time_pref_min")
+
+        sql = text("""
+            SELECT id, regions, prep_min, embedding
+              FROM recipes
+             WHERE id = ANY(CAST(:ids AS uuid[]))
+        """)
+        res = await self.session.execute(sql, {"ids": [str(i) for i in candidate_ids]})
+        rows = list(res.mappings())
+
+        novelty_counts = novelty_counts or {}
+        adherence_rates = adherence_rates or {}
+        scored: list[tuple[UUID, float]] = []
+        for r in rows:
+            rid: UUID = r["id"]
+            emb = r["embedding"]
+            # pgvector returns a list-like; coerce defensively.
+            emb_list = list(emb) if emb is not None else []
+            s_taste = cosine(self.taste_vector, emb_list)
+            s_cult = cultural_fit(country, list(r["regions"] or []))
+            s_prep = prep_time_fit(prep_pref, r["prep_min"])
+            s_nov = novelty(novelty_counts.get(rid, 0))
+            s_adh = adherence(adherence_rates.get(rid))
+            total = (
+                0.40 * s_taste
+                + 0.20 * s_cult
+                + 0.20 * s_prep
+                + 0.10 * s_nov
+                + 0.10 * s_adh
+            )
+            scored.append((rid, total))
+        scored.sort(key=lambda x: x[1], reverse=True)
+        return scored
