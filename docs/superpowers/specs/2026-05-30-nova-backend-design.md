@@ -1088,6 +1088,31 @@ Two mutually exclusive resolutions; **(a) is the chosen path**:
 `tests/data/test_catalog_coverage.py::test_every_meal_time_has_minimum_records`
 (min 100 per enum value).
 
+### 22.5 Catalog cleanup backlog
+
+Independent QA audit of the current `data/meals/nova_meals_catalog.json`
+(2 000 records) surfaces concrete row-level defects that the ingest pipeline
+(§20) will reject on the next run. Tracking here so they are not lost.
+
+| Defect class | Count | Pipeline gate that rejects | Owner |
+|---|---:|---|---|
+| Dairy false negatives (ingredient indicates dairy, no `dairy` tag) | 161 | Gate 5 — ingredient lexicon | data-ops |
+| Gluten false negatives | 169 | Gate 5 | data-ops |
+| Purine false negatives (red meat / organ meat without `gout` contraindication) | 144 | Gate 5 + clinical rule | data-ops + clinical |
+| Allergen tokens leaking into condition arrays | 26 | Gate 4 — disjointness | data-ops |
+| Unknown allergen `mustard` (single row) | 1 | Gate 3 — closed enum | data-ops |
+| Snack inventory | 0 / 100 required | §22.6 gate | clinical generator |
+
+**Gating impact.** Until the affected rows are cleaned (or quarantined via
+`recipes.source_batch` and excluded from generation), `POST /plans` MUST NOT
+select recipes for the affected `meal_time` from a tainted batch. The plan
+generation use case reads the latest `reports/catalog_audit_<ts>.json` and
+filters its candidate set to recipes whose `source_batch` passed all 8 gates.
+
+Cadence: data-ops owns this backlog and produces a weekly burn-down until the
+counts reach zero. After the first clean batch lands, the ingest report becomes
+the source of truth (no parallel spreadsheet).
+
 ### 22.6 Snack inventory gate (operational rule)
 
 Until the snack inventory reaches **≥ 100** approved records (validated by the
