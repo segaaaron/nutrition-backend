@@ -1332,3 +1332,124 @@ Any of these sustained > 24 h triggers VPS upsizing (Hostinger KVM 4 → 16 GB /
 - Active monthly users > 1500.
 - Postgres `pg_stat_database.numbackends` consistently > 60.
 - p95 `POST /plans` latency > 1500 ms (plan-gen is CPU-bound on this host).
+
+
+## 24. Sprint 5/6 — Vision IA + Coach + Notifications (patch addendum)
+
+This section patches earlier sections without rewriting them. Authoritative
+links between concepts and code:
+
+### 24.1 Schema additions (patches §7)
+
+- `vision_jobs` (migration 0002) — async job tracking for photo→kcal.
+  Columns: `id, user_id, meal_time, status, image_sha256, image_bytes,
+  idempotency_key, prompt_sha256, detected_items jsonb, error_code, …`.
+- `coach_faq` (migration 0002) — Camino 2 cached FAQ table with
+  `embedding vector(1536)` HNSW index. Seed: see `scripts/seed_coach_faq.py`
+  (deferred Phase 2; 20 entries).
+- `vision_user_corrections` (migration 0002) — personal learning cache.
+  PK `(user_id, detected_name_norm)`.
+- `recipes.coach_story_translations jsonb` (migration 0002) — Feature F
+  narrative cache.
+- `push_tokens` (migration 0003) — VAPID web push + FCM mobile.
+  Includes `endpoint`, `p256dh`, `auth` for web; `token` for FCM.
+- `job_deadletter` (migration 0002) — terminal Arq failures
+  (validation #10).
+
+### 24.2 Endpoint additions (patches §8)
+
+```
+# Vision
+POST /logs/food/photo          multipart, max 8MB, Idempotency-Key, 10/h/user
+GET  /logs/food/jobs/{jobId}   poll
+POST /logs/food/{id}/edit      user correction → personal learning
+POST /ai/recognize             deprecated alias
+
+# Voice + text
+POST /logs/food/text           {text, meal_time}
+POST /logs/food/voice          multipart audio ≤1MB ≤60s
+POST /logs/food                manual entry
+
+# Goals (macro repair)
+GET  /goals/today              kcal/protein/water gap + 3 snack candidates
+POST /goals/today/{item}/toggle
+
+# Coach
+POST /coach/sse-ticket         → 30s ticket (finding #19)
+POST /coach/chat               text/event-stream, ticket auth, 30/min/user
+GET  /coach/conversations      cursor paginated
+GET  /coach/conversations/{id}/messages  cursor paginated
+DELETE /coach/conversations/{id}
+POST /coach/swap               substitution intelligence (Feature D)
+
+# Push
+POST   /push/tokens            register VAPID/FCM token
+DELETE /push/tokens/{token}
+```
+
+### 24.3 §9.1 patch — flow links to `app/vision/`
+
+- API: `app/vision/presentation/router.py::submit_food_photo`
+- Use case (API): `app/vision/application/submit_photo.py`
+- Worker task: `worker/vision_tasks.py::vision_recognize_task`
+- Use case (worker): `app/vision/application/process_vision_job.py`
+- Provider: `app/vision/infrastructure/openai_vision.py` (gpt-4o-2024-08-06)
+- Matcher: `app/vision/infrastructure/food_matcher.py` (trigram + embedding)
+- Notifier: `app/vision/infrastructure/redis_notifier.py` (pubsub `user:{id}:vision`)
+- Personal learning: `app/vision/application/learn_user_correction.py`
+
+### 24.4 §9.4 patch — coach 4-camino routing (ticket auth)
+
+```
+classifier(text) → intent
+  ├─ MEDICAL_REDIRECT  → Camino 4 (template, 0 LLM)
+  ├─ VIEW_TODAY_PLAN…  → Camino 1 (template, 0 LLM)        [40% traffic]
+  ├─ else FAQ hit?     → Camino 2 (cached, embedding lookup)  [20% traffic]
+  └─ else              → Camino 3 (gpt-4o-mini stream + RAG) [35% traffic]
+                                                              [5% refuse]
+```
+
+Files:
+- Router: `app/coach/presentation/router.py`
+- Orchestrator: `app/coach/application/chat_message.py`
+- Templates: `app/coach/application/template_responses.py`
+- Context builder: `app/coach/application/context_builder.py`
+- Intent classifier: `app/coach/infrastructure/intent_classifier.py`
+- Streaming client: `app/coach/infrastructure/openai_coach_client.py`
+- SSE ticket: `app/coach/infrastructure/sse_ticket.py`
+- Features B/C/D/E/F/G: `app/coach/application/features.py` +
+  `app/coach/application/propose_swap.py`
+
+### 24.5 §10 patch — vision model reference
+
+The vision model is locked to `gpt-4o-2024-08-06` (ADR-0006). Replaces the
+earlier `gpt-4o` reference in §9.1. Cost model: 765 image tokens fixed for
+1024×1024 high-detail + ~120 prompt + ~150 output ≈ $0.007 per photo.
+
+### 24.6 §14 patch — new tests
+
+- `tests/clinical/test_coach_medical_refuse.py` — 20 adversarial scenarios,
+  keyword classifier path; LLM path gated on OPENAI_API_KEY.
+- `tests/unit/test_food_text_parser.py` — regex path.
+- `tests/unit/test_intent_classifier_keyword.py` — template intents.
+- `tests/unit/test_vision_openai_parse.py` — robust parsing of strict JSON.
+- `docs/qa/coach_golden_set.md` — 50-scenario Phase 2 eval design.
+
+### 24.7 §23.5 patch — cron registry
+
+All registered in `worker/main.py::CRON_JOBS` with `max_tries=3` and dead
+letter on terminal failure. Hourly UTC dispatch + per-user locale filter
+keeps the queue cheap.
+
+| Cron                              | Schedule        | Action |
+|-----------------------------------|-----------------|--------|
+| `coach_macro_repair`              | hourly, :05     | runs for users whose local hour == 19 |
+| `coach_proactive_alert`           | hourly, :10     | local hour == 18; sends push |
+| `coach_weekly_review`             | hourly, :15     | local hour == 18 on Sundays |
+| `coach_recipe_story_backfill`     | 03:00 UTC       | batch 20 recipes / night |
+| `cleanup_sse_tickets`             | every 5 min     | expires_at < now() |
+| `cleanup_otp_lockouts`            | every 5 min     | unlocks expired otp_codes |
+
+`scripts/resolve_ingredients.py --batch 100` — on-demand backfill of
+`recipe_components.food_id` via gpt-4o-mini parse + matcher. Idempotent,
+hard cap $2/run.
