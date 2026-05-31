@@ -1,0 +1,88 @@
+"""SQLAlchemy ORM for plans/plan_days/plan_meals + plan_generation_seeds.
+
+`Plan.days` uses `selectinload`; `PlanDay.meals` uses `selectinload`; the
+recipe lookup is deferred to a separate batched call by the application
+layer (we do not joinedload PlanMeal→Recipe by default to avoid hauling the
+full recipe row into every plan query).
+"""
+from __future__ import annotations
+
+from datetime import date, datetime
+from uuid import UUID, uuid4
+
+from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy.dialects.postgresql import ARRAY, BIGINT, UUID as PG_UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.identity.infrastructure.models import Base
+
+
+class PlanModel(Base):
+    __tablename__ = "plans"
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE")
+    )
+    type: Mapped[str] = mapped_column(String(8))
+    total_days: Mapped[int] = mapped_column(Integer)
+    current_day: Mapped[int] = mapped_column(Integer, default=1)
+    status: Mapped[str] = mapped_column(String(16), default="active")
+    goal: Mapped[str | None] = mapped_column(Text, nullable=True)
+    meals_per_day: Mapped[int] = mapped_column(Integer)
+    preferences: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
+    kcal_target: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    version: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    days: Mapped[list["PlanDayModel"]] = relationship(
+        "PlanDayModel",
+        cascade="all, delete-orphan",
+        order_by="PlanDayModel.day_index",
+        lazy="select",
+    )
+
+
+class PlanDayModel(Base):
+    __tablename__ = "plan_days"
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    plan_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("plans.id", ondelete="CASCADE")
+    )
+    day_index: Mapped[int] = mapped_column(Integer)
+    date: Mapped[date] = mapped_column(Date)
+    completed: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    meals: Mapped[list["PlanMealModel"]] = relationship(
+        "PlanMealModel",
+        cascade="all, delete-orphan",
+        order_by="PlanMealModel.meal_time",
+        lazy="select",
+    )
+
+
+class PlanMealModel(Base):
+    __tablename__ = "plan_meals"
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    plan_day_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("plan_days.id", ondelete="CASCADE")
+    )
+    meal_time: Mapped[str] = mapped_column(String(16))
+    recipe_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("recipes.id", ondelete="RESTRICT"), nullable=True
+    )
+    kcal: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    protein_g: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    carbs_g: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fat_g: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    water_ml: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    water_pct: Mapped[float | None] = mapped_column(Numeric, nullable=True)
+    completed: Mapped[bool] = mapped_column(Boolean, default=False)
+    swapped_from: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), nullable=True)
+
+
+class PlanGenerationSeedModel(Base):
+    __tablename__ = "plan_generation_seeds"
+    plan_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("plans.id", ondelete="CASCADE"), primary_key=True
+    )
+    seed: Mapped[int] = mapped_column(BIGINT)

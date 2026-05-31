@@ -14,9 +14,10 @@ from app.core.config import get_settings
 
 _settings = get_settings()
 
-# Tasks land here once each bounded context implements them. Keep empty
-# until the corresponding context's infrastructure layer registers its tasks.
-FUNCTIONS: list[Any] = []
+from worker.plan_tasks import generate_plan_task
+
+# Tasks land here as each bounded context implements them.
+FUNCTIONS: list[Any] = [generate_plan_task]
 CRON_JOBS: list[Any] = []
 
 
