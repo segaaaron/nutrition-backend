@@ -17,6 +17,7 @@ from app.core.event_bus import EventBus
 from app.core.logging import get_logger
 from app.gamification.domain.events import CelebrationTriggered, DayCompleted
 from app.tracking.domain.events import FoodLogged, WaterLogged
+from app.tracking.domain.fasting import FastingCompleted
 from app.vision.domain.events import FoodPhotoLogged
 
 log = get_logger("gamification.handlers")
@@ -98,6 +99,73 @@ def register(bus: EventBus) -> None:
                 if await _check_day_complete(session, user_id=evt.user_id):
                     await _bump_streak(session, user_id=evt.user_id, stype="daily")
 
+    async def _on_fasting_completed(evt: FastingCompleted) -> None:
+        async with session_scope() as session:
+            if evt.achieved:
+                val = await _bump_streak(session, user_id=evt.user_id, stype="fasting")
+                if val in (3, 7, 14, 30, 60):
+                    await bus.publish(CelebrationTriggered(
+                        user_id=evt.user_id, code=f"fasting_streak_{val}",
+                        at=datetime.now(timezone.utc),
+                    ))
+
+    # --- Achievement check (Sprint 7.D) ---
+    from app.core.redis import get_redis
+    from app.gamification.application.use_cases import maybe_unlock
+    from app.gamification.domain.catalog import CATALOG
+    from app.gamification.infrastructure.repository import SqlGamificationRepository
+
+    async def _check_achievements_food(evt: FoodLogged) -> None:
+        async with session_scope() as session:
+            repo = SqlGamificationRepository(session)
+            redis = get_redis()
+            # first_meal_logged
+            n_logs = (await session.execute(text(
+                "SELECT COUNT(*) FROM food_logs WHERE user_id = :uid"
+            ), {"uid": str(evt.user_id)})).scalar() or 0
+            if int(n_logs) == 1:
+                ach = next(a for a in CATALOG if a.code == "first_meal_logged")
+                await maybe_unlock(repo, bus, redis, user_id=evt.user_id, achievement=ach)
+
+    async def _check_achievements_fasting(evt: FastingCompleted) -> None:
+        if not evt.achieved:
+            return
+        async with session_scope() as session:
+            repo = SqlGamificationRepository(session)
+            redis = get_redis()
+            code = {16: "first_fasting_16h", 18: "first_fasting_18h", 20: "first_fasting_20h"}.get(evt.method_h)
+            if code:
+                ach = next((a for a in CATALOG if a.code == code), None)
+                if ach:
+                    await maybe_unlock(repo, bus, redis, user_id=evt.user_id, achievement=ach)
+            # fasting streak 7
+            v = (await session.execute(text(
+                "SELECT value FROM streaks WHERE user_id = :uid AND type = 'fasting'"
+            ), {"uid": str(evt.user_id)})).scalar() or 0
+            if int(v) >= 7:
+                ach = next(a for a in CATALOG if a.code == "fasting_streak_7d")
+                await maybe_unlock(repo, bus, redis, user_id=evt.user_id, achievement=ach)
+
+    async def _check_achievements_day(evt: DayCompleted) -> None:
+        async with session_scope() as session:
+            repo = SqlGamificationRepository(session)
+            redis = get_redis()
+            v = (await session.execute(text(
+                "SELECT value FROM streaks WHERE user_id = :uid AND type = 'daily'"
+            ), {"uid": str(evt.user_id)})).scalar() or 0
+            v = int(v)
+            for threshold, code in (
+                (3, "streak_3d"), (7, "streak_7d"), (14, "streak_14d"),
+                (30, "streak_30d"), (100, "streak_100d"),
+            ):
+                if v >= threshold:
+                    ach = next(a for a in CATALOG if a.code == code)
+                    await maybe_unlock(repo, bus, redis, user_id=evt.user_id, achievement=ach)
+
     bus.subscribe(FoodLogged, _on_food_logged)
     bus.subscribe(FoodPhotoLogged, _on_photo_logged)
     bus.subscribe(WaterLogged, _on_water_logged)
+    bus.subscribe(FastingCompleted, _on_fasting_completed)
+    bus.subscribe(FoodLogged, _check_achievements_food)
+    bus.subscribe(FastingCompleted, _check_achievements_fasting)
+    bus.subscribe(DayCompleted, _check_achievements_day)

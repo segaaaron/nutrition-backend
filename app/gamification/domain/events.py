@@ -20,3 +20,26 @@ class CelebrationTriggered(DomainEvent):
     user_id: UUID
     code: str  # 'streak_7' | 'streak_30' | 'day_perfect' | …
     at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class AchievementUnlocked(DomainEvent):
+    user_id: UUID
+    code: str
+    points: int
+    at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class StreakBroken(DomainEvent):
+    user_id: UUID
+    type: str
+    prev_value: int
+    at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class LevelUp(DomainEvent):
+    user_id: UUID
+    level: int
+    at: datetime
