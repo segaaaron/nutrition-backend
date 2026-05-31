@@ -21,6 +21,7 @@ from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging, get_logger
 from app.core.redis import close_redis, get_redis
 from app.identity.presentation.router import router as identity_router
+from app.nutrition.presentation.router import router as nutrition_router
 from app.profile.presentation.router import router as profile_router
 
 
@@ -62,6 +63,12 @@ def create_app() -> FastAPI:
     # --- Bounded-context routers ---
     app.include_router(identity_router)
     app.include_router(profile_router)
+    app.include_router(nutrition_router)
+
+    # --- Domain event subscriptions ---
+    from app.core.event_bus import get_event_bus
+    from app.nutrition.event_handlers import register as register_nutrition_handlers
+    register_nutrition_handlers(get_event_bus())
 
     @app.get("/healthz", tags=["ops"])
     async def healthz() -> dict[str, str]:
