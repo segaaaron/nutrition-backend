@@ -21,12 +21,17 @@ from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging, get_logger
 from app.core.metrics import ARQ_QUEUE_DEPTH, HttpMetricsMiddleware, get_arq_queue_depth
 from app.core.redis import close_redis, get_redis
+from app.coach.presentation.router import router as coach_router
 from app.identity.presentation.router import router as identity_router
+from app.notifications.presentation.router import router as notifications_router
 from app.nutrition.presentation.router import router as nutrition_router
 from app.profile.presentation.router import router as profile_router
 from app.plan.presentation.router import router as plan_router
 from app.recipes.presentation.router import router as recipes_router
+from app.tracking.presentation.goals_today import router as goals_today_router
 from app.tracking.presentation.router import router as tracking_router
+from app.vision.presentation.router import router as vision_router
+from app.voice.presentation.router import router as voice_router
 
 
 class RequestIdMiddleware(BaseHTTPMiddleware):
@@ -72,11 +77,21 @@ def create_app() -> FastAPI:
     app.include_router(recipes_router)
     app.include_router(plan_router)
     app.include_router(tracking_router)
+    app.include_router(goals_today_router)
+    app.include_router(vision_router)
+    app.include_router(voice_router)
+    app.include_router(coach_router)
+    app.include_router(notifications_router)
 
     # --- Domain event subscriptions ---
     from app.core.event_bus import get_event_bus
+    from app.coach.application.event_handlers import register as register_coach_handlers
+    from app.gamification.application.event_handlers import register as register_gamification_handlers
     from app.nutrition.event_handlers import register as register_nutrition_handlers
-    register_nutrition_handlers(get_event_bus())
+    bus = get_event_bus()
+    register_nutrition_handlers(bus)
+    register_coach_handlers(bus)
+    register_gamification_handlers(bus)
 
     @app.get("/healthz", tags=["ops"])
     async def healthz() -> dict[str, str]:
