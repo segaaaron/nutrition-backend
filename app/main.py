@@ -21,6 +21,7 @@ from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging, get_logger
 from app.core.redis import close_redis, get_redis
 from app.identity.presentation.router import router as identity_router
+from app.profile.presentation.router import router as profile_router
 
 
 class RequestIdMiddleware(BaseHTTPMiddleware):
@@ -60,6 +61,7 @@ def create_app() -> FastAPI:
 
     # --- Bounded-context routers ---
     app.include_router(identity_router)
+    app.include_router(profile_router)
 
     @app.get("/healthz", tags=["ops"])
     async def healthz() -> dict[str, str]:
