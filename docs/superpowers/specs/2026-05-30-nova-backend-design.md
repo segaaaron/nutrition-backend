@@ -145,7 +145,16 @@ CREATE INDEX ON foods USING hnsw (embedding vector_cosine_ops)
 CREATE INDEX ON foods USING gin (nombre_norm gin_trgm_ops);
 
 recipes(id uuid pk, nombre text, descripcion text, imagen_url text,
-        kcal int, p int, c int, g int, fibra int, tags text[],
+        kcal int, p int, c int, g int,
+        -- Aggregated micros for clinical filters (finding #7): diabetes filters by
+        -- `azucar_g`, hypertension by `sodio_mg`, dyslipidaemia by `grasa_sat_g`.
+        -- Recomputed by `sync_recipe_aggregates()` trigger (below) on any
+        -- recipe_components INSERT/UPDATE/DELETE; do NOT update directly.
+        fibra_g int not null default 0,
+        azucar_g int not null default 0,
+        sodio_mg int not null default 0,
+        grasa_sat_g int not null default 0,
+        tags text[],
         meal_time enum('desayuno','almuerzo','cena','snack'),
         prep_min int, instrucciones text[], verificada_por text,
         -- Provenance (lets us quarantine a bad LLM batch later, finding #26).
@@ -207,6 +216,45 @@ $$;
 CREATE TRIGGER trg_sync_recipe_allergens
     AFTER INSERT OR UPDATE OR DELETE ON recipe_allergens
     FOR EACH ROW EXECUTE FUNCTION sync_recipe_allergens();
+
+-- Aggregated micros (finding #7). Sums components × (foods.* per 100g) × cantidad_g/100.
+-- For sub-recipe components, recurse one level (sub-recipes themselves are already
+-- aggregated). Same source-of-truth contract as allergens: app code never updates the
+-- cached columns directly.
+CREATE OR REPLACE FUNCTION sync_recipe_aggregates()
+    RETURNS trigger
+    LANGUAGE plpgsql
+    SECURITY DEFINER
+AS $$
+DECLARE
+    affected_recipe uuid;
+BEGIN
+    affected_recipe := COALESCE(NEW.recipe_id, OLD.recipe_id);
+
+    UPDATE recipes r
+       SET fibra_g    = COALESCE(agg.fibra,    0),
+           azucar_g   = COALESCE(agg.azucar,   0),
+           sodio_mg   = COALESCE(agg.sodio_mg, 0),
+           grasa_sat_g= COALESCE(agg.grasa_sat,0)
+      FROM (
+          SELECT
+              SUM(f.fibra      * rc.cantidad_g / 100.0)::int AS fibra,
+              SUM(f.azucar     * rc.cantidad_g / 100.0)::int AS azucar,
+              SUM(f.sodio_mg   * rc.cantidad_g / 100.0)::int AS sodio_mg,
+              SUM(f.grasa_sat  * rc.cantidad_g / 100.0)::int AS grasa_sat
+            FROM recipe_components rc
+            JOIN foods f ON f.id = rc.food_id
+           WHERE rc.recipe_id = affected_recipe
+      ) agg
+     WHERE r.id = affected_recipe;
+
+    RETURN NULL;
+END;
+$$;
+
+CREATE TRIGGER trg_sync_recipe_aggregates
+    AFTER INSERT OR UPDATE OR DELETE ON recipe_components
+    FOR EACH ROW EXECUTE FUNCTION sync_recipe_aggregates();
 
 -- Defence-in-depth: CHECK constraint pins the denorm column to the closed vocabulary
 -- (cast through the enum array so unknown tokens cannot survive a manual UPDATE).
@@ -364,6 +412,9 @@ ai_prompts(id uuid pk, name text not null, version int not null,
            body text not null, model text not null,
            params jsonb not null default '{}'::jsonb,
            active bool not null default false,
+           -- Provenance / governance (finding #13 round 2).
+           description text null,
+           updated_by uuid null references users(id) on delete set null,
            created_at timestamptz default now());
 CREATE UNIQUE INDEX one_active_prompt_per_name
     ON ai_prompts(name) WHERE active = true;
@@ -371,6 +422,8 @@ CREATE UNIQUE INDEX one_active_prompt_per_name
 feature_flags(key text primary key, enabled bool not null default false,
               rollout_pct int not null default 0 check(rollout_pct between 0 and 100),
               payload jsonb not null default '{}'::jsonb,
+              description text null,
+              updated_by uuid null references users(id) on delete set null,
               updated_at timestamptz default now());
 -- Canonical keys: vision.enabled, coach.enabled, recalibration.enabled,
 --                 cost_cap.global_kill, plans.snack_slot.
@@ -481,7 +534,22 @@ GET    /coach/conversations/{id}/messages
 
 # Images (internal)
 POST   /images/compress
+
+# Admin (RBAC: admin role only; rejects on non-admin JWT with 403)
+POST   /admin/ai-prompts                  # publish new prompt version (see policy below)
+PATCH  /admin/ai-prompts/{id}             # activate / deactivate a version
+POST   /admin/feature-flags/{key}         # upsert flag
+PATCH  /admin/feature-flags/{key}         # update enabled / rollout_pct / payload
 ```
+
+**AI prompt promotion policy.** A `POST /admin/ai-prompts` payload MUST carry
+an `evaluation` block referencing an eval-set hash and the result it produced
+(e.g. `{eval_set_sha256, brier_score, item_precision, item_recall, kcal_mae}`).
+The endpoint refuses to mark a prompt `active=true` unless the eval result
+meets the thresholds in ADR-0003 (Brier ≤ 0.20 for vision) and the AI eval
+gates in `tests/clinical/test_vision_calibration_brier.py`. Activation flips
+the partial unique index `one_active_prompt_per_name`; the previously-active
+row is auto-deactivated in the same transaction.
 
 Auth: Bearer JWT (RS256, 15min) + opaque rotating refresh.
 Rate limit (Redis sliding window): 60/min user, 5/min `/ai/*`, 10/min `/auth/*`.
@@ -537,9 +605,17 @@ Inputs (last 14d):
 - `kcal_in[14d]` daily intake series from `food_logs`.
 - `tdee_actual` from the current `nutritional_goals` row.
 
+Pre-processing (ADR-0002 §"Edge cases" — single-day measurement noise):
+- Before slope regression, **winsorise** the 14-day `peso_kg` series at the
+  5th / 95th percentiles of the window: every value below P5 is clamped to
+  P5; every value above P95 is clamped to P95. This kills single-day spikes
+  from scale-calibration error or fluid swings without dropping data. OLS
+  runs on the winsorised series.
+
 Definitions:
-- `slope_kg_per_day = OLS_linear_regression(weights).slope`  (ordinary least squares
-  of `peso_kg` against `day_index`).
+- `weights_w = winsorise(weights, p_low=0.05, p_high=0.95)`.
+- `slope_kg_per_day = OLS_linear_regression(weights_w).slope`  (ordinary least
+  squares of `peso_kg` against `day_index`).
 - `observed_tdee_inferred = mean(kcal_in[14d]) - slope_kg_per_day * 7700`.
 - `mifflin_recalc = MifflinStJeor(sexo, peso_kg_actual, talla, edad) * factor_actividad`.
 - `tdee_nuevo = round( 0.5 * mifflin_recalc + 0.5 * observed_tdee_inferred )`
@@ -567,16 +643,26 @@ Edge cases (covered by tests, see ADR-0002):
   `recalibration_skipped_total{reason="insufficient_data"}`.
 
 ### 9.3 Plan lifecycle (state machine)
-```
-PATCH /plans/{id}/meals/{mid}/complete
-  -> mark completed
-  -> if all day's meals complete -> DayCompleted
-       if tipo='dia': celebration, flag regenerate tomorrow
-       elif dia_actual < total_dias: dia_actual++
-       else: estado='completado', CTA newplan
-  -> update streak 'diaria'
-  -> update daily_goals (desayuno/almuerzo/cena auto)
-```
+
+Formal transition table (finding #17). The domain entity `Plan.advance(event)`
+is the **only** path that mutates `plans.estado` or `plans.dia_actual`; any
+other write raises `IllegalTransition` (409, §11).
+
+| from | event | guard | to | side effects |
+|---|---|---|---|---|
+| `activo` | `MealCompleted` | not all meals done | `activo` | mark `plan_meals.completada=true`, update `daily_goals` |
+| `activo` | `DayCompleted` | `all_meals_completed` AND `dia_actual < total_dias` AND `tipo != 'dia'` | `activo` (`dia_actual++`) | streak +1, `daily_goals` row closed |
+| `activo` | `DayCompleted` | `all_meals_completed` AND `dia_actual == total_dias` AND `tipo != 'dia'` | `completado` | celebration event, CTA `newplan` |
+| `activo` | `DayCompleted` | `all_meals_completed` AND `tipo == 'dia'` | `activo` | flag `regenerate_tomorrow`, streak +1 |
+| `activo` | `UserCancelled` | — | `cancelado` | revoke active plan unique index slot |
+| `completado` / `cancelado` | any | — | — | `IllegalTransition` |
+
+Optimistic locking: `plans.version` is incremented on every transition;
+`Plan.advance` accepts `expected_version` and raises `ConflictError` (409) on
+mismatch. Property test
+`tests/unit/domain/plan/test_state_machine.py::test_illegal_transitions_raise`
+enumerates the Cartesian product `(from_state × event)` and asserts every
+unlisted cell raises `IllegalTransition`.
 
 ### 9.4 Coach SSE streaming
 1. `POST /coach/chat` returns `text/event-stream`.
@@ -660,8 +746,47 @@ EXIF and asserts the post-compress buffer has zero `GPS*` keys across every
 
 ## 11. Errors
 
-- Hierarchy: `DomainError` → `ValidationError`, `NotFoundError`, `ConflictError`, `BusinessRuleViolation`.
-- Global FastAPI handler → RFC 7807 `application/problem+json`.
+- Domain hierarchy (`app/core/errors.py`):
+  - `DomainError`
+    - `ValidationError` → HTTP 400 / 422 (Pydantic)
+    - `NotFoundError` → 404
+    - `ConflictError` → 409
+    - `GoneError` → 410 (used by `POST /me/cancel-deletion` when grace elapsed)
+    - `LockedError` → 423 (OTP locked, §7 `otp_codes.locked_until`)
+    - `BusinessRuleViolation` → 422
+    - `IllegalTransition` → 409 (plan state machine §9.3)
+    - `RateLimited` → 429 (Redis sliding window, §8)
+    - `CostCapExceeded` → 429 (per-user/per-org cap, §12 + ADR-0004)
+    - `AuthError`
+      - `Unauthenticated` → 401 (no/expired/bad JWT)
+      - `AuthTicketInvalid` → 401 (SSE ticket missing/expired/already-consumed)
+      - `Forbidden` → 403
+    - `UpstreamError` → 502 / 503 (OpenAI 5xx, DB pool exhausted)
+
+- Full HTTP status map emitted by this spec, every code wired to a translator
+  in `app/core/errors.py::problem_for(exc)`:
+
+  | HTTP | Emitter / cause |
+  |---:|---|
+  | 200 | success (GET / cancellation / export URL) |
+  | 201 | resource created (POST /plans, POST /logs/food*) |
+  | 202 | async accepted (DELETE /me, POST /logs/food/photo) |
+  | 204 | no content (PATCH /me/onboarding step ack, DELETE /logs/food/{id}) |
+  | 400 | malformed request (JSON parse, schema) |
+  | 401 | `Unauthenticated`, `AuthTicketInvalid` |
+  | 403 | `Forbidden` |
+  | 404 | `NotFoundError` (incl. IDOR-safe negative) |
+  | 409 | `ConflictError`, `IllegalTransition`, `one_active_plan` violation |
+  | 410 | `GoneError` (grace elapsed; tombstoned account) |
+  | 422 | `BusinessRuleViolation`, Pydantic validation |
+  | 423 | `LockedError` (OTP brute-force lockout) |
+  | 429 | `RateLimited` (rate limit) **and** `CostCapExceeded` (cost cap) |
+  | 500 | unhandled (Sentry-paged), `EXIFLeakError` (fail-closed) |
+  | 502 | `UpstreamError` from OpenAI / external |
+  | 503 | DB / Redis unavailable; `cost_cap.global_kill.enabled` short-circuit |
+
+- Global FastAPI handler → RFC 7807 `application/problem+json` with stable
+  `type` URIs (`https://nova-nutrition.com/errors/<slug>`) per subclass.
 - Structlog JSON logs with `request_id`, `user_id`, `trace_id`.
 
 ## 12. Security
@@ -729,13 +854,24 @@ EXIF and asserts the post-compress buffer has zero `GPS*` keys across every
 
 ## 14. Testing
 
-- `tests/unit/domain` — VOs, Mifflin formulas, recipe composition, macro balance.
-- `tests/unit/application` — use cases with in-memory repos.
-- `tests/integration` — pytest + testcontainers (real Timescale, Redis).
-- `tests/contract` — schemathesis over OpenAPI.
-- `tests/e2e` — onboarding → plan → logs → recalibration.
+- `tests/unit/domain/` — VOs, Mifflin formulas, recipe composition, macro balance.
+- `tests/unit/application/` — use cases with in-memory repos.
+- `tests/integration/` — pytest + testcontainers (real Timescale, Redis).
+- `tests/contract/` — schemathesis over OpenAPI.
+- `tests/e2e/` — onboarding → plan → logs → recalibration.
+- `tests/clinical/` — ADR-driven clinical-safety harness:
+  - `test_recalibration_blend.py` (ADR-0002 — OLS slope + winsorisation + blend)
+  - `test_vision_calibration_brier.py` (ADR-0003 — `confianza` Brier ≤ 0.20)
+- `tests/security/` — security & cost gates:
+  - `test_cost_cap_kill_switch.py` (ADR-0004 — 429 on user/org cap, 503 on kill)
+- `tests/compliance/` — GDPR/LGPD:
+  - `test_gdpr_erasure_cascade.py` (ADR-0005 — every owned table cascades)
+- `tests/data/` — catalog ingest gates (`test_catalog_ingest_gates.py`,
+  one test per gate from §20; catalog-ingest spec is the authority).
+- `tests/perf/` — `test_vector_recall.py` (HNSW recall@10 ≥ 0.95),
+  pytest-benchmark baselines per endpoint SLO.
 - factory-boy fixtures.
-- mutmut mutation tests over `nutrition/domain`.
+- mutmut mutation tests over `nutrition/domain` and `plan/domain`.
 - Coverage gates: domain 90%, application 80%, total 75%.
 - Load (k6): steady 100 rps + spike.
 
@@ -874,7 +1010,11 @@ audit report is green.
   ingest pipeline §20 translates via a fixed mapping table. The mapping is the
   authoritative bridge — no other code path translates enum values.
 
-Mapping table (excerpt, full table lives in the catalog-ingest spec):
+**Authoritative mapping table** — the ingest pipeline (§20) and the application
+both read this table; no other code path may translate enum values. Source of
+truth: this section. The catalog-ingest spec mirrors it.
+
+Meal times (`meal_time` enum):
 
 | Catalog (en) | DB (es) |
 |---|---|
@@ -882,11 +1022,48 @@ Mapping table (excerpt, full table lives in the catalog-ingest spec):
 | `lunch`     | `almuerzo` |
 | `dinner`    | `cena` |
 | `snack`     | `snack` |
+
+Goals (`objetivo` enum):
+
+| Catalog (en) | DB (es) |
+|---|---|
 | `weight_loss` | `bajar` |
 | `weight_maintenance` | `mantener` |
-| `muscle_building` / `build_muscle` / `muscle_hypertrophy` | `ganar_musculo` |
 | `weight_gain` | `ganar_peso` |
+| `muscle_building` / `build_muscle` / `muscle_hypertrophy` | `ganar_musculo` |
 | `general_health` / `general_wellness` | `salud` |
+
+Activity (`nivel_actividad` enum):
+
+| Catalog (en) | DB (es) |
+|---|---|
+| `sedentary` | `sedentario` |
+| `light` / `lightly_active` | `ligero` |
+| `moderate` / `moderately_active` | `moderado` |
+| `active` | `activo` |
+| `very_active` / `athlete` | `atleta` |
+
+Allergens (`allergen_enum`, ADR-0001):
+
+| Catalog (en) | DB (es) |
+|---|---|
+| `dairy` | `dairy` |
+| `gluten` | `gluten` |
+| `tree_nuts` | `tree_nuts` |
+| `peanuts` | `peanuts` |
+| `shellfish` | `shellfish` |
+| `fish` | `fish` |
+| `egg` | `egg` |
+| `soy` | `soy` |
+| `sesame` | `sesame` |
+
+(Allergens keep English tokens in the DB enum: they are clinical / regulatory
+identifiers, not user-facing strings; localisation happens at the presentation
+layer the same way as for ICD-10 codes.)
+
+Conditions (`canonical_conditions`, ADR-0001 Appendix A): full mapping table
+lives in ADR-0001 Appendix A; ingest gate 4 rejects any condition outside the
+canonical set.
 
 User-facing strings (recipe names, descriptions) are stored as-is and localised at
 the presentation layer.
@@ -910,3 +1087,15 @@ Two mutually exclusive resolutions; **(a) is the chosen path**:
 **Dependency**: implementation of `POST /plans` is blocked on resolution. Tracked by
 `tests/data/test_catalog_coverage.py::test_every_meal_time_has_minimum_records`
 (min 100 per enum value).
+
+### 22.6 Snack inventory gate (operational rule)
+
+Until the snack inventory reaches **≥ 100** approved records (validated by the
+ingest pipeline §20), `comidas_por_dia` is constrained at the API layer to
+`∈ {1, 2, 3}`. A request with `comidas_por_dia == 4` is rejected with `422
+BusinessRuleViolation` body `{"detail":"snack_slot_unavailable","required":100,
+"have":<n>}`. When inventory crosses the threshold (asserted by a Prometheus
+gauge `recipes_inventory_count{meal_time="snack"}`), the cap is raised to
+`≤ 4` and the feature flag `plans.snack_slot.enabled` is flipped via the
+admin-feature-flag endpoint (see §13 ops). No code deploy is required for the
+flip; the API reads the gauge + flag on every plan-creation request.

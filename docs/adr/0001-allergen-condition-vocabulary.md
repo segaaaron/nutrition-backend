@@ -30,9 +30,12 @@ allergen hard-exclude are not enforceable.
    nine values, matching the FALCPA 2023 top-9 US allergen list:
    `dairy, gluten, tree_nuts, peanuts, shellfish, fish, egg, soy, sesame`.
 2. **Condition vocabulary is a Python `StrEnum`** in `app/recipes/domain/conditions.py`
-   (≤25 values) and a CHECK constraint via a domain table
+   with exactly the 25 canonical values listed in Appendix A below, plus a
+   CHECK constraint via a domain table
    `condition_vocabulary(code text pk, icd10_category text, active bool)`.
    Application code rejects writes of any code not present-and-active.
+   Adding or removing a value requires an **ADR amendment** (not a code change
+   alone) plus a backfill / deprecation plan; see Governance below.
 3. **Disjointness invariant**: `allergens ∩ conditions == ∅` enforced at ingest
    (gate #4 in §20 of the spec) and as a domain assertion before persistence.
 4. **Sesame is included** in the allergen enum because it is a US top-9 allergen
@@ -56,6 +59,46 @@ allergen hard-exclude are not enforceable.
 - Existing 26 catalog records with allergen tokens in `conditions` fields are
   rejected by gate #4; they must be cleaned manually before re-ingest.
 - ICD-10 alignment becomes feasible in a future ADR without a vocabulary rewrite.
+
+## Appendix A — Canonical conditions (Spanish StrEnum, 25 values)
+
+Clinical priority list curated by `nova-clinical-nutrition-generator` and
+`nova-qa-elite`. Spanish snake_case identifiers match the DB enum convention
+(§21 of the design spec); ICD-10 categories are informational and used by the
+admin tooling to group filters.
+
+| Code (es) | ICD-10 category | Notes |
+|---|---|---|
+| `diabetes_t1` | E10 | insulin-dependent |
+| `diabetes_t2` | E11 | non-insulin-dependent |
+| `hipertension` | I10 | essential hypertension |
+| `dislipidemia` | E78 | incl. mixed hyperlipidaemia |
+| `hipercolesterolemia` | E78.0 | LDL-driven filters |
+| `hipotiroidismo` | E03 | iodine/selenium considerations |
+| `hipertiroidismo` | E05 | caffeine/iodine guidance |
+| `sii` | K58 | irritable bowel — FODMAP filter |
+| `eii` | K50–K51 | Crohn / UC |
+| `celiaca` | K90.0 | hard-exclude gluten (also via allergen) |
+| `intolerancia_lactosa` | E73 | distinct from dairy allergy |
+| `obesidad` | E66 | BMI ≥ 30 derived |
+| `sobrepeso` | E66.3 | 25 ≤ BMI < 30 |
+| `embarazo` | Z33 | pregnancy — folate / iron uplift |
+| `lactancia` | Z39.1 | lactation — kcal/protein uplift |
+| `atletismo` | Z02.5 | athletic load — performance fueling |
+| `ercc` | N18 | chronic kidney disease — K/Na/protein limits |
+| `cardiopatia` | I25 | ischaemic heart disease |
+| `higado_graso` | K76.0 | NAFLD — sat-fat / fructose limits |
+| `anemia_ferropenica` | D50 | iron-rich + cofactor pairing |
+| `sop` | E28.2 | polycystic ovary — insulin-resistance pattern |
+| `gota` | M10 | purine-restrict |
+| `deficit_vitamina_d` | E55 | sun + supplementation context |
+| `insomnio_cronico` | G47.0 | caffeine / late-meal guidance |
+| `depresion_leve` | F32.0 | omega-3 / Mediterranean pattern |
+
+**Governance rule.** Additions require a new ADR (amendment to ADR-0001),
+nutritionist sign-off, ICD-10 mapping, plan-filtering test scenarios, and a
+backfill plan. Removals are not permitted — only `active=false` deprecation
+to preserve historical plan filters.
 
 ## References
 

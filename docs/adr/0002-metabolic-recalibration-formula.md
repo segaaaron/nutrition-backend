@@ -68,8 +68,12 @@ Algorithm choices:
   pause recalibration via that flag.
 - **Insufficient data** (`< 7` weight points in 14d): SKIP silently, emit
   `recalibration_skipped_total{reason="insufficient_data"}`.
-- **Sensor noise / single outlier**: a single >3σ daily delta is winsorised to
-  the 95th percentile of the window before OLS.
+- **Sensor noise / single outlier**: the 14-day `peso_kg` series is winsorised
+  at the **5th and 95th percentiles** of the window before OLS. This bounds
+  both tails symmetrically (scale-calibration error and fluid swings can deviate
+  either way) and removes the need for a per-day σ estimate on a 14-point
+  sample where σ itself is noisy. Spec §9.2 carries the same step verbatim;
+  the two documents are the single source of truth.
 
 ## Consequences
 
