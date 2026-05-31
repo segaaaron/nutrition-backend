@@ -1453,3 +1453,95 @@ keeps the queue cheap.
 `scripts/resolve_ingredients.py --batch 100` — on-demand backfill of
 `recipe_components.food_id` via gpt-4o-mini parse + matcher. Idempotent,
 hard cap $2/run.
+
+---
+
+## §25 Sprint 7 + 8 patches (2026-05-31)
+
+### §25.1 §7 schema delta
+
+Migrations added beyond the §7 baseline (all idempotent, reversible):
+
+- `0004_food_log_aggregates.py` — materialised view
+  `food_logs_aggregates_daily(user_id, day, kcal, protein_g, carbs_g, fat_g,
+  n_logs)` with UNIQUE(user_id, day). Refresh nudge via Dokploy cron
+  (`*/15 * * * *`).
+- `0005_achievements_seed.py` — table `achievements_catalog(code, points,
+  icon)` seeded with the 32 entries (matches `app.gamification.domain.catalog`).
+  Also seeds five feature flags (`leaderboard_enabled` false; the rest true).
+- `0006_billing.py` — `subscriptions`, `billing_customers`, `payment_methods`,
+  `invoices`, `webhook_events` (UNIQUE event_id for idempotency), plus three
+  enums (`billing_plan_enum`, `billing_provider_enum`, `subscription_status_enum`).
+
+### §25.2 §8 endpoint inventory (additions)
+
+Tracking — food log queries:
+- `GET    /logs/food`              filters (date_from, date_to, meal_time, method), cursor
+- `DELETE /logs/food/{id}`         soft-delete via audit_log
+- `GET    /logs/food/totals/today` Redis-cached 60s
+- `GET    /logs/food/totals/trend` continuous-aggregate-backed
+- `GET    /logs/food/micros/today` totals + RDA gaps
+
+Tracking — fasting:
+- `POST /fasting/start`             Idempotency-Key, 409 if active
+- `POST /fasting/{id}/stop`
+- `GET  /fasting/active`            real-time elapsed/pct
+- `GET  /fasting/history`           cursor paginated
+
+Tracking — progress:
+- `POST   /progress/photo`          multipart, EXIF-strip verified
+- `GET    /progress`                weight trend + body comp + goal + recent photos
+- `GET    /progress/photos`
+- `DELETE /progress/photos/{id}`    audit-logged
+
+Grocery:
+- `GET    /plans/{id}/grocery-list` auto-generates if missing, ?scale=, ?regenerate
+- `PATCH  /grocery-items/{id}`
+- `POST   /grocery-items`
+- `DELETE /grocery-items/{id}`
+- `GET    /grocery-lists/{id}/share`  HMAC-signed URL
+- `GET    /grocery-lists/{id}/shared?token=`  read-only share view
+
+Gamification:
+- `GET /gamification/streak`
+- `GET /gamification/streaks`
+- `GET /gamification/achievements`  catalog + unlocked map
+- `GET /gamification/level`
+- `GET /gamification/progress`      composite (points, level, streaks, recent)
+- `GET /gamification/leaderboard`   feature-flag gated
+- `GET /gamification/celebrations/pending`
+
+Billing:
+- `POST /billing/checkout`          gateway-hosted URL
+- `POST /billing/trial`
+- `GET  /billing/subscription`
+- `GET  /me/subscription`           alias
+- `POST /billing/cancel`
+- `GET  /billing/invoices`
+- `POST /webhooks/stripe`           Stripe-Signature verified
+- `POST /webhooks/mercadopago`      X-Signature (HMAC follow-up)
+
+### §25.3 §22.7 feature flag seed (final)
+
+Seeded by `0005_achievements_seed.py`:
+
+| key                              | enabled | rollout | purpose |
+|----------------------------------|---------|---------|---------|
+| leaderboard_enabled              | false   | 0       | gated until anti-cheat |
+| coach_proactive_alerts           | true    | 100     | Sprint 6 feature G |
+| vision_2_tier_optimization       | true    | 100     | cheap tier first |
+| grocery_share_links              | true    | 100     | HMAC signed URLs |
+| billing_trial_enabled            | true    | 100     | 14-day premium trial |
+
+### §25.4 §15 roadmap update
+
+Sprint 7 complete: tracking-food-log-full, fasting, grocery, gamification-full,
+progress-photos.
+
+Sprint 8 complete: billing (Stripe + MP + gateway router), i18n full seed
+script, k6 baseline file (manual run), migrations 0004→0006, runbooks
+(backup-recovery + deploy-dokploy + scripts), spec patch, README, CONTEXT.md,
+pre-launch QA review.
+
+Post-launch backlog tracked in `docs/qa/2026-06-pre-launch-review.md` §
+"Suggested post-launch sprints".
