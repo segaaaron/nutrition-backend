@@ -18,7 +18,7 @@ from typing import Annotated, AsyncIterator
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Query, Request, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
 from app.coach.application.chat_message import ChatMessage
@@ -148,11 +148,16 @@ async def list_messages(
     )
 
 
-@router.delete("/conversations/{conv_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/conversations/{conv_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+)
 async def delete_conversation(
     conv_id: UUID, current_user: CurrentUserDep, session: SessionDep,
-) -> None:
+) -> Response:
     await SqlConversationRepository(session).delete(conv_id, current_user)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 class SwapResponse(BaseModel):
