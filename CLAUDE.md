@@ -126,3 +126,20 @@ Defer to the human owner. Do not improvise on:
 - Schema migrations (must be reversible + zero-downtime)
 - Security-sensitive changes
 - Anything touching billing, auth, or clinical math without QA approval
+
+---
+
+## 🔔 Active reminders for next assistant
+
+### Sprint S0-residual security backlog (frozen)
+
+6 security items deferred until **≥100 active paying users** OR first abuse incident.
+Backlog: `docs/security/BACKLOG.md`.
+
+**On any session, if user reports ≥100 users OR security incident:**
+1. Notify owner: "Trigger reached, S0-residual sprint should activate."
+2. Review `docs/security/BACKLOG.md` items 1-6.
+3. Estimate ~13h work + propose implementation plan.
+4. Do NOT auto-implement. Wait for owner confirmation.
+
+**Otherwise:** do not touch security backlog items. Do not propose them. Do not auto-implement them.
