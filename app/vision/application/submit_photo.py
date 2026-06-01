@@ -16,6 +16,7 @@ from app.core.errors import ValidationError
 from app.core.event_bus import EventBus
 from app.core.logging import get_logger
 from app.imaging.domain.contracts import CompressionProfile, ImageCompressor
+from app.imaging.domain.mime_sniff import assert_mime_matches
 from app.vision.domain.entities import VisionJob
 from app.vision.domain.events import VisionJobEnqueued
 from app.vision.domain.ports import VisionJobRepository
@@ -50,6 +51,12 @@ class SubmitPhoto:
             raise ValidationError(f"upload_too_large:{len(raw_bytes)}")
         if mime not in ALLOWED_MIME:
             raise ValidationError(f"unsupported_mime:{mime}")
+        # OWASP ASVS V12 — verify declared MIME matches actual bytes
+        # (anti-polyglot upload: PHP/SVG/EXE disguised as image).
+        try:
+            mime = assert_mime_matches(raw_bytes, mime)
+        except ValueError as e:
+            raise ValidationError(str(e)) from e
 
         compressed = await self.compressor.compress(
             raw_bytes, profile=CompressionProfile.MEAL_PHOTO,
