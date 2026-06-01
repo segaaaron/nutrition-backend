@@ -28,6 +28,8 @@ class Intent(str, Enum):
     GENERAL = "general"
     # Refuse (Camino 4 / 5%)
     MEDICAL_REDIRECT = "medical_redirect"
+    OFFTOPIC_REDIRECT = "offtopic_redirect"
+    PROMPT_INJECTION = "prompt_injection"
 
 
 @dataclass(slots=True)
