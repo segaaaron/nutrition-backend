@@ -67,6 +67,7 @@ async def query_food_logs(
     cursor: str | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
 ) -> FoodLogPage:
+    # BOLA OK: QueryFoodLogs passes user_id to FoodLogSearchQuery — repo filters by user_id.
     uc = QueryFoodLogs(repo=SqlFoodLogRepository(session))
     items, next_cursor = await uc(FoodLogSearchQuery(
         user_id=current_user, date_from=date_from, date_to=date_to,
@@ -99,6 +100,8 @@ async def delete_food_log(
     session: SessionDep,
     body: DeleteReason | None = Body(default=None),
 ) -> None:
+    # BOLA OK: DeleteFoodLog use case passes user_id to repo which filters
+    # DELETE ... WHERE id = :id AND user_id = :uid — raises NotFoundError if mismatch.
     uc = DeleteFoodLog(
         repo=SqlFoodLogRepository(session), bus=get_event_bus(), redis=get_redis(),
     )

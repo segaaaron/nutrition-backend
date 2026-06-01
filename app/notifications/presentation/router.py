@@ -50,6 +50,7 @@ async def register_token(
 async def delete_token(
     token: str, current_user: CurrentUserDep, session: SessionDep,
 ) -> None:
+    # BOLA OK: DELETE WHERE token = :t AND user_id = :uid — silently no-ops if not owner.
     await session.execute(text("""
         DELETE FROM push_tokens WHERE token = :t AND user_id = :uid
     """), {"t": token, "uid": str(current_user)})

@@ -112,6 +112,7 @@ async def list_progress_photos(
 async def delete_progress_photo(
     photo_id: UUID, current_user: CurrentUserDep, session: SessionDep,
 ) -> None:
+    # BOLA OK: SELECT ... WHERE id = :id AND user_id = :uid — raises NotFoundError if mismatch.
     r = (await session.execute(text("""
         SELECT id FROM progress_photos WHERE id = :id AND user_id = :uid
     """), {"id": str(photo_id), "uid": str(current_user)})).first()

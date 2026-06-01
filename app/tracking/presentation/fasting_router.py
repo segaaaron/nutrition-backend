@@ -57,6 +57,7 @@ class StopFastingOut(BaseModel):
 async def stop_fasting(
     session_id: UUID, current_user: CurrentUserDep, session: SessionDep,
 ) -> StopFastingOut:
+    # BOLA OK: StopFasting use case checks fs.user_id != user_id → NotFoundError.
     uc = StopFasting(repo=SqlFastingRepository(session), bus=get_event_bus())
     fs = await uc(user_id=current_user, session_id=session_id)
     return StopFastingOut(
