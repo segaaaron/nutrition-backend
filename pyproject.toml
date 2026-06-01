@@ -92,6 +92,7 @@ markers = [
     "slow: tests slower than 1s",
     "integration: requires testcontainers",
     "clinical: ADR-gated clinical safety tests",
+    "property: hypothesis property-based tests",
 ]
 
 [tool.coverage.run]
@@ -102,3 +103,36 @@ source = ["app", "worker"]
 fail_under = 75
 show_missing = true
 exclude_lines = ["pragma: no cover", "raise NotImplementedError", "if TYPE_CHECKING:"]
+
+[tool.importlinter]
+root_packages = ["app"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "plan domain may not import tracking domain"
+type = "forbidden"
+source_modules = ["app.plan.domain", "app.plan.application"]
+forbidden_modules = ["app.tracking.domain", "app.tracking.application"]
+
+[[tool.importlinter.contracts]]
+name = "new plan algorithm modules framework-agnostic"
+type = "forbidden"
+source_modules = [
+    "app.plan.domain.macro_calculator",
+    "app.plan.domain.bmr_safety",
+    "app.plan.domain.context",
+    "app.plan.domain.ports",
+    "app.shared.domain",
+]
+forbidden_modules = ["fastapi", "sqlalchemy", "pydantic", "starlette", "app.core.errors"]
+
+[[tool.importlinter.contracts]]
+name = "plan.domain must not import infrastructure or presentation"
+type = "forbidden"
+source_modules = ["app.plan.domain"]
+forbidden_modules = ["app.plan.infrastructure", "app.plan.presentation"]
+
+[dependency-groups]
+dev = [
+    "import-linter>=2.11",
+]
