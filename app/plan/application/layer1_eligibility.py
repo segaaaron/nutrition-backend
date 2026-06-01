@@ -7,6 +7,11 @@ slot. **Hard** rules (no soft fallback):
   2. Allergen hard-exclude: `NOT (recipes.allergens && user.allergies)` —
      never returns a recipe whose denormalised allergens overlap the user's
      allergies. Enforced through the closed `allergen_enum` (ADR-0001).
+     2b. Tree-nut defensive ingredient scan (FALCPA / EU 1169 / anaphylaxis):
+         when user allergies includes `tree_nuts`, additionally exclude any
+         recipe whose components reference a nut by name even if the
+         denormalised allergens array is missing the tag. Catalog audit
+         (2026-06-01) found 37 such mistagged recipes.
   3. Contraindicated conditions: any recipe listing a user's condition in
      `contraindicated_conditions` is dropped.
   4. Condition-specific clinical gates (per spec §6 / ADR-0001):
@@ -28,6 +33,14 @@ from uuid import UUID
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+
+# FALCPA / EU 1169 declared tree nuts. Lowercase ASCII-stripped match patterns
+# applied via regex over component free_text_name and joined food name.
+_TREE_NUT_PATTERN = (
+    r"\m(almond|almendra|walnut|nuez|cashew|maranon|maranón|maraño|maranõ|"
+    r"pistachio|pistacho|pecan|pacana|hazelnut|avellana|macadamia|"
+    r"brazil\s*nut|nuez\s*de\s*brasil|pine\s*nut|pinon|piñon|chestnut|castana|castaña)\M"
+)
 
 
 class _ProfileReader(Protocol):
@@ -66,6 +79,20 @@ class Layer1Eligibility:
             where.append("NOT (CAST(r.allergens AS text[]) && CAST(:allergies AS text[]))")
             params["allergies"] = allergies
 
+            if "tree_nuts" in allergies:
+                where.append(
+                    "NOT EXISTS ("
+                    " SELECT 1 FROM recipe_components rc"
+                    " LEFT JOIN foods f ON f.id = rc.food_id"
+                    " WHERE rc.recipe_id = r.id"
+                    " AND ("
+                    "   lower(coalesce(rc.free_text_name,'')) ~* :nut_pattern"
+                    "   OR lower(coalesce(f.name_en,'')) ~* :nut_pattern"
+                    " )"
+                    ")"
+                )
+                params["nut_pattern"] = _TREE_NUT_PATTERN
+
         if conditions:
             where.append(
                 "NOT (r.contraindicated_conditions && CAST(:conditions AS text[]))"
@@ -85,6 +112,21 @@ class Layer1Eligibility:
                 where.append(
                     "NOT (r.tags && ARRAY['organ_meat','shellfish']::text[])"
                 )
+            # ConditionGate Strategy dispatch (H2). Registered gates live in
+            # app/plan/domain/condition_gates. Layer 1 dispatches ALL registered
+            # gates for each declared user condition, composing their SQL
+            # fragments via AND. Adding a new condition = new Strategy class +
+            # `register_gate(...)` call — Layer 1 needs no edit.
+            #
+            # Currently registered: lactation, pregnancy, diabetes_t2, ckd,
+            # hypertension, celiac. Defensive COALESCE on un-backfilled
+            # micronutrient columns (safety > variety).
+            from app.plan.domain.condition_gates import gates_for
+            for cond in conditions:
+                for gate in gates_for(cond):
+                    g_sql, g_params = gate.contribute_sql()
+                    where.append(g_sql)
+                    params.update(g_params)
 
         sql = f"""
             SELECT r.id FROM recipes r

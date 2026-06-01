@@ -107,6 +107,31 @@ class Settings(BaseSettings):
     cors_allowed_origins: str = "https://app.nova-nutrition.com"
     ip_rate_limit_per_minute: int = 600
 
+    # --- MVP segment gate (handoff 2026-06-01) ---
+    # Refuse onboarding/profile-update for segments where catalog + algorithms
+    # are not clinically safe yet. Disable when catalog + condition macro
+    # overrides ship (see docs/algorithms/PRE_PROD_AUDIT.md).
+    mvp_segment_gate_enabled: bool = True
+    # MVP segment gate — final state after H2 lifts (2026-06-01):
+    #   - lactation: lifted ADR-0016 (200 recipes + LactationGate)
+    #   - diabetes_t2: lifted ADR-0018 (974 recipes + DiabetesT2Gate)
+    #   - ckd: lifted ADR-0019 (313 recipes with K+P micros + CKDGate)
+    #   - pregnancy: lifted ADR-0020 (26,827 pregnancy_safe pool + PregnancyGate
+    #     + trimester field in form). Per scope clarification: NOVA is a
+    #     nutrition planner, not clinical advice; disclaimer-covered.
+    #   - diabetes_t1: kept blocked — insulin timing/dosing requires explicit
+    #     clinical management beyond current algorithm scope.
+    mvp_blocked_conditions: str = "diabetes_t1"
+    mvp_blocked_regions: str = "us"
+
+    @property
+    def mvp_blocked_conditions_set(self) -> frozenset[str]:
+        return frozenset(s.strip() for s in self.mvp_blocked_conditions.split(",") if s.strip())
+
+    @property
+    def mvp_blocked_regions_set(self) -> frozenset[str]:
+        return frozenset(s.strip() for s in self.mvp_blocked_regions.split(",") if s.strip())
+
     @property
     def supported_locales_list(self) -> list[str]:
         return [s.strip() for s in self.supported_locales.split(",") if s.strip()]
