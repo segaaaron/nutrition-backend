@@ -44,6 +44,15 @@ class Settings(BaseSettings):
     jwt_issuer: str = "nova-nutrition"
     jwt_audience: str = "nova-mobile"
 
+    # --- JWT key rotation (ASVS V2 / S0-J) ---
+    # Comma-separated entries: "kid:path_to_priv.pem,kid2:path_to_priv2.pem"
+    # Public key assumed at path.replace('.pem', '.pub')
+    # If empty, falls back to jwt_private_key_path + jwt_public_key_path (legacy).
+    jwt_signing_keys: str = ""
+    jwt_active_kid: str = "key_v1"
+    # Comma-separated kids to reject immediately (compromised keys)
+    jwt_revoked_kids: str = ""
+
     # --- OAuth ---
     google_oauth_client_id: str = ""
     apple_oauth_client_id: str = ""

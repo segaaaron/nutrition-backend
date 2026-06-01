@@ -52,12 +52,33 @@ class JwtSigner:
         self._issuer = s.jwt_issuer
         self._audience = s.jwt_audience
         self._access_ttl = s.jwt_access_ttl_seconds
-        priv_path = Path(s.jwt_private_key_path)
-        pub_path = Path(s.jwt_public_key_path)
-        self._private_key = priv_path.read_bytes() if priv_path.exists() else b""
-        self._public_key = pub_path.read_bytes() if pub_path.exists() else b""
+        self._active_kid = s.jwt_active_kid
+        self._revoked: set[str] = {
+            k.strip() for k in s.jwt_revoked_kids.split(",") if k.strip()
+        }
+        self._keys: dict[str, tuple[bytes, bytes]] = {}  # kid -> (priv_pem, pub_pem)
+
+        if s.jwt_signing_keys:
+            # Multi-key path: "k1:/secrets/v1.pem,k2:/secrets/v2.pem"
+            for entry in s.jwt_signing_keys.split(","):
+                kid, path = entry.split(":", 1)
+                kid = kid.strip()
+                path = path.strip()
+                priv_path = Path(path)
+                pub_path = Path(path.replace(".pem", ".pub"))
+                priv = priv_path.read_bytes() if priv_path.exists() else b""
+                pub = pub_path.read_bytes() if pub_path.exists() else b""
+                self._keys[kid] = (priv, pub)
+        else:
+            # Legacy single-key path — backward compat for existing tests/deployments
+            priv_path = Path(s.jwt_private_key_path)
+            pub_path = Path(s.jwt_public_key_path)
+            priv = priv_path.read_bytes() if priv_path.exists() else b""
+            pub = pub_path.read_bytes() if pub_path.exists() else b""
+            self._keys[self._active_kid] = (priv, pub)
 
     def sign_access(self, *, user_id: UUID, role: str) -> str:
+        priv, _ = self._keys[self._active_kid]
         now = int(time.time())
         payload = {
             "sub": str(user_id),
@@ -68,17 +89,38 @@ class JwtSigner:
             "exp": now + self._access_ttl,
             "jti": uuid4().hex,
         }
-        return pyjwt.encode(payload, self._private_key, algorithm="RS256")
+        return pyjwt.encode(
+            payload, priv, algorithm="RS256", headers={"kid": self._active_kid}
+        )
 
     async def verify_access(self, token: str) -> dict:
-        """Verify RS256 token and check Redis revocation denylist.
+        """Verify RS256 token: check kid, select matching pubkey, check denylist.
 
-        Raises Unauthenticated if the token is invalid or has been revoked.
+        Raises Unauthenticated if:
+        - token header is malformed / missing kid
+        - kid is in the revoked set
+        - kid is unknown (not in key registry)
+        - RS256 signature / claims validation fails
+        - jti is in Redis denylist
         """
+        try:
+            unverified_header = pyjwt.get_unverified_header(token)
+        except InvalidTokenError as e:
+            raise Unauthenticated(f"jwt_invalid:{e!s}") from e
+
+        kid = unverified_header.get("kid")
+        if not kid:
+            raise Unauthenticated("jwt_missing_kid")
+        if kid in self._revoked:
+            raise Unauthenticated(f"jwt_kid_revoked:{kid}")
+        if kid not in self._keys:
+            raise Unauthenticated(f"jwt_kid_unknown:{kid}")
+
+        _, pub = self._keys[kid]
         try:
             claims = pyjwt.decode(
                 token,
-                self._public_key,
+                pub,
                 algorithms=["RS256"],
                 audience=self._audience,
                 issuer=self._issuer,
@@ -86,6 +128,7 @@ class JwtSigner:
             )
         except InvalidTokenError as e:
             raise Unauthenticated(f"jwt_invalid:{e!s}") from e
+
         jti = claims.get("jti")
         if jti and await is_jti_revoked(jti):
             raise Unauthenticated("jwt_revoked")
