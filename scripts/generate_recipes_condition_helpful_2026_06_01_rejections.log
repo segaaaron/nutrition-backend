@@ -1,0 +1,52 @@
+TOTAL accepted=845 rejected=40
+
+  fatty_liver               gen= 135 acc= 135 rej=  0 dedup=  0
+  hypercholesterolemia      gen= 150 acc= 150 rej=  0 dedup=  0
+  pcos                      gen= 100 acc= 100 rej=  0 dedup=  0
+  ibs                       gen= 100 acc= 100 rej=  0 dedup=  0
+  hypothyroidism            gen= 100 acc= 100 rej=  0 dedup=  0
+  gout                      gen= 100 acc=  90 rej=  0 dedup= 10
+  vitamin_d_deficiency      gen=  50 acc=  40 rej=  0 dedup= 10
+  lactose_intolerance       gen= 100 acc=  90 rej=  0 dedup= 10
+  overweight                gen=  50 acc=  40 rej=  0 dedup= 10
+
+nova_meal_cond_go_0041	dedup_name
+nova_meal_cond_go_0042	dedup_name
+nova_meal_cond_go_0043	dedup_name
+nova_meal_cond_go_0044	dedup_name
+nova_meal_cond_go_0045	dedup_name
+nova_meal_cond_go_0046	dedup_name
+nova_meal_cond_go_0047	dedup_name
+nova_meal_cond_go_0048	dedup_name
+nova_meal_cond_go_0049	dedup_name
+nova_meal_cond_go_0050	dedup_name
+nova_meal_cond_vd_0031	dedup_name
+nova_meal_cond_vd_0032	dedup_name
+nova_meal_cond_vd_0033	dedup_name
+nova_meal_cond_vd_0034	dedup_name
+nova_meal_cond_vd_0035	dedup_name
+nova_meal_cond_vd_0036	dedup_name
+nova_meal_cond_vd_0037	dedup_name
+nova_meal_cond_vd_0038	dedup_name
+nova_meal_cond_vd_0039	dedup_name
+nova_meal_cond_vd_0040	dedup_name
+nova_meal_cond_li_0061	dedup_name
+nova_meal_cond_li_0062	dedup_name
+nova_meal_cond_li_0063	dedup_name
+nova_meal_cond_li_0064	dedup_name
+nova_meal_cond_li_0065	dedup_name
+nova_meal_cond_li_0066	dedup_name
+nova_meal_cond_li_0067	dedup_name
+nova_meal_cond_li_0068	dedup_name
+nova_meal_cond_li_0069	dedup_name
+nova_meal_cond_li_0070	dedup_name
+nova_meal_cond_ow_0021	dedup_name
+nova_meal_cond_ow_0022	dedup_name
+nova_meal_cond_ow_0023	dedup_name
+nova_meal_cond_ow_0024	dedup_name
+nova_meal_cond_ow_0025	dedup_name
+nova_meal_cond_ow_0026	dedup_name
+nova_meal_cond_ow_0027	dedup_name
+nova_meal_cond_ow_0028	dedup_name
+nova_meal_cond_ow_0029	dedup_name
+nova_meal_cond_ow_0030	dedup_name
