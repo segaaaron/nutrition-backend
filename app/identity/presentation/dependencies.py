@@ -238,3 +238,39 @@ def make_cancel_delete(session: SessionDep) -> CancelDeletion:
 
 def make_export(session: SessionDep) -> ExportData:
     return ExportData(users=SqlUserRepository(session))
+
+
+# --- OWASP API1 (BOLA) defence ---
+
+async def assert_owns(
+    session: AsyncSession,
+    *,
+    table: str,
+    resource_id: "UUID | str",
+    user_id: UUID,
+    id_col: str = "id",
+    user_col: str = "user_id",
+) -> None:
+    """Raise NotFoundError / Forbidden if ``resource_id`` does not belong to ``user_id``.
+
+    OWASP API1 (BOLA) defence — call before any read/write on a user-owned
+    resource accessed by external ID.
+
+    Args:
+        session: Active async DB session.
+        table: Table name (e.g. ``"food_logs"``).
+        resource_id: UUID of the row being accessed.
+        user_id: UUID from the verified JWT (``current_user``).
+        id_col: Primary-key column name (default ``"id"``).
+        user_col: Ownership column name (default ``"user_id"``).
+    """
+    from app.core.errors import Forbidden, NotFoundError  # local to avoid circular
+
+    row = (await session.execute(
+        text(f"SELECT {user_col} FROM {table} WHERE {id_col} = :rid"),
+        {"rid": str(resource_id)},
+    )).first()
+    if row is None:
+        raise NotFoundError(f"{table}_not_found")
+    if str(row[0]) != str(user_id):
+        raise Forbidden("not_owner")
