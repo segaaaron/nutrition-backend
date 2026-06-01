@@ -40,7 +40,7 @@ from app.coach.presentation.schemas import (
 from app.core.errors import RateLimited
 from app.core.event_bus import get_event_bus
 from app.core.redis import get_redis
-from app.identity.presentation.dependencies import CurrentUserDep, SessionDep
+from app.identity.presentation.dependencies import CurrentUserDep, SessionDep, assert_owns
 from app.recipes.infrastructure.openai_embedder import OpenAIEmbedder
 
 router = APIRouter(prefix="/coach", tags=["coach"])
@@ -137,6 +137,9 @@ async def list_messages(
     limit: int = Query(50, ge=1, le=100),
     cursor: str | None = Query(None),
 ) -> MessagesList:
+    await assert_owns(
+        session, table="coach_conversations", resource_id=conv_id, user_id=current_user,
+    )
     repo = SqlConversationRepository(session)
     msgs, nxt = await repo.get_messages(conv_id, limit=limit, cursor=cursor)
     return MessagesList(
@@ -156,6 +159,7 @@ async def list_messages(
 async def delete_conversation(
     conv_id: UUID, current_user: CurrentUserDep, session: SessionDep,
 ) -> Response:
+    # BOLA OK: repo.delete(conv_id, current_user) filters by both conv_id AND user_id.
     await SqlConversationRepository(session).delete(conv_id, current_user)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
