@@ -19,6 +19,7 @@ from app.core.config import get_settings
 from app.core.db import dispose_engine, get_engine
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging, get_logger
+from app.core.sentry import init_sentry
 from app.core.metrics import ARQ_QUEUE_DEPTH, HttpMetricsMiddleware, get_arq_queue_depth
 from app.core.redis import close_redis, get_redis
 from app.coach.presentation.router import router as coach_router
@@ -50,6 +51,7 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
 
 
 def create_app() -> FastAPI:
+    init_sentry()
     settings = get_settings()
     configure_logging(settings.log_level)
     log = get_logger("app.main")

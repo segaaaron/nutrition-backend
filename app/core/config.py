@@ -80,6 +80,9 @@ class Settings(BaseSettings):
 
     # --- Observability ---
     sentry_dsn: str = ""
+    sentry_environment: str = "production"
+    sentry_traces_sample_rate: float = 0.10
+    sentry_profiles_sample_rate: float = 0.0
     otel_exporter_otlp_endpoint: str = ""
     otel_service_name: str = "nova-nutrition-backend"
 
