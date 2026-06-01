@@ -36,6 +36,9 @@ from app.recipes.presentation.schemas import (
 )
 
 router = APIRouter(tags=["recipes"])
+# BOLA EXEMPT: recipes, foods, and food-barcode endpoints are global catalog
+# reads — no user_id column exists on these tables and no ownership check applies.
+# Any authenticated (or unauthenticated in future) user may read them.
 
 
 def _accept_lang(accept_language: str | None) -> str:
