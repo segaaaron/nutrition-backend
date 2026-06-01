@@ -11,8 +11,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from decimal import Decimal
-from typing import Mapping, NamedTuple
+from typing import Literal, Mapping, NamedTuple
 from uuid import UUID
+
+# Goal label used by MacroTargets. ADR-0015 uses "weight_loss" to apply a
+# stricter liquid-meal cap; other goals share the relaxed cap.
+Goal = Literal["weight_loss", "maintain", "muscle_gain", "weight_gain", "health"]
+_VALID_GOALS: frozenset[str] = frozenset(
+    {"weight_loss", "maintain", "muscle_gain", "weight_gain", "health"}
+)
 
 
 # ---------------------------------------------------------------------------
@@ -34,8 +41,13 @@ class MacroTargets:
     fat_g: Decimal
     fiber_g_min: Decimal = Decimal("25")
     meals_per_day: int = 3
+    goal: Goal = "maintain"
 
     def __post_init__(self) -> None:
+        if self.goal not in _VALID_GOALS:
+            raise ValueError(
+                f"goal must be one of {sorted(_VALID_GOALS)}, got {self.goal!r}"
+            )
         if self.kcal < 0:
             raise ValueError("kcal must be >= 0")
         if self.protein_g < 0:
@@ -55,7 +67,7 @@ class MacroTargets:
     def protein_per_meal(self) -> Decimal:
         return self.protein_g / Decimal(self.meals_per_day)
 
-    def to_dict(self) -> dict[str, Decimal | int]:
+    def to_dict(self) -> dict[str, Decimal | int | str]:
         return {
             "kcal": self.kcal,
             "protein_g": self.protein_g,
@@ -63,6 +75,7 @@ class MacroTargets:
             "fat_g": self.fat_g,
             "fiber_g_min": self.fiber_g_min,
             "meals_per_day": self.meals_per_day,
+            "goal": self.goal,
         }
 
 
@@ -145,6 +158,9 @@ class RecipeView:
     meal_time: str | None
     prep_min: int | None
     embedding: tuple[float, ...] | None = None
+    # ADR-0015 — Layer 4 coherence reads this to apply the daily liquid cap.
+    # Values: "solid" (default), "semi_solid", "liquid".
+    meal_format: Literal["solid", "semi_solid", "liquid"] = "solid"
 
 
 # ---------------------------------------------------------------------------
