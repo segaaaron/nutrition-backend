@@ -14,6 +14,8 @@ ActivityLevel = Literal[
     "sedentary", "lightly_active", "moderately_active", "very_active", "extra_active"
 ]
 Theme = Literal["light", "dark"]
+DietaryPattern = Literal["omnivore", "pescatarian", "vegetarian", "vegan"]
+Trimester = Literal["first", "second", "third"]
 
 
 @dataclass(slots=True)
@@ -25,12 +27,16 @@ class UserProfile:
     units: Units = "metric"
     weight_kg: Decimal | None = None
     height_cm: Decimal | None = None
+    bodyfat_pct: Decimal | None = None
     goal: Goal | None = None
     activity_level: ActivityLevel | None = None
+    dietary_pattern: DietaryPattern | None = None
     medical_conditions: list[str] = field(default_factory=list)
     other_condition: str | None = None
     allergies: list[str] = field(default_factory=list)
     other_allergy: str | None = None
+    trimester: Trimester | None = None
+    is_exclusively_breastfeeding: bool | None = None
     country: str | None = None
     region: str | None = None
     locale: str = "en"
@@ -47,4 +53,5 @@ class UserProfile:
             and self.height_cm is not None
             and self.goal is not None
             and self.activity_level is not None
+            and self.dietary_pattern is not None
         )

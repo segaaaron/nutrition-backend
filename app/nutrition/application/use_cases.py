@@ -14,6 +14,7 @@ from uuid import UUID
 
 from app.core.errors import BusinessRuleViolation, NotFoundError
 from app.core.event_bus import EventBus
+from app.core.logging import get_logger
 from app.nutrition.domain.hydration import compute_water_ml
 from app.nutrition.domain.kcal_range import to_range
 from app.nutrition.domain.macro_partitioning import compute_macros
@@ -26,6 +27,24 @@ from app.nutrition.domain.recalibration import (
 )
 from app.nutrition.domain.state_machine import NutritionalGoals
 from app.nutrition.domain.tdee import compute_tdee
+
+_log = get_logger("nutrition.use_cases")
+
+
+def _bmr_safety_warn(*, user_id: UUID, kcal_target: int, bmr: int) -> None:
+    """Warn (do not raise) when kcal_target below BMR safety floor.
+
+    Master plan H1.4 invariant: kcal_target >= bmr * 0.9. Existing flow
+    currently clamps at 800 kcal which can sit below this floor for small
+    female users under weight_loss. Warn for telemetry; do not break
+    onboarding. Future migration to Decimal-strict path will enforce.
+    """
+    floor = int(round(bmr * 0.9))
+    if kcal_target < floor:
+        _log.warning(
+            "kcal_target_below_bmr_safety_floor",
+            user_id=str(user_id), kcal_target=kcal_target, bmr=bmr, floor=floor,
+        )
 
 
 def _now() -> datetime:
@@ -82,6 +101,7 @@ def _build_goals(
     bmr = compute_bmr(sex=sex, weight_kg=weight_kg, height_cm=height_cm, age=age)  # type: ignore[arg-type]
     tdee_base = compute_tdee(bmr, af)
     kcal_target = max(800, tdee_base + _GOAL_KCAL_DELTA.get(goal, 0))
+    _bmr_safety_warn(user_id=user_id, kcal_target=kcal_target, bmr=bmr)
     macros = compute_macros(kcal_target=kcal_target, weight_kg=weight_kg, goal=goal)  # type: ignore[arg-type]
     krange = to_range(kcal_target)
     water = compute_water_ml(weight_kg=weight_kg, activity_factor=af)

@@ -57,7 +57,11 @@ async def onboarding(
     body: OnboardingRequest, current_user: CurrentUserDep, session: SessionDep,
 ) -> ProfileResponse:
     uc = CompleteOnboarding(profiles=SqlProfileRepository(session), bus=get_event_bus())
-    return _to_resp(await uc(user_id=current_user, payload=body.model_dump()))
+    # Normalize height: meters → cm if mobile sent height_m.
+    payload = body.model_dump(exclude_none=False)
+    payload["height_cm"] = body.resolved_height_cm
+    payload.pop("height_m", None)
+    return _to_resp(await uc(user_id=current_user, payload=payload))
 
 
 @router.get("/me/locale", response_model=LocaleResponse)
