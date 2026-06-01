@@ -17,3 +17,11 @@ async def fake_redis():
     client = fakeredis.aioredis.FakeRedis(decode_responses=True)
     yield client
     await client.aclose()
+
+
+@pytest.fixture
+def fake_redis_sync():
+    """Async FakeRedis returned synchronously — for middleware tests using
+    starlette TestClient which sync-drives async middleware via anyio."""
+    import fakeredis.aioredis
+    return fakeredis.aioredis.FakeRedis(decode_responses=True)

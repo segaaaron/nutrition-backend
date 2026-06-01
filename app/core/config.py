@@ -98,6 +98,7 @@ class Settings(BaseSettings):
 
     # --- CORS ---
     cors_allowed_origins: str = "https://app.nova-nutrition.com"
+    ip_rate_limit_per_minute: int = 600
 
     @property
     def supported_locales_list(self) -> list[str]:
