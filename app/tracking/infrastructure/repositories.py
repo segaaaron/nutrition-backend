@@ -49,6 +49,24 @@ class SqlWeightLogRepository:
         ))
         await self.s.flush()
 
+    async def latest(
+        self, user_id: UUID,
+    ) -> tuple[datetime, "Decimal"] | None:  # type: ignore[name-defined]
+        """Returns (time, weight_kg) of most recent log, or None."""
+        from decimal import Decimal
+        sql = text("""
+            SELECT time, weight_kg FROM weight_logs
+             WHERE user_id = :uid
+             ORDER BY time DESC LIMIT 1
+        """)
+        try:
+            row = (await self.s.execute(sql, {"uid": str(user_id)})).first()
+        except Exception:  # noqa: BLE001
+            return None
+        if row is None:
+            return None
+        return row[0], Decimal(str(row[1]))
+
     async def trend(
         self, user_id: UUID, *, window_days: int,
     ) -> list[tuple[datetime, float]]:

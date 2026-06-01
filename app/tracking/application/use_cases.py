@@ -37,6 +37,25 @@ class LogWeight:
         body_fat_pct: Decimal | None = None, waist_cm: Decimal | None = None,
         photo_url: str | None = None,
     ) -> None:
+        # OWASP API4 — anomaly guard: reject impossible values before persist.
+        # Defends recalibration + plateau detection from poisoned data.
+        from app.tracking.domain.anomaly import (
+            assert_bodyfat_plausible,
+            assert_waist_plausible,
+            assert_weight_delta_plausible,
+            assert_weight_plausible,
+        )
+        assert_weight_plausible(weight_kg)
+        assert_bodyfat_plausible(body_fat_pct)
+        assert_waist_plausible(waist_cm)
+
+        last = await self.repo.latest(user_id)
+        if last is not None:
+            last_time, last_weight = last
+            now_dt = datetime.now(timezone.utc)
+            days = max(1, (now_dt - last_time).days)
+            assert_weight_delta_plausible(weight_kg, last_weight, days)
+
         now = datetime.now(timezone.utc)
         await self.repo.append(WeightLog(
             user_id=user_id, time=now, weight_kg=weight_kg,
