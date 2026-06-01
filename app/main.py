@@ -19,6 +19,7 @@ from app.core.config import get_settings
 from app.core.db import dispose_engine, get_engine
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging, get_logger
+from app.core.anti_sniff import AntiSniffMiddleware
 from app.core.ip_rate_limit import IpRateLimitMiddleware
 from app.core.security_headers import SecurityHeadersMiddleware
 from app.core.sentry import init_sentry
@@ -84,6 +85,7 @@ def create_app() -> FastAPI:
         max_age=600,
     )
     app.add_middleware(SecurityHeadersMiddleware, is_production=is_prod)
+    app.add_middleware(AntiSniffMiddleware, enforce=is_prod)
     app.add_middleware(IpRateLimitMiddleware, limit_per_minute=settings.ip_rate_limit_per_minute)
     app.add_middleware(GZipMiddleware, minimum_size=512)
     app.add_middleware(RequestIdMiddleware)
