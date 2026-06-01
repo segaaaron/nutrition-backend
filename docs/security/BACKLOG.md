@@ -60,6 +60,12 @@ S1-4 anomaly guard tracking weight (physiological bounds + delta)
 
 **NOT in backlog (paid / external action — declined per owner policy):**
 - Pen-test externo (~$1.5k) — defer until $5k MRR + funding
+- **Sentry SaaS backend obs** — replaced by local ErrorTrackerMiddleware
+  (ring buffer + rotated JSONL + Prometheus counter + admin endpoint).
+  Re-evaluate when: >1000 active users OR primer incidente prod sin
+  visibilidad suficiente con logs locales OR self-host GlitchTip
+  preferred over local. Mobile crashes go to Firebase Crashlytics
+  (mobile team owns that integration).
 
 ---
 

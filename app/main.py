@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -20,9 +20,9 @@ from app.core.db import dispose_engine, get_engine
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging, get_logger
 from app.core.anti_sniff import AntiSniffMiddleware
+from app.core.error_tracker import ErrorTrackerMiddleware
 from app.core.ip_rate_limit import IpRateLimitMiddleware
 from app.core.security_headers import SecurityHeadersMiddleware
-from app.core.sentry import init_sentry
 from app.core.metrics import ARQ_QUEUE_DEPTH, HttpMetricsMiddleware, get_arq_queue_depth
 from app.core.redis import close_redis, get_redis
 from app.coach.presentation.router import router as coach_router
@@ -56,7 +56,6 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
 
 
 def create_app() -> FastAPI:
-    init_sentry()
     settings = get_settings()
     configure_logging(settings.log_level)
     log = get_logger("app.main")
@@ -87,6 +86,7 @@ def create_app() -> FastAPI:
     app.add_middleware(SecurityHeadersMiddleware, is_production=is_prod)
     app.add_middleware(AntiSniffMiddleware, enforce=is_prod)
     app.add_middleware(IpRateLimitMiddleware, limit_per_minute=settings.ip_rate_limit_per_minute)
+    app.add_middleware(ErrorTrackerMiddleware)
     app.add_middleware(GZipMiddleware, minimum_size=512)
     app.add_middleware(RequestIdMiddleware)
     app.add_middleware(HttpMetricsMiddleware)
@@ -159,6 +159,36 @@ def create_app() -> FastAPI:
     @app.get("/metrics", tags=["ops"], include_in_schema=False)
     async def metrics() -> PlainTextResponse:
         return PlainTextResponse(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+    from app.core.error_tracker import clear_ring, recent_errors
+    from app.identity.domain.roles import Role
+    from app.identity.presentation.dependencies import require_role
+
+    @app.get(
+        "/admin/errors/recent",
+        tags=["ops"],
+        include_in_schema=False,
+        dependencies=[Depends(require_role(Role.ADMIN))],
+    )
+    async def admin_recent_errors(limit: int = 100) -> JSONResponse:
+        """Admin self-inspection of last N unhandled errors (in-memory ring).
+
+        Replaces Sentry dashboard for MVP. Survives restart? No — ring is
+        in-memory. Persistent log is at NOVA_ERROR_LOG_PATH (default
+        /var/log/nova/errors.jsonl, rotated externally e.g. logrotate).
+        """
+        return JSONResponse(content={"errors": recent_errors(min(limit, 500))})
+
+    @app.delete(
+        "/admin/errors/recent",
+        tags=["ops"],
+        include_in_schema=False,
+        status_code=200,
+        dependencies=[Depends(require_role(Role.ADMIN))],
+    )
+    async def admin_clear_errors() -> JSONResponse:
+        cleared = clear_ring()
+        return JSONResponse(content={"cleared": cleared})
 
     @app.on_event("startup")
     async def _startup() -> None:

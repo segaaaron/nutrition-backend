@@ -88,10 +88,8 @@ class Settings(BaseSettings):
     web_max_concurrent_requests: int = 200
 
     # --- Observability ---
-    sentry_dsn: str = ""
-    sentry_environment: str = "production"
-    sentry_traces_sample_rate: float = 0.10
-    sentry_profiles_sample_rate: float = 0.0
+    # Local error tracker writes rotated JSONL to this path. Override per env.
+    nova_error_log_path: str = "/var/log/nova/errors.jsonl"
     # --- i18n ---
     supported_locales: str = "en,es,pt,fr,de"
     default_locale: Literal["en", "es", "pt", "fr", "de"] = "en"
