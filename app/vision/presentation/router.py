@@ -23,7 +23,7 @@ from app.core.config import get_settings
 from app.core.errors import RateLimited, ValidationError
 from app.core.event_bus import get_event_bus
 from app.core.redis import get_redis
-from app.identity.presentation.dependencies import CurrentUserDep, SessionDep
+from app.identity.presentation.dependencies import CurrentUserDep, SessionDep, assert_owns
 from app.imaging.infrastructure.vips_compressor import VipsImageCompressor
 from app.vision.application.get_job_status import GetJobStatus
 from app.vision.application.learn_user_correction import LearnUserCorrection
@@ -129,6 +129,7 @@ async def ai_recognize_alias(
 async def get_job_status(
     job_id: UUID, current_user: CurrentUserDep, session: SessionDep,
 ) -> JobStatusResponse:
+    # BOLA OK: GetJobStatus use case checks job.user_id != user_id → raises Forbidden.
     uc = GetJobStatus(repo=SqlVisionJobRepository(session))
     job = await uc(job_id=job_id, user_id=current_user)
     return JobStatusResponse(
@@ -156,6 +157,8 @@ async def edit_food_log(
     current_user: CurrentUserDep,
     session: SessionDep,
 ) -> None:
+    # BOLA: verify the food_log belongs to current_user before applying correction.
+    await assert_owns(session, table="food_logs", resource_id=food_log_id, user_id=current_user)
     uc = LearnUserCorrection(session=session)
     await uc(
         user_id=current_user,
