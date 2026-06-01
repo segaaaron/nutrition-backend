@@ -1,7 +1,7 @@
-existing_before=33069
-added=747
-total_after=33816
-rejected=31168
+existing_before=33758
+added=393
+total_after=34151
+rejected=31857
 
 nova_meal_liq_001	dedupe_existing_id
 nova_meal_liq_002	dedupe_existing_id

@@ -30,6 +30,7 @@ ROUND2 = ROOT / "data" / "meals" / "round2_batch_2026_06_01.json"
 COND_HELPFUL = ROOT / "data" / "meals" / "condition_helpful_batch_2026_06_01.json"
 VIRAL = ROOT / "data" / "meals" / "viral_juices_2026_06_01.json"
 ROUND3 = ROOT / "data" / "meals" / "round3_batch_2026_06_01.json"
+FINAL = ROOT / "data" / "meals" / "finalization_batch_2026_06_01.json"
 LOG = ROOT / "scripts" / "merge_catalog_batches_rejections.log"
 
 
@@ -69,7 +70,7 @@ def main() -> None:
     added: list[dict] = []
     rejected: list[tuple[str, str]] = []
 
-    for batch_path in (LIQUID, BULK, L99, GAP, ROUND2, COND_HELPFUL, VIRAL, ROUND3):
+    for batch_path in (LIQUID, BULK, L99, GAP, ROUND2, COND_HELPFUL, VIRAL, ROUND3, FINAL):
         if not batch_path.exists():
             continue
         batch = json.loads(batch_path.read_text())
