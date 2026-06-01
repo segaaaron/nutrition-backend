@@ -36,4 +36,6 @@ def test_validate_tolerance_outside_2pct_fails() -> None:
 
 def test_tolerance_constant_is_locked_to_two_percent() -> None:
     # Guards against accidental relaxation of the single source of truth.
-    assert MACRO_TOLERANCE == pytest.approx(0.02)
+    # MACRO_TOLERANCE is Decimal('0.02') per ADR-0009 (Decimal-strict migration).
+    from decimal import Decimal
+    assert MACRO_TOLERANCE == Decimal("0.02")
