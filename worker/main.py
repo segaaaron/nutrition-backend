@@ -27,6 +27,7 @@ from worker.coach_tasks import (
 )
 from worker.plan_tasks import generate_plan_task
 from worker.vision_tasks import vision_recognize_task
+from worker.idempotency_tasks import cleanup_idempotency_keys_cron
 
 _settings = get_settings()
 
@@ -44,6 +45,8 @@ CRON_JOBS: list[Any] = [
     cron(coach_weekly_review_cron, name="coach_weekly_review", hour={*range(24)}, minute=15),
     # Nightly backfill — 03:00 UTC.
     cron(coach_recipe_story_backfill_cron, name="coach_recipe_story_backfill", hour={3}, minute=0),
+    # Nightly cleanup — 03:00 UTC, 30-minute offset to spread I/O.
+    cron(cleanup_idempotency_keys_cron, name="cleanup_idempotency_keys", hour={3}, minute=30),
     # Every 5 minutes — short-lived cleanup.
     cron(cleanup_expired_sse_tickets_cron, name="cleanup_sse_tickets", minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55}),
     cron(cleanup_expired_otp_lockouts_cron, name="cleanup_otp_lockouts", minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55}),

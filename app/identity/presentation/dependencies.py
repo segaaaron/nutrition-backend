@@ -5,11 +5,13 @@ from __future__ import annotations
 
 import json
 from collections.abc import AsyncIterator
+from datetime import datetime, timedelta, timezone
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import Depends, Header, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_sessionmaker
@@ -110,14 +112,28 @@ async def require_admin(
 CurrentUserDep = Annotated[UUID, Depends(get_current_user)]
 
 
+async def db_lookup_idempotent(session: AsyncSession, rkey: str) -> dict | None:
+    """Check Postgres for a cached idempotency response (Redis fallback)."""
+    row = (await session.execute(text(
+        "SELECT response_body FROM idempotency_keys "
+        "WHERE key = :k AND expires_at > now()"
+    ), {"k": rkey})).first()
+    if row is None:
+        return None
+    body = row[0]
+    return body if isinstance(body, dict) else json.loads(body)
+
+
 async def idempotency_key(
     request: Request,
+    session: SessionDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
     user_id: CurrentUserDep | None = None,  # type: ignore[assignment]
 ) -> tuple[str, str] | None:
-    """Returns (redis_key, cached_response_json) if replay; otherwise (key, None).
+    """Returns (redis_key, cached_response_json) if replay; otherwise (key, "").
 
     `None` means client did not opt into idempotency for this request.
+    On Redis miss, falls back to Postgres (survives Redis restart).
     """
     if not idempotency_key:
         return None
@@ -126,12 +142,32 @@ async def idempotency_key(
     composite = f"{user_id}:{request.url.path}:{idempotency_key}"
     rkey = "idem:" + hashlib.sha256(composite.encode()).hexdigest()
     cached = await redis.get(rkey)
-    return (rkey, cached or "")
+    if cached:
+        return (rkey, cached)
+    body = await db_lookup_idempotent(session, rkey)
+    if body is not None:
+        await redis.set(rkey, json.dumps(body), ex=24 * 3600)
+        return (rkey, json.dumps(body))
+    return (rkey, "")
 
 
-async def remember_idempotent(rkey: str, body: dict) -> None:
-    redis = get_redis()
-    await redis.set(rkey, json.dumps(body), ex=24 * 3600)
+async def remember_idempotent(
+    rkey: str,
+    body: dict,
+    *,
+    session: AsyncSession,
+    redis=None,
+) -> None:
+    """Dual-write idempotency response to Redis and Postgres."""
+    r = redis or get_redis()
+    payload = json.dumps(body)
+    expires = datetime.now(timezone.utc) + timedelta(hours=24)
+    await r.set(rkey, payload, ex=24 * 3600)
+    await session.execute(text("""
+        INSERT INTO idempotency_keys (key, response_body, expires_at)
+        VALUES (:k, CAST(:b AS jsonb), :e)
+        ON CONFLICT (key) DO NOTHING
+    """), {"k": rkey, "b": payload, "e": expires})
 
 
 # --- Use-case factories (DI sugar) ---
