@@ -1,0 +1,47 @@
+# gitleaks config — augments default ruleset with NOVA-specific patterns.
+# Default rules cover AWS, GCP, Stripe, Slack, GitHub, JWT, SSH, etc.
+
+title = "NOVA gitleaks config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "openai-api-key"
+description = "OpenAI API key (sk-...)"
+regex = '''sk-[a-zA-Z0-9]{20,}'''
+keywords = ["sk-"]
+
+[[rules]]
+id = "mercadopago-access-token"
+description = "MercadoPago access token"
+regex = '''APP_USR-[0-9]{18}-[0-9]{6}-[a-f0-9]{32}-[0-9]{9}'''
+keywords = ["APP_USR-"]
+
+[[rules]]
+id = "stripe-restricted-key"
+description = "Stripe restricted/secret key"
+regex = '''(?:sk|rk)_live_[0-9a-zA-Z]{24,}'''
+keywords = ["sk_live_", "rk_live_"]
+
+[[rules]]
+id = "sentry-dsn"
+description = "Sentry DSN with credentials"
+regex = '''https://[0-9a-f]{32}@[a-zA-Z0-9.-]+\.ingest\.sentry\.io/[0-9]+'''
+keywords = ["@sentry.io"]
+
+[allowlist]
+description = "Allow test/example fixtures"
+paths = [
+  '''tests/.*''',
+  '''.env.example''',
+  '''docs/.*''',
+  '''SECURITY.md''',
+  '''CLAUDE.md''',
+]
+regexes = [
+  '''sk-test''',
+  '''sk-placeholder''',
+  '''YOUR_.*_HERE''',
+  '''xxx+''',
+]

@@ -1,0 +1,44 @@
+# Dependabot weekly dep updates (OSS, free, included in GitHub).
+# Groups patch+minor; opens PR per group weekly.
+
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Lima
+    open-pull-requests-limit: 5
+    groups:
+      production-patches:
+        applies-to: version-updates
+        update-types: [patch]
+      production-minors:
+        applies-to: version-updates
+        update-types: [minor]
+      dev-tools:
+        applies-to: version-updates
+        dependency-type: development
+    labels:
+      - dependencies
+      - security
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    labels:
+      - dependencies
+      - ci
+
+  - package-ecosystem: docker
+    directory: /docker
+    schedule:
+      interval: weekly
+      day: monday
+    labels:
+      - dependencies
+      - docker
