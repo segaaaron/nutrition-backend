@@ -25,3 +25,24 @@ def test_layer1_clinical_gates_present() -> None:
     src = inspect.getsource(layer1_eligibility)
     for fragment in ("sugar_g <= 15", "sodium_mg <= 600", "sat_fat_g <= 5", "organ_meat"):
         assert fragment in src, f"missing clinical gate: {fragment}"
+
+
+def test_layer1_treenut_defensive_ingredient_scan_present() -> None:
+    """Catalog audit 2026-06-01: 37 recipes contain nuts in ingredients[]
+    without tree_nuts in allergens[]. Layer 1 MUST scan recipe_components
+    when user has tree_nuts allergy to defend against this catalog gap."""
+    src = inspect.getsource(layer1_eligibility)
+    for fragment in (
+        '"tree_nuts" in allergies',
+        "NOT EXISTS",
+        "recipe_components",
+        "nut_pattern",
+        "almond",
+        "almendra",
+        "walnut",
+        "cashew",
+        "pistachio",
+        "hazelnut",
+        "macadamia",
+    ):
+        assert fragment in src, f"missing tree-nut defense fragment: {fragment}"
