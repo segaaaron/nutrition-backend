@@ -1,0 +1,128 @@
+# NOVA Nutrition — MVP-minimal docker-compose for Dokploy.
+#
+# TARGET: VPS with ~3-4 GB RAM available (other projects already deployed).
+# TOTAL FOOTPRINT: ~2.1 GB steady state (db 1.2G + api 0.6G + redis 0.2G).
+#
+# DELIBERATE OMISSIONS at MVP launch:
+#   * NO worker (Arq) container — no background jobs needed until vision /
+#     coach / recalibration features have real traffic. Add later via
+#     docker-compose.full.yml when scale demands it.
+#   * shared_preload_libraries=timescaledb DISABLED — TimescaleDB only needed
+#     once tracking time-series volume grows (~10k+ users). Vanilla pgvector
+#     image works fine for MVP catalog + plan_versions.
+#   * Connection pool TIGHT — 20 max_connections vs typical 75. Sufficient
+#     for <100 concurrent users.
+#
+# UPGRADE PATH:
+#   When RAM headroom appears (other projects retire or VPS upgrade), switch
+#   to docker-compose.yml (full config) which adds worker container + larger
+#   buffers.
+#
+# DEPLOY:
+#   1. Dokploy: connect repo, set env vars (.env.example as template)
+#   2. Dokploy auto-runs `alembic upgrade head` via api container pre-start
+#   3. Owner SSH to VPS once:
+#        docker exec -it $(docker ps -qf name=api) python -m scripts.seed_recipes
+#        docker exec -it $(docker ps -qf name=api) python -m scripts.compute_embeddings --max-usd 1.00
+#   4. Embedding backfill costs ~$0.40 and takes ~30 min (one-time).
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    env_file: .env
+    environment:
+      WEB_CONCURRENCY: "1"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    # Pre-start hook: applies migrations before serving requests.
+    # Idempotent (alembic skips already-applied revisions).
+    command: >
+      sh -c "
+        alembic upgrade head &&
+        uvicorn app.main:app
+        --host 0.0.0.0
+        --port 8000
+        --workers 1
+        --limit-concurrency 100
+        --timeout-keep-alive 30
+      "
+    deploy:
+      resources:
+        limits:
+          memory: 600M
+          cpus: "1.0"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/healthz"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s  # allow time for alembic upgrade on first start
+      retries: 3
+
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: nova
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-novapass}
+      POSTGRES_DB: nova
+    # Tuned for ~1.2 GB container limit.
+    # shared_buffers 25% of container limit.
+    # effective_cache_size assumes some host OS cache help.
+    command: >
+      postgres
+      -c shared_buffers=300MB
+      -c max_connections=20
+      -c work_mem=4MB
+      -c maintenance_work_mem=64MB
+      -c effective_cache_size=800MB
+      -c random_page_cost=1.1
+      -c wal_buffers=4MB
+      -c log_min_duration_statement=1000
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    shm_size: 256m
+    deploy:
+      resources:
+        limits:
+          memory: 1200M
+          cpus: "1.0"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nova -d nova"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    command: >
+      redis-server
+      --maxmemory 150mb
+      --maxmemory-policy allkeys-lru
+      --save ""
+      --appendonly no
+    volumes:
+      - redisdata:/data
+    deploy:
+      resources:
+        limits:
+          memory: 200M
+          cpus: "0.3"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata: {}
+  redisdata: {}

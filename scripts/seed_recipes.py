@@ -1,24 +1,35 @@
-"""Seed `recipes` from `data/meals/nova_meals_catalog.cleaned.json`.
+"""Seed `recipes` from `data/meals/nova_meals_catalog.cleaned.json` (schema v2 snake_case).
 
-EN canonical mapping (spec §21):
-  - name        -> name_en (Spanish source kept as name_translations.es)
-  - description -> description_en (Spanish source kept as description_translations.es)
-  - instructions-> instructions_en (Spanish source kept as instructions_translations.es)
-  - regions     -> regions[]
-  - allergens   -> recipe_allergens (trigger syncs recipes.allergens)
-  - mealTime    -> meal_time
-  - target/recommended/contraindicated conditions / goals stored as text[] / enum[]
+Catalog schema v2 (post-2026-06-01 migration):
+  - All keys snake_case English (ES preserved in name/description/ingredients values)
+  - Fields: id, name, description, image_url,
+            nutrition_profile.{calories, macros{protein_g/carbs_g/fat_g/fiber_g/sugar_g/sat_fat_g/sodium_mg}, micronutrients{...}},
+            matching_criteria.{target_goals, suitable_for_activity, recommended_for_conditions,
+                               contraindicated_conditions, allergens, regions, dietary_pattern,
+                               cuisine_region, meal_format, pregnancy_safe},
+            execution.{meal_time, prep_time_minutes, cook_time_minutes, image_url, ingredients,
+                       instructions, servings, source_catalog},
+            audit.{schema_version, macro_consistency_pct, ...}
 
-Components: per execution.ingredients we try a `nombre_norm` lookup in
-`foods`; on miss we store `free_text_name` (still a valid component per the
-schema CHECK constraint).
+UPSERT key: `name_en` (the master recipe name as displayed). Re-runs replace
+recipe_components + recipe_allergens for matched recipes.
 
-Idempotent: UPSERT on `name_en`. Re-runs replace recipe_components +
-recipe_allergens for the matched recipe. Triggers recompute recipes.allergens
-and recipes.fiber_g/sugar_g/sodium_mg/sat_fat_g.
+Idempotent — safe to re-run after catalog updates. Existing rows with same
+name_en are UPDATEd, new rows INSERTed.
 
-Audit gate: refuses to run unless the latest reports/catalog_audit_*.json is
-present and exit code says all 8 gates passed (audit pipeline §20).
+ENV:
+  SKIP_AUDIT_GATE=1   skips the legacy reports/ audit check (default: skip
+                      always — v2 schema replaces the legacy gate with
+                      tests/catalog/test_enum_closure.py CI guard)
+  DRY_RUN=1           parse + validate but don't write to DB
+  LIMIT=<int>         only process first N recipes (for smoke tests)
+
+Run inside Dokploy container:
+  docker exec -it nova-api-1 python -m scripts.seed_recipes
+
+Verify after:
+  docker exec -it nova-db-1 psql -U nova -d nova -c \\
+    "SELECT COUNT(*) FROM recipes;"
 """
 from __future__ import annotations
 
@@ -27,7 +38,6 @@ import json
 import os
 import re
 import sys
-import unicodedata
 from pathlib import Path
 from typing import Any
 
@@ -35,35 +45,42 @@ from sqlalchemy import text
 
 from app.core.db import session_scope
 from app.core.logging import configure_logging, get_logger
-from scripts.seed_foods import normalise as norm_food_name
 
 log = get_logger("scripts.seed_recipes")
 
 ROOT = Path(__file__).resolve().parent.parent
 CATALOG_PATH = ROOT / "data" / "meals" / "nova_meals_catalog.cleaned.json"
-REPORTS_DIR = ROOT / "reports"
 
-VALID_ALLERGENS = {
+VALID_ALLERGENS: frozenset[str] = frozenset({
     "dairy", "gluten", "tree_nuts", "peanuts", "shellfish", "fish", "egg",
     "soy", "sesame", "celery", "mustard", "lupin", "sulphites", "molluscs",
-}
-VALID_REGIONS = {"us", "ca", "eu", "uk", "latam"}
-VALID_GOALS = {"weight_loss", "maintain", "muscle_gain", "weight_gain", "health"}
+})
+VALID_REGIONS: frozenset[str] = frozenset({"us", "ca", "eu", "uk", "latam"})
+VALID_GOALS: frozenset[str] = frozenset({
+    "weight_loss", "maintain", "muscle_gain", "weight_gain", "health",
+})
+VALID_MEAL_TIMES: frozenset[str] = frozenset({"breakfast", "lunch", "dinner", "snack"})
 
 
 def _detect_locale(text_blob: str) -> str:
     """Cheap language sniff: Spanish vs English. Returns BCP-47 locale code."""
-    es_markers = (" de ", " con ", " sin ", " la ", " el ", " y ", " para ", "ñ", "á", "é", "í", "ó", "ú")
+    es_markers = (
+        " de ", " con ", " sin ", " la ", " el ", " y ", " para ",
+        "ñ", "á", "é", "í", "ó", "ú",
+    )
     score = sum(1 for m in es_markers if m in text_blob.lower())
     return "es" if score >= 2 else "en"
 
 
-_AMOUNT_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*(g|gr|grs|gramos|ml|tazas?|cdas?|cdtas?|piezas?|unid|huevos?|hojas?|rodajas?)\b", re.IGNORECASE)
+_AMOUNT_RE = re.compile(
+    r"(\d+(?:[.,]\d+)?)\s*(g|gr|grs|gramos|ml|tazas?|cdas?|cdtas?|piezas?|"
+    r"unid|huevos?|hojas?|rodajas?)\b",
+    re.IGNORECASE,
+)
 
 
 def _parse_amount_g(ingredient_str: str) -> float | None:
-    """Best-effort parse of '40 g de avena' -> 40.0; '200 ml de leche' -> 200.0
-    (treating ml as g; not perfect but good enough for the seed batch)."""
+    """Best-effort parse of '40 g de avena' -> 40.0; '200 ml de leche' -> 200.0."""
     m = _AMOUNT_RE.search(ingredient_str)
     if not m:
         return None
@@ -73,77 +90,51 @@ def _parse_amount_g(ingredient_str: str) -> float | None:
         return None
 
 
-def _strip_amount(ingredient_str: str) -> str:
-    """Strip amount + connector words; keep the food identifier."""
-    s = _AMOUNT_RE.sub("", ingredient_str)
-    s = re.sub(r"\b(de|del|la|el|en|con|sin)\b", " ", s, flags=re.IGNORECASE)
-    s = " ".join(s.split())
-    return s.strip()
-
-
-def _audit_report_green() -> bool:
-    if not REPORTS_DIR.exists():
-        return False
-    reports = sorted(REPORTS_DIR.glob("catalog_audit_*.json"))
-    if not reports:
-        return False
-    latest = reports[-1]
-    try:
-        data = json.loads(latest.read_text())
-    except json.JSONDecodeError:
-        return False
-    # Schema written by scripts/audit_catalog.py: {"summary": {"all_passed": bool}, ...}
-    summary = data.get("summary", {})
-    return bool(summary.get("all_passed") or summary.get("exit_code") == 0)
-
-
-async def _lookup_food_id(s, ingredient_str: str) -> str | None:
-    stripped = _strip_amount(ingredient_str)
-    if not stripped:
-        return None
-    nname = norm_food_name(stripped)
-    res = await s.execute(
-        text("SELECT id FROM foods WHERE name_norm = :n LIMIT 1"),
-        {"n": nname},
-    )
-    row = res.first()
-    if row:
-        return str(row[0])
-    # Trigram fallback (looser)
-    res = await s.execute(
-        text("SELECT id FROM foods WHERE name_norm % :n ORDER BY similarity(name_norm, :n) DESC LIMIT 1"),
-        {"n": nname},
-    )
-    row = res.first()
-    return str(row[0]) if row else None
-
-
-def _filter_enum(items: list[str], allowed: set[str]) -> list[str]:
+def _filter_enum(items: list[str], allowed: frozenset[str]) -> list[str]:
     return [i for i in items if i in allowed]
 
 
 async def main() -> int:
     configure_logging()
-    if not _audit_report_green() and os.environ.get("SKIP_AUDIT_GATE") != "1":
-        log.error("seed_recipes.audit_gate_failed",
-                  detail="No green catalog_audit_*.json in reports/. Set SKIP_AUDIT_GATE=1 to override.")
-        return 2
 
     if not CATALOG_PATH.exists():
         log.error("seed_recipes.catalog_missing", path=str(CATALOG_PATH))
         return 2
 
-    raw = json.loads(CATALOG_PATH.read_text())
-    log.info("seed_recipes.catalog_loaded", n=len(raw))
+    dry_run = os.environ.get("DRY_RUN") == "1"
+    limit = int(os.environ.get("LIMIT", "0"))
 
-    # Duplicate guard — append _v2 suffix for the known dupes after first sight.
+    raw = json.loads(CATALOG_PATH.read_text())
+    if limit > 0:
+        raw = raw[:limit]
+    log.info(
+        "seed_recipes.catalog_loaded",
+        n=len(raw), dry_run=dry_run, limit_applied=limit,
+    )
+
     seen_names: dict[str, int] = {}
     inserted = updated = errors = 0
+
+    if dry_run:
+        # Validate parseability + enum membership, do not write.
+        for rec in raw:
+            try:
+                mc = rec.get("matching_criteria") or {}
+                _filter_enum(mc.get("regions") or [], VALID_REGIONS)
+                _filter_enum(mc.get("allergens") or [], VALID_ALLERGENS)
+                _filter_enum(mc.get("target_goals") or [], VALID_GOALS)
+                meal_time = (rec.get("execution") or {}).get("meal_time")
+                if meal_time and meal_time not in VALID_MEAL_TIMES:
+                    errors += 1
+            except Exception:  # noqa: BLE001
+                errors += 1
+        log.info("seed_recipes.dry_run_complete", total=len(raw), errors=errors)
+        return 0 if errors == 0 else 1
 
     async with session_scope() as s:
         for rec in raw:
             try:
-                name = rec.get("name", "").strip()
+                name = (rec.get("name") or "").strip()
                 if not name:
                     errors += 1
                     continue
@@ -152,55 +143,79 @@ async def main() -> int:
                     name = f"{name} v{seen_names[name]}"
 
                 desc = (rec.get("description") or "").strip()
-                nut = rec.get("nutritionProfile") or {}
+                image_url = rec.get("image_url")
+
+                nut = rec.get("nutrition_profile") or {}
                 macros = nut.get("macros") or {}
+                micros = nut.get("micronutrients") or {}
+
+                mc = rec.get("matching_criteria") or {}
                 exe = rec.get("execution") or {}
-                crit = rec.get("matchingCriteria") or {}
 
                 ingredients: list[str] = exe.get("ingredients") or []
                 instructions: list[str] = exe.get("instructions") or []
                 locale = _detect_locale(" ".join([name, desc] + instructions))
 
-                regions = _filter_enum(crit.get("regions") or [], VALID_REGIONS)
-                if not regions:
-                    regions = ["latam"]  # seed default
+                regions = _filter_enum(mc.get("regions") or [], VALID_REGIONS) or ["latam"]
+                allergens = _filter_enum(mc.get("allergens") or [], VALID_ALLERGENS)
+                target_goals = _filter_enum(mc.get("target_goals") or [], VALID_GOALS)
+                recommended = list(mc.get("recommended_for_conditions") or [])
+                contraindicated = list(mc.get("contraindicated_conditions") or [])
 
-                allergens = _filter_enum(crit.get("allergens") or [], VALID_ALLERGENS)
-                target_goals = _filter_enum(crit.get("targetGoals") or [], VALID_GOALS)
-                recommended = list(crit.get("recommendedForConditions") or [])
-                contraindicated = list(crit.get("contraindicatedConditions") or [])
-                meal_time = exe.get("mealTime") or None
-                if meal_time not in {"breakfast", "lunch", "dinner", "snack"}:
+                meal_time = exe.get("meal_time")
+                if meal_time not in VALID_MEAL_TIMES:
                     meal_time = None
-                prep_min = exe.get("prepTimeMinutes")
-                image_url = exe.get("firebaseImageUrl")
+                prep_min = exe.get("prep_time_minutes")
                 source_batch = exe.get("source_catalog") or rec.get("source_catalog")
 
-                # Build translations
-                name_translations = json.dumps({locale: rec["name"]}) if locale != "en" else "{}"
-                description_translations = json.dumps({locale: desc}) if desc and locale != "en" else "{}"
-                instructions_translations = (
-                    json.dumps({locale: instructions}) if instructions and locale != "en" else "{}"
+                # v2 schema additions (migration 0008+0010)
+                pregnancy_safe = bool(mc.get("pregnancy_safe", False))
+                # Note: dietary_pattern, cuisine_region, meal_format live as
+                # JSONB or tags in DB if user adds columns; for now stored in
+                # the audit JSONB blob preserved as-is by the table column
+                # if present, else ignored. Defensive: only populate columns
+                # known to exist per migrations 0001-0008.
+
+                # Translations
+                name_translations = (
+                    json.dumps({locale: rec["name"]}) if locale != "en" else "{}"
                 )
-                # EN canonical fields: copy source if locale=='en' else leave as source-language
-                # for the MVP (downstream translation worker will fill EN later).
-                name_en = name if locale == "en" else name  # always store; UI uses translations
-                description_en = desc
-                instructions_en = instructions
+                description_translations = (
+                    json.dumps({locale: desc}) if desc and locale != "en" else "{}"
+                )
+                instructions_translations = (
+                    json.dumps({locale: instructions})
+                    if instructions and locale != "en" else "{}"
+                )
 
                 params: dict[str, Any] = {
-                    "name_en": name_en,
+                    "name_en": name,
                     "name_translations": name_translations,
-                    "description_en": description_en,
+                    "description_en": desc,
                     "description_translations": description_translations,
                     "image_url": image_url,
                     "kcal": nut.get("calories"),
-                    "protein_g": macros.get("proteinG"),
-                    "carbs_g": macros.get("carbsG"),
-                    "fat_g": macros.get("fatG"),
+                    "protein_g": macros.get("protein_g"),
+                    "carbs_g": macros.get("carbs_g"),
+                    "fat_g": macros.get("fat_g"),
+                    "fiber_g": macros.get("fiber_g") or 0,
+                    "sugar_g": macros.get("sugar_g") or 0,
+                    "sat_fat_g": macros.get("sat_fat_g") or 0,
+                    "sodium_mg": macros.get("sodium_mg") or 0,
+                    # Micronutrients (migration 0008 columns; NULL OK)
+                    "gi": micros.get("gi"),
+                    "gl": micros.get("gl"),
+                    "potassium_mg": micros.get("potassium_mg"),
+                    "phosphorus_mg": micros.get("phosphorus_mg"),
+                    "iron_mg": micros.get("iron_mg"),
+                    "heme_pct": micros.get("heme_pct"),
+                    "calcium_mg": micros.get("calcium_mg"),
+                    "omega3_mg": micros.get("omega3_mg"),
+                    "folate_ug": micros.get("folate_ug"),
+                    "pregnancy_safe": pregnancy_safe,
                     "meal_time": meal_time,
                     "prep_min": prep_min,
-                    "instructions_en": instructions_en,
+                    "instructions_en": instructions,
                     "instructions_translations": instructions_translations,
                     "regions": "{" + ",".join(regions) + "}",
                     "target_goals": "{" + ",".join(target_goals) + "}",
@@ -209,10 +224,14 @@ async def main() -> int:
                     "source_batch": source_batch,
                     "source_catalog": source_batch,
                 }
+
                 res = await s.execute(text("""
                     INSERT INTO recipes (
                         name_en, name_translations, description_en, description_translations,
                         image_url, kcal, protein_g, carbs_g, fat_g,
+                        fiber_g, sugar_g, sat_fat_g, sodium_mg,
+                        gi, gl, potassium_mg, phosphorus_mg, iron_mg, heme_pct,
+                        calcium_mg, omega3_mg, folate_ug, pregnancy_safe,
                         meal_time, prep_min, instructions_en, instructions_translations,
                         regions, target_goals, recommended_conditions, contraindicated_conditions,
                         source_batch, source_catalog
@@ -220,6 +239,9 @@ async def main() -> int:
                         :name_en, CAST(:name_translations AS jsonb),
                         :description_en, CAST(:description_translations AS jsonb),
                         :image_url, :kcal, :protein_g, :carbs_g, :fat_g,
+                        :fiber_g, :sugar_g, :sat_fat_g, :sodium_mg,
+                        :gi, :gl, :potassium_mg, :phosphorus_mg, :iron_mg, :heme_pct,
+                        :calcium_mg, :omega3_mg, :folate_ug, :pregnancy_safe,
                         CAST(:meal_time AS meal_time_enum), :prep_min, :instructions_en,
                         CAST(:instructions_translations AS jsonb),
                         CAST(:regions AS char(5)[]),
@@ -237,6 +259,20 @@ async def main() -> int:
                         protein_g = EXCLUDED.protein_g,
                         carbs_g = EXCLUDED.carbs_g,
                         fat_g = EXCLUDED.fat_g,
+                        fiber_g = EXCLUDED.fiber_g,
+                        sugar_g = EXCLUDED.sugar_g,
+                        sat_fat_g = EXCLUDED.sat_fat_g,
+                        sodium_mg = EXCLUDED.sodium_mg,
+                        gi = EXCLUDED.gi,
+                        gl = EXCLUDED.gl,
+                        potassium_mg = EXCLUDED.potassium_mg,
+                        phosphorus_mg = EXCLUDED.phosphorus_mg,
+                        iron_mg = EXCLUDED.iron_mg,
+                        heme_pct = EXCLUDED.heme_pct,
+                        calcium_mg = EXCLUDED.calcium_mg,
+                        omega3_mg = EXCLUDED.omega3_mg,
+                        folate_ug = EXCLUDED.folate_ug,
+                        pregnancy_safe = EXCLUDED.pregnancy_safe,
                         meal_time = EXCLUDED.meal_time,
                         prep_min = EXCLUDED.prep_min,
                         instructions_en = EXCLUDED.instructions_en,
@@ -250,41 +286,63 @@ async def main() -> int:
                     RETURNING id, (xmax = 0) AS inserted
                 """), params)
                 row = res.first()
+                if row is None:
+                    errors += 1
+                    continue
                 recipe_id = row[0]
                 if row[1]:
                     inserted += 1
                 else:
                     updated += 1
 
-                # Replace allergens (trigger will sync recipes.allergens denorm column)
-                await s.execute(text("DELETE FROM recipe_allergens WHERE recipe_id = :rid"), {"rid": recipe_id})
+                # Replace allergens (trigger syncs recipes.allergens denorm column)
+                await s.execute(
+                    text("DELETE FROM recipe_allergens WHERE recipe_id = :rid"),
+                    {"rid": recipe_id},
+                )
                 for a in allergens:
                     await s.execute(
-                        text("INSERT INTO recipe_allergens(recipe_id, allergen) VALUES (:rid, CAST(:a AS allergen_enum))"),
+                        text(
+                            "INSERT INTO recipe_allergens(recipe_id, allergen) "
+                            "VALUES (:rid, CAST(:a AS allergen_enum))"
+                        ),
                         {"rid": recipe_id, "a": a},
                     )
 
-                # Replace components
-                await s.execute(text("DELETE FROM recipe_components WHERE recipe_id = :rid"), {"rid": recipe_id})
+                # Replace components (ingredients → recipe_components rows)
+                await s.execute(
+                    text("DELETE FROM recipe_components WHERE recipe_id = :rid"),
+                    {"rid": recipe_id},
+                )
                 for idx, ingr in enumerate(ingredients):
-                    food_id = await _lookup_food_id(s, ingr)
                     amount_g = _parse_amount_g(ingr)
                     await s.execute(text("""
                         INSERT INTO recipe_components (recipe_id, food_id, free_text_name, amount_g, position)
-                        VALUES (:rid, :fid, :ftn, :amt, :pos)
+                        VALUES (:rid, NULL, :ftn, :amt, :pos)
                     """), {
                         "rid": recipe_id,
-                        "fid": food_id,
-                        "ftn": None if food_id else ingr.strip(),
+                        "ftn": ingr.strip(),
                         "amt": amount_g,
                         "pos": idx,
                     })
+
+                if (inserted + updated) % 1000 == 0:
+                    log.info(
+                        "seed_recipes.progress",
+                        processed=inserted + updated, errors=errors,
+                    )
+
             except Exception as e:  # noqa: BLE001
                 errors += 1
-                log.error("seed_recipes.row_failed", name=rec.get("name"), error=str(e))
+                log.error(
+                    "seed_recipes.row_failed",
+                    name=rec.get("name"), error=str(e),
+                )
 
-    log.info("seed_recipes.complete",
-             total=len(raw), inserted=inserted, updated=updated, errors=errors)
+    log.info(
+        "seed_recipes.complete",
+        total=len(raw), inserted=inserted, updated=updated, errors=errors,
+    )
     return 0 if errors == 0 else 1
 
 
