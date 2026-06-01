@@ -18,6 +18,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.core.config import get_settings
 from app.core.db import dispose_engine, get_engine
 from app.core.errors import register_exception_handlers
+from app.core.problem_details import register_problem_handlers
 from app.core.logging import configure_logging, get_logger
 from app.core.anti_sniff import AntiSniffMiddleware
 from app.core.error_tracker import ErrorTrackerMiddleware
@@ -92,6 +93,10 @@ def create_app() -> FastAPI:
     app.add_middleware(HttpMetricsMiddleware)
 
     register_exception_handlers(app)
+    # RFC 7807 urn:nova:problem:* — overrides generic handlers for
+    # BusinessRuleViolation / NotFoundError / RequestValidationError with the
+    # mobile-contract URN scheme.
+    register_problem_handlers(app)
 
     # --- Bounded-context routers ---
     app.include_router(identity_router)
