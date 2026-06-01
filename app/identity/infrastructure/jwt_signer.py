@@ -1,17 +1,19 @@
-"""JWT signing infrastructure. RS256 with `kid` header for key rotation.
+"""RS256 JWT signer/verifier backed by PyJWT.
 
-For dev / tests, falls back to an in-memory HS256 secret when key files are
-absent — production deployment MUST mount RSA key pair via Dokploy secrets.
+Migrated from python-jose (2026-06): jose is semi-abandoned and accrues
+CVEs. PyJWT is the mainstream maintained alternative; same RS256 keys
+work without rotation.
 """
 from __future__ import annotations
 
 import hashlib
 import secrets
-from datetime import datetime, timedelta, timezone
+import time
 from pathlib import Path
-from uuid import UUID
+from uuid import UUID, uuid4
 
-from jose import jwt as jose_jwt
+import jwt as pyjwt
+from jwt.exceptions import InvalidTokenError
 
 from app.core.config import get_settings
 from app.core.errors import Unauthenticated
@@ -25,42 +27,33 @@ class JwtSigner:
         self._access_ttl = s.jwt_access_ttl_seconds
         priv_path = Path(s.jwt_private_key_path)
         pub_path = Path(s.jwt_public_key_path)
-        if priv_path.exists() and pub_path.exists():
-            self._algorithm = "RS256"
-            self._private_key = priv_path.read_text()
-            self._public_key = pub_path.read_text()
-            self._kid = hashlib.sha256(self._public_key.encode()).hexdigest()[:16]
-        else:
-            # Dev fallback. NEVER use in prod.
-            self._algorithm = "HS256"
-            self._private_key = secrets.token_urlsafe(48)
-            self._public_key = self._private_key
-            self._kid = "dev-hs256"
+        self._private_key = priv_path.read_bytes() if priv_path.exists() else b""
+        self._public_key = pub_path.read_bytes() if pub_path.exists() else b""
 
     def sign_access(self, *, user_id: UUID, role: str) -> str:
-        now = datetime.now(tz=timezone.utc)
+        now = int(time.time())
         payload = {
             "sub": str(user_id),
             "role": role,
             "iss": self._issuer,
             "aud": self._audience,
-            "iat": int(now.timestamp()),
-            "exp": int((now + timedelta(seconds=self._access_ttl)).timestamp()),
+            "iat": now,
+            "exp": now + self._access_ttl,
+            "jti": uuid4().hex,
         }
-        return jose_jwt.encode(
-            payload, self._private_key, algorithm=self._algorithm,
-            headers={"kid": self._kid},
-        )
+        return pyjwt.encode(payload, self._private_key, algorithm="RS256")
 
     def verify_access(self, token: str) -> dict:
         try:
-            return jose_jwt.decode(
-                token, self._public_key,
-                algorithms=[self._algorithm],
+            return pyjwt.decode(
+                token,
+                self._public_key,
+                algorithms=["RS256"],
                 audience=self._audience,
                 issuer=self._issuer,
+                options={"require": ["exp", "iat", "sub", "aud", "iss"]},
             )
-        except Exception as e:  # noqa: BLE001
+        except InvalidTokenError as e:
             raise Unauthenticated(f"jwt_invalid:{e!s}") from e
 
     def sign_refresh_value(self) -> str:

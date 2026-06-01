@@ -7,11 +7,11 @@ in the iOS client carries it for now.
 """
 from __future__ import annotations
 
-import json
 from typing import Any
 
 import httpx
-from jose import jwk, jwt as jose_jwt
+import jwt as pyjwt
+from jwt.algorithms import RSAAlgorithm
 
 from app.core.config import get_settings
 from app.core.errors import Unauthenticated
@@ -35,19 +35,19 @@ class _BaseOAuthVerifier:
 
     async def verify_id_token(self, id_token: str) -> dict:
         try:
-            headers = jose_jwt.get_unverified_headers(id_token)
+            headers = pyjwt.get_unverified_header(id_token)
             kid = headers.get("kid")
             keys = await self._fetch_jwks()
             key_data = next((k for k in keys if k.get("kid") == kid), None)
             if key_data is None:
                 raise Unauthenticated("oauth_unknown_kid")
-            public_key = jwk.construct(key_data)
-            claims = jose_jwt.decode(
+            import json
+            public_key = RSAAlgorithm.from_jwk(json.dumps(key_data))
+            claims: dict = pyjwt.decode(
                 id_token,
-                json.dumps(key_data),
+                public_key,
                 algorithms=[key_data.get("alg", "RS256")],
                 audience=self._audience,
-                options={"verify_aud": True},
             )
             if claims.get("iss") not in self.ISSUERS:
                 raise Unauthenticated("oauth_bad_issuer")
