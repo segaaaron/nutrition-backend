@@ -17,7 +17,7 @@ from app.grocery.use_cases import (
     ensure_owner,
     verify_share_token,
 )
-from app.identity.presentation.dependencies import CurrentUserDep, SessionDep
+from app.identity.presentation.dependencies import CurrentUserDep, SessionDep, assert_owns
 
 router = APIRouter(tags=["grocery"])
 
@@ -52,7 +52,7 @@ async def get_grocery_list(
     scale: float = Query(default=1.0, ge=0.1, le=20.0),
     regenerate: bool = Query(default=False),
 ) -> GroceryListOut:
-    # Verify plan ownership
+    # BOLA OK: plan ownership verified inline below before any data access.
     from sqlalchemy import text
     owner = (await session.execute(
         text("SELECT user_id FROM plans WHERE id = :pid"), {"pid": str(plan_id)},
@@ -85,13 +85,25 @@ class PatchItemBody(BaseModel):
 @router.patch("/grocery-items/{item_id}", response_model=GroceryItemOut)
 async def patch_item(
     item_id: UUID, body: PatchItemBody,
-    current_user: CurrentUserDep, session: SessionDep,  # noqa: ARG001
+    current_user: CurrentUserDep, session: SessionDep,
 ) -> GroceryItemOut:
+    # BOLA: grocery_items don't have a direct user_id column; ownership is
+    # grocery_items.list_id → grocery_lists.user_id. Verify before mutation.
+    from sqlalchemy import text as _text
+    from app.core.errors import Forbidden, NotFoundError
+    owner_row = (await session.execute(_text("""
+        SELECT gl.user_id FROM grocery_items gi
+        JOIN grocery_lists gl ON gl.id = gi.list_id
+        WHERE gi.id = :iid
+    """), {"iid": str(item_id)})).first()
+    if owner_row is None:
+        raise NotFoundError(detail="item_not_found")
+    if str(owner_row[0]) != str(current_user):
+        raise Forbidden(detail="not_owner")
     repo = SqlGroceryRepository(session)
     uc = MarkItemPurchased(repo=repo)
     it = await uc(item_id=item_id, purchased=body.purchased, amount=body.amount)
     if it is None:
-        from app.core.errors import NotFoundError
         raise NotFoundError(detail="item_not_found")
     return GroceryItemOut(
         id=it.id, category=it.category.value, name=it.name,
@@ -112,6 +124,7 @@ class AddItemBody(BaseModel):
 async def add_item(
     body: AddItemBody, current_user: CurrentUserDep, session: SessionDep,
 ) -> GroceryItemOut:
+    # BOLA OK: ensure_owner() in grocery/use_cases.py raises Forbidden if list not owned.
     await ensure_owner(session, list_id=body.list_id, user_id=current_user)
     uc = AddManualItem(repo=SqlGroceryRepository(session))
     it = await uc(
@@ -126,8 +139,20 @@ async def add_item(
 
 @router.delete("/grocery-items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_item(
-    item_id: UUID, current_user: CurrentUserDep, session: SessionDep,  # noqa: ARG001
+    item_id: UUID, current_user: CurrentUserDep, session: SessionDep,
 ) -> None:
+    # BOLA: verify grocery item belongs to current_user via grocery_lists.user_id.
+    from sqlalchemy import text as _text
+    from app.core.errors import Forbidden, NotFoundError
+    owner_row = (await session.execute(_text("""
+        SELECT gl.user_id FROM grocery_items gi
+        JOIN grocery_lists gl ON gl.id = gi.list_id
+        WHERE gi.id = :iid
+    """), {"iid": str(item_id)})).first()
+    if owner_row is None:
+        raise NotFoundError(detail="item_not_found")
+    if str(owner_row[0]) != str(current_user):
+        raise Forbidden(detail="not_owner")
     uc = DeleteItem(repo=SqlGroceryRepository(session))
     await uc(item_id)
 
@@ -137,6 +162,7 @@ async def share_list(
     list_id: UUID, current_user: CurrentUserDep, session: SessionDep,
     ttl_hours: int = Query(default=168, ge=1, le=720),
 ) -> dict:
+    # BOLA OK: ensure_owner() in grocery/use_cases.py raises Forbidden if list not owned.
     await ensure_owner(session, list_id=list_id, user_id=current_user)
     uc = ShareList(repo=SqlGroceryRepository(session))
     return await uc(list_id=list_id, ttl_hours=ttl_hours)
