@@ -109,6 +109,38 @@ async def require_admin(
     return user_id
 
 
+def require_role(min_role: "Role"):  # type: ignore[name-defined]
+    """RBAC dependency factory — endpoint authorises iff JWT claim role >= min_role.
+
+    Usage:
+        @router.get("/admin/x", dependencies=[Depends(require_role(Role.ADMIN))])
+
+    OWASP API5 (Broken Function Level Authorization), ASVS V4.
+    """
+    from app.identity.domain.roles import Role, role_at_least
+
+    async def _dep(
+        creds: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+        session: SessionDep,
+    ) -> UUID:
+        if creds is None or creds.scheme.lower() != "bearer":
+            raise Unauthenticated("missing_bearer")
+        claims = await get_jwt().verify_access(creds.credentials)
+        role_claim = str(claims.get("role") or "")
+        if not role_at_least(role_claim, min_role):
+            raise Forbidden(f"role_required:{min_role.to_str()}")
+        sub = claims.get("sub")
+        if not sub:
+            raise Unauthenticated("missing_sub")
+        user_id = UUID(sub)
+        user = await SqlUserRepository(session).get_by_id(user_id)
+        if user is None or user.is_deleted:
+            raise Unauthenticated("user_gone")
+        return user_id
+
+    return _dep
+
+
 CurrentUserDep = Annotated[UUID, Depends(get_current_user)]
 
 
