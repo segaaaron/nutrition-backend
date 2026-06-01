@@ -9,7 +9,7 @@ from fastapi import APIRouter, Header, Path, Response, status
 from app.core.event_bus import get_event_bus
 from app.core.logging import get_logger
 from app.core.redis import get_redis
-from app.identity.presentation.dependencies import CurrentUserDep, SessionDep
+from app.identity.presentation.dependencies import CurrentUserDep, SessionDep, assert_owns
 from app.plan.application.layer3_ranking import Layer3Ranking
 from app.plan.application.taste_profile import TasteProfileService
 from app.plan.application.use_cases import (
@@ -114,6 +114,7 @@ async def advance_plan(
     current_user: CurrentUserDep,
     session: SessionDep,
 ) -> PlanResponse:
+    await assert_owns(session, table="plans", resource_id=plan_id, user_id=current_user)
     cache = ActivePlanCache(get_redis())
     uc = AdvancePlan(plans=SqlPlanRepository(session), cache=cache, bus=get_event_bus())
     plan = await uc(plan_id=plan_id, event=body.event)
@@ -129,6 +130,7 @@ async def complete_meal(
     current_user: CurrentUserDep,
     session: SessionDep,
 ) -> Response:
+    await assert_owns(session, table="plans", resource_id=plan_id, user_id=current_user)
     cache = ActivePlanCache(get_redis())
     uc = CompleteMeal(plans=SqlPlanRepository(session), cache=cache, bus=get_event_bus())
     await uc(plan_id=plan_id, meal_id=meal_id)
@@ -143,6 +145,7 @@ async def swap_meal(
     current_user: CurrentUserDep,
     session: SessionDep,
 ) -> SwapMealResponse:
+    await assert_owns(session, table="plans", resource_id=plan_id, user_id=current_user)
     cache = ActivePlanCache(get_redis())
     # Candidate pool: callers may pre-fetch via /recipes; here we pass empty
     # and rely on the layer3 to rank an empty list → empty alternatives. The
