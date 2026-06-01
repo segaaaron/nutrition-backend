@@ -34,4 +34,9 @@ class UserProfileModel(Base):
     locale: Mapped[str] = mapped_column(String(2), default="en")
     theme: Mapped[str] = mapped_column(String(8), default="light")
     onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False)
+    # --- Onboarding extensions (migration 0010) ---
+    dietary_pattern: Mapped[str | None] = mapped_column(Text, nullable=True)
+    bodyfat_pct: Mapped[Decimal | None] = mapped_column(Numeric(4, 2), nullable=True)
+    trimester: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_exclusively_breastfeeding: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
