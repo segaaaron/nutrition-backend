@@ -81,7 +81,7 @@ async def get_current_user(
 ) -> UUID:
     if creds is None or creds.scheme.lower() != "bearer":
         raise Unauthenticated("missing_bearer")
-    claims = get_jwt().verify_access(creds.credentials)
+    claims = await get_jwt().verify_access(creds.credentials)
     sub = claims.get("sub")
     if not sub:
         raise Unauthenticated("missing_sub")
@@ -99,7 +99,7 @@ async def require_admin(
 ) -> UUID:
     if creds is None or creds.scheme.lower() != "bearer":
         raise Unauthenticated("missing_bearer")
-    claims = get_jwt().verify_access(creds.credentials)
+    claims = await get_jwt().verify_access(creds.credentials)
     if claims.get("role") != "admin":
         raise Forbidden("admin_required")
     user_id = UUID(claims["sub"])

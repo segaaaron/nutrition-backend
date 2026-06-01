@@ -18,6 +18,33 @@ from jwt.exceptions import InvalidTokenError
 from app.core.config import get_settings
 from app.core.errors import Unauthenticated
 
+# ---------------------------------------------------------------------------
+# Redis JWT revocation denylist
+# ---------------------------------------------------------------------------
+
+_DENYLIST_PREFIX = "jwt:denylist:"
+
+
+async def revoke_jti(jti: str, *, ttl_seconds: int) -> None:
+    """Add jti to Redis denylist with TTL matching access token lifetime.
+
+    Entry expires when the token would have expired anyway — no memory leak.
+    """
+    from app.core.redis import get_redis
+    r = get_redis()
+    await r.set(f"{_DENYLIST_PREFIX}{jti}", "1", ex=ttl_seconds)
+
+
+async def is_jti_revoked(jti: str) -> bool:
+    """Return True if the jti is present in the Redis denylist."""
+    from app.core.redis import get_redis
+    r = get_redis()
+    return (await r.exists(f"{_DENYLIST_PREFIX}{jti}")) > 0
+
+
+# ---------------------------------------------------------------------------
+# Signer
+# ---------------------------------------------------------------------------
 
 class JwtSigner:
     def __init__(self) -> None:
@@ -43,18 +70,26 @@ class JwtSigner:
         }
         return pyjwt.encode(payload, self._private_key, algorithm="RS256")
 
-    def verify_access(self, token: str) -> dict:
+    async def verify_access(self, token: str) -> dict:
+        """Verify RS256 token and check Redis revocation denylist.
+
+        Raises Unauthenticated if the token is invalid or has been revoked.
+        """
         try:
-            return pyjwt.decode(
+            claims = pyjwt.decode(
                 token,
                 self._public_key,
                 algorithms=["RS256"],
                 audience=self._audience,
                 issuer=self._issuer,
-                options={"require": ["exp", "iat", "sub", "aud", "iss"]},
+                options={"require": ["exp", "iat", "sub", "aud", "iss", "jti"]},
             )
         except InvalidTokenError as e:
             raise Unauthenticated(f"jwt_invalid:{e!s}") from e
+        jti = claims.get("jti")
+        if jti and await is_jti_revoked(jti):
+            raise Unauthenticated("jwt_revoked")
+        return claims
 
     def sign_refresh_value(self) -> str:
         # Opaque, high-entropy. 256 bits.

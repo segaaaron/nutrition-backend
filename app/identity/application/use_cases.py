@@ -184,11 +184,23 @@ class Logout:
     refresh_tokens: RefreshTokenRepository
     jwt: JwtSigner
 
-    async def __call__(self, *, refresh_plain: str) -> None:
+    async def __call__(self, *, refresh_plain: str, access_token: str | None = None) -> None:
         rec = await self.refresh_tokens.get_by_hash(self.jwt.hash_refresh(refresh_plain))
         if rec is None or rec.revoked_at is not None:
             return  # idempotent
         await self.refresh_tokens.revoke(rec.id, _now())
+        # OWASP API2: revoke access token jti so it cannot be reused until expiry.
+        if access_token:
+            from app.identity.infrastructure.jwt_signer import revoke_jti
+            from app.core.config import get_settings
+            try:
+                claims = await self.jwt.verify_access(access_token)
+                jti = claims.get("jti")
+                if jti:
+                    await revoke_jti(jti, ttl_seconds=get_settings().jwt_access_ttl_seconds)
+            except Exception:
+                # Best-effort: invalid/expired access token doesn't block logout.
+                pass
 
 
 # ---------------------------------------------------------------------------
