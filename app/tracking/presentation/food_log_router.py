@@ -14,7 +14,7 @@ from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Query, status
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from app.core.event_bus import get_event_bus
 from app.core.redis import get_redis
@@ -87,6 +87,8 @@ async def query_food_logs(
 
 
 class DeleteReason(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     reason: str | None = None
 
 

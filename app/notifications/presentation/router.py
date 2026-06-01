@@ -5,7 +5,7 @@ from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, status
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import text
 
 from app.identity.presentation.dependencies import CurrentUserDep, SessionDep
@@ -14,6 +14,8 @@ router = APIRouter(prefix="/push", tags=["notifications"])
 
 
 class RegisterTokenRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     platform: Literal["web", "ios", "android"]
     token: str
     endpoint: str | None = None

@@ -4,10 +4,14 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
-class SseTicketRequest(BaseModel):
+class _Strict(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class SseTicketRequest(_Strict):
     conv_id: UUID | None = None
 
 
@@ -16,7 +20,7 @@ class SseTicketResponse(BaseModel):
     expires_in_s: int
 
 
-class ChatRequest(BaseModel):
+class ChatRequest(_Strict):
     conv_id: UUID | None = None
     message: str
     locale: str = "es"
@@ -46,6 +50,6 @@ class MessagesList(BaseModel):
     next_cursor: str | None
 
 
-class SwapProposalRequest(BaseModel):
+class SwapProposalRequest(_Strict):
     plan_meal_id: UUID
     top_k: int = 3

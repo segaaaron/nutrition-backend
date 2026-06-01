@@ -4,7 +4,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from fastapi import APIRouter, Header, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.event_bus import get_event_bus
 from app.identity.presentation.dependencies import CurrentUserDep, SessionDep
@@ -20,6 +20,8 @@ router = APIRouter(tags=["fasting"])
 
 
 class StartFastingBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     method_h: int = Field(..., description="Fasting protocol — one of 16/18/20")
 
 

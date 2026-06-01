@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class SubmitPhotoResponse(BaseModel):
@@ -36,6 +36,8 @@ class JobStatusResponse(BaseModel):
 
 
 class EditDetectedItemRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     detected_name: str
     corrected_food_id: UUID | None = None
     corrected_amount_g: Decimal | None = None

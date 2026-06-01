@@ -4,7 +4,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from fastapi import APIRouter, Query, status
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from app.grocery.domain import GroceryCategory
 from app.grocery.repository import SqlGroceryRepository
@@ -76,6 +76,8 @@ async def get_grocery_list(
 
 
 class PatchItemBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     purchased: bool | None = None
     amount: str | None = None
 
@@ -98,6 +100,8 @@ async def patch_item(
 
 
 class AddItemBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     list_id: UUID
     name: str
     amount: str | None = None

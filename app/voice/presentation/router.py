@@ -12,7 +12,7 @@ from typing import Annotated, Literal
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, File, Form, Header, UploadFile, status
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import text
 
 from app.core.errors import ValidationError
@@ -29,12 +29,16 @@ VOICE_MAX_SECONDS = 60
 
 
 class TextLogRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     text: str
     meal_time: Literal["breakfast", "lunch", "dinner", "snack"] = "lunch"
     locale: str = "es"
 
 
 class ManualLogRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     meal_time: Literal["breakfast", "lunch", "dinner", "snack"]
     food_id: UUID | None = None
     free_text_name: str | None = None

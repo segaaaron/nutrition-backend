@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Header, Query, Request, status
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from app.billing.domain import BillingProvider, Plan
 from app.billing.gateways import MercadoPagoGateway, StripeGateway
@@ -21,6 +21,8 @@ router = APIRouter(tags=["billing"])
 
 
 class CheckoutBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     plan: Plan = Plan.PREMIUM
     success_url: str = "https://app.nova-nutrition.com/billing/success"
     cancel_url: str = "https://app.nova-nutrition.com/billing/cancel"
