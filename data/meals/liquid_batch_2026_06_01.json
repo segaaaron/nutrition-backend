@@ -1,0 +1,2501 @@
+[
+  {
+    "id": "nova_meal_liq_001",
+    "name": "Jugo Verde Andino con Maracuyá, Pepino y Manzana",
+    "description": "Jugo refrescante rico en vitamina C y polifenoles, apoya control glucémico y presión arterial.",
+    "image_url": "https://storage.googleapis.com/nova-nutrition-public/placeholder.webp",
+    "nutrition_profile": {
+      "calories": 205,
+      "macros": {
+        "protein_g": 4,
+        "carbs_g": 45,
+        "fat_g": 1,
+        "fiber_g": 14,
+        "sugar_g": 25,
+        "sat_fat_g": 0,
+        "sodium_mg": 108
+      },
+      "micronutrients": {
+        "gi": 29,
+        "gl": 13.1,
+        "potassium_mg": null,
+        "phosphorus_mg": null,
+        "iron_mg": null,
+        "heme_pct": null,
+        "calcium_mg": null,
+        "omega3_mg": null,
+        "folate_ug": null
+      }
+    },
+    "matching_criteria": {
+      "target_goals": [
+        "weight_loss",
+        "health"
+      ],
+      "suitable_for_activity": [
+        "sedentary",
+        "lightly_active",
+        "moderately_active"
+      ],
+      "recommended_for_conditions": [
+        "hypertension",
+        "obesity"
+      ],
+      "contraindicated_conditions": [],
+      "allergens": [],
+      "regions": [
+        "latam"
+      ],
+      "dietary_pattern": "vegan",
+      "cuisine_region": [
+        "latam"
+      ],
+      "meal_format": "liquid",
+      "pregnancy_safe": true
+    },
+    "execution": {
+      "meal_time": "snack",
+      "prep_time_minutes": 5,
+      "cook_time_minutes": 0,
+      "image_url": null,
+      "ingredients": [
+        "200 g de pepino",
+        "100 g de apio",
+        "80 g de pulpa de maracuyá",
+        "100 g de manzana verde",
+        "20 g de limón",
+        "200 ml de agua"
+      ],
+      "instructions": [
+        "Lava todos los vegetales.",
+        "Licúa con el agua.",
+        "Cuela y sirve frío."
+      ],
+      "servings": 1,
+      "source_catalog": "nova_v2_batch_liq_2026_06_01"
+    },
+    "audit": {
+      "schema_version": "v2",
+      "macro_consistency_pct": 0.0,
+      "gl_estimated": 13.1,
+      "cultural_origin": "Andes Peruanos",
+      "generated_at": "2026-06-01"
+    }
+  },
+  {
+    "id": "nova_meal_liq_002",
+    "name": "Jugo de Guayaba Rosa con Jengibre",
+    "description": "Bebida tropical alta en fibra y vitamina C, antiinflamatoria por jengibre.",
+    "image_url": "https://storage.googleapis.com/nova-nutrition-public/placeholder.webp",
+    "nutrition_profile": {
+      "calories": 130,
+      "macros": {
+        "protein_g": 4,
+        "carbs_g": 24,
+        "fat_g": 2,
+        "fiber_g": 9,
+        "sugar_g": 14,
+        "sat_fat_g": 0,
+        "sodium_mg": 4
+      },
+      "micronutrients": {
+        "gi": 23,
+        "gl": 5.5,
+        "potassium_mg": null,
+        "phosphorus_mg": null,
+        "iron_mg": null,
+        "heme_pct": null,
+        "calcium_mg": null,
+        "omega3_mg": null,
+        "folate_ug": null
+      }
+    },
+    "matching_criteria": {
+      "target_goals": [
+        "health",
+        "weight_loss"
+      ],
+      "suitable_for_activity": [
+        "sedentary",
+        "lightly_active"
+      ],
+      "recommended_for_conditions": [
+        "hypertension",
+        "iron_deficiency_anemia"
+      ],
+      "contraindicated_conditions": [],
+      "allergens": [],
+      "regions": [
+        "latam"
+      ],
+      "dietary_pattern": "vegan",
+      "cuisine_region": [
+        "latam"
+      ],
+      "meal_format": "liquid",
+      "pregnancy_safe": true
+    },
+    "execution": {
+      "meal_time": "snack",
+      "prep_time_minutes": 5,
+      "cook_time_minutes": 0,
+      "image_url": null,
+      "ingredients": [
+        "150 g de guayaba rosa",
+        "5 g de jengibre fresco",
+        "15 g de limón",
+        "200 ml de agua"
+      ],
+      "instructions": [
+        "Pela la guayaba.",
+        "Licúa con jengibre, limón y agua.",
+        "Cuela las semillas."
+      ],
+      "servings": 1,
+      "source_catalog": "nova_v2_batch_liq_2026_06_01"
+    },
+    "audit": {
+      "schema_version": "v2",
+      "macro_consistency_pct": 0.0,
+      "gl_estimated": 5.5,
+      "cultural_origin": "Colombia",
+      "generated_at": "2026-06-01"
+    }
+  },
+  {
+    "id": "nova_meal_liq_003",
+    "name": "Jugo de Lulo y Manzana con Hierbabuena",
+    "description": "Jugo de origen colombiano, bajo IG y rico en vitamina A; manzana aporta cuerpo y fibra soluble.",
+    "image_url": "https://storage.googleapis.com/nova-nutrition-public/placeholder.webp",
+    "nutrition_profile": {
+      "calories": 149,
+      "macros": {
+        "protein_g": 2,
+        "carbs_g": 33,
+        "fat_g": 1,
+        "fiber_g": 4,
+        "sugar_g": 25,
+        "sat_fat_g": 0,
+        "sodium_mg": 4
+      },
+      "micronutrients": {
+        "gi": 35,
+        "gl": 11.6,
+        "potassium_mg": null,
+        "phosphorus_mg": null,
+        "iron_mg": null,
+        "heme_pct": null,
+        "calcium_mg": null,
+        "omega3_mg": null,
+        "folate_ug": null
+      }
+    },
+    "matching_criteria": {
+      "target_goals": [
+        "health",
+        "weight_loss"
+      ],
+      "suitable_for_activity": [
+        "sedentary",
+        "lightly_active"
+      ],
+      "recommended_for_conditions": [
+        "hypertension"
+      ],
+      "contraindicated_conditions": [],
+      "allergens": [],
+      "regions": [
+        "latam"
+      ],
+      "dietary_pattern": "vegan",
+      "cuisine_region": [
+        "latam"
+      ],
+      "meal_format": "liquid",
+      "pregnancy_safe": true
+    },
+    "execution": {
+      "meal_time": "snack",
+      "prep_time_minutes": 5,
+      "cook_time_minutes": 0,
+      "image_url": null,
+      "ingredients": [
+        "200 g de pulpa de lulo",
+        "150 g de manzana verde",
+        "10 g de limón",
+        "Hierbabuena fresca al gusto",
+        "200 ml de agua"
+      ],
+      "instructions": [
+        "Licúa el lulo con agua.",
+        "Cuela.",
+        "Sirve con hierbabuena."
+      ],
+      "servings": 1,
+      "source_catalog": "nova_v2_batch_liq_2026_06_01"
+    },
+    "audit": {
+      "schema_version": "v2",
+      "macro_consistency_pct": 0.0,
+      "gl_estimated": 11.6,
+      "cultural_origin": "Colombia",
+      "generated_at": "2026-06-01"
+    }
+  },
+  {
+    "id": "nova_meal_liq_004",
+    "name": "Agua de Tuna con Limón y Chía",
+    "description": "Bebida mexicana hidratante, bajo IG, betalainas antioxidantes + fibra soluble de chía.",
+    "image_url": "https://storage.googleapis.com/nova-nutrition-public/placeholder.webp",
+    "nutrition_profile": {
+      "calories": 224,
+      "macros": {
+        "protein_g": 4,
+        "carbs_g": 43,
+        "fat_g": 4,
+        "fiber_g": 15,
+        "sugar_g": 11,
+        "sat_fat_g": 0,
+        "sodium_mg": 15
+      },
+      "micronutrients": {
+        "gi": 31,
+        "gl": 13.3,
+        "potassium_mg": null,
+        "phosphorus_mg": null,
+        "iron_mg": null,
+        "heme_pct": null,
+        "calcium_mg": null,
+        "omega3_mg": null,
+        "folate_ug": null
+      }
+    },
+    "matching_criteria": {
+      "target_goals": [
+        "health",
+        "weight_loss"
+      ],
+      "suitable_for_activity": [
+        "sedentary",
+        "lightly_active"
+      ],
+      "recommended_for_conditions": [
+        "hypertension"
+      ],
+      "contraindicated_conditions": [],
+      "allergens": [
+        "fish"
+      ],
+      "regions": [
+        "latam"
+      ],
+      "dietary_pattern": "vegan",
+      "cuisine_region": [
+        "latam"
+      ],
+      "meal_format": "liquid",
+      "pregnancy_safe": true
+    },
+    "execution": {
+      "meal_time": "snack",
+      "prep_time_minutes": 5,
+      "cook_time_minutes": 0,
+      "image_url": null,
+      "ingredients": [
+        "250 g de tuna (fruta del nopal)",
+        "100 g de manzana verde",
+        "15 g de limón",
+        "8 g de chía hidratada",
+        "250 ml de agua"
+      ],
+      "instructions": [
+        "Pela la tuna.",
+        "Licúa con agua y limón.",
+        "Cuela y sirve."
+      ],
+      "servings": 1,
+      "source_catalog": "nova_v2_batch_liq_2026_06_01"
+    },
+    "audit": {
+      "schema_version": "v2",
+      "macro_consistency_pct": 0.0,
+      "gl_estimated": 13.3,
+      "cultural_origin": "México",
+      "generated_at": "2026-06-01"
+    }
+  },
+  {
+    "id": "nova_meal_liq_005",
+    "name": "Jugo de Tomate de Árbol con Canela y Manzana",
+    "description": "Bebida ecuatoriana tradicional, licopeno y polifenoles + fibra de manzana.",
+    "image_url": "https://storage.googleapis.com/nova-nutrition-public/placeholder.webp",
+    "nutrition_profile": {
+      "calories": 206,
+      "macros": {
+        "protein_g": 4,
+        "carbs_g": 43,
+        "fat_g": 2,
+        "fiber_g": 10,
+        "sugar_g": 30,
+        "sat_fat_g": 0,
+        "sodium_mg": 4
+      },
+      "micronutrients": {
+        "gi": 36,
+        "gl": 15.5,
+        "potassium_mg": null,
+        "phosphorus_mg": null,
+        "iron_mg": null,
+        "heme_pct": null,
+        "calcium_mg": null,
+        "omega3_mg": null,
+        "folate_ug": null
+      }
+    },
+    "matching_criteria": {
+      "target_goals": [
+        "health"
+      ],
+      "suitable_for_activity": [
+        "sedentary",
+        "lightly_active"
+      ],
+      "recommended_for_conditions": [
+        "hypertension"
+      ],
+      "contraindicated_conditions": [],
+      "allergens": [],
+      "regions": [
+        "latam"
+      ],
+      "dietary_pattern": "vegan",
+      "cuisine_region": [
+        "latam"
+      ],
+      "meal_format": "liquid",
+      "pregnancy_safe": true
+    },
+    "execution": {
+      "meal_time": "snack",
+      "prep_time_minutes": 5,
+      "cook_time_minutes": 0,
+      "image_url": null,
+      "ingredients": [
+        "250 g de pulpa de tomate de árbol",
+        "100 g de manzana verde",
+        "1 g de canela",
+        "200 ml de agua"
+      ],
+      "instructions": [
+        "Escalda los tomates y pela.",
+        "Licúa con agua y canela.",
+        "Cuela."
+      ],
+      "servings": 1,
+      "source_catalog": "nova_v2_batch_liq_2026_06_01"
+    },
+    "audit": {
+      "schema_version": "v2",
+      "macro_consistency_pct": 0.0,
+      "gl_estimated": 15.5,
+      "cultural_origin": "Ecuador",
+      "generated_at": "2026-06-01"
+    }
+  },
+  {
+    "id": "nova_meal_liq_006",
+    "name": "Jugo Detox de Zanahoria, Naranja, Manzana y Jengibre",
+    "description": "Combo clásico LatAm, beta-carotenos y vitamina C; manzana suma cuerpo y fibra soluble.",
+    "image_url": "https://storage.googleapis.com/nova-nutrition-public/placeholder.webp",
+    "nutrition_profile": {
+      "calories": 209,
+      "macros": {
+        "protein_g": 3,
+        "carbs_g": 47,
+        "fat_g": 1,
+        "fiber_g": 10,
+        "sugar_g": 32,
+        "sat_fat_g": 0,
+        "sodium_mg": 105
+      },
+      "micronutrients": {
+        "gi": 40,
+        "gl": 18.8,
+        "potassium_mg": null,
+        "phosphorus_mg": null,
+        "iron_mg": null,
+        "heme_pct": null,
+        "calcium_mg": null,
+        "omega3_mg": null,
+        "folate_ug": null
+      }
+    },
+    "matching_criteria": {
+      "target_goals": [
+        "health"
+      ],
+      "suitable_for_activity": [
+        "lightly_active",
+        "moderately_active"
+      ],
+      "recommended_for_conditions": [
+        "hypertension",
+        "iron_deficiency_anemia"
+      ],
+      "contraindicated_conditions": [],
+      "allergens": [],
+      "regions": [
+        "latam"
+      ],
+      "dietary_pattern": "vegan",
+      "cuisine_region": [
+        "latam"
+      ],
+      "meal_format": "liquid",
+      "pregnancy_safe": true
+    },
+    "execution": {
+      "meal_time": "breakfast",
+      "prep_time_minutes": 5,
+      "cook_time_minutes": 0,
+      "image_url": null,
+      "ingredients": [
+        "150 g de zanahoria",
+        "150 g de naranja",
+        "100 g de manzana verde",
+        "5 g de jengibre",
+        "150 ml de agua"
+      ],
+      "instructions": [
+        "Licúa todos los ingredientes.",
+        "Cuela y sirve frío."
+      ],
+      "servings": 1,
+      "source_catalog": "nova_v2_batch_liq_2026_06_01"
+    },
+    "audit": {
+      "schema_version": "v2",
+      "macro_consistency_pct": 0.0,
+      "gl_estimated": 18.8,
+      "cultural_origin": "Pan-LatAm",
+      "generated_at": "2026-06-01"
+    }
+  },
+  {
+    "id": "nova_meal_liq_007",
+    "name": "Jugo de Betarraga, Manzana Verde y Limón",
+    "description": "Jugo cardioprotector, nitratos vegetales que mejoran flujo sanguíneo.",
+    "image_url": "https://storage.googleapis.com/nova-nutrition-public/placeholder.webp",
+    "nutrition_profile": {
+      "calories": 108,
+      "macros": {
+        "protein_g": 2,
+        "carbs_g": 25,
+        "fat_g": 0,
+        "fiber_g": 6,
+        "sugar_g": 18,
+        "sat_fat_g": 0,
+        "sodium_mg": 79
+      },
+      "micronutrients": {
+        "gi": 48,
+        "gl": 12.0,
+        "potassium_mg": null,
+        "phosphorus_mg": null,
+        "iron_mg": null,
+        "heme_pct": null,
+        "calcium_mg": null,
+        "omega3_mg": null,
+        "folate_ug": null
+      }
+    },
+    "matching_criteria": {
+      "target_goals": [
+        "health",
+        "weight_loss"
+      ],
+      "suitable_for_activity": [
+        "moderately_active",
+        "very_active"
+      ],
+      "recommended_for_conditions": [
+        "hypertension",
+        "ischemic_heart_disease"
+      ],
+      "contraindicated_conditions": [],
+      "allergens": [],
+      "regions": [
+        "latam"
+      ],
+      "dietary_pattern": "vegan",
+      "cuisine_region": [
+        "latam"
+      ],
+      "meal_format": "liquid",
+      "pregnancy_safe": true
+    },
+    "execution": {
+      "meal_time": "snack",
+      "prep_time_minutes": 5,
+      "cook_time_minutes": 0,
+      "image_url": null,
+      "ingredients": [
+        "100 g de betarraga",
+        "100 g de manzana verde",
+        "15 g de limón",
+        "200 ml de agua"
+      ],
+      "instructions": [
+        "Licúa.",
+        "Cuela y sirve."
+      ],
+      "servings": 1,
+      "source_catalog": "nova_v2_batch_liq_2026_06_01"
+    },
+    "audit": {
+      "schema_version": "v2",
+      "macro_consistency_pct": 0.0,
+      "gl_estimated": 12.0,
+      "cultural_origin": "Chile",
+      "generated_at": "2026-06-01"
+    }
+  },
+  {
+    "id": "nova_meal_liq_008",
+    "name": "Jugo de Papaya con Chía",
+    "description": "Apoya tránsito intestinal por papaína + fibra soluble de chía.",
+    "image_url": "https://storage.googleapis.com/nova-nutrition-public/placeholder.webp",
+    "nutrition_profile": {
+      "calories": 115,
+      "macros": {
+        "protein_g": 2,
+        "carbs_g": 20,
+        "fat_g": 3,
+        "fiber_g": 6,
+        "sugar_g": 12,
+        "sat_fat_g": 0,
+        "sodium_mg": 13
+      },
+      "micronutrients": {
+        "gi": 48,
+        "gl": 9.6,
+        "potassium_mg": null,
+        "phosphorus_mg": null,
+        "iron_mg": null,
+        "heme_pct": null,
+        "calcium_mg": null,
+        "omega3_mg": null,
+        "folate_ug": null
+      }
+    },
+    "matching_criteria": {
+      "target_goals": [
+        "health",
+        "weight_loss"
+      ],
+      "suitable_for_activity": [
+        "sedentary",
+        "lightly_active"
+      ],
+      "recommended_for_conditions": [
+        "ibs",
+        "hypertension"
+      ],
+      "contraindicated_conditions": [],
+      "allergens": [],
+      "regions": [
+        "latam"
+      ],
+      "dietary_pattern": "vegan",
+      "cuisine_region": [
+        "latam"
+      ],
+      "meal_format": "liquid",
+      "pregnancy_safe": true
+    },
+    "execution": {
+      "meal_time": "breakfast",
+      "prep_time_minutes": 5,
+      "cook_time_minutes": 0,
+      "image_url": null,
+      "ingredients": [
+        "150 g de papaya",
+        "8 g de semillas de chía",
+        "10 g de limón",
+        "200 ml de agua"
+      ],
+      "instructions": [
+        "Licúa papaya, limón y agua.",
+        "Agrega la chía hidratada.",
+        "Sirve."
+      ],
+      "servings": 1,
+      "source_catalog": "nova_v2_batch_liq_2026_06_01"
+    },
+    "audit": {
+      "schema_version": "v2",
+      "macro_consistency_pct": 0.0,
+      "gl_estimated": 9.6,
+      "cultural_origin": "México",
+      "generated_at": "2026-06-01"
+    }
+  },
+  {
+    "id": "nova_meal_liq_009",
+    "name": "Jugo de Piña con Apio, Pepino y Manzana",
+    "description": "Diurético natural con bromelina antiinflamatoria; manzana añade cuerpo y fibra.",
+    "image_url": "https://storage.googleapis.com/nova-nutrition-public/placeholder.webp",
+    "nutrition_profile": {
+      "calories": 205,
+      "macros": {
+        "protein_g": 3,
+        "carbs_g": 46,
+        "fat_g": 1,
+        "fiber_g": 7,
+        "sugar_g": 33,
+        "sat_fat_g": 0,
+        "sodium_mg": 69
+      },
+      "micronutrients": {
+        "gi": 51,
+        "gl": 23.5,
+        "potassium_mg": null,
+        "phosphorus_mg": null,
+        "iron_mg": null,
+        "heme_pct": null,
+        "calcium_mg": null,
+        "omega3_mg": null,
+        "folate_ug": null
+      }
+    },
+    "matching_criteria": {
+      "target_goals": [
+        "weight_loss",
+        "health"
+      ],
+      "suitable_for_activity": [
+        "sedentary",
+        "lightly_active",
+        "moderately_active"
+      ],
+      "recommended_for_conditions": [
+        "hypertension",
+        "obesity"
+      ],
+      "contraindicated_conditions": [],
+      "allergens": [],
+      "regions": [
+        "latam"
+      ],
+      "dietary_pattern": "vegan",
+      "cuisine_region": [
+        "latam"
+      ],
+      "meal_format": "liquid",
+      "pregnancy_safe": true
+    },
+    "execution": {
+      "meal_time": "snack",
+      "prep_time_minutes": 5,
+      "cook_time_minutes": 0,
+      "image_url": null,
+      "ingredients": [
+        "200 g de piña",
+        "80 g de apio",
+        "100 g de pepino",
+        "100 g de manzana verde",
+        "200 ml de agua"
+      ],
+      "instructions": [
+        "Licúa con agua.",
+        "Cuela y sirve frío."
+      ],
+      "servings": 1,
+      "source_catalog": "nova_v2_batch_liq_2026_06_01"
+    },
+    "audit": {
+      "schema_version": "v2",
+      "macro_consistency_pct": 0.0,
+      "gl_estimated": 23.5,
+      "cultural_origin": "Pan-LatAm",
+      "generated_at": "2026-06-01"
+    }
+  },
+  {
+    "id": "nova_meal_liq_010",
+    "name": "Jugo de Mango con Maracuyá, Cúrcuma y Naranja",
+    "description": "Antiinflamatorio dorado con cúrcuma + vitamina C de naranja y maracuyá.",
+    "image_url": "https://storage.googleapis.com/nova-nutrition-public/placeholder.webp",
+    "nutrition_profile": {
+      "calories": 209,
+      "macros": {
+        "protein_g": 3,
+        "carbs_g": 47,
+        "fat_g": 1,
+        "fiber_g": 10,
+        "sugar_g": 36,
+        "sat_fat_g": 0,
+        "sodium_mg": 16
+      },
+      "micronutrients": {
+        "gi": 43,
+        "gl": 20.2,
+        "potassium_mg": null,
+        "phosphorus_mg": null,
+        "iron_mg": null,
+        "heme_pct": null,
+        "calcium_mg": null,
+        "omega3_mg": null,
+        "folate_ug": null
+      }
+    },
+    "matching_criteria": {
+      "target_goals": [
+        "health"
+      ],
+      "suitable_for_activity": [
+        "lightly_active",
+        "moderately_active"
+      ],
+      "recommended_for_conditions": [
+        "dyslipidemia"
+      ],
+      "contraindicated_conditions": [],
+      "allergens": [],
+      "regions": [
+        "latam"
+      ],
+      "dietary_pattern": "vegan",
+      "cuisine_region": [
+        "latam"
+      ],
+      "meal_format": "liquid",
+      "pregnancy_safe": true
+    },
+    "execution": {
+      "meal_time": "snack",
+      "prep_time_minutes": 5,
+      "cook_time_minutes": 0,
+      "image_url": null,
+      "ingredients": [
+        "150 g de mango",
+        "50 g de maracuyá",
+        "100 g de naranja",
+        "1 g de cúrcuma",
+        "200 ml de agua"
+      ],
+      "instructions": [
+        "Licúa.",
+        "Cuela y sirve."
+      ],
+      "servings": 1,
+      "source_catalog": "nova_v2_batch_liq_2026_06_01"
+    },
+    "audit": {
+      "schema_version": "v2",
+      "macro_consistency_pct": 0.0,
+      "gl_estimated": 20.2,
+      "cultural_origin": "Caribe",
+      "generated_at": "2026-06-01"
+    }
+  },
+  {
+    "id": "nova_meal_liq_011",
+    "name": "Smoothie Proteico de Whey, Plátano y Cacao",
+    "description": "Smoothie post-entreno alto en proteína y carbohidratos de recuperación.",
+    "image_url": "https://storage.googleapis.com/nova-nutrition-public/placeholder.webp",
+    "nutrition_profile": {
+      "calories": 318,
+      "macros": {
+        "protein_g": 34,
+        "carbs_g": 41,
+        "fat_g": 2,
+        "fiber_g": 4,
+        "sugar_g": 26,
+        "sat_fat_g": 0,
+        "sodium_mg": 167
+      },
+      "micronutrients": {
+        "gi": 42,
+        "gl": 17.2,
+        "potassium_mg": null,
+        "phosphorus_mg": null,
+        "iron_mg": null,
+        "heme_pct": null,
+        "calcium_mg": null,
+        "omega3_mg": null,
+        "folate_ug": null
+      }
+    },
+    "matching_criteria": {
+      "target_goals": [
+        "muscle_gain",
+        "weight_gain"
+      ],
+      "suitable_for_activity": [
+        "very_active",
+        "extra_active",
+        "moderately_active"
+      ],
+      "recommended_for_conditions": [
+        "athletic_load"
+      ],
+      "contraindicated_conditions": [
+        "lactose_intolerance",
+        "ckd"
+      ],
+      "allergens": [
+        "dairy"
+      ],
+      "regions": [
+        "latam",
+        "us",
+        "eu"
+      ],
+      "dietary_pattern": "omnivore",
+      "cuisine_region": [
+        "fusion"
+      ],
+      "meal_format": "liquid",
+      "pregnancy_safe": false
+    },
+    "execution": {
+      "meal_time": "snack",
+      "prep_time_minutes": 5,
+      "cook_time_minutes": 0,
+      "image_url": null,
+      "ingredients": [
+        "30 g de whey protein",
+        "100 g de plátano",
+        "5 g de cacao puro",
+        "250 ml de leche descremada"
+      ],
+      "instructions": [
+        "Licúa todo.",
+        "Sirve frío inmediatamente post-entreno."
+      ],
+      "servings": 1,
+      "source_catalog": "nova_v2_batch_liq_2026_06_01"
+    },
+    "audit": {
+      "schema_version": "v2",
+      "macro_consistency_pct": 0.0,
+      "gl_estimated": 17.2,
+      "cultural_origin": "Fitness fusion",
+      "generated_at": "2026-06-01"
+    }
+  },
+  {
+    "id": "nova_meal_liq_012",
+    "name": "Smoothie Verde Vegano de Espinaca, Plátano y Mantequilla de Maní",
+    "description": "Smoothie vegano denso en proteína vegetal, hierro no-hemo y potasio.",
+    "image_url": "https://storage.googleapis.com/nova-nutrition-public/placeholder.webp",
+    "nutrition_profile": {
+      "calories": 409,
+      "macros": {
+        "protein_g": 26,
+        "carbs_g": 47,
+        "fat_g": 13,
+        "fiber_g": 7,
+        "sugar_g": 22,
+        "sat_fat_g": 0,
+        "sodium_mg": 203
+      },
+      "micronutrients": {
+        "gi": 49,
+        "gl": 23.0,
+        "potassium_mg": null,
+        "phosphorus_mg": null,
+        "iron_mg": null,
+        "heme_pct": null,
+        "calcium_mg": null,
+        "omega3_mg": null,
+        "folate_ug": null
+      }
+    },
+    "matching_criteria": {
+      "target_goals": [
+        "muscle_gain",
+        "health"
+      ],
+      "suitable_for_activity": [
+        "moderately_active",
+        "very_active"
+      ],
+      "recommended_for_conditions": [
+        "iron_deficiency_anemia",
+        "athletic_load"
+      ],
+      "contraindicated_conditions": [
+        "ckd"
+      ],
+      "allergens": [
+        "dairy",
+        "gluten",
+        "peanuts"
+      ],
+      "regions": [
+        "eu",
+        "us",
+        "uk",
+        "latam"
+      ],
+      "dietary_pattern": "vegan",
+      "cuisine_region": [
+        "fusion"
+      ],
+      "meal_format": "liquid",
+      "pregnancy_safe": false
+    },
+    "execution": {
+      "meal_time": "breakfast",
+      "prep_time_minutes": 5,
+      "cook_time_minutes": 0,
+      "image_url": null,
+      "ingredients": [
+        "25 g de proteína vegana",
+        "40 g de espinaca",
+        "100 g de plátano",
+        "15 g de mantequilla de maní",
+        "250 ml de leche de avena"
+      ],
+      "instructions": [
+        "Licúa todo hasta homogéneo.",
+        "Sirve frío."
+      ],
+      "servings": 1,
+      "source_catalog": "nova_v2_batch_liq_2026_06_01"
+    },
+    "audit": {
+      "schema_version": "v2",
+      "macro_consistency_pct": 0.0,
+      "gl_estimated": 23.0,
+      "cultural_origin": null,
+      "generated_at": "2026-06-01"
+    }
+  },
+  {
+    "id": "nova_meal_liq_013",
+    "name": "Smoothie de Kéfir, Arándanos y Linaza",
+    "description": "Probiótico + antioxidantes + omega-3 ALA, apoya microbiota.",
+    "image_url": "https://storage.googleapis.com/nova-nutrition-public/placeholder.webp",
+    "nutrition_profile": {
+      "calories": 186,
+      "macros": {
+        "protein_g": 10,
+        "carbs_g": 23,
+        "fat_g": 6,
+        "fiber_g": 4,
+        "sugar_g": 17,
+        "sat_fat_g": 0,
+        "sodium_mg": 83
+      },
+      "micronutrients": {
+        "gi": 39,
+        "gl": 9.0,
+        "potassium_mg": null,
+        "phosphorus_mg": null,
+        "iron_mg": null,
+        "heme_pct": null,
+        "calcium_mg": null,
+        "omega3_mg": null,
+        "folate_ug": null
+      }
+    },
+    "matching_criteria": {
+      "target_goals": [
+        "health",
+        "weight_loss"
+      ],
+      "suitable_for_activity": [
+        "sedentary",
+        "lightly_active"
+      ],
+      "recommended_for_conditions": [
+        "ibs",
+        "dyslipidemia"
+      ],
+      "contraindicated_conditions": [
+        "lactose_intolerance"
+      ],
+      "allergens": [],
+      "regions": [
+        "eu",
+        "us",
+        "latam"
+      ],
+      "dietary_pattern": "vegetarian",
+      "cuisine_region": [
+        "fusion"
+      ],
+      "meal_format": "liquid",
+      "pregnancy_safe": false
+    },
+    "execution": {
+      "meal_time": "breakfast",
+      "prep_time_minutes": 5,
+      "cook_time_minutes": 0,
+      "image_url": null,
+      "ingredients": [
+        "200 ml de kéfir",
+        "80 g de arándanos",
+        "8 g de linaza molida"
+      ],
+      "instructions": [
+        "Licúa kéfir y arándanos.",
+        "Agrega la linaza al final.",
+        "Sirve frío."
+      ],
+      "servings": 1,
+      "source_catalog": "nova_v2_batch_liq_2026_06_01"
+    },
+    "audit": {
+      "schema_version": "v2",
+      "macro_consistency_pct": 0.0,
+      "gl_estimated": 9.0,
+      "cultural_origin": null,
+      "generated_at": "2026-06-01"
+    }
+  },
+  {
+    "id": "nova_meal_liq_014",
+    "name": "Smoothie de Yogur Griego, Fresas y Almendras",
+    "description": "Alta proteína, antioxidantes y grasas saludables.",
+    "image_url": "https://storage.googleapis.com/nova-nutrition-public/placeholder.webp",
+    "nutrition_profile": {
+      "calories": 214,
+      "macros": {
+        "protein_g": 23,
+        "carbs_g": 17,
+        "fat_g": 6,
+        "fiber_g": 3,
+        "sugar_g": 12,
+        "sat_fat_g": 0,
+        "sodium_mg": 73
+      },
+      "micronutrients": {
+        "gi": 23,
+        "gl": 3.9,
+        "potassium_mg": null,
+        "phosphorus_mg": null,
+        "iron_mg": null,
+        "heme_pct": null,
+        "calcium_mg": null,
+        "omega3_mg": null,
+        "folate_ug": null
+      }
+    },
+    "matching_criteria": {
+      "target_goals": [
+        "muscle_gain",
+        "weight_loss"
+      ],
+      "suitable_for_activity": [
+        "lightly_active",
+        "moderately_active"
+      ],
+      "recommended_for_conditions": [
+        "athletic_load"
+      ],
+      "contraindicated_conditions": [
+        "lactose_intolerance"
+      ],
+      "allergens": [
+        "dairy",
+        "tree_nuts"
+      ],
+      "regions": [
+        "eu",
+        "us"
+      ],
+      "dietary_pattern": "vegetarian",
+      "cuisine_region": [
+        "mediterranean"
+      ],
+      "meal_format": "liquid",
+      "pregnancy_safe": false
+    },
+    "execution": {
+      "meal_time": "breakfast",
+      "prep_time_minutes": 5,
+      "cook_time_minutes": 0,
+      "image_url": null,
+      "ingredients": [
+        "200 g de yogur griego natural",
+        "100 g de fresas",
+        "10 g de almendras"
+      ],
+      "instructions": [
+        "Licúa todo.",
+        "Sirve frío."
+      ],
+      "servings": 1,
+      "source_catalog": "nova_v2_batch_liq_2026_06_01"
+    },
+    "audit": {
+      "schema_version": "v2",
+      "macro_consistency_pct": 0.0,
+      "gl_estimated": 3.9,
+      "cultural_origin": null,
+      "generated_at": "2026-06-01"
+    }
+  },
+  {
+    "id": "nova_meal_liq_015",
+    "name": "Smoothie de Mango y Cúrcuma con Leche de Coco",
+    "description": "Dorado antiinflamatorio con grasas de cadena media.",
+    "image_url": "https://storage.googleapis.com/nova-nutrition-public/placeholder.webp",
+    "nutrition_profile": {
+      "calories": 140,
+      "macros": {
+        "protein_g": 1,
+        "carbs_g": 16,
+        "fat_g": 8,
+        "fiber_g": 2,
+        "sugar_g": 14,
+        "sat_fat_g": 0,
+        "sodium_mg": 39
+      },
+      "micronutrients": {
+        "gi": 44,
+        "gl": 7.0,
+        "potassium_mg": null,
+        "phosphorus_mg": null,
+        "iron_mg": null,
+        "heme_pct": null,
+        "calcium_mg": null,
+        "omega3_mg": null,
+        "folate_ug": null
+      }
+    },
+    "matching_criteria": {
+      "target_goals": [
+        "health"
+      ],
+      "suitable_for_activity": [
+        "sedentary",
+        "lightly_active"
+      ],
+      "recommended_for_conditions": [
+        "dyslipidemia"
+      ],
+      "contraindicated_conditions": [],
+      "allergens": [
+        "dairy"
+      ],
+      "regions": [
+        "eu",
+        "us",
+        "latam"
+      ],
+      "dietary_pattern": "vegan",
+      "cuisine_region": [
+        "asian",
+        "fusion"
+      ],
+      "meal_format": "liquid",
+      "pregnancy_safe": false
+    },
+    "execution": {
+      "meal_time": "snack",
+      "prep_time_minutes": 5,
+      "cook_time_minutes": 0,
+      "image_url": null,
+      "ingredients": [
+        "80 g de mango",
+        "2 g de cúrcuma",
+        "250 ml de leche de coco light",
+        "3 g de jengibre"
+      ],
+      "instructions": [
+        "Licúa todo.",
+        "Sirve frío o tibio."
+      ],
+      "servings": 1,
+      "source_catalog": "nova_v2_batch_liq_2026_06_01"
+    },
+    "audit": {
+      "schema_version": "v2",
+      "macro_consistency_pct": 0.0,
+      "gl_estimated": 7.0,
+      "cultural_origin": null,
+      "generated_at": "2026-06-01"
+    }
+  },
+  {
+    "id": "nova_meal_liq_016",
+    "name": "Smoothie de Cacao, Almendras y Dátil",
+    "description": "Energético natural, magnesio y polifenoles del cacao.",
+    "image_url": "https://storage.googleapis.com/nova-nutrition-public/placeholder.webp",
+    "nutrition_profile": {
+      "calories": 220,
+      "macros": {
+        "protein_g": 7,
+        "carbs_g": 21,
+        "fat_g": 12,
+        "fiber_g": 7,
+        "sugar_g": 10,
+        "sat_fat_g": 0,
+        "sodium_mg": 152
+      },
+      "micronutrients": {
+        "gi": 34,
+        "gl": 7.1,
+        "potassium_mg": null,
+        "phosphorus_mg": null,
+        "iron_mg": null,
+        "heme_pct": null,
+        "calcium_mg": null,
+        "omega3_mg": null,
+        "folate_ug": null
+      }
+    },
+    "matching_criteria": {
+      "target_goals": [
+        "health",
+        "muscle_gain"
+      ],
+      "suitable_for_activity": [
+        "moderately_active",
+        "very_active"
+      ],
+      "recommended_for_conditions": [
+        "athletic_load"
+      ],
+      "contraindicated_conditions": [],
+      "allergens": [
+        "dairy",
+        "tree_nuts"
+      ],
+      "regions": [
+        "eu",
+        "us",
+        "latam"
+      ],
+      "dietary_pattern": "vegan",
+      "cuisine_region": [
+        "fusion"
+      ],
+      "meal_format": "liquid",
+      "pregnancy_safe": false
+    },
+    "execution": {
+      "meal_time": "snack",
+      "prep_time_minutes": 5,
+      "cook_time_minutes": 0,
+      "image_url": null,
+      "ingredients": [
+        "8 g de cacao puro",
+        "15 g de almendras",
+        "15 g de dátil",
+        "250 ml de leche de almendra"
+      ],
+      "instructions": [
+        "Hidrata el dátil 10 min.",
+        "Licúa todo.",
+        "Sirve frío."
+      ],
+      "servings": 1,
+      "source_catalog": "nova_v2_batch_liq_2026_06_01"
+    },
+    "audit": {
+      "schema_version": "v2",
+      "macro_consistency_pct": 0.0,
+      "gl_estimated": 7.1,
+      "cultural_origin": null,
+      "generated_at": "2026-06-01"
+    }
+  },
+  {
+    "id": "nova_meal_liq_017",
+    "name": "Smoothie de Matcha, Plátano y Soya",
+    "description": "Energía sostenida con L-teanina + proteína vegetal.",
+    "image_url": "https://storage.googleapis.com/nova-nutrition-public/placeholder.webp",
+    "nutrition_profile": {
+      "calories": 197,
+      "macros": {
+        "protein_g": 10,
+        "carbs_g": 28,
+        "fat_g": 5,
+        "fiber_g": 5,
+        "sugar_g": 15,
+        "sat_fat_g": 0,
+        "sodium_mg": 129
+      },
+      "micronutrients": {
+        "gi": 46,
+        "gl": 12.9,
+        "potassium_mg": null,
+        "phosphorus_mg": null,
+        "iron_mg": null,
+        "heme_pct": null,
+        "calcium_mg": null,
+        "omega3_mg": null,
+        "folate_ug": null
+      }
+    },
+    "matching_criteria": {
+      "target_goals": [
+        "health",
+        "muscle_gain"
+      ],
+      "suitable_for_activity": [
+        "lightly_active",
+        "moderately_active",
+        "very_active"
+      ],
+      "recommended_for_conditions": [
+        "mild_depression",
+        "athletic_load"
+      ],
+      "contraindicated_conditions": [],
+      "allergens": [
+        "dairy",
+        "soy"
+      ],
+      "regions": [
+        "eu",
+        "us",
+        "latam"
+      ],
+      "dietary_pattern": "vegan",
+      "cuisine_region": [
+        "asian"
+      ],
+      "meal_format": "liquid",
+      "pregnancy_safe": false
+    },
+    "execution": {
+      "meal_time": "breakfast",
+      "prep_time_minutes": 5,
+      "cook_time_minutes": 0,
+      "image_url": null,
+      "ingredients": [
+        "3 g de matcha",
+        "100 g de plátano",
+        "250 ml de leche de soya"
+      ],
+      "instructions": [
+        "Licúa matcha con leche de soya.",
+        "Agrega plátano y licúa.",
+        "Sirve frío."
+      ],
+      "servings": 1,
+      "source_catalog": "nova_v2_batch_liq_2026_06_01"
+    },
+    "audit": {
+      "schema_version": "v2",
+      "macro_consistency_pct": 0.0,
+      "gl_estimated": 12.9,
+      "cultural_origin": null,
+      "generated_at": "2026-06-01"
+    }
+  },
+  {
+    "id": "nova_meal_liq_018",
+    "name": "Smoothie de Avena, Manzana y Canela",
+    "description": "Fibra soluble beta-glucanos, control glucémico.",
+    "image_url": "https://storage.googleapis.com/nova-nutrition-public/placeholder.webp",
+    "nutrition_profile": {
+      "calories": 210,
+      "macros": {
+        "protein_g": 6,
+        "carbs_g": 33,
+        "fat_g": 6,
+        "fiber_g": 6,
+        "sugar_g": 10,
+        "sat_fat_g": 0,
+        "sodium_mg": 152
+      },
+      "micronutrients": {
+        "gi": 46,
+        "gl": 15.2,
+        "potassium_mg": null,
+        "phosphorus_mg": null,
+        "iron_mg": null,
+        "heme_pct": null,
+        "calcium_mg": null,
+        "omega3_mg": null,
+        "folate_ug": null
+      }
+    },
+    "matching_criteria": {
+      "target_goals": [
+        "health",
+        "weight_loss"
+      ],
+      "suitable_for_activity": [
+        "sedentary",
+        "lightly_active"
+      ],
+      "recommended_for_conditions": [
+        "dyslipidemia",
+        "hypercholesterolemia"
+      ],
+      "contraindicated_conditions": [],
+      "allergens": [
+        "dairy",
+        "gluten",
+        "tree_nuts"
+      ],
+      "regions": [
+        "eu",
+        "us",
+        "uk"
+      ],
+      "dietary_pattern": "vegan",
+      "cuisine_region": [
+        "mediterranean",
+        "nordic"
+      ],
+      "meal_format": "liquid",
+      "pregnancy_safe": false
+    },
+    "execution": {
+      "meal_time": "breakfast",
+      "prep_time_minutes": 5,
+      "cook_time_minutes": 0,
+      "image_url": null,
+      "ingredients": [
+        "25 g de avena",
+        "100 g de manzana verde",
+        "1 g de canela",
+        "250 ml de leche de almendra"
+      ],
+      "instructions": [
+        "Remoja la avena 10 min.",
+        "Licúa todo.",
+        "Sirve frío."
+      ],
+      "servings": 1,
+      "source_catalog": "nova_v2_batch_liq_2026_06_01"
+    },
+    "audit": {
+      "schema_version": "v2",
+      "macro_consistency_pct": 0.0,
+      "gl_estimated": 15.2,
+      "cultural_origin": null,
+      "generated_at": "2026-06-01"
+    }
+  },
+  {
+    "id": "nova_meal_liq_019",
+    "name": "Smoothie de Kale, Piña y Jengibre",
+    "description": "Verde funcional con vitamina K y bromelina digestiva.",
+    "image_url": "https://storage.googleapis.com/nova-nutrition-public/placeholder.webp",
+    "nutrition_profile": {
+      "calories": 125,
+      "macros": {
+        "protein_g": 4,
+        "carbs_g": 25,
+        "fat_g": 1,
+        "fiber_g": 6,
+        "sugar_g": 17,
+        "sat_fat_g": 0,
+        "sodium_mg": 285
+      },
+      "micronutrients": {
+        "gi": 57,
+        "gl": 14.2,
+        "potassium_mg": null,
+        "phosphorus_mg": null,
+        "iron_mg": null,
+        "heme_pct": null,
+        "calcium_mg": null,
+        "omega3_mg": null,
+        "folate_ug": null
+      }
+    },
+    "matching_criteria": {
+      "target_goals": [
+        "health",
+        "weight_loss"
+      ],
+      "suitable_for_activity": [
+        "lightly_active",
+        "moderately_active"
+      ],
+      "recommended_for_conditions": [
+        "hypertension"
+      ],
+      "contraindicated_conditions": [],
+      "allergens": [],
+      "regions": [
+        "us",
+        "eu",
+        "latam"
+      ],
+      "dietary_pattern": "vegan",
+      "cuisine_region": [
+        "fusion"
+      ],
+      "meal_format": "liquid",
+      "pregnancy_safe": false
+    },
+    "execution": {
+      "meal_time": "snack",
+      "prep_time_minutes": 5,
+      "cook_time_minutes": 0,
+      "image_url": null,
+      "ingredients": [
+        "40 g de kale",
+        "100 g de piña",
+        "5 g de jengibre",
+        "250 ml de agua de coco"
+      ],
+      "instructions": [
+        "Licúa todo.",
+        "Cuela si prefieres textura ligera."
+      ],
+      "servings": 1,
+      "source_catalog": "nova_v2_batch_liq_2026_06_01"
+    },
+    "audit": {
+      "schema_version": "v2",
+      "macro_consistency_pct": 0.0,
+      "gl_estimated": 14.2,
+      "cultural_origin": null,
+      "generated_at": "2026-06-01"
+    }
+  },
+  {
+    "id": "nova_meal_liq_020",
+    "name": "Smoothie de Té Verde, Arándanos y Linaza",
+    "description": "Catequinas + antocianinas + ALA, perfil antioxidante alto.",
+    "image_url": "https://storage.googleapis.com/nova-nutrition-public/placeholder.webp",
+    "nutrition_profile": {
+      "calories": 160,
+      "macros": {
+        "protein_g": 3,
+        "carbs_g": 28,
+        "fat_g": 4,
+        "fiber_g": 6,
+        "sugar_g": 15,
+        "sat_fat_g": 0,
+        "sodium_mg": 6
+      },
+      "micronutrients": {
+        "gi": 47,
+        "gl": 13.2,
+        "potassium_mg": null,
+        "phosphorus_mg": null,
+        "iron_mg": null,
+        "heme_pct": null,
+        "calcium_mg": null,
+        "omega3_mg": null,
+        "folate_ug": null
+      }
+    },
+    "matching_criteria": {
+      "target_goals": [
+        "health",
+        "weight_loss"
+      ],
+      "suitable_for_activity": [
+        "lightly_active",
+        "moderately_active"
+      ],
+      "recommended_for_conditions": [
+        "dyslipidemia"
+      ],
+      "contraindicated_conditions": [],
+      "allergens": [],
+      "regions": [
+        "us",
+        "eu",
+        "uk"
+      ],
+      "dietary_pattern": "vegan",
+      "cuisine_region": [
+        "fusion"
+      ],
+      "meal_format": "liquid",
+      "pregnancy_safe": false
+    },
+    "execution": {
+      "meal_time": "snack",
+      "prep_time_minutes": 5,
+      "cook_time_minutes": 0,
+      "image_url": null,
+      "ingredients": [
+        "200 ml de té verde frío",
+        "80 g de arándanos",
+        "8 g de linaza",
+        "60 g de plátano"
+      ],
+      "instructions": [
+        "Prepara el té verde y enfría.",
+        "Licúa todo.",
+        "Sirve frío."
+      ],
+      "servings": 1,
+      "source_catalog": "nova_v2_batch_liq_2026_06_01"
+    },
+    "audit": {
+      "schema_version": "v2",
+      "macro_consistency_pct": 0.0,
+      "gl_estimated": 13.2,
+      "cultural_origin": null,
+      "generated_at": "2026-06-01"
+    }
+  },
+  {
+    "id": "nova_meal_liq_021",
+    "name": "Chía Pudding de Vainilla con Frutos Rojos",
+    "description": "Pudding alto en omega-3 ALA y fibra, control glucémico.",
+    "image_url": "https://storage.googleapis.com/nova-nutrition-public/placeholder.webp",
+    "nutrition_profile": {
+      "calories": 215,
+      "macros": {
+        "protein_g": 6,
+        "carbs_g": 23,
+        "fat_g": 11,
+        "fiber_g": 11,
+        "sugar_g": 7,
+        "sat_fat_g": 0,
+        "sodium_mg": 125
+      },
+      "micronutrients": {
+        "gi": 25,
+        "gl": null,
+        "potassium_mg": null,
+        "phosphorus_mg": null,
+        "iron_mg": null,
+        "heme_pct": null,
+        "calcium_mg": null,
+        "omega3_mg": null,
+        "folate_ug": null
+      }
+    },
+    "matching_criteria": {
+      "target_goals": [
+        "health",
+        "weight_loss"
+      ],
+      "suitable_for_activity": [
+        "sedentary",
+        "lightly_active"
+      ],
+      "recommended_for_conditions": [
+        "dyslipidemia",
+        "ibs"
+      ],
+      "contraindicated_conditions": [],
+      "allergens": [
+        "dairy",
+        "tree_nuts"
+      ],
+      "regions": [
+        "us",
+        "eu",
+        "uk",
+        "latam"
+      ],
+      "dietary_pattern": "vegan",
+      "cuisine_region": [
+        "fusion"
+      ],
+      "meal_format": "semi_solid",
+      "pregnancy_safe": false
+    },
+    "execution": {
+      "meal_time": "breakfast",
+      "prep_time_minutes": 10,
+      "cook_time_minutes": 0,
+      "image_url": null,
+      "ingredients": [
+        "25 g de semillas de chía",
+        "200 ml de leche de almendra",
+        "50 g de arándanos",
+        "50 g de fresas"
+      ],
+      "instructions": [
+        "Mezcla chía y leche.",
+        "Refrigera 4 h.",
+        "Sirve con frutos rojos."
+      ],
+      "servings": 1,
+      "source_catalog": "nova_v2_batch_liq_2026_06_01"
+    },
+    "audit": {
+      "schema_version": "v2",
+      "macro_consistency_pct": 0.0,
+      "gl_estimated": null,
+      "cultural_origin": "Wellness viral",
+      "generated_at": "2026-06-01"
+    }
+  },
+  {
+    "id": "nova_meal_liq_022",
+    "name": "Overnight Oats de Avena, Plátano y Mantequilla de Maní",
+    "description": "Desayuno frío, alto en fibra y proteína, prep-friendly.",
+    "image_url": "https://storage.googleapis.com/nova-nutrition-public/placeholder.webp",
+    "nutrition_profile": {
+      "calories": 457,
+      "macros": {
+        "protein_g": 16,
+        "carbs_g": 60,
+        "fat_g": 17,
+        "fiber_g": 12,
+        "sugar_g": 11,
+        "sat_fat_g": 0,
+        "sodium_mg": 126
+      },
+      "micronutrients": {
+        "gi": 47,
+        "gl": null,
+        "potassium_mg": null,
+        "phosphorus_mg": null,
+        "iron_mg": null,
+        "heme_pct": null,
+        "calcium_mg": null,
+        "omega3_mg": null,
+        "folate_ug": null
+      }
+    },
+    "matching_criteria": {
+      "target_goals": [
+        "health",
+        "muscle_gain"
+      ],
+      "suitable_for_activity": [
+        "lightly_active",
+        "moderately_active"
+      ],
+      "recommended_for_conditions": [
+        "dyslipidemia",
+        "athletic_load"
+      ],
+      "contraindicated_conditions": [],
+      "allergens": [
+        "dairy",
+        "gluten",
+        "peanuts",
+        "tree_nuts"
+      ],
+      "regions": [
+        "us",
+        "eu",
+        "uk",
+        "latam",
+        "ca"
+      ],
+      "dietary_pattern": "vegan",
+      "cuisine_region": [
+        "fusion"
+      ],
+      "meal_format": "semi_solid",
+      "pregnancy_safe": false
+    },
+    "execution": {
+      "meal_time": "breakfast",
+      "prep_time_minutes": 10,
+      "cook_time_minutes": 0,
+      "image_url": null,
+      "ingredients": [
+        "50 g de avena",
+        "80 g de plátano",
+        "15 g de mantequilla de maní",
+        "200 ml de leche de almendra",
+        "10 g de chía"
+      ],
+      "instructions": [
+        "Mezcla todo en frasco.",
+        "Refrigera toda la noche.",
+        "Sirve frío."
+      ],
+      "servings": 1,
+      "source_catalog": "nova_v2_batch_liq_2026_06_01"
+    },
+    "audit": {
+      "schema_version": "v2",
+      "macro_consistency_pct": 0.0,
+      "gl_estimated": null,
+      "cultural_origin": "Wellness viral",
+      "generated_at": "2026-06-01"
+    }
+  },
+  {
+    "id": "nova_meal_liq_023",
+    "name": "Kéfir Bowl con Granola Casera y Frutos Rojos",
+    "description": "Probiótico + antioxidantes, microbiota saludable.",
+    "image_url": "https://storage.googleapis.com/nova-nutrition-public/placeholder.webp",
+    "nutrition_profile": {
+      "calories": 297,
+      "macros": {
+        "protein_g": 15,
+        "carbs_g": 39,
+        "fat_g": 9,
+        "fiber_g": 6,
+        "sugar_g": 17,
+        "sat_fat_g": 0,
+        "sodium_mg": 82
+      },
+      "micronutrients": {
+        "gi": 44,
+        "gl": null,
+        "potassium_mg": null,
+        "phosphorus_mg": null,
+        "iron_mg": null,
+        "heme_pct": null,
+        "calcium_mg": null,
+        "omega3_mg": null,
+        "folate_ug": null
+      }
+    },
+    "matching_criteria": {
+      "target_goals": [
+        "health",
+        "weight_loss"
+      ],
+      "suitable_for_activity": [
+        "lightly_active",
+        "moderately_active"
+      ],
+      "recommended_for_conditions": [
+        "ibs"
+      ],
+      "contraindicated_conditions": [
+        "lactose_intolerance"
+      ],
+      "allergens": [
+        "gluten",
+        "tree_nuts"
+      ],
+      "regions": [
+        "eu",
+        "us",
+        "uk"
+      ],
+      "dietary_pattern": "vegetarian",
+      "cuisine_region": [
+        "nordic",
+        "fusion"
+      ],
+      "meal_format": "semi_solid",
+      "pregnancy_safe": false
+    },
+    "execution": {
+      "meal_time": "breakfast",
+      "prep_time_minutes": 5,
+      "cook_time_minutes": 0,
+      "image_url": null,
+      "ingredients": [
+        "200 ml de kéfir",
+        "25 g de granola de avena casera",
+        "50 g de arándanos",
+        "50 g de fresas",
+        "10 g de almendras"
+      ],
+      "instructions": [
+        "Sirve el kéfir en bowl.",
+        "Cubre con granola y frutos rojos.",
+        "Decora con almendras."
+      ],
+      "servings": 1,
+      "source_catalog": "nova_v2_batch_liq_2026_06_01"
+    },
+    "audit": {
+      "schema_version": "v2",
+      "macro_consistency_pct": 0.0,
+      "gl_estimated": null,
+      "cultural_origin": "Nórdico moderno",
+      "generated_at": "2026-06-01"
+    }
+  },
+  {
+    "id": "nova_meal_liq_024",
+    "name": "Golden Latte de Cúrcuma con Leche de Avena y Miel",
+    "description": "Bebida antiinflamatoria caliente, ritual nocturno con miel ligera para sabor.",
+    "image_url": "https://storage.googleapis.com/nova-nutrition-public/placeholder.webp",
+    "nutrition_profile": {
+      "calories": 203,
+      "macros": {
+        "protein_g": 4,
+        "carbs_g": 31,
+        "fat_g": 7,
+        "fiber_g": 4,
+        "sugar_g": 17,
+        "sat_fat_g": 0,
+        "sodium_mg": 128
+      },
+      "micronutrients": {
+        "gi": 52,
+        "gl": 16.1,
+        "potassium_mg": null,
+        "phosphorus_mg": null,
+        "iron_mg": null,
+        "heme_pct": null,
+        "calcium_mg": null,
+        "omega3_mg": null,
+        "folate_ug": null
+      }
+    },
+    "matching_criteria": {
+      "target_goals": [
+        "health"
+      ],
+      "suitable_for_activity": [
+        "sedentary",
+        "lightly_active"
+      ],
+      "recommended_for_conditions": [
+        "chronic_insomnia",
+        "dyslipidemia"
+      ],
+      "contraindicated_conditions": [],
+      "allergens": [
+        "dairy",
+        "gluten",
+        "tree_nuts"
+      ],
+      "regions": [
+        "us",
+        "eu",
+        "uk",
+        "latam"
+      ],
+      "dietary_pattern": "vegan",
+      "cuisine_region": [
+        "asian",
+        "fusion"
+      ],
+      "meal_format": "liquid",
+      "pregnancy_safe": true
+    },
+    "execution": {
+      "meal_time": "snack",
+      "prep_time_minutes": 5,
+      "cook_time_minutes": 0,
+      "image_url": null,
+      "ingredients": [
+        "300 ml de leche de avena",
+        "3 g de cúrcuma",
+        "3 g de jengibre",
+        "1 g de canela",
+        "8 g de miel",
+        "5 g de almendras molidas",
+        "Pimienta negra al gusto"
+      ],
+      "instructions": [
+        "Calienta la leche.",
+        "Incorpora especias.",
+        "Bate hasta espumar."
+      ],
+      "servings": 1,
+      "source_catalog": "nova_v2_batch_liq_2026_06_01"
+    },
+    "audit": {
+      "schema_version": "v2",
+      "macro_consistency_pct": 0.0,
+      "gl_estimated": 16.1,
+      "cultural_origin": "Ayurveda moderno",
+      "generated_at": "2026-06-01"
+    }
+  },
+  {
+    "id": "nova_meal_liq_025",
+    "name": "Matcha Latte Helado con Leche de Avena",
+    "description": "Energía sostenida con L-teanina, antioxidantes EGCG.",
+    "image_url": "https://storage.googleapis.com/nova-nutrition-public/placeholder.webp",
+    "nutrition_profile": {
+      "calories": 120,
+      "macros": {
+        "protein_g": 3,
+        "carbs_g": 18,
+        "fat_g": 4,
+        "fiber_g": 3,
+        "sugar_g": 8,
+        "sat_fat_g": 0,
+        "sodium_mg": 106
+      },
+      "micronutrients": {
+        "gi": 56,
+        "gl": 10.1,
+        "potassium_mg": null,
+        "phosphorus_mg": null,
+        "iron_mg": null,
+        "heme_pct": null,
+        "calcium_mg": null,
+        "omega3_mg": null,
+        "folate_ug": null
+      }
+    },
+    "matching_criteria": {
+      "target_goals": [
+        "health",
+        "weight_loss"
+      ],
+      "suitable_for_activity": [
+        "lightly_active",
+        "moderately_active"
+      ],
+      "recommended_for_conditions": [
+        "mild_depression"
+      ],
+      "contraindicated_conditions": [],
+      "allergens": [
+        "dairy",
+        "gluten"
+      ],
+      "regions": [
+        "us",
+        "eu",
+        "uk"
+      ],
+      "dietary_pattern": "vegan",
+      "cuisine_region": [
+        "asian"
+      ],
+      "meal_format": "liquid",
+      "pregnancy_safe": false
+    },
+    "execution": {
+      "meal_time": "snack",
+      "prep_time_minutes": 5,
+      "cook_time_minutes": 0,
+      "image_url": null,
+      "ingredients": [
+        "3 g de matcha ceremonial",
+        "250 ml de leche de avena",
+        "Hielo"
+      ],
+      "instructions": [
+        "Bate matcha con un poco de agua caliente.",
+        "Vierte sobre leche de avena con hielo."
+      ],
+      "servings": 1,
+      "source_catalog": "nova_v2_batch_liq_2026_06_01"
+    },
+    "audit": {
+      "schema_version": "v2",
+      "macro_consistency_pct": 0.0,
+      "gl_estimated": 10.1,
+      "cultural_origin": "Japón → viral",
+      "generated_at": "2026-06-01"
+    }
+  },
+  {
+    "id": "nova_meal_liq_026",
+    "name": "Smoothie Bowl de Açaí, Plátano y Granola",
+    "description": "Antioxidante intenso por antocianinas + carbos complejos.",
+    "image_url": "https://storage.googleapis.com/nova-nutrition-public/placeholder.webp",
+    "nutrition_profile": {
+      "calories": 319,
+      "macros": {
+        "protein_g": 8,
+        "carbs_g": 56,
+        "fat_g": 7,
+        "fiber_g": 9,
+        "sugar_g": 23,
+        "sat_fat_g": 0,
+        "sodium_mg": 3
+      },
+      "micronutrients": {
+        "gi": 51,
+        "gl": null,
+        "potassium_mg": null,
+        "phosphorus_mg": null,
+        "iron_mg": null,
+        "heme_pct": null,
+        "calcium_mg": null,
+        "omega3_mg": null,
+        "folate_ug": null
+      }
+    },
+    "matching_criteria": {
+      "target_goals": [
+        "health",
+        "muscle_gain"
+      ],
+      "suitable_for_activity": [
+        "lightly_active",
+        "moderately_active",
+        "very_active"
+      ],
+      "recommended_for_conditions": [
+        "athletic_load"
+      ],
+      "contraindicated_conditions": [],
+      "allergens": [
+        "gluten",
+        "tree_nuts"
+      ],
+      "regions": [
+        "latam",
+        "us",
+        "eu"
+      ],
+      "dietary_pattern": "vegan",
+      "cuisine_region": [
+        "latam",
+        "fusion"
+      ],
+      "meal_format": "semi_solid",
+      "pregnancy_safe": false
+    },
+    "execution": {
+      "meal_time": "breakfast",
+      "prep_time_minutes": 5,
+      "cook_time_minutes": 0,
+      "image_url": null,
+      "ingredients": [
+        "100 g de frutos rojos (proxy açaí)",
+        "100 g de plátano",
+        "25 g de granola de avena",
+        "10 g de almendras"
+      ],
+      "instructions": [
+        "Licúa frutos rojos y plátano hasta cremoso.",
+        "Sirve en bowl.",
+        "Decora con granola y almendras."
+      ],
+      "servings": 1,
+      "source_catalog": "nova_v2_batch_liq_2026_06_01"
+    },
+    "audit": {
+      "schema_version": "v2",
+      "macro_consistency_pct": 0.0,
+      "gl_estimated": null,
+      "cultural_origin": "Brasil → viral global",
+      "generated_at": "2026-06-01"
+    }
+  },
+  {
+    "id": "nova_meal_liq_027",
+    "name": "Pudding de Chía y Cacao Estilo Brownie",
+    "description": "Postre saludable, alto en magnesio y omega-3.",
+    "image_url": "https://storage.googleapis.com/nova-nutrition-public/placeholder.webp",
+    "nutrition_profile": {
+      "calories": 232,
+      "macros": {
+        "protein_g": 7,
+        "carbs_g": 24,
+        "fat_g": 12,
+        "fiber_g": 13,
+        "sugar_g": 6,
+        "sat_fat_g": 0,
+        "sodium_mg": 126
+      },
+      "micronutrients": {
+        "gi": 21,
+        "gl": null,
+        "potassium_mg": null,
+        "phosphorus_mg": null,
+        "iron_mg": null,
+        "heme_pct": null,
+        "calcium_mg": null,
+        "omega3_mg": null,
+        "folate_ug": null
+      }
+    },
+    "matching_criteria": {
+      "target_goals": [
+        "health"
+      ],
+      "suitable_for_activity": [
+        "sedentary",
+        "lightly_active"
+      ],
+      "recommended_for_conditions": [
+        "dyslipidemia"
+      ],
+      "contraindicated_conditions": [],
+      "allergens": [
+        "dairy",
+        "tree_nuts"
+      ],
+      "regions": [
+        "us",
+        "eu",
+        "uk",
+        "latam"
+      ],
+      "dietary_pattern": "vegan",
+      "cuisine_region": [
+        "fusion"
+      ],
+      "meal_format": "semi_solid",
+      "pregnancy_safe": false
+    },
+    "execution": {
+      "meal_time": "snack",
+      "prep_time_minutes": 10,
+      "cook_time_minutes": 0,
+      "image_url": null,
+      "ingredients": [
+        "25 g de chía",
+        "8 g de cacao puro",
+        "200 ml de leche de almendra",
+        "10 g de dátil"
+      ],
+      "instructions": [
+        "Hidrata el dátil y licúa con leche.",
+        "Mezcla con chía y cacao.",
+        "Refrigera 4 h."
+      ],
+      "servings": 1,
+      "source_catalog": "nova_v2_batch_liq_2026_06_01"
+    },
+    "audit": {
+      "schema_version": "v2",
+      "macro_consistency_pct": 0.0,
+      "gl_estimated": null,
+      "cultural_origin": "Wellness viral",
+      "generated_at": "2026-06-01"
+    }
+  },
+  {
+    "id": "nova_meal_liq_028",
+    "name": "Té Verde Helado con Limón, Jengibre y Frutos Rojos",
+    "description": "Bebida termogénica suave, hidratación + catequinas + antocianinas.",
+    "image_url": "https://storage.googleapis.com/nova-nutrition-public/placeholder.webp",
+    "nutrition_profile": {
+      "calories": 117,
+      "macros": {
+        "protein_g": 2,
+        "carbs_g": 25,
+        "fat_g": 1,
+        "fiber_g": 5,
+        "sugar_g": 15,
+        "sat_fat_g": 0,
+        "sodium_mg": 6
+      },
+      "micronutrients": {
+        "gi": 45,
+        "gl": 11.2,
+        "potassium_mg": null,
+        "phosphorus_mg": null,
+        "iron_mg": null,
+        "heme_pct": null,
+        "calcium_mg": null,
+        "omega3_mg": null,
+        "folate_ug": null
+      }
+    },
+    "matching_criteria": {
+      "target_goals": [
+        "weight_loss",
+        "health"
+      ],
+      "suitable_for_activity": [
+        "lightly_active",
+        "moderately_active"
+      ],
+      "recommended_for_conditions": [
+        "hypertension"
+      ],
+      "contraindicated_conditions": [],
+      "allergens": [],
+      "regions": [
+        "us",
+        "eu",
+        "uk",
+        "latam"
+      ],
+      "dietary_pattern": "vegan",
+      "cuisine_region": [
+        "asian"
+      ],
+      "meal_format": "liquid",
+      "pregnancy_safe": false
+    },
+    "execution": {
+      "meal_time": "snack",
+      "prep_time_minutes": 5,
+      "cook_time_minutes": 0,
+      "image_url": null,
+      "ingredients": [
+        "300 ml de té verde frío",
+        "15 g de limón",
+        "5 g de jengibre fresco",
+        "100 g de arándanos",
+        "100 g de fresas",
+        "Hielo"
+      ],
+      "instructions": [
+        "Infunde el té verde 3 min.",
+        "Enfría.",
+        "Agrega limón, jengibre y hielo."
+      ],
+      "servings": 1,
+      "source_catalog": "nova_v2_batch_liq_2026_06_01"
+    },
+    "audit": {
+      "schema_version": "v2",
+      "macro_consistency_pct": 0.0,
+      "gl_estimated": 11.2,
+      "cultural_origin": "Japón clásico",
+      "generated_at": "2026-06-01"
+    }
+  },
+  {
+    "id": "nova_meal_liq_029",
+    "name": "Bebida Proteica Vegana de Cacao y Plátano",
+    "description": "Recuperación post-entreno plant-based, perfil aminoacídico completo.",
+    "image_url": "https://storage.googleapis.com/nova-nutrition-public/placeholder.webp",
+    "nutrition_profile": {
+      "calories": 323,
+      "macros": {
+        "protein_g": 31,
+        "carbs_g": 34,
+        "fat_g": 7,
+        "fiber_g": 7,
+        "sugar_g": 15,
+        "sat_fat_g": 0,
+        "sodium_mg": 205
+      },
+      "micronutrients": {
+        "gi": 43,
+        "gl": 14.6,
+        "potassium_mg": null,
+        "phosphorus_mg": null,
+        "iron_mg": null,
+        "heme_pct": null,
+        "calcium_mg": null,
+        "omega3_mg": null,
+        "folate_ug": null
+      }
+    },
+    "matching_criteria": {
+      "target_goals": [
+        "muscle_gain",
+        "weight_gain"
+      ],
+      "suitable_for_activity": [
+        "very_active",
+        "extra_active",
+        "moderately_active"
+      ],
+      "recommended_for_conditions": [
+        "athletic_load"
+      ],
+      "contraindicated_conditions": [
+        "ckd"
+      ],
+      "allergens": [
+        "dairy",
+        "soy"
+      ],
+      "regions": [
+        "us",
+        "eu",
+        "uk",
+        "latam"
+      ],
+      "dietary_pattern": "vegan",
+      "cuisine_region": [
+        "fusion"
+      ],
+      "meal_format": "liquid",
+      "pregnancy_safe": false
+    },
+    "execution": {
+      "meal_time": "snack",
+      "prep_time_minutes": 5,
+      "cook_time_minutes": 0,
+      "image_url": null,
+      "ingredients": [
+        "30 g de proteína vegana en polvo",
+        "100 g de plátano",
+        "5 g de cacao puro",
+        "250 ml de leche de soya"
+      ],
+      "instructions": [
+        "Licúa todo.",
+        "Sirve frío post-entreno."
+      ],
+      "servings": 1,
+      "source_catalog": "nova_v2_batch_liq_2026_06_01"
+    },
+    "audit": {
+      "schema_version": "v2",
+      "macro_consistency_pct": 0.0,
+      "gl_estimated": 14.6,
+      "cultural_origin": null,
+      "generated_at": "2026-06-01"
+    }
+  },
+  {
+    "id": "nova_meal_liq_030",
+    "name": "Agua de Coco con Limón y Chía",
+    "description": "Hidratación electrolítica natural post-ejercicio.",
+    "image_url": "https://storage.googleapis.com/nova-nutrition-public/placeholder.webp",
+    "nutrition_profile": {
+      "calories": 107,
+      "macros": {
+        "protein_g": 4,
+        "carbs_g": 16,
+        "fat_g": 3,
+        "fiber_g": 6,
+        "sugar_g": 8,
+        "sat_fat_g": 0,
+        "sodium_mg": 317
+      },
+      "micronutrients": {
+        "gi": 40,
+        "gl": 6.4,
+        "potassium_mg": null,
+        "phosphorus_mg": null,
+        "iron_mg": null,
+        "heme_pct": null,
+        "calcium_mg": null,
+        "omega3_mg": null,
+        "folate_ug": null
+      }
+    },
+    "matching_criteria": {
+      "target_goals": [
+        "health"
+      ],
+      "suitable_for_activity": [
+        "moderately_active",
+        "very_active",
+        "extra_active"
+      ],
+      "recommended_for_conditions": [
+        "athletic_load",
+        "hypertension"
+      ],
+      "contraindicated_conditions": [],
+      "allergens": [],
+      "regions": [
+        "latam",
+        "us",
+        "eu"
+      ],
+      "dietary_pattern": "vegan",
+      "cuisine_region": [
+        "latam",
+        "fusion"
+      ],
+      "meal_format": "liquid",
+      "pregnancy_safe": false
+    },
+    "execution": {
+      "meal_time": "snack",
+      "prep_time_minutes": 5,
+      "cook_time_minutes": 0,
+      "image_url": null,
+      "ingredients": [
+        "300 ml de agua de coco",
+        "15 g de limón",
+        "8 g de chía hidratada"
+      ],
+      "instructions": [
+        "Hidrata la chía 15 min en agua.",
+        "Mezcla con agua de coco y limón.",
+        "Sirve frío."
+      ],
+      "servings": 1,
+      "source_catalog": "nova_v2_batch_liq_2026_06_01"
+    },
+    "audit": {
+      "schema_version": "v2",
+      "macro_consistency_pct": 0.0,
+      "gl_estimated": 6.4,
+      "cultural_origin": "Trópicos LatAm",
+      "generated_at": "2026-06-01"
+    }
+  }
+]
