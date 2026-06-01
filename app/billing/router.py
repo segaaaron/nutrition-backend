@@ -104,10 +104,13 @@ async def stripe_webhook(
 async def mercadopago_webhook(
     request: Request, session: SessionDep,
     x_signature: str = Header(default="", alias="X-Signature"),
+    x_request_id: str = Header(default="", alias="X-Request-Id"),
 ) -> dict:
     payload = await request.body()
     gw = MercadoPagoGateway()
-    event = await gw.verify_webhook(payload=payload, signature=x_signature)
+    event = await gw.verify_webhook(
+        payload=payload, signature=x_signature, request_id=x_request_id,
+    )
     uc = HandleWebhook(
         repo=SqlBillingRepository(session), bus=get_event_bus(),
         provider=BillingProvider.MERCADOPAGO,

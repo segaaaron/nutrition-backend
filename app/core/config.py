@@ -93,6 +93,12 @@ class Settings(BaseSettings):
     # --- Regions ---
     default_region: Literal["us", "ca", "eu", "uk", "latam"] = "us"
 
+    # --- Billing / Webhooks ---
+    stripe_api_key: str = ""
+    stripe_webhook_secret: str = ""
+    mercadopago_access_token: str = ""
+    mercadopago_webhook_secret: str = ""
+
     # --- CORS ---
     cors_allowed_origins: str = "https://app.nova-nutrition.com"
 

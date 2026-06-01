@@ -135,13 +135,45 @@ class MercadoPagoGateway:
             return
         self._mp.preapproval().update(provider_sub_id, {"status": "cancelled"})  # type: ignore[attr-defined]
 
-    async def verify_webhook(self, *, payload: bytes, signature: str) -> dict:
-        # Mercado Pago uses a signed query parameter (x-signature). For Sprint
-        # 8 we capture the raw payload and rely on IP allowlist at the edge
-        # (Cloudflare) for the first cut; HMAC validation is added in a
-        # follow-up alongside the production webhook URL.
+    async def verify_webhook(
+        self, *, payload: bytes, signature: str, request_id: str = "",
+    ) -> dict:
+        import hashlib
+        import hmac
         import json
-        return json.loads(payload.decode())
+        import time
+
+        secret = get_settings().mercadopago_webhook_secret
+        if not secret:
+            raise UpstreamError("mercadopago_webhook_invalid:secret_not_configured")
+        if not signature:
+            raise UpstreamError("mercadopago_webhook_invalid:missing_signature")
+
+        parts = dict(p.split("=", 1) for p in signature.split(",") if "=" in p)
+        ts = parts.get("ts", "")
+        v1 = parts.get("v1", "")
+        if not ts or not v1:
+            raise UpstreamError("mercadopago_webhook_invalid:malformed_signature")
+
+        try:
+            ts_int = int(ts)
+        except ValueError:
+            raise UpstreamError("mercadopago_webhook_invalid:bad_ts") from None
+        if abs(time.time() - ts_int) > 300:
+            raise UpstreamError("mercadopago_webhook_invalid:stale_ts")
+
+        try:
+            body = json.loads(payload.decode())
+        except Exception as e:
+            raise UpstreamError("mercadopago_webhook_invalid:bad_payload") from e
+
+        data_id = str(((body.get("data") or {}).get("id")) or "")
+        manifest = f"id:{data_id};request-id:{request_id};ts:{ts};"
+        expected = hmac.new(secret.encode(), manifest.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(expected, v1):
+            raise UpstreamError("mercadopago_webhook_invalid:bad_signature")
+
+        return body
 
 
 def gateway_for_country(country: str) -> PaymentGateway:
