@@ -28,3 +28,6 @@ data/meals/*.bak
 data/meals/*_batch_*.json
 data/meals/viral_juices_*.json
 data/meals/liquid_batch_*.json
+
+# Git history rewrite backup folders (created by git-filter-repo)
+.git.backup-*

@@ -19,3 +19,6 @@ reports
 !README.md
 .DS_Store
 node_modules
+
+# Defensive — exclude any .git.backup-* folders (created during history rewrites)
+.git.backup-*
