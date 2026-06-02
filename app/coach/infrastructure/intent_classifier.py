@@ -26,12 +26,14 @@ _client: AsyncOpenAI | None = None
 
 
 # Medical-risk hard list (Spanish + English). Triggers Camino 4 zero-cost refuse.
+# Suffix tolerance (\w*) handles Spanish + English inflections (metformina,
+# sintomas, bleeding, naúseas, embarazada, lactancia, diabetes, cáncer, etc).
 MEDICAL_PATTERNS = [
-    r"\b(s[íi]ntoma|symptom|mareo|n[áa]usea|dolor|pain|fever|fiebre|sangra|bleed)\b",
-    r"\b(metformin|insulin|warfarin|ssri|antidepres|medicament|medication|pastilla)\b",
-    r"\b(embaraz|pregnan|lactanc|breastfeed)\b",
-    r"\b(diagnos|cancer|tumor|infarct|stroke|ictus|arritmia|arrhythm)\b",
-    r"\b(presion alta|high blood pressure|hipoglucem|hypoglyc)\b",
+    r"\b(s[íi]ntoma\w*|symptom\w*|mareo\w*|n[áa]usea\w*|dolor\w*|pain\w*|fever\w*|fiebre\w*|sangra\w*|bleed\w*)\b",
+    r"\b(metformin\w*|insulin\w*|warfarin\w*|ssri|antidepres\w*|medicament\w*|medication\w*|pastill\w*|p[íi]ldora\w*)\b",
+    r"\b(embaraz\w*|pregnan\w*|lactanc\w*|breastfeed\w*|trimestre)\b",
+    r"\b(diagnos\w*|c[áa]ncer\w*|tumor\w*|infarct\w*|stroke|ictus|arritmi\w*|arrhythm\w*|quimio\w*|chemo\w*|radioterap\w*)\b",
+    r"(?:\bpresi[óo]n\s+alta|\bhigh\s+blood\s+pressure|\bhipoglucem\w*|\bhypoglyc\w*|\bcolesterol\w*|\bcholesterol\w*|\bcardi[óo]log\w*|\bnefr[óo]log\w*|\bendocrin[óo]log\w*)",
     # GLP-1 / weight-loss drugs (LatAm + US common).
     r"\b(ozempic|wegovy|mounjaro|saxenda)\b",
     r"\b(liraglutid|semaglutid|tirzepatid)[ae]?\b",
