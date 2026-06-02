@@ -3,7 +3,7 @@
 # Includes data/ (catalog JSON) + scripts/ for seed runs via `docker exec`.
 
 # --- Stage 1: builder ---
-FROM python:3.12-slim AS builder
+FROM python:3.14-slim AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -24,7 +24,7 @@ RUN pip install --no-cache-dir uv \
     && pip install --prefix=/install --no-cache-dir -r /tmp/requirements.txt
 
 # --- Stage 2: runtime ---
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
