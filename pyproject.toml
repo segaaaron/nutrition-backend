@@ -29,7 +29,7 @@ dependencies = [
     "argon2-cffi>=23.1,<24",
     # imaging
     "pyvips>=2.2,<3",
-    "pillow-heif>=0.21,<0.22",
+    "pillow-heif>=0.21,<1.4",
     "exifread>=3.0,<4",
     # ai
     "openai>=1.50,<2",
