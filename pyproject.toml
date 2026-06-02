@@ -21,7 +21,7 @@ dependencies = [
     "pydantic-settings>=2.6,<3",
     # workers + cache
     "arq>=0.26,<0.27",
-    "redis>=5.2,<6",
+    "redis>=5.2,<9",
     # logging
     "structlog>=24.4,<25",
     # security
