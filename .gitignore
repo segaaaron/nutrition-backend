@@ -19,3 +19,12 @@ secrets/
 .idea/
 .vscode/
 node_modules/
+
+# Catalog backup snapshots (local-only safety; not for git)
+data/meals/*.bak
+
+# Catalog batch source files already merged into master
+# (audit trail preserved in commit history + scripts that generated them)
+data/meals/*_batch_*.json
+data/meals/viral_juices_*.json
+data/meals/liquid_batch_*.json
