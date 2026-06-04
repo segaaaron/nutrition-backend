@@ -63,7 +63,7 @@ Macro math (≤5% drift), allergen lookup EN+ES via ING table, closed-vocab
 enforcement (allergens 14 / conditions 25 / goals 5 / activity 5 / regions
 5 / meal_time 4), macro plausibility ranges, dedup signature (sha1 over
 name_norm + sorted core nouns), cell exact-name dedup (meal_time ×
-dietary_pattern × primary cuisine), bucket clinical gates (CKD K/P/Na/protein;
+dietary_pattern × primary cuisine), bucket safety gates (CKD K/P/Na/protein;
 lactation folate/Ca/Fe/kcal + pregnancy-unsafe token reject; wg_dinner
 kcal/protein/carbs; bf_omni meal_time guard), pregnancy_safe explicit
 unsafe-list check.

@@ -4,10 +4,12 @@ Returns a coach hint string (or None if no active plan / no expected meal).
 Cheap deterministic check — no LLM. Coach feature B uses the hint as input
 to a single mini call (or skips if the gap is < 15% kcal).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import text
@@ -24,8 +26,13 @@ class ReconcileWithPlan:
         user_id: UUID,
         meal_time: str,
         detected_kcal: int,
-    ) -> dict | None:
-        row = (await self.session.execute(text("""
+    ) -> dict[str, Any] | None:
+        # Any: coach hint payload is a small heterogeneous dict
+        # (planned_kcal:int, detected_kcal:int, delta_pct:float, recipe_id:str).
+        row = (
+            await self.session.execute(
+                text(
+                    """
             SELECT pm.recipe_id::text, pm.kcal
               FROM plan_meals pm
               JOIN plan_days pd ON pd.id = pm.plan_day_id
@@ -33,7 +40,11 @@ class ReconcileWithPlan:
              WHERE p.user_id = :uid AND p.status = 'active'
                AND pd.date = :today AND pm.meal_time = :mt
              LIMIT 1
-        """), {"uid": str(user_id), "today": date.today(), "mt": meal_time})).first()
+        """
+                ),
+                {"uid": str(user_id), "today": date.today(), "mt": meal_time},
+            )
+        ).first()
         if not row:
             return None
         planned_kcal = int(row[1] or 0)

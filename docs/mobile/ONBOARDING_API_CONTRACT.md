@@ -70,7 +70,7 @@ Optional headers:
 | Hipotiroidismo | `"hypothyroidism"` | array item | No | OK |
 | Lactancia / Breastfeeding | `"lactation"` | array item | No | Requires `is_exclusively_breastfeeding` |
 | Embarazo / Pregnancy | `"pregnancy"` | array item | No | **GATED 422** today, requires `trimester` |
-| Otros… / Others… | `other_condition` | free text string | No | Stored as PII; NOT routed to clinical filter; UI shows warning |
+| Otros… / Others… | `other_condition` | free text string | No | Stored as PII; NOT routed to nutrition filter; UI shows warning |
 | Ninguna / None | (empty array `[]`) | array | — | Send empty list, not literal "none" |
 
 ### Allergens (multi-select chips)
@@ -303,7 +303,7 @@ All errors come as `application/problem+json` with status code + URN `type`.
 | 422 | `urn:nova:problem:plan:breastfeeding-status-required-for-lactation` | `breastfeeding_status_required_for_lactation` | Force breastfeeding modal |
 | 422 | `urn:nova:problem:plan:height-required` | `height_required` | Re-prompt height field |
 | 422 | `urn:nova:problem:plan:pediatric-outside-mvp-scope` | `pediatric_outside_mvp_scope` | Age check — under 18 not supported |
-| 422 | `urn:nova:problem:plan:geriatric-requires-clinical-review` | `geriatric_requires_clinical_review` | Age check — over 80 needs review |
+| 422 | `urn:nova:problem:plan:geriatric-requires-specialist-review` | `geriatric_requires_specialist_review` | Age check — over 80 needs review |
 | 401 | `urn:nova:problem:auth:unauthenticated` | — | Re-login |
 | 403 | `urn:nova:problem:auth:forbidden` | — | Permission missing |
 | 426 | `urn:nova:problem:client:upgrade-required` | `X-Min-Client-Version` header included | Force app update |

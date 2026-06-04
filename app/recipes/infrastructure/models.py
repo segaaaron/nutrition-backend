@@ -4,6 +4,7 @@ Matches migration 0001 (§7). Uses pgvector's Vector type for the 1536-dim
 embedding column. selectinload is the default hydration strategy used by the
 repositories to avoid N+1 on components.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -12,8 +13,18 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, Numeric, String, Text
-from sqlalchemy.dialects.postgresql import ARRAY, CHAR, JSONB, UUID as PG_UUID
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    Text,
+)
+from sqlalchemy.dialects.postgresql import ARRAY, CHAR, JSONB
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.identity.infrastructure.models import Base
@@ -77,7 +88,7 @@ class RecipeModel(Base):
     embedding: Mapped[list[float] | None] = mapped_column(Vector(1536), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
-    components: Mapped[list["RecipeComponentModel"]] = relationship(
+    components: Mapped[list[RecipeComponentModel]] = relationship(
         "RecipeComponentModel",
         cascade="all, delete-orphan",
         order_by="RecipeComponentModel.position",

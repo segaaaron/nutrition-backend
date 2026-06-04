@@ -4,22 +4,25 @@ VisionJob row, enqueues `vision_recognize_task`.
 Rate limit (10/hour/user) is enforced in the router with Redis counters.
 Max upload size: 8 MB raw, enforced before reading the body.
 """
+
 from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
+from app.core.config import get_settings
 from app.core.errors import ValidationError
 from app.core.event_bus import EventBus
 from app.core.logging import get_logger
+from app.core.metrics import VISION_PREFILTER_TOTAL
 from app.imaging.domain.contracts import CompressionProfile, ImageCompressor
 from app.imaging.domain.mime_sniff import assert_mime_matches
 from app.vision.domain.entities import VisionJob
 from app.vision.domain.events import VisionJobEnqueued
-from app.vision.domain.ports import VisionJobRepository
+from app.vision.domain.ports import VisionJobRepository, VisionProvider
 
 log = get_logger("vision.submit")
 
@@ -33,8 +36,12 @@ class SubmitPhoto:
     compressor: ImageCompressor
     bus: EventBus
     enqueue: Any  # callable: async (task_name, **kwargs) -> job_id
+    # Optional cheap pre-filter (gpt-4o-mini detail:low). When None or when
+    # ``settings.vision_food_prefilter_enabled`` is False, the pre-filter step
+    # is skipped — preserves legacy behaviour and keeps tests simple.
+    provider: VisionProvider | None = None
 
-    async def __call__(
+    async def __call__(  # noqa: PLR0913 — keyword-only entrypoint; args are cohesive request fields (user, meal_time, bytes, mime, idempotency, locale, region).
         self,
         *,
         user_id: UUID,
@@ -59,16 +66,42 @@ class SubmitPhoto:
             raise ValidationError(str(e)) from e
 
         compressed = await self.compressor.compress(
-            raw_bytes, profile=CompressionProfile.MEAL_PHOTO,
+            raw_bytes,
+            profile=CompressionProfile.MEAL_PHOTO,
         )
         sha = hashlib.sha256(compressed.bytes_).hexdigest()
-        now = datetime.now(timezone.utc)
+
+        # --- Cheap food/no-food pre-filter (saves ~$0.005/rejected photo) ---
+        if self.provider is not None and get_settings().vision_food_prefilter_enabled:
+            accept, reason = await self.provider.is_food_image(
+                image_bytes=compressed.bytes_,
+                mime=f"image/{compressed.format}",
+                user_id=user_id,
+            )
+            VISION_PREFILTER_TOTAL.labels(
+                result="accept" if accept else "reject",
+                reason=reason,
+            ).inc()
+            if not accept:
+                log.info(
+                    "vision.prefilter.rejected",
+                    user_id=str(user_id),
+                    reason=reason,
+                    sha=sha[:8],
+                )
+                raise ValidationError(f"not_food_image:{reason}")
+
+        now = datetime.now(UTC)
 
         job = VisionJob(
-            id=uuid4(), user_id=user_id, meal_time=meal_time,
+            id=uuid4(),
+            user_id=user_id,
+            meal_time=meal_time,
             status="queued",
-            image_sha256=sha, image_bytes=len(compressed.bytes_),
-            idempotency_key=idempotency_key, created_at=now,
+            image_sha256=sha,
+            image_bytes=len(compressed.bytes_),
+            idempotency_key=idempotency_key,
+            created_at=now,
         )
         await self.repo.save(job)
 
@@ -83,9 +116,14 @@ class SubmitPhoto:
             region=region,
         )
 
-        await self.bus.publish(VisionJobEnqueued(
-            job_id=job.id, user_id=user_id, meal_time=meal_time, at=now,
-        ))
+        await self.bus.publish(
+            VisionJobEnqueued(
+                job_id=job.id,
+                user_id=user_id,
+                meal_time=meal_time,
+                at=now,
+            )
+        )
         # PII: no item names — just count.
         log.info("vision.submit.queued", job_id=str(job.id), bytes=len(compressed.bytes_))
         return job.id

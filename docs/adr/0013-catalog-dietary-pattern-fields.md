@@ -15,7 +15,7 @@ Three additive fields on `matching_criteria` per recipe:
 
 ## Why
 
-Master plan H1.5 (variety) + H2 (clinical filtering) require these to ship safe-quality recipe ranking.
+Master plan H1.5 (variety) + H2 (nutrition filtering) require these to ship safe-quality recipe ranking.
 
 - `dietary_pattern`: without it, vegan users silently receive meat recipes. Mandatory mobile form field per ADR-0014.
 - `cuisine_region`: drives variety signal + cultural fit; future micro-region split for LatAm sub-cuisines.

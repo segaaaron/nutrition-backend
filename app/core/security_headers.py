@@ -5,6 +5,7 @@ this is a pure JSON API (no HTML rendered). X-Content-Type-Options blocks
 MIME sniffing. Permissions-Policy disables browser-level sensor/payment APIs
 that we never use.
 """
+
 from __future__ import annotations
 
 from fastapi import Request

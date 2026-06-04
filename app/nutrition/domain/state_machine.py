@@ -4,6 +4,7 @@ Invariant: exactly one row per user with valid_to IS NULL (current). Enforced
 by the DB partial unique index `one_current_goals` and by `expire_and_activate`
 which is the only state-changing operation.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -48,14 +49,22 @@ class NutritionalGoals:
         activity_factor: Decimal,
         reason: Reason,
         valid_from: datetime,
-    ) -> "NutritionalGoals":
+    ) -> NutritionalGoals:
         if kcal_max - kcal_min != 200:
             raise ValueError("kcal_max - kcal_min must equal 200")
         return cls(
-            id=uuid4(), user_id=user_id,
-            kcal_min=kcal_min, kcal_max=kcal_max,
-            protein_g=protein_g, carbs_g=carbs_g, fat_g=fat_g,
-            water_ml=water_ml, bmr=bmr, tdee=tdee,
-            activity_factor=activity_factor, reason=reason,
-            valid_from=valid_from, valid_to=None,
+            id=uuid4(),
+            user_id=user_id,
+            kcal_min=kcal_min,
+            kcal_max=kcal_max,
+            protein_g=protein_g,
+            carbs_g=carbs_g,
+            fat_g=fat_g,
+            water_ml=water_ml,
+            bmr=bmr,
+            tdee=tdee,
+            activity_factor=activity_factor,
+            reason=reason,
+            valid_from=valid_from,
+            valid_to=None,
         )

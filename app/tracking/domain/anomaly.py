@@ -8,20 +8,21 @@ Why backend (not just client): client validation is bypassable. Bad data
 in tracking poisons downstream nutrition recalibration (ADR-0002) and
 plateau detection, which silently degrades plan quality for everyone.
 """
+
 from __future__ import annotations
 
 from decimal import Decimal
 
 # Physiological bounds. Conservative — catches typos and abuse, NOT
 # extreme-but-real cases. Edge-of-distribution users should still pass.
-MIN_WEIGHT_KG = Decimal("25")    # below = data error or anorexia clinical case
-MAX_WEIGHT_KG = Decimal("400")   # above = data error (heaviest verified ~440kg)
-MIN_BODYFAT_PCT = Decimal("3")   # competitive bodybuilder floor
+MIN_WEIGHT_KG = Decimal("25")  # below = data error or anorexia case
+MAX_WEIGHT_KG = Decimal("400")  # above = data error (heaviest verified ~440kg)
+MIN_BODYFAT_PCT = Decimal("3")  # competitive bodybuilder floor
 MAX_BODYFAT_PCT = Decimal("70")  # extreme obesity ceiling
 MIN_WAIST_CM = Decimal("40")
 MAX_WAIST_CM = Decimal("250")
 
-MAX_DELTA_KG_PER_DAY = Decimal("10")   # any 24h change >10kg = error
+MAX_DELTA_KG_PER_DAY = Decimal("10")  # any 24h change >10kg = error
 MAX_DELTA_KG_PER_WEEK = Decimal("15")  # 1.5kg/d sustained = data error or medical
 
 

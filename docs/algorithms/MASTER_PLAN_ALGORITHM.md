@@ -1,7 +1,7 @@
 # NOVA Plan Algorithm — Master Plan (Elite Team Synthesis)
 
 **Date:** 2026-06-01
-**Authors:** 6 NOVA team agents — algorithms / clinical / backend-architect / design-patterns / qa-elite / api-expert
+**Authors:** 6 NOVA team agents — algorithms / nutrition / backend-architect / design-patterns / qa-elite / api-expert
 **Status:** Source of truth for plan-generation algorithm evolution. Supersedes ad-hoc decisions.
 
 ---
@@ -16,7 +16,7 @@ The plan-generation pipeline is **the moat**. It will win against Fitia / MyFitn
 
 ## Horizon 1 — Ship narrow MVP safely (next 30 days)
 
-Goal: LatAm omnivore, 3 goals, no clinical conditions. Already gated (Option A shipped). Algorithm fixes that unblock real shipping.
+Goal: LatAm omnivore, 3 goals, no declared conditions. Already gated (Option A shipped). Algorithm fixes that unblock real shipping.
 
 ### Algorithm
 
@@ -29,7 +29,7 @@ Goal: LatAm omnivore, 3 goals, no clinical conditions. Already gated (Option A s
 | H1.5 | **Variety penalty (Jaccard until embeddings ready)** — `score_variety = 1 − Jaccard(candidate.tags ∪ ingredient_class, last_14d_set)` | Replaces dead 40% L3 cosine weight today | M |
 | H1.6 | **Embedding backfill ($0.40)** — then swap Jaccard for cosine | Unlocks taste-aware ranking | S |
 
-### Catalog patches (clinical-generator)
+### Catalog patches (nutrition-generator)
 
 - 37 tree-nut tagging fixes (append `tree_nuts` to `allergens[]`, no removal).
 - 87 high-carb diabetes_t2: strip `recommendedForConditions: diabetes_t2`, don't contraindicate.
@@ -57,7 +57,7 @@ Goal: LatAm omnivore, 3 goals, no clinical conditions. Already gated (Option A s
 
 ---
 
-## Horizon 2 — Clinical expansion + US (30-90 days)
+## Horizon 2 — Nutrition expansion + US (30-90 days)
 
 Unlocks: diabetes_t2 / hypertension / CKD / pregnancy / lactation / US region (the 6 segments gated today via `MVP_SEGMENT_GATE_ENABLED`).
 
@@ -86,12 +86,12 @@ def register(gate): CONDITION_GATES.setdefault(gate.condition, []).append(gate)
 
 Open/Closed: new condition = new class + `register(...)`. Layer1 never edited.
 
-### Catalog growth (clinical-generator)
+### Catalog growth (nutrition-generator)
 
 200 recipes/week sustainable. 5-gate INSERT-blocking validator:
 1. Macro math `|kcal − (4P + 4C + 9F)| ≤ 2%`.
 2. Allergen regex scan vs `allergens[]` (the audit gap).
-3. Clinical recommend gate: `recommendedForConditions` requires all micronutrient gates green.
+3. Nutrition recommend gate: `recommendedForConditions` requires all micronutrient gates green.
 4. Region-plausibility.
 5. Naming uniqueness (embed cosine < 0.92 within `(meal_time, region, dietary_pattern)`).
 
@@ -109,7 +109,7 @@ Minimum recipe count per condition unlock:
 - **Postgres indexes (now)**: GIN on `regions`, `allergens`, `contraindicated_conditions`, `tags`, `target_goals`. Composite `(meal_time, kcal_per_serving) WHERE deleted_at IS NULL`. HNSW `(m=32, ef_construction=200)` on embedding.
 - **Eligibility cache** — Redis key = `hash(region, allergens, conditions, meal_time, goal)`, TTL 24h. Idempotent: invalidate on catalog upsert event.
 - **Plan immutability** — `plan_versions` table jsonb snapshot + `algo_version`. Never mutate.
-- **Outbox table** — dispatch `PlanRecalibrated` to clinical-audit queue (compliance).
+- **Outbox table** — dispatch `PlanRecalibrated` to nutrition-audit queue (compliance).
 
 ### API
 
@@ -151,11 +151,11 @@ Order by ROI/effort. Each one is a competitor-defensive differentiator.
 
 | # | Risk | Trigger | Counter |
 |---|------|---------|---------|
-| **R1** | **Catalog nutrient sparsity blocks condition stacking** | User with diabetes+CKD+hypertension+celiac+vegan finds <5 eligible recipes; plan-gen returns empty/infinite-loop | (a) CI gate: PR rejected if new recipe has NULL in clinical-relevant cols. (b) Pre-flight feasibility check before generation; if `min_slot_eligible < 7`, surface "constraints require manual catalog expansion" and queue to clinical-generator. Never silently degrade. |
+| **R1** | **Catalog nutrient sparsity blocks condition stacking** | User with diabetes+CKD+hypertension+celiac+vegan finds <5 eligible recipes; plan-gen returns empty/infinite-loop | (a) CI gate: PR rejected if new recipe has NULL in nutrition-relevant cols. (b) Pre-flight feasibility check before generation; if `min_slot_eligible < 7`, surface "constraints require manual catalog expansion" and queue to nutrition-generator. Never silently degrade. |
 | **R2** | **Plan-gen latency collapse at scale** | NSGA-II + Kalman + Pareto at 1500 concurrent users on 2vCPU | (a) Pre-compute overnight via Arq. (b) Eligibility-set Redis cache `hash(region, conditions, allergens)`. (c) Per-layer budget enforce (50/100/300/100ms). (d) Bound L2 shortlist ≤80 candidates. |
 | **R3** | **Recalibration oscillation under noisy weight logs** | Without Kalman + cooldown, TDEE swings ±20% weekly → kcal_target jitter → user distrust | (a) Mandatory 14d cooldown. (b) Clamp `|ΔTDEE| ≤ 15%`. (c) Require `delta_ratio > 0.5` (ADR-0002 already enforces). (d) Audit log every recalibration with before/after + trigger. |
 | **R4** | **Embedding drift as catalog grows** | New recipes from generator → new embedding space distribution → cosine scores incomparable to historical user EMA | (a) Version embeddings (`embedding_v INT`). (b) Recompute user `taste_vector` when version bumps. (c) A/B gate on rollout. (d) Same versioning for GI/micros coefficient tables. |
-| **R5** | **Outbox / audit lag → clinical liability gap** | Recalibration event not dispatched to compliance queue within SLO | Outbox + dead-letter + lag SLO alert (>5min). Plan stored before event emit; reconciliation job daily. |
+| **R5** | **Outbox / audit lag → nutrition liability gap** | Recalibration event not dispatched to compliance queue within SLO | Outbox + dead-letter + lag SLO alert (>5min). Plan stored before event emit; reconciliation job daily. |
 
 ---
 
@@ -230,7 +230,7 @@ tests/plan/golden/profiles.yaml         — 40 golden profiles
 tests/plan/regression/test_population.py — 1000 synthetic users population sim
 ops/prometheus/plan_alerts.yml          — 10 critical-failure detectors
 docs/ops/runbooks/plan-algorithm-incidents.md
-docs/catalog/GROWTH_RUNBOOK.md          — clinical-generator playbook
+docs/catalog/GROWTH_RUNBOOK.md          — nutrition-generator playbook
 ```
 
 ---
@@ -254,7 +254,7 @@ docs/catalog/GROWTH_RUNBOOK.md          — clinical-generator playbook
 | Axis | Competitors | NOVA |
 |------|-------------|------|
 | TDEE | Static Mifflin, manual user edit | Adaptive + observed kcal-in / weight-slope blend, auto-correct for adaptive thermogenesis |
-| Conditions | Post-filter "low sodium" tag | Pre-generation gates per condition + clinical recommend audit trail |
+| Conditions | Post-filter "low sodium" tag | Pre-generation gates per condition + nutrition recommend audit trail |
 | Variety | Template-driven, ~50 recipes recycle | Embedding cosine + Jaccard penalty + 7d hard limit + variety Gini metric |
 | Recalibration | Manual recompute by user | Plateau detection (Kalman + PELT) + auto-saga + 24h accept/reject |
 | Catalog growth | Manual curation, ~500-2k recipes total | LLM batch + 5-gate INSERT validator scaling 200/week safely |
@@ -265,7 +265,7 @@ docs/catalog/GROWTH_RUNBOOK.md          — clinical-generator playbook
 
 ## Critical sequencing
 
-1. **Catalog clinical patch** (37 + 87 fixes) — **gates everything**. Without this, can't lift segment gate.
+1. **Catalog nutrition patch** (37 + 87 fixes) — **gates everything**. Without this, can't lift segment gate.
 2. **Schema migration** for micronutrients — **gates H2**. Without these columns, no GL / DASH / CKD / pregnancy gates.
 3. **Pipeline pattern + Strategy** refactor — **gates H2 + H3**. Without it, adding conditions / signals = exponential `if` chains in Layer1.
 4. **Property invariants + golden set** — **gates safe ship**. Without these, every change risks silent regression.

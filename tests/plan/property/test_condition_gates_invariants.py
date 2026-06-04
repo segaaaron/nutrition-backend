@@ -16,6 +16,7 @@ Invariants asserted:
   contributed SQL fragments is invariant under set iteration order
   (composition is commutative — order of AND is irrelevant semantically).
 """
+
 from __future__ import annotations
 
 import re
@@ -129,9 +130,9 @@ def test_gate_params_referenced_in_sql(idx: int) -> None:
     sql, params = gate.contribute_sql()
     placeholders = set(_PLACEHOLDER_RE.findall(sql))
     keys = set(params.keys())
-    assert keys == placeholders, (
-        f"{gate.__class__.__name__}: params {keys} != placeholders {placeholders}"
-    )
+    assert (
+        keys == placeholders
+    ), f"{gate.__class__.__name__}: params {keys} != placeholders {placeholders}"
 
 
 @settings(max_examples=200, deadline=None)
@@ -145,9 +146,9 @@ def test_gate_sql_is_safe_fragment(idx: int) -> None:
     """
     gate = _GATE_INSTANCES[idx]
     sql, _ = gate.contribute_sql()
-    assert sql.startswith("(") and sql.endswith(")"), (
-        f"{gate.__class__.__name__} SQL not parenthesised: {sql!r}"
-    )
+    assert sql.startswith("(") and sql.endswith(
+        ")"
+    ), f"{gate.__class__.__name__} SQL not parenthesised: {sql!r}"
     lowered = sql.lower()
     assert ";" not in sql
     assert "--" not in sql
@@ -185,9 +186,10 @@ def test_all_registered_gates_are_frozen_dataclasses() -> None:
 @settings(max_examples=200, deadline=None)
 @given(
     conds=st.lists(
-        st.sampled_from(["lactation", "pregnancy", "ckd", "hypertension",
-                         "diabetes_t2", "celiac"]),
-        min_size=1, max_size=4, unique=True,
+        st.sampled_from(["lactation", "pregnancy", "ckd", "hypertension", "diabetes_t2", "celiac"]),
+        min_size=1,
+        max_size=4,
+        unique=True,
     ),
 )
 def test_layer1_dispatch_multiset_invariant(conds: list[str]) -> None:
@@ -215,9 +217,10 @@ def test_layer1_dispatch_multiset_invariant(conds: list[str]) -> None:
 @settings(max_examples=200, deadline=None)
 @given(
     conds=st.lists(
-        st.sampled_from(["lactation", "pregnancy", "ckd", "hypertension",
-                         "diabetes_t2", "celiac"]),
-        min_size=1, max_size=4, unique=True,
+        st.sampled_from(["lactation", "pregnancy", "ckd", "hypertension", "diabetes_t2", "celiac"]),
+        min_size=1,
+        max_size=4,
+        unique=True,
     ),
 )
 def test_layer1_dispatch_params_no_collision(conds: list[str]) -> None:

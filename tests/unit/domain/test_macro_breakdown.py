@@ -2,10 +2,11 @@
 
 Uses the same MACRO_TOLERANCE constant the catalog ingest gate uses.
 """
+
 from __future__ import annotations
 
-import pytest
-from hypothesis import given, strategies as st
+from hypothesis import given
+from hypothesis import strategies as st
 
 from app.shared.domain.macro_tolerance import MACRO_TOLERANCE
 from app.shared.domain.value_objects import MacroBreakdown
@@ -38,4 +39,5 @@ def test_tolerance_constant_is_locked_to_two_percent() -> None:
     # Guards against accidental relaxation of the single source of truth.
     # MACRO_TOLERANCE is Decimal('0.02') per ADR-0009 (Decimal-strict migration).
     from decimal import Decimal
+
     assert MACRO_TOLERANCE == Decimal("0.02")

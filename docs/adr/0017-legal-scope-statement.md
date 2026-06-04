@@ -10,7 +10,7 @@
 **NOVA does NOT:**
 - Diagnose medical conditions
 - Prescribe medications, supplements, vitamins, or pills
-- Provide clinical advice
+- Provide nutrition guidance
 - Replace consultation with a qualified medical professional
 - Generate custom recipes per individual prescription
 
@@ -69,7 +69,7 @@ NOVA does not opt out of liability — it operates within a clearly stated scope
 ## Consequences
 
 - Mobile team has clear UI mandate (signup disclaimer + per-plan footer + store metadata).
-- Marketing / sales must not represent NOVA as a clinical or diagnostic tool.
+- Marketing / sales must not represent NOVA as a nutrition or diagnostic tool.
 - Customer support trained to redirect medical questions to professional consult.
 - Future features (recalibration, plateau detection) inherit this scope by default — algorithm choices, not prescriptions.
 

@@ -1,4 +1,5 @@
 """Pydantic request/response schemas. Strict (`extra='forbid'`)."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -14,7 +15,9 @@ class _Strict(BaseModel):
 
 class RegisterRequest(_Strict):
     email: EmailStr = Field(json_schema_extra={"example": "miguel@example.com"})
-    password: str = Field(min_length=8, json_schema_extra={"example": "correct horse battery staple"})
+    password: str = Field(
+        min_length=8, json_schema_extra={"example": "correct horse battery staple"}
+    )
 
 
 class LoginRequest(_Strict):

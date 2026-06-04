@@ -1,10 +1,11 @@
 """Push token entity (cross-platform)."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
-from uuid import UUID, uuid4
+from uuid import UUID
 
 Platform = Literal["web", "ios", "android"]
 

@@ -1,4 +1,5 @@
 """Tracking anomaly guard tests (OWASP API4)."""
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -19,12 +20,15 @@ def test_plausible_weights_accepted(weight):
     assert_weight_plausible(weight)
 
 
-@pytest.mark.parametrize("weight,reason", [
-    (Decimal("24.9"), "below_min"),
-    (Decimal("0"), "below_min"),
-    (Decimal("400.1"), "above_max"),
-    (Decimal("9999"), "above_max"),
-])
+@pytest.mark.parametrize(
+    "weight,reason",
+    [
+        (Decimal("24.9"), "below_min"),
+        (Decimal("0"), "below_min"),
+        (Decimal("400.1"), "above_max"),
+        (Decimal("9999"), "above_max"),
+    ],
+)
 def test_implausible_weights_rejected(weight, reason):
     with pytest.raises(WeightAnomalyError, match=reason):
         assert_weight_plausible(weight)

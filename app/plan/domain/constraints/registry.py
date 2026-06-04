@@ -7,6 +7,7 @@ violations against a DraftPlan.
 Threadsafe: only mutated at module import time (auto-register in __init__.py).
 Runtime access is read-only.
 """
+
 from __future__ import annotations
 
 from typing import Protocol

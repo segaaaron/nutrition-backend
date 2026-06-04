@@ -16,7 +16,7 @@
 
 ### When in doubt, bump major.
 
-The algorithm is the product moat. Auditors + clinical reviewers must be able to attribute outcomes to a specific version. A wrong-bump-down (patch instead of major) silently merges incomparable cohorts in analytics.
+The algorithm is the product moat. Auditors + nutrition reviewers must be able to attribute outcomes to a specific version. A wrong-bump-down (patch instead of major) silently merges incomparable cohorts in analytics.
 
 ### Version is owned by code
 

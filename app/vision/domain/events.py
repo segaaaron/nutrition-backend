@@ -1,8 +1,9 @@
 """Vision domain events. Consumed by tracking (food_logs), coach (cross-check)
 and gamification (daily_goals)."""
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
 from uuid import UUID

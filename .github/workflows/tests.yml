@@ -1,5 +1,7 @@
 name: tests
 # Unit + lint + type check on every PR.
+# Integration job runs only on labeled PRs (label: "run-integration") or
+# pushes to main, to avoid spinning containers on every commit.
 
 on:
   pull_request:
@@ -29,3 +31,59 @@ jobs:
         continue-on-error: true  # allow warnings until codebase fully typed
       - name: Pytest unit
         run: pytest tests/unit -v --tb=short
+
+      - name: Catalog completeness — pure classifier check
+        # Sprint 3 D3. The full audit needs a live DB (skipped in CI),
+        # but the threshold semantics are exercised here via unit tests
+        # on synthetic ColumnAudit fixtures. The live audit is run
+        # pre-deploy and at container boot (see docker/entrypoint.sh
+        # and docs/ops/CATALOG_AUDIT.md §3.1).
+        run: pytest tests/unit/catalog -v --tb=short
+
+  integration:
+    # Only run on main pushes or PRs explicitly labelled "run-integration".
+    # Saves CI cost (Postgres + Redis services) on every PR.
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' &&
+       contains(github.event.pull_request.labels.*.name, 'run-integration'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: nova
+          POSTGRES_PASSWORD: novapass
+          POSTGRES_DB: nova_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nova -d nova_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+asyncpg://nova:novapass@localhost:5432/nova_test
+      REDIS_URL: redis://localhost:6379/0
+      ENV: dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e .[dev]
+      - name: Alembic migrations
+        run: alembic upgrade head
+      - name: Pytest integration
+        run: pytest tests/integration -v --tb=short

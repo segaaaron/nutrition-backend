@@ -4,6 +4,7 @@ Migrated from python-jose (2026-06): jose is semi-abandoned and accrues
 CVEs. PyJWT is the mainstream maintained alternative; same RS256 keys
 work without rotation.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -31,6 +32,7 @@ async def revoke_jti(jti: str, *, ttl_seconds: int) -> None:
     Entry expires when the token would have expired anyway — no memory leak.
     """
     from app.core.redis import get_redis
+
     r = get_redis()
     await r.set(f"{_DENYLIST_PREFIX}{jti}", "1", ex=ttl_seconds)
 
@@ -38,6 +40,7 @@ async def revoke_jti(jti: str, *, ttl_seconds: int) -> None:
 async def is_jti_revoked(jti: str) -> bool:
     """Return True if the jti is present in the Redis denylist."""
     from app.core.redis import get_redis
+
     r = get_redis()
     return (await r.exists(f"{_DENYLIST_PREFIX}{jti}")) > 0
 
@@ -46,6 +49,7 @@ async def is_jti_revoked(jti: str) -> bool:
 # Signer
 # ---------------------------------------------------------------------------
 
+
 class JwtSigner:
     def __init__(self) -> None:
         s = get_settings()
@@ -53,9 +57,7 @@ class JwtSigner:
         self._audience = s.jwt_audience
         self._access_ttl = s.jwt_access_ttl_seconds
         self._active_kid = s.jwt_active_kid
-        self._revoked: set[str] = {
-            k.strip() for k in s.jwt_revoked_kids.split(",") if k.strip()
-        }
+        self._revoked: set[str] = {k.strip() for k in s.jwt_revoked_kids.split(",") if k.strip()}
         self._keys: dict[str, tuple[bytes, bytes]] = {}  # kid -> (priv_pem, pub_pem)
 
         if s.jwt_signing_keys:
@@ -89,9 +91,7 @@ class JwtSigner:
             "exp": now + self._access_ttl,
             "jti": uuid4().hex,
         }
-        return pyjwt.encode(
-            payload, priv, algorithm="RS256", headers={"kid": self._active_kid}
-        )
+        return pyjwt.encode(payload, priv, algorithm="RS256", headers={"kid": self._active_kid})
 
     async def verify_access(self, token: str) -> dict:
         """Verify RS256 token: check kid, select matching pubkey, check denylist.

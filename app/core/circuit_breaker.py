@@ -9,6 +9,7 @@ Lifecycle:
 Metrics: `circuit_breaker_state{name}` (gauge, 0=closed/1=half/2=open) and
 `circuit_breaker_failures_total{name}` (counter). Both exposed on /metrics.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -71,9 +72,7 @@ class CircuitBreaker:
 
     def _set_state(self, new_state: str) -> None:
         self._state = new_state
-        _state_gauge.labels(name=self.name).set(
-            {"closed": 0, "half_open": 1, "open": 2}[new_state]
-        )
+        _state_gauge.labels(name=self.name).set({"closed": 0, "half_open": 1, "open": 2}[new_state])
 
     async def _try_transition_from_open(self) -> None:
         if self._state != "open":

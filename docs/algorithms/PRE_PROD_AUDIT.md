@@ -35,7 +35,7 @@ Severity legend: **P0** = blocks launch • **P1** = month 1 • **P2** = month 
 | 1 | **BMR formula switch (Cunningham / Katch-McArdle)** — Mifflin under-estimates athletes by 5–15% (bodyfat<15% M / <22% F). | P1 | 4 | `bodyfat_pct` or `athlete` flag | Keep Mifflin; emit `warnings[]` for self-declared athletes ("BMR may be under-estimated 5–10%; recalibration in 14d will correct"). Recalibration loop already converges within 28d. |
 | 2 | **Adaptive thermogenesis correction (Trexler 2014)** — sustained deficit >14d → measured TDEE 5–15% < predicted. Today users plateau and we don't explain it. | P0 | 6 | `days_in_deficit` derived from intake+goal history | The current recalibration module (ADR-0002) already does an *implicit* correction by blending observed TDEE every 14d. Mitigation: **ship as-is**, document that adaptive correction is folded into the 14d recalibration cycle. Add explicit log line `adaptive_thermogenesis_applied: implicit_via_recalibration`. |
 | 3 | **LBM-anchored protein** — today `protein_g = g/kg × total_weight`. For an obese 110 kg user this over-prescribes protein and crowds out carbs/fat. | P0 | 3 | `bodyfat_pct` (optional) | If `bodyfat_pct` absent, cap protein at `min(2.2 g/kg, 180 g/day)` and floor at `1.4 g/kg`. Use total weight as today but clamp the upper bound. Document fallback. |
-| 4 | **Condition macro overrides (CKD, diabetes, pregnancy)** — module has none. L1 eligibility filters recipes, but the *daily target* still says e.g. 180g protein for a CKD user. | P0 | 6 | `conditions[]`, `weight_kg`, `trimester` (preg) | Hard-code overrides at macro layer: `ckd → protein cap 0.8 g/kg total`, `diabetes → carbs ≤40% kcal`, `pregnancy → +0/+340/+452 kcal by trimester`, `lactation → +500 kcal`. **Without this, plans for these populations are clinically unsafe — those user segments must be blocked at signup until shipped.** |
+| 4 | **Condition macro overrides (CKD, diabetes, pregnancy)** — module has none. L1 eligibility filters recipes, but the *daily target* still says e.g. 180g protein for a CKD user. | P0 | 6 | `conditions[]`, `weight_kg`, `trimester` (preg) | Hard-code overrides at macro layer: `ckd → protein cap 0.8 g/kg total`, `diabetes → carbs ≤40% kcal`, `pregnancy → +0/+340/+452 kcal by trimester`, `lactation → +500 kcal`. **Without this, plans for these populations are unsafe — those user segments must be blocked at signup until shipped.** |
 | 5 | **Glycemic load computation** — catalog lacks `glycemic_index`. L1 falls back to `sugar_g ≤ 15` which is a poor proxy (sweet potato low GI but >15g sugar; white rice 0 sugar but GI 73). | P0 | 2 (algo) + catalog work | recipe-side: `glycemic_index`, `glycemic_load_per_portion` | **Refuse plan generation for `diabetes_t1` and `diabetes_t2` users** with a clear "coming soon" message. Surfaced as `precondition_failed` rather than degraded plan. Companion-audit already flags 87 diabetes-tagged recipes >60g carbs/meal — silent acceptance is unacceptable. |
 | 6 | **Micronutrient bioavailability (iron heme, calcium source, zinc phytate)** — algorithm spec ready, catalog has zero of these fields. | P2 | 4 (algo) + catalog | recipe-side: `iron_mg, heme_pct, calcium_mg, calcium_source, zinc_mg, phytate_load, vitC_mg` | Skip micronutrient targeting v1. Emit warning `micronutrient_optimisation: disabled`. Add multivitamin guidance text for vegan/anemia/pregnancy users. |
 | 7 | **Pareto multi-objective L3 ranking** — today weighted sum. Pareto would surface trade-offs (e.g. cheap+fast vs cultural-fit) instead of collapsing them. | P2 | 12 | Same as today | Weighted sum is acceptable for N<10k users. Defer NSGA-II until activated-users ≥1k and we see L3-quality complaints. |
@@ -117,14 +117,14 @@ For **pregnancy / lactation module**: add `folate_ug`, `iron_mg`, `heme_pct`, `c
 
 | Handoff | Direction | Trigger | Contract |
 |---------|-----------|---------|----------|
-| Field spec | algo → clinical | "I need field X populated for algorithm Y" (this doc §2 is the v1 spec) | clinical commits to a population SLA per field |
-| Recipe batch | clinical → algo | new recipes or backfill batch | clinical produces JSON conforming to schema; algo runs validator + golden-set regression |
-| Allergen sanity | algo → clinical | defensive ingredient scan flags a leak | clinical fixes within 24h, posts diff |
-| Macro math audit | algo → clinical | per-recipe `protein×4 + carbs×4 + fat×9` must match `kcal ± 5%` | clinical's CI fails if drift; algo trusts clinical's outputs only after CI green |
-| Condition coverage | algo → clinical | "0 recipes for `lactation`, `diabetes_t1`, `pregnancy`" → algo refuses those plans | clinical ships ≥15 recipes per condition per region per meal-slot before that condition is unlocked at signup |
-| Embedding backfill | algo → clinical | embeddings missing | clinical runs `text-embedding-3-small` over `name + ingredients + description`; commits vector to DB |
+| Field spec | algo → nutrition | "I need field X populated for algorithm Y" (this doc §2 is the v1 spec) | nutrition commits to a population SLA per field |
+| Recipe batch | nutrition → algo | new recipes or backfill batch | nutrition produces JSON conforming to schema; algo runs validator + golden-set regression |
+| Allergen sanity | algo → nutrition | defensive ingredient scan flags a leak | nutrition fixes within 24h, posts diff |
+| Macro math audit | algo → nutrition | per-recipe `protein×4 + carbs×4 + fat×9` must match `kcal ± 5%` | nutrition's CI fails if drift; algo trusts nutrition's outputs only after CI green |
+| Condition coverage | algo → nutrition | "0 recipes for `lactation`, `diabetes_t1`, `pregnancy`" → algo refuses those plans | nutrition ships ≥15 recipes per condition per region per meal-slot before that condition is unlocked at signup |
+| Embedding backfill | algo → nutrition | embeddings missing | nutrition runs `text-embedding-3-small` over `name + ingredients + description`; commits vector to DB |
 
-**What algo validates of clinical's output (CI gate):**
+**What algo validates of nutrition's output (CI gate):**
 1. Schema valid (all REQ fields present, enums canonical).
 2. Macro math: `|kcal − (4P+4C+9F)| / kcal ≤ 0.05` per recipe.
 3. Allergen sanity: ingredient regex doesn't find a known allergen absent from `allergens[]`.
@@ -232,11 +232,11 @@ Goal: prove plan generation doesn't kill, mislead, or bore users. Minimum viable
 
 | Item | Owner | Effort |
 |------|-------|--------|
-| Ship items P0 from §1 (#4, #5, #8, #15, #16, #17 + defensive scan) | algo + clinical | 20h algo + catalog work |
+| Ship items P0 from §1 (#4, #5, #8, #15, #16, #17 + defensive scan) | algo + nutrition | 20h algo + catalog work |
 | Wire `warnings[]` and `uses_data[]` into plan output JSON | algo | 4h |
 | Persist recalibration history table | architect | 4h |
 | Adherence telemetry (which recipes get swapped/skipped) | architect | 4h |
-| Manual review of first 50 generated plans by clinical | clinical | n/a |
+| Manual review of first 50 generated plans by nutrition | nutrition | n/a |
 
 **Exit criterion:** 100 users for ≥14 days with 0 P0/P1 incidents, allergen-safety property tests still green.
 
@@ -249,12 +249,12 @@ Goal: observable algorithm upgrades, data starts flowing back.
 | Cunningham/Katch-McArdle BMR switch | algo | 4h | ≥10 athlete complaints "kcal too low" |
 | LBM-anchored protein | algo | 3h | ≥30 obese users with macro complaints |
 | kcal CI from intake variance | algo | 3h | once ≥30 users have 14d food_logs |
-| Diabetes module activation (algo unblocks once catalog GI shipped) | algo + clinical | 6h algo, 80h catalog | catalog ships GI for ≥95% recipes |
-| Pregnancy + lactation modules | algo + clinical | 12h algo, 60h catalog | catalog ships ≥15 recipes per trimester |
-| CKD module | algo + clinical | 10h algo, 40h catalog | catalog ships K, P, Na for ≥90% |
+| Diabetes module activation (algo unblocks once catalog GI shipped) | algo + nutrition | 6h algo, 80h catalog | catalog ships GI for ≥95% recipes |
+| Pregnancy + lactation modules | algo + nutrition | 12h algo, 60h catalog | catalog ships ≥15 recipes per trimester |
+| CKD module | algo + nutrition | 10h algo, 40h catalog | catalog ships K, P, Na for ≥90% |
 | Real adherence prediction (logistic on streak + swap rate) | algo + QA | 8h | ≥4 weeks of food_log data per user cohort |
-| Snack catalog + 4-meal plans | clinical + algo | 1h algo, 150h catalog | catalog ships ≥300 snacks |
-| US region launch | clinical + algo | 0h algo, weeks catalog | catalog ships US recipes |
+| Snack catalog + 4-meal plans | nutrition + algo | 1h algo, 150h catalog | catalog ships ≥300 snacks |
+| US region launch | nutrition + algo | 0h algo, weeks catalog | catalog ships US recipes |
 | Plateau visualisation in plan output | algo + frontend | 6h | demand |
 
 **Exit criterion:** Brier ≤ 0.25 on adherence prediction, kcal trajectory MAE ≤ 400 kcal/week.
@@ -270,7 +270,7 @@ Goal: research-grade algorithms, defensible product.
 | NSGA-II Pareto L3 ranking | algo | 12h |
 | Hall NIDDK two-compartment body model | algo | 20h |
 | Multi-armed bandit for L3 weight tuning | algo | 16h |
-| Micronutrient bioavailability (iron heme, calcium, zinc, omega-3) | algo + clinical | 12h algo, 80h catalog |
+| Micronutrient bioavailability (iron heme, calcium, zinc, omega-3) | algo + nutrition | 12h algo, 80h catalog |
 | Forbes partitioning in expected-outcome reporting | algo | 3h |
 | Variety penalty via embedding cosine to 14d centroid | algo | 4h |
 | Wearable integration (Apple Health, Google Fit) for dynamic TDEE | algo + integrations | 24h |

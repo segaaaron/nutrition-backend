@@ -8,6 +8,7 @@ custom transport rejecting private addresses at connection time.
 Allowlist mode also supported: pass `allowed_hosts=` for endpoints with known
 upstreams (OAuth JWKS, OpenAI, Stripe, MercadoPago).
 """
+
 from __future__ import annotations
 
 import ipaddress
@@ -18,7 +19,6 @@ import httpx
 
 from app.core.errors import UpstreamError
 
-
 _BLOCKED_NETWORKS = [
     ipaddress.ip_network("10.0.0.0/8"),
     ipaddress.ip_network("172.16.0.0/12"),
@@ -26,14 +26,14 @@ _BLOCKED_NETWORKS = [
     ipaddress.ip_network("127.0.0.0/8"),
     ipaddress.ip_network("169.254.0.0/16"),  # link-local + AWS/GCP metadata
     ipaddress.ip_network("0.0.0.0/8"),
-    ipaddress.ip_network("100.64.0.0/10"),    # CGNAT
-    ipaddress.ip_network("224.0.0.0/4"),      # multicast
-    ipaddress.ip_network("240.0.0.0/4"),      # reserved
+    ipaddress.ip_network("100.64.0.0/10"),  # CGNAT
+    ipaddress.ip_network("224.0.0.0/4"),  # multicast
+    ipaddress.ip_network("240.0.0.0/4"),  # reserved
     ipaddress.ip_network("::1/128"),
-    ipaddress.ip_network("fc00::/7"),         # IPv6 ULA
-    ipaddress.ip_network("fe80::/10"),        # IPv6 link-local
-    ipaddress.ip_network("ff00::/8"),         # IPv6 multicast
-    ipaddress.ip_network("fd00:ec2::/32"),    # Azure / cloud metadata IPv6
+    ipaddress.ip_network("fc00::/7"),  # IPv6 ULA
+    ipaddress.ip_network("fe80::/10"),  # IPv6 link-local
+    ipaddress.ip_network("ff00::/8"),  # IPv6 multicast
+    ipaddress.ip_network("fd00:ec2::/32"),  # Azure / cloud metadata IPv6
 ]
 
 
@@ -78,6 +78,7 @@ class _SSRFTransport(httpx.AsyncHTTPTransport):
             raise SSRFBlocked(f"host_not_allowlisted:{host}")
         # Resolve + check, in a thread (getaddrinfo is sync).
         import asyncio
+
         await asyncio.to_thread(_resolve_and_check, host)
         return await super().handle_async_request(request)
 

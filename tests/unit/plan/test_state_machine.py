@@ -1,7 +1,8 @@
 """Plan state machine — every disallowed edge raises IllegalTransition."""
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
@@ -13,10 +14,18 @@ from app.plan.domain.state_machine import advance
 
 def _plan(status: str = "active", current_day: int = 1, total_days: int = 7) -> Plan:
     return Plan(
-        id=uuid4(), user_id=uuid4(), type="week",
-        total_days=total_days, current_day=current_day, status=status,  # type: ignore[arg-type]
-        goal=None, meals_per_day=3, preferences=[], kcal_target=2000,
-        version=0, created_at=datetime.now(timezone.utc),
+        id=uuid4(),
+        user_id=uuid4(),
+        type="week",
+        total_days=total_days,
+        current_day=current_day,
+        status=status,  # type: ignore[arg-type]
+        goal=None,
+        meals_per_day=3,
+        preferences=[],
+        kcal_target=2000,
+        version=0,
+        created_at=datetime.now(UTC),
     )
 
 

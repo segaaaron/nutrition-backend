@@ -1,4 +1,5 @@
 """Sprint 7.C — deterministic categorisation rules."""
+
 from __future__ import annotations
 
 import pytest

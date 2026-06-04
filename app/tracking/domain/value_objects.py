@@ -1,4 +1,5 @@
 """Tracking value objects — volume + body composition."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -23,7 +24,9 @@ class BodyComposition:
     def __post_init__(self) -> None:
         if not Decimal("20") <= self.weight_kg <= Decimal("300"):
             raise ValueError("weight_kg out of [20..300]")
-        if self.body_fat_pct is not None and not (Decimal("3") <= self.body_fat_pct <= Decimal("60")):
+        if self.body_fat_pct is not None and not (
+            Decimal("3") <= self.body_fat_pct <= Decimal("60")
+        ):
             raise ValueError("body_fat_pct out of [3..60]")
         if self.waist_cm is not None and not (Decimal("30") <= self.waist_cm <= Decimal("200")):
             raise ValueError("waist_cm out of [30..200]")

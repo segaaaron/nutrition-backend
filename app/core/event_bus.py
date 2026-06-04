@@ -1,6 +1,7 @@
 """In-process domain event dispatcher. Synchronous-by-default; async handlers
 are awaited inline. Cross-process fan-out goes through Arq / Redis pubsub.
 """
+
 from __future__ import annotations
 
 import asyncio

@@ -1,8 +1,10 @@
 """Identity value-object property tests."""
+
 from __future__ import annotations
 
 import pytest
-from hypothesis import given, strategies as st
+from hypothesis import given
+from hypothesis import strategies as st
 
 from app.identity.domain.value_objects import Email, PasswordHash, Token
 

@@ -9,6 +9,7 @@
 - sha256 hex (64 chars, [0-9a-f]).
 - Collision-resistant on smoke-scale random corpus.
 """
+
 from __future__ import annotations
 
 import random
@@ -34,10 +35,14 @@ _scalar = st.one_of(
     st.none(),
     st.booleans(),
     st.integers(min_value=-(10**9), max_value=10**9),
-    st.text(alphabet=string.ascii_letters + string.digits + "_-.", min_size=0,
-            max_size=16),
-    st.decimals(min_value=Decimal("-10000"), max_value=Decimal("10000"),
-                allow_nan=False, allow_infinity=False, places=2),
+    st.text(alphabet=string.ascii_letters + string.digits + "_-.", min_size=0, max_size=16),
+    st.decimals(
+        min_value=Decimal("-10000"),
+        max_value=Decimal("10000"),
+        allow_nan=False,
+        allow_infinity=False,
+        places=2,
+    ),
     st.uuids(),
 )
 
@@ -87,7 +92,8 @@ def test_inputs_hash_deterministic(payload: dict[str, Any]) -> None:
 @settings(max_examples=200, deadline=None)
 @given(payload=_payload, seed=st.integers(min_value=0, max_value=2**31 - 1))
 def test_inputs_hash_key_order_invariant(
-    payload: dict[str, Any], seed: int,
+    payload: dict[str, Any],
+    seed: int,
 ) -> None:
     """Rebuild payload dict with shuffled key insertion order — hash unchanged
     because compute_inputs_hash uses sort_keys=True."""
@@ -102,7 +108,9 @@ def test_inputs_hash_key_order_invariant(
 @given(
     items=st.lists(
         st.text(alphabet=string.ascii_letters, min_size=1, max_size=5),
-        min_size=1, max_size=6, unique=True,
+        min_size=1,
+        max_size=6,
+        unique=True,
     ),
     seed=st.integers(min_value=0, max_value=2**31 - 1),
 )
@@ -119,8 +127,13 @@ def test_inputs_hash_set_order_invariant(items: list[str], seed: int) -> None:
 
 @settings(max_examples=200, deadline=None)
 @given(
-    val=st.decimals(min_value=Decimal("-10000"), max_value=Decimal("10000"),
-                    allow_nan=False, allow_infinity=False, places=2),
+    val=st.decimals(
+        min_value=Decimal("-10000"),
+        max_value=Decimal("10000"),
+        allow_nan=False,
+        allow_infinity=False,
+        places=2,
+    ),
 )
 def test_inputs_hash_decimal_stringified(val: Decimal) -> None:
     """Two Decimals constructed via different routes but compare equal-string
@@ -154,7 +167,8 @@ def test_inputs_hash_uuid_stringified(uid: UUID) -> None:
     ),
 )
 def test_inputs_hash_change_sensitive(
-    kcal: int, extra: dict[str, int],
+    kcal: int,
+    extra: dict[str, int],
 ) -> None:
     """Mutating any single integer value (kcal +1) must change the hash."""
     base = {**extra, "kcal": kcal}
@@ -189,10 +203,9 @@ def _random_payload(rng: random.Random, depth: int = 0) -> Any:
     """Deterministic random payload generator covering all canonical types."""
     choice = rng.randint(0, 8) if depth < 3 else rng.randint(0, 4)
     if choice == 0:
-        return rng.randint(-10**9, 10**9)
+        return rng.randint(-(10**9), 10**9)
     if choice == 1:
-        return "".join(rng.choices(string.ascii_letters + string.digits,
-                                   k=rng.randint(1, 12)))
+        return "".join(rng.choices(string.ascii_letters + string.digits, k=rng.randint(1, 12)))
     if choice == 2:
         return Decimal(f"{rng.randint(-10000, 10000)}.{rng.randint(0, 99):02d}")
     if choice == 3:
@@ -204,19 +217,17 @@ def _random_payload(rng: random.Random, depth: int = 0) -> Any:
         return [_random_payload(rng, depth + 1) for _ in range(rng.randint(0, 4))]
     if choice == 6:
         return {
-            "".join(rng.choices(string.ascii_letters, k=rng.randint(1, 6))):
-                _random_payload(rng, depth + 1)
+            "".join(rng.choices(string.ascii_letters, k=rng.randint(1, 6))): _random_payload(
+                rng, depth + 1
+            )
             for _ in range(rng.randint(0, 4))
         }
     if choice == 7:
         # Homogeneous frozenset: pick element type once per set.
         if rng.random() < 0.5:
-            return frozenset(
-                rng.randint(-1000, 1000) for _ in range(rng.randint(0, 4))
-            )
+            return frozenset(rng.randint(-1000, 1000) for _ in range(rng.randint(0, 4)))
         return frozenset(
-            "".join(rng.choices(string.ascii_letters, k=4))
-            for _ in range(rng.randint(0, 4))
+            "".join(rng.choices(string.ascii_letters, k=4)) for _ in range(rng.randint(0, 4))
         )
     return rng.choice([None, True, False])
 

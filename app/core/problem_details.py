@@ -15,7 +15,7 @@ Mapping rules (BusinessRuleViolation.detail string -> URN):
     "height_required"                              -> plan:height-required
     "onboarding_incomplete"                        -> plan:onboarding-incomplete
     "pediatric_outside_mvp_scope"                  -> plan:pediatric-outside-mvp-scope
-    "geriatric_requires_clinical_review"           -> plan:geriatric-requires-clinical-review
+    "geriatric_requires_specialist_review"         -> plan:geriatric-requires-specialist-review
     "profile_missing:<field>"                      -> plan:profile-missing
 
 NotFoundError                                      -> resource:not-found
@@ -26,6 +26,7 @@ Other DomainError subclasses fall through to the legacy handler in
 *both* handler sets; this module's handler runs first because FastAPI
 dispatches on the most specific class.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -82,7 +83,7 @@ class ProblemDetails(Exception):
 _PLAN_RULE_TITLES: dict[str, tuple[str, str]] = {
     "allergen_unmapped_requires_review": (
         "plan:allergen-unmapped-requires-review",
-        "Allergen unmapped — clinical review required",
+        "Allergen unmapped — specialist review required",
     ),
     "trimester_required_for_pregnancy": (
         "plan:trimester-required-for-pregnancy",
@@ -104,9 +105,9 @@ _PLAN_RULE_TITLES: dict[str, tuple[str, str]] = {
         "plan:pediatric-outside-mvp-scope",
         "Pediatric users outside MVP scope",
     ),
-    "geriatric_requires_clinical_review": (
-        "plan:geriatric-requires-clinical-review",
-        "Geriatric users require clinical review",
+    "geriatric_requires_specialist_review": (
+        "plan:geriatric-requires-specialist-review",
+        "Geriatric users require specialist review",
     ),
 }
 
@@ -152,7 +153,9 @@ def _problem_response(
     return JSONResponse(status_code=status, content=body, media_type=PROBLEM_CONTENT_TYPE)
 
 
-async def _problem_details_handler(request: Request, exc: Exception) -> JSONResponse:  # noqa: ARG001
+async def _problem_details_handler(
+    request: Request, exc: Exception
+) -> JSONResponse:  # noqa: ARG001
     assert isinstance(exc, ProblemDetails)
     return JSONResponse(
         status_code=exc.status,

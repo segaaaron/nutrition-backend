@@ -1,10 +1,11 @@
-"""MVP segment gate — refuses clinical conditions + US region for narrow MVP.
+"""MVP segment gate — refuses declared conditions + US region for narrow MVP.
 
 Catalog audit 2026-06-01: catalog + algorithms not safe for diabetes_t2,
 diabetes_t1, pregnancy, lactation, ckd, or US region. Gate enforced at
 profile boundary (CompleteOnboarding, UpdateProfile) and toggled by
 `settings.mvp_segment_gate_enabled`.
 """
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -20,10 +21,15 @@ from app.profile.domain.entities import UserProfile
 
 def _valid_profile(**overrides: object) -> UserProfile:
     p = UserProfile(
-        user_id=uuid4(), age=30, sex="male",
-        weight_kg=Decimal("70"), height_cm=Decimal("175"),
-        goal="weight_loss", activity_level="moderately_active",
-        country="PE", region="latam",
+        user_id=uuid4(),
+        age=30,
+        sex="male",
+        weight_kg=Decimal("70"),
+        height_cm=Decimal("175"),
+        goal="weight_loss",
+        activity_level="moderately_active",
+        country="PE",
+        region="latam",
     )
     for k, v in overrides.items():
         setattr(p, k, v)

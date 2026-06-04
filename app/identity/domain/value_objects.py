@@ -1,4 +1,5 @@
 """Identity value objects. Frozen + validated at construction."""
+
 from __future__ import annotations
 
 import re

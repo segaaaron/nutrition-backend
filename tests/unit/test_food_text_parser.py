@@ -1,7 +1,6 @@
 """Voice / text parser regex-path tests — no network."""
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from app.voice.infrastructure.food_text_parser import parse_regex
 

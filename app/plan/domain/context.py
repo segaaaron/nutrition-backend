@@ -6,12 +6,14 @@ framework imports. Decimal-only math.
 Cited by `app.plan.application.pipeline.Pipeline` and by every Stage,
 Constraint, RankingSignal, ConditionGate implementation.
 """
+
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from decimal import Decimal
-from typing import Literal, Mapping, NamedTuple
+from typing import Literal, NamedTuple
 from uuid import UUID
 
 # Goal label used by MacroTargets. ADR-0015 uses "weight_loss" to apply a
@@ -45,9 +47,7 @@ class MacroTargets:
 
     def __post_init__(self) -> None:
         if self.goal not in _VALID_GOALS:
-            raise ValueError(
-                f"goal must be one of {sorted(_VALID_GOALS)}, got {self.goal!r}"
-            )
+            raise ValueError(f"goal must be one of {sorted(_VALID_GOALS)}, got {self.goal!r}")
         if self.kcal < 0:
             raise ValueError("kcal must be >= 0")
         if self.protein_g < 0:
@@ -110,9 +110,7 @@ class WeightVector:
         for value in self.weights.values():
             total += value
         if abs(total - Decimal("1.0")) > Decimal("0.001"):
-            raise ValueError(
-                f"WeightVector weights must sum to 1.0 +/- 0.001, got {total}"
-            )
+            raise ValueError(f"WeightVector weights must sum to 1.0 +/- 0.001, got {total}")
 
 
 # ---------------------------------------------------------------------------

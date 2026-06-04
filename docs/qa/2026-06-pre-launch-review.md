@@ -9,7 +9,7 @@
 | Category | Tests | Notes |
 |----------|-------|-------|
 | unit          | ~70  | Domain math, nutrition formulas, allergen logic, fasting math |
-| clinical      | ~30  | Allergen hard-exclude, recalibration, macro balance, refuse-medical |
+| nutrition      | ~30  | Allergen hard-exclude, recalibration, macro balance, refuse-medical |
 | i18n          | 6    | Locale fallback paths |
 | security      | 4    | JWT roundtrip, OTP brute-force ratelimit |
 | compliance    | 3    | GDPR cascade chain, deletion idempotency |
@@ -71,7 +71,7 @@ Sprint 7.A repository fallback when the continuous aggregate is absent.
       progress_photos.
 - [x] LGPD: same chain; data-export endpoint (`/me/export`) returns JSON.
 - [x] CCPA: do-not-sell disclaimer in disclaimer_medical i18n bundle.
-- [x] Medical-refuse: 20 clinical fixture prompts in tests/clinical/
+- [x] Medical-refuse: 20 nutrition fixture prompts in tests/nutrition/
 - [x] EXIF strip: fail-closed via EXIFLeakError on every progress / meal photo.
 - [ ] Cookie consent banner — frontend concern, not backend.
 - [ ] DPA addendum with Stripe + Mercado Pago — legal sign-off pending.

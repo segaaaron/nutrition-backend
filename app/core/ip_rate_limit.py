@@ -8,9 +8,10 @@ Returns 429 with Retry-After header when over cap. Honours CF-Connecting-IP
 when behind Cloudflare; falls back to X-Forwarded-For first hop, then
 request.client.host.
 """
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
@@ -27,8 +28,11 @@ IP_RATE_LIMIT_REJECTS = Counter(
 
 DEFAULT_LIMIT_PER_MIN = 600  # generous; per-user limits are tighter
 BYPASS_PATH_PREFIXES = (
-    "/healthz", "/readyz", "/metrics",
-    "/webhooks/stripe", "/webhooks/mercadopago",
+    "/healthz",
+    "/readyz",
+    "/metrics",
+    "/webhooks/stripe",
+    "/webhooks/mercadopago",
 )
 
 
@@ -55,7 +59,7 @@ class IpRateLimitMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         ip = _client_ip(request)
-        minute = datetime.now(timezone.utc).strftime("%Y%m%d%H%M")
+        minute = datetime.now(UTC).strftime("%Y%m%d%H%M")
         key = f"iprl:{minute}:{ip}"
         try:
             r = get_redis()

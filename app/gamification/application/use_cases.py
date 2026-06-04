@@ -1,21 +1,21 @@
 """Gamification queries: progress, level, achievements, leaderboard, celebrations."""
+
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from redis.asyncio import Redis
 
-from app.gamification.domain.catalog import CATALOG, AchievementDef, by_event
-from app.gamification.domain.entities import StreakType, UserLevel
+from app.core.event_bus import EventBus
+from app.gamification.domain.catalog import AchievementDef
+from app.gamification.domain.entities import UserLevel
 from app.gamification.domain.events import (
     AchievementUnlocked,
     CelebrationTriggered,
-    LevelUp,
 )
-from app.core.event_bus import EventBus
 from app.gamification.infrastructure.repository import (
     SqlGamificationRepository,
     leaderboard_key,
@@ -37,13 +37,15 @@ class GetUserProgress:
             "points": points,
             "level": {"value": level.level, "next_level_points": level.next_level_points},
             "streaks": [
-                {"type": s.type.value, "value": s.value,
-                 "last_day": s.last_day.isoformat() if s.last_day else None}
+                {
+                    "type": s.type.value,
+                    "value": s.value,
+                    "last_day": s.last_day.isoformat() if s.last_day else None,
+                }
                 for s in streaks
             ],
             "recent_achievements": [
-                {"code": a.code, "unlocked_at": a.unlocked_at.isoformat()}
-                for a in unlocked[:5]
+                {"code": a.code, "unlocked_at": a.unlocked_at.isoformat()} for a in unlocked[:5]
             ],
         }
 
@@ -65,7 +67,8 @@ class GetLevel:
         points = await self.repo.total_points(user_id)
         level = UserLevel.from_points(points)
         return {
-            "points": points, "level": level.level,
+            "points": points,
+            "level": level.level,
             "next_level_points": level.next_level_points,
         }
 
@@ -75,7 +78,11 @@ class GetLeaderboard:
     redis: Redis
 
     async def __call__(
-        self, *, country: str, period: str = "week", limit: int = 20,
+        self,
+        *,
+        country: str,
+        period: str = "week",
+        limit: int = 20,
     ) -> list[dict]:
         key = leaderboard_key(country=country, period=period)
         try:
@@ -83,8 +90,7 @@ class GetLeaderboard:
         except Exception:  # noqa: BLE001
             return []
         return [
-            {"user_id": uid.decode() if isinstance(uid, bytes) else uid,
-             "score": int(score)}
+            {"user_id": uid.decode() if isinstance(uid, bytes) else uid, "score": int(score)}
             for uid, score in rows
         ]
 
@@ -104,10 +110,16 @@ class GetPendingCelebrations:
 
 
 async def trigger_celebration(
-    bus: EventBus, redis: Redis, *, user_id: UUID, code: str,
+    bus: EventBus,
+    redis: Redis,
+    *,
+    user_id: UUID,
+    code: str,
 ) -> None:
     evt = CelebrationTriggered(
-        user_id=user_id, code=code, at=datetime.now(timezone.utc),
+        user_id=user_id,
+        code=code,
+        at=datetime.now(UTC),
     )
     await bus.publish(evt)
     try:
@@ -124,15 +136,21 @@ async def maybe_unlock(
     repo: SqlGamificationRepository,
     bus: EventBus,
     redis: Redis,
-    *, user_id: UUID, achievement: AchievementDef,
+    *,
+    user_id: UUID,
+    achievement: AchievementDef,
 ) -> None:
     if await repo.has_achievement(user_id=user_id, code=achievement.code):
         return
     inserted = await repo.insert_achievement(user_id=user_id, code=achievement.code)
     if not inserted:
         return
-    await bus.publish(AchievementUnlocked(
-        user_id=user_id, code=achievement.code,
-        points=achievement.points, at=datetime.now(timezone.utc),
-    ))
+    await bus.publish(
+        AchievementUnlocked(
+            user_id=user_id,
+            code=achievement.code,
+            points=achievement.points,
+            at=datetime.now(UTC),
+        )
+    )
     await trigger_celebration(bus, redis, user_id=user_id, code=f"achievement_{achievement.code}")

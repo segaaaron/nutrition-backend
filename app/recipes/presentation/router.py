@@ -5,18 +5,17 @@ Cursor pagination encoding: opaque base64-of-`{score}|{id}`. Clients echo it
 back via `?cursor=...` (or in the JSON body for semantic search). The server
 re-parses it into `(cursor_last_score, cursor_last_id)`.
 """
+
 from __future__ import annotations
 
 import base64
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Header, Path, Query, status
+from fastapi import APIRouter, Header, Path, Query
 
 from app.identity.presentation.dependencies import SessionDep
 from app.recipes.application.use_cases import (
-    GetAlternatives,
-    GetFood,
     GetFoodByBarcode,
     GetRecipe,
     SearchFoods,
@@ -71,19 +70,32 @@ def _to_recipe_resp(r: Recipe, locale: str, score: float | None = None) -> Recip
         name=r.translated_name(locale),
         description=r.translated_description(locale),
         image_url=r.image_url,
-        kcal=r.kcal, protein_g=r.protein_g, carbs_g=r.carbs_g, fat_g=r.fat_g,
-        fiber_g=r.fiber_g, sugar_g=r.sugar_g, sodium_mg=r.sodium_mg, sat_fat_g=r.sat_fat_g,
-        tags=r.tags, meal_time=r.meal_time, prep_min=r.prep_min,
+        kcal=r.kcal,
+        protein_g=r.protein_g,
+        carbs_g=r.carbs_g,
+        fat_g=r.fat_g,
+        fiber_g=r.fiber_g,
+        sugar_g=r.sugar_g,
+        sodium_mg=r.sodium_mg,
+        sat_fat_g=r.sat_fat_g,
+        tags=r.tags,
+        meal_time=r.meal_time,
+        prep_min=r.prep_min,
         instructions=r.translated_instructions(locale),
-        regions=r.regions, allergens=r.allergens,
+        regions=r.regions,
+        allergens=r.allergens,
         recommended_conditions=r.recommended_conditions,
         contraindicated_conditions=r.contraindicated_conditions,
         target_goals=r.target_goals,
         components=[
             ComponentResponse(
-                id=c.id, food_id=c.food_id, sub_recipe_id=c.sub_recipe_id,
-                free_text_name=c.free_text_name, amount_g=c.amount_g,
-                modifier=c.modifier, position=c.position,
+                id=c.id,
+                food_id=c.food_id,
+                sub_recipe_id=c.sub_recipe_id,
+                free_text_name=c.free_text_name,
+                amount_g=c.amount_g,
+                modifier=c.modifier,
+                position=c.position,
             )
             for c in r.components
         ],
@@ -93,11 +105,22 @@ def _to_recipe_resp(r: Recipe, locale: str, score: float | None = None) -> Recip
 
 def _to_food_resp(f: Food, locale: str, score: float | None = None) -> FoodResponse:
     return FoodResponse(
-        id=f.id, name=f.translated_name(locale), brand=f.brand, country=f.country,
-        portion_g=f.portion_g, kcal=f.kcal, protein_g=f.protein_g, carbs_g=f.carbs_g,
-        fat_g=f.fat_g, fiber_g=f.fiber_g, sugar_g=f.sugar_g,
-        sodium_mg=f.sodium_mg, sat_fat_g=f.sat_fat_g,
-        barcode=f.barcode, verified=f.verified, score=score,
+        id=f.id,
+        name=f.translated_name(locale),
+        brand=f.brand,
+        country=f.country,
+        portion_g=f.portion_g,
+        kcal=f.kcal,
+        protein_g=f.protein_g,
+        carbs_g=f.carbs_g,
+        fat_g=f.fat_g,
+        fiber_g=f.fiber_g,
+        sugar_g=f.sugar_g,
+        sodium_mg=f.sodium_mg,
+        sat_fat_g=f.sat_fat_g,
+        barcode=f.barcode,
+        verified=f.verified,
+        score=score,
     )
 
 
@@ -120,10 +143,18 @@ async def list_recipes(
     locale = _accept_lang(accept_language)
     last_score, last_id = _decode_cursor(cursor)
     query = RecipeSearchQuery(
-        q=q, meal_time=meal_time, regions=region, allergens_exclude=allergen_exclude,
-        conditions=condition, tags=tag, target_goals=target_goal,
-        max_kcal=max_kcal, min_protein_g=min_protein_g, limit=limit,
-        cursor_last_id=last_id, cursor_last_score=last_score,
+        q=q,
+        meal_time=meal_time,
+        regions=region,
+        allergens_exclude=allergen_exclude,
+        conditions=condition,
+        tags=tag,
+        target_goals=target_goal,
+        max_kcal=max_kcal,
+        min_protein_g=min_protein_g,
+        limit=limit,
+        cursor_last_id=last_id,
+        cursor_last_score=last_score,
     )
     uc = SearchRecipes(recipes=SqlRecipeRepository(session))
     results = await uc(query=query, semantic=False)
@@ -155,11 +186,18 @@ async def search_semantic(
     locale = _accept_lang(accept_language)
     last_score, last_id = _decode_cursor(body.cursor)
     query = RecipeSearchQuery(
-        q=body.q, meal_time=body.meal_time, regions=body.regions,
-        allergens_exclude=body.allergens_exclude, conditions=body.conditions,
-        tags=body.tags, target_goals=body.target_goals,
-        max_kcal=body.max_kcal, min_protein_g=body.min_protein_g, limit=body.limit,
-        cursor_last_id=last_id, cursor_last_score=last_score,
+        q=body.q,
+        meal_time=body.meal_time,
+        regions=body.regions,
+        allergens_exclude=body.allergens_exclude,
+        conditions=body.conditions,
+        tags=body.tags,
+        target_goals=body.target_goals,
+        max_kcal=body.max_kcal,
+        min_protein_g=body.min_protein_g,
+        limit=body.limit,
+        cursor_last_id=last_id,
+        cursor_last_score=last_score,
     )
     uc = SearchRecipes(recipes=SqlRecipeRepository(session), embedder=OpenAIEmbedder())
     results = await uc(query=query, semantic=True)
@@ -183,8 +221,12 @@ async def list_foods(
     locale = _accept_lang(accept_language)
     last_score, last_id = _decode_cursor(cursor)
     query = FoodSearchQuery(
-        q=q, country=country, verified_only=verified_only, limit=limit,
-        cursor_last_id=last_id, cursor_last_score=last_score,
+        q=q,
+        country=country,
+        verified_only=verified_only,
+        limit=limit,
+        cursor_last_id=last_id,
+        cursor_last_score=last_score,
     )
     uc = SearchFoods(foods=SqlFoodRepository(session))
     results = await uc(query=query)

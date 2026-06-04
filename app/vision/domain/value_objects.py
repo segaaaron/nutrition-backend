@@ -3,6 +3,7 @@
 Confidence is a 0..1 ratio. Trigger threshold for auto-accepting a match
 into food_logs is 0.7 (ADR-0003).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

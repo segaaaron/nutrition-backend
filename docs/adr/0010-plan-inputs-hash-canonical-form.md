@@ -113,7 +113,7 @@ Property test (`tests/plan/property/test_inputs_hash.py` — owner task):
 
 ## Alternatives considered
 
-1. **MD5** — rejected: weak; not for clinical-grade audit.
+1. **MD5** — rejected: weak; not for algorithm-grade audit.
 2. **BLAKE3** — rejected: extra dep; SHA-256 is stdlib + good enough at our scale.
 3. **MessagePack canonical** — rejected: harder to debug; JSON sorts naturally; clear-text payload preserves grep-ability in incidents.
 4. **Field hashing per category** — rejected: master plan needs one fingerprint, not five.

@@ -17,10 +17,12 @@ switch (`feature_flags.openai_kill_switch.enabled`) short-circuits before
 any check. Pricing table is conservative — overestimates by ~10% vs the
 public OpenAI prices so we never undercount.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Final
 from uuid import UUID
 
@@ -40,7 +42,6 @@ _PRICING_PER_M: Final[dict[str, tuple[float, float]]] = {
     "gpt-4o-2024-08-06": (2.75, 11.00),
     "gpt-4o": (2.75, 11.00),
     "text-embedding-3-large": (0.143, 0.0),
-    "whisper-1": (0.006, 0.0),
 }
 
 _tokens_in = Counter(
@@ -56,7 +57,7 @@ _cost_usd = Counter(
 
 
 def _today_utc() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return datetime.now(UTC).strftime("%Y-%m-%d")
 
 
 def _price(model: str, in_tok: int, out_tok: int) -> float:
@@ -64,11 +65,33 @@ def _price(model: str, in_tok: int, out_tok: int) -> float:
     return (in_tok / 1_000_000.0) * pin + (out_tok / 1_000_000.0) * pout
 
 
+def _price_input(model: str) -> Decimal:
+    """Return per-1M USD input price for the given model as Decimal.
+
+    Used by cost-cap pre-checks that need to estimate image-token cost at
+    the *actual* model rate (gpt-4o-mini = $0.17/1M vs gpt-4o = $2.75/1M).
+    Falls back to the table's safe default if the model is unknown.
+    CLAUDE.md non-negotiable #2: Decimal for cost math.
+    """
+    pin, _ = _PRICING_PER_M.get(model, (5.0, 15.0))
+    return Decimal(str(pin))
+
+
+def _price_output(model: str) -> Decimal:
+    """Return per-1M USD output price for the given model as Decimal."""
+    _, pout = _PRICING_PER_M.get(model, (5.0, 15.0))
+    return Decimal(str(pout))
+
+
 def estimate_input_cost(model: str, text: str) -> float:
     """Token-count via tiktoken; falls back to chars/4 if tokeniser is missing."""
     try:
         import tiktoken  # local import to avoid hard dep at import time
-        enc = tiktoken.encoding_for_model(model) if model in tiktoken.model.MODEL_TO_ENCODING else tiktoken.get_encoding("cl100k_base")  # type: ignore[attr-defined]
+
+        if model in tiktoken.model.MODEL_TO_ENCODING:
+            enc = tiktoken.encoding_for_model(model)
+        else:
+            enc = tiktoken.get_encoding("cl100k_base")
         n = len(enc.encode(text))
     except Exception:  # noqa: BLE001
         n = max(1, len(text) // 4)
@@ -86,17 +109,17 @@ class CostCapDecision:
 async def kill_switch_active() -> bool:
     r = get_redis()
     val = await r.get("ff:openai_kill_switch")
-    return val == "1"
+    return bool(val == "1")
 
 
 async def pre_check(*, user_id: UUID | None, estimate_usd: float) -> CostCapDecision:
     """Raises CostCapExceeded if user/org cap would be breached; otherwise
     returns a decision flagging warning if we crossed the soft threshold.
+
+    Perf: batches the kill-switch GET, optional user-spent GET, and org-spent
+    GET into a single Redis pipeline RTT (was 3 sequential awaits).
     """
     s = get_settings()
-    if await kill_switch_active():
-        raise CostCapExceeded("kill_switch_active", reset_at="manual")
-
     r = get_redis()
     user_cap = s.cost_cap_usd_per_user_per_day
     org_cap = s.cost_cap_usd_per_org_per_day
@@ -106,27 +129,55 @@ async def pre_check(*, user_id: UUID | None, estimate_usd: float) -> CostCapDeci
     user_key = f"oac:user:{user_id}:{day}" if user_id else None
     org_key = f"oac:org:{day}"
 
-    user_spent = float(await r.get(user_key) or 0.0) if user_key else 0.0
-    org_spent = float(await r.get(org_key) or 0.0)
+    # Single-RTT batched GETs: [kill_switch, (user_spent?), org_spent].
+    pipe = r.pipeline()
+    pipe.get("ff:openai_kill_switch")
+    if user_key:
+        pipe.get(user_key)
+    pipe.get(org_key)
+    results = await pipe.execute()
+
+    kill_val = results[0]
+    if kill_val == "1":
+        raise CostCapExceeded("kill_switch_active", reset_at="manual")
+
+    idx = 1
+    if user_key:
+        user_spent = float(results[idx] or 0.0)
+        idx += 1
+    else:
+        user_spent = 0.0
+    org_spent = float(results[idx] or 0.0)
 
     if user_key and (user_spent + estimate_usd) > user_cap:
         raise CostCapExceeded(
             "user_cost_cap_exceeded",
-            limit_usd=user_cap, spent_usd=user_spent, reset_at=f"{day}T24:00Z",
+            limit_usd=user_cap,
+            spent_usd=user_spent,
+            reset_at=f"{day}T24:00Z",
         )
     if (org_spent + estimate_usd) > org_cap:
         raise CostCapExceeded(
             "org_cost_cap_exceeded",
-            limit_usd=org_cap, spent_usd=org_spent, reset_at=f"{day}T24:00Z",
+            limit_usd=org_cap,
+            spent_usd=org_spent,
+            reset_at=f"{day}T24:00Z",
         )
     warn = user_key is not None and (user_spent + estimate_usd) > alarm * user_cap
     return CostCapDecision(
-        allowed=True, warning=warn, spent_usd=user_spent, cap_usd=user_cap,
+        allowed=True,
+        warning=warn,
+        spent_usd=user_spent,
+        cap_usd=user_cap,
     )
 
 
 async def record_usage(
-    *, user_id: UUID | None, model: str, in_tok: int, out_tok: int,
+    *,
+    user_id: UUID | None,
+    model: str,
+    in_tok: int,
+    out_tok: int,
     user_segment: str = "free",
 ) -> float:
     cost = _price(model, in_tok, out_tok)

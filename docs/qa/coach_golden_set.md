@@ -41,6 +41,6 @@ row pairs a user query with a rubric (multi-axis 0-1 score) so a judge model
 
 ## Files
 
-- `tests/clinical/test_coach_medical_refuse.py` — deterministic 20-scenario gate (this sprint).
-- `tests/clinical/coach_golden_50.jsonl` — full set (Phase 2, deferred).
+- `tests/nutrition/test_coach_medical_refuse.py` — deterministic 20-scenario gate (this sprint).
+- `tests/nutrition/coach_golden_50.jsonl` — full set (Phase 2, deferred).
 - `scripts/run_coach_eval.py` — judge runner (Phase 2, deferred).

@@ -38,7 +38,7 @@ Prohibido:
 |---|--------|-------|---------------|
 | 1 | `nova-backend-architect` | 🔵 blue | Arquitectura general backend + biochem |
 | 2 | `nova-nutrition-backend-architect` | 🔵 blue | Arquitectura específica nutrición + Clean Arch/DDD |
-| 3 | `nova-qa-elite` | 🟢 green | QA holístico + clinical correctness audit |
+| 3 | `nova-qa-elite` | 🟢 green | QA holístico + algorithm correctness audit |
 | 4 | `nova-clinical-nutrition-generator` | ⚪ — | Generador batch recetas validadas |
 | 5 | `nova-api-expert` | 🔷 cyan | REST/HTTP/OpenAPI/SSE contract design |
 | 6 | `nova-python-expert` | 🟡 yellow | Py3.12 idioms + async correctness + Decimal precision |
@@ -115,7 +115,7 @@ Prohibido:
 
 6. Tests
    └── nova-elite-test-engineer (property + mutation)
-       └── nova-qa-elite (clinical correctness)
+       └── nova-qa-elite (nutritional correctness)
 
 7. Pre-merge
    └── nova-best-practices-advisor (commit hygiene, PR checklist)
@@ -126,19 +126,19 @@ Prohibido:
 
 ---
 
-## Especialización clínica vs técnica
+## Especialización nutricional vs técnica
 
 ```
-                 CLÍNICA                            TÉCNICA
+                 NUTRICIONAL                            TÉCNICA
                     ↑                                  ↑
                     │                                  │
-  nova-clinical-    │                                  │  nova-python-
+  nova-nutrition-    │                                  │  nova-python-
   nutrition-        │                                  │  expert
   generator         │                                  │
                     │                                  │
                     │  nova-nutrition-                 │  nova-api-expert
                     │  algorithms-expert ★             │
-                    │  (puente clínico-técnico)        │  nova-design-
+                    │  (puente nutricional-técnico)        │  nova-design-
                     │                                  │  patterns-expert
   nova-qa-elite ────┼──────────────────────────────────┤
   (audita ambos)    │                                  │  nova-elite-
@@ -151,7 +151,7 @@ Prohibido:
                     ↓                                  ↓
 ```
 
-★ `nova-nutrition-algorithms-expert` = pieza más estratégica. Une mundo clínico (math metabolismo) con mundo técnico (output JSON plan ejecutable). Moat competitivo vs Fitia/MyFitnessPal.
+★ `nova-nutrition-algorithms-expert` = pieza más estratégica. Une mundo nutricional (math metabolismo) con mundo técnico (output JSON plan ejecutable). Moat competitivo vs Fitia/MyFitnessPal.
 
 ---
 
@@ -159,14 +159,14 @@ Prohibido:
 
 | Agente | NO debe hacer |
 |--------|---------------|
-| nova-backend-architect | Implementación detallada Python; cálculos clínicos específicos |
+| nova-backend-architect | Implementación detallada Python; cálculos nutricionales específicos |
 | nova-nutrition-backend-architect | Math research-grade; recetas concretas |
 | nova-qa-elite | Implementar features; diseñar arquitectura |
 | nova-clinical-nutrition-generator | Arquitectura; algoritmos optimización |
-| nova-api-expert | Algoritmos clínicos; ML/optimización |
+| nova-api-expert | Algoritmos nutricionales; ML/optimización |
 | nova-python-expert | Decisiones de arquitectura; algoritmos dominio |
 | nova-design-patterns-expert | Cálculos numéricos; recetas |
-| nova-best-practices-advisor | Algoritmos clínicos; arquitectura nueva |
+| nova-best-practices-advisor | Algoritmos nutricionales; arquitectura nueva |
 | nova-elite-test-engineer | Implementación features; arquitectura |
 | nova-nutrition-algorithms-expert | Arquitectura backend; DB schema; recetas authoring; topics fuera de nutrición |
 

@@ -184,7 +184,7 @@ recipes(id uuid pk,
         description_translations jsonb not null default '{}',
         image_url text null,
         kcal int, protein_g int, carbs_g int, fat_g int,
-        -- Aggregated micros for clinical filters: diabetes uses sugar_g,
+        -- Aggregated micros for nutrition filters: diabetes uses sugar_g,
         -- hypertension uses sodium_mg, dyslipidaemia uses sat_fat_g.
         -- Recomputed by sync_recipe_aggregates() on recipe_components mutation.
         fiber_g int not null default 0,
@@ -645,7 +645,7 @@ an `evaluation` block referencing an eval-set hash and the result it produced
 (e.g. `{eval_set_sha256, brier_score, item_precision, item_recall, kcal_mae}`).
 The endpoint refuses to mark a prompt `active=true` unless the eval result
 meets the thresholds in ADR-0003 (Brier ≤ 0.20 for vision) and the AI eval
-gates in `tests/clinical/test_vision_calibration_brier.py`. Activation flips
+gates in `tests/nutrition/test_vision_calibration_brier.py`. Activation flips
 the partial unique index `one_active_prompt_per_name`; the previously-active
 row is auto-deactivated in the same transaction.
 
@@ -822,7 +822,7 @@ and is orchestrated by `create_plan.py`:
 - Layer 1 (eligibility, SQL deterministic, <50 ms) —
   `app/plan/application/layer1_eligibility.py`. Hard-excludes allergens
   (closed `allergen_enum`, ADR-0001), region overlap (ADR-0008),
-  contraindications, plus per-condition clinical gates (diabetes_t2
+  contraindications, plus per-condition safety gates (diabetes_t2
   sugar≤15, hypertension sodium≤600, hypercholesterolemia sat_fat≤5, ckd
   protein≤W*0.8/3, gout no organ_meat/shellfish).
 - Layer 2 (macro-balanced shortlist, <200 ms) —
@@ -1014,7 +1014,7 @@ EXIF and asserts the post-compress buffer has zero `GPS*` keys across every
 - `tests/integration/` — pytest + testcontainers (real Timescale, Redis).
 - `tests/contract/` — schemathesis over OpenAPI.
 - `tests/e2e/` — onboarding → plan → logs → recalibration.
-- `tests/clinical/` — ADR-driven clinical-safety harness:
+- `tests/nutrition/` — ADR-driven nutrition-safety harness:
   - `test_recalibration_blend.py` (ADR-0002 — OLS slope + winsorisation + blend)
   - `test_vision_calibration_brier.py` (ADR-0003 — `confianza` Brier ≤ 0.20)
 - `tests/security/` — security & cost gates:
@@ -1165,7 +1165,7 @@ audit report is green.
 ## 21. Vocabulary & i18n contract (round-3, reverts round-2 ES-canonical)
 
 - **System identifiers** (Postgres ENUMs, column names, JSON keys in API
-  responses): **English snake_case**. Rationale: clinical / regulatory codes
+  responses): **English snake_case**. Rationale: nutrition / regulatory codes
   (ICD-10, FALCPA, EU 1169) are English-anchored; the product targets US +
   LatAm + EU from day one and EN canonical IDs let every other locale be
   added by inserting rows in `i18n_translations` instead of altering enums.
@@ -1244,10 +1244,10 @@ Independent QA audit of the current `data/meals/nova_meals_catalog.json`
 |---|---:|---|---|
 | Dairy false negatives (ingredient indicates dairy, no `dairy` tag) | 161 | Gate 5 — ingredient lexicon | data-ops |
 | Gluten false negatives | 169 | Gate 5 | data-ops |
-| Purine false negatives (red meat / organ meat without `gout` contraindication) | 144 | Gate 5 + clinical rule | data-ops + clinical |
+| Purine false negatives (red meat / organ meat without `gout` contraindication) | 144 | Gate 5 + nutrition rule | data-ops + nutrition |
 | Allergen tokens leaking into condition arrays | 26 | Gate 4 — disjointness | data-ops |
 | Unknown allergen `mustard` (single row) | 1 | Gate 3 — closed enum | data-ops |
-| Snack inventory | 0 / 100 required | §22.6 gate | clinical generator |
+| Snack inventory | 0 / 100 required | §22.6 gate | nutrition generator |
 
 **Gating impact.** Until the affected rows are cleaned (or quarantined via
 `recipes.source_batch` and excluded from generation), `POST /plans` MUST NOT
@@ -1428,7 +1428,7 @@ earlier `gpt-4o` reference in §9.1. Cost model: 765 image tokens fixed for
 
 ### 24.6 §14 patch — new tests
 
-- `tests/clinical/test_coach_medical_refuse.py` — 20 adversarial scenarios,
+- `tests/nutrition/test_coach_medical_refuse.py` — 20 adversarial scenarios,
   keyword classifier path; LLM path gated on OPENAI_API_KEY.
 - `tests/unit/test_food_text_parser.py` — regex path.
 - `tests/unit/test_intent_classifier_keyword.py` — template intents.

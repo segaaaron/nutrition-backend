@@ -3,6 +3,7 @@
 Requires pywebpush in pyproject. VAPID keys loaded from env
 (NOVA_VAPID_PRIVATE_KEY + NOVA_VAPID_PUBLIC_KEY + NOVA_VAPID_CONTACT_EMAIL).
 """
+
 from __future__ import annotations
 
 import json
@@ -17,10 +18,15 @@ log = get_logger("notifications.webpush")
 @dataclass(slots=True)
 class WebPushClient:
     async def send(
-        self, *, endpoint: str, p256dh: str, auth: str, payload: dict,
+        self,
+        *,
+        endpoint: str,
+        p256dh: str,
+        auth: str,
+        payload: dict,
     ) -> bool:
         try:
-            from pywebpush import WebPushException, webpush  # type: ignore
+            from pywebpush import WebPushException, webpush  # type: ignore[import-untyped]  # optional dep, no stubs on PyPI
         except Exception as exc:  # noqa: BLE001
             log.warning("webpush.lib_missing", err=str(exc))
             return False
@@ -40,7 +46,7 @@ class WebPushClient:
                 vapid_claims={"sub": f"mailto:{vapid_email}"},
             )
             return True
-        except WebPushException as exc:  # type: ignore[misc]
+        except WebPushException as exc:  # type: ignore[misc]  # exc class imported lazily inside try-block above
             status = getattr(getattr(exc, "response", None), "status_code", 0)
             if status in (404, 410):
                 # Caller should mark token invalid.

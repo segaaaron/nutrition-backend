@@ -1,4 +1,4 @@
-"""v2-aware catalog remap + clinical patches.
+"""v2-aware catalog remap + nutrition patches.
 
 Operates on the snake_case schema produced by `migrate_catalog_schema_v2.py`.
 Idempotent.

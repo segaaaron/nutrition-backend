@@ -3,10 +3,12 @@
 ASVS V2 / S0-J: multiple keypairs, zero-downtime rotation, revoked-kid rejection,
 unknown-kid anti-forgery.
 """
+
 from __future__ import annotations
 
-import pytest
 from uuid import uuid4
+
+import pytest
 
 from app.core.errors import Unauthenticated
 
@@ -42,18 +44,22 @@ def two_keys(monkeypatch, tmp_path):
     monkeypatch.setenv("JWT_ACTIVE_KID", "k1")
     monkeypatch.setenv("JWT_REVOKED_KIDS", "")
     from app.core.config import get_settings
+
     get_settings.cache_clear()
     yield
     from app.core.config import get_settings as gs
+
     gs.cache_clear()
 
 
 async def test_token_carries_active_kid_header(two_keys, fake_redis, monkeypatch):
     """New tokens must embed the active kid in their JOSE header."""
     from app.core import redis as redis_mod
+
     monkeypatch.setattr(redis_mod, "get_redis", lambda: fake_redis)
 
     import jwt as pyjwt
+
     from app.identity.infrastructure.jwt_signer import JwtSigner
 
     signer = JwtSigner()
@@ -71,6 +77,7 @@ async def test_token_signed_with_old_kid_still_verifies(two_keys, fake_redis, mo
     tokens to expire (15 min TTL) → then revoke old kid.
     """
     from app.core import redis as redis_mod
+
     monkeypatch.setattr(redis_mod, "get_redis", lambda: fake_redis)
     from app.identity.infrastructure.jwt_signer import JwtSigner
 
@@ -81,6 +88,7 @@ async def test_token_signed_with_old_kid_still_verifies(two_keys, fake_redis, mo
     # Simulate rotation: switch active kid to k2
     monkeypatch.setenv("JWT_ACTIVE_KID", "k2")
     from app.core.config import get_settings
+
     get_settings.cache_clear()
     signer_k2 = JwtSigner()
 
@@ -92,6 +100,7 @@ async def test_token_signed_with_old_kid_still_verifies(two_keys, fake_redis, mo
 async def test_revoked_kid_rejects_token(two_keys, fake_redis, monkeypatch):
     """Marking a kid as REVOKED must immediately block all tokens bearing that kid."""
     from app.core import redis as redis_mod
+
     monkeypatch.setattr(redis_mod, "get_redis", lambda: fake_redis)
     from app.identity.infrastructure.jwt_signer import JwtSigner
 
@@ -102,6 +111,7 @@ async def test_revoked_kid_rejects_token(two_keys, fake_redis, monkeypatch):
     monkeypatch.setenv("JWT_REVOKED_KIDS", "k1")
     monkeypatch.setenv("JWT_ACTIVE_KID", "k2")
     from app.core.config import get_settings
+
     get_settings.cache_clear()
     signer2 = JwtSigner()
 
@@ -112,6 +122,7 @@ async def test_revoked_kid_rejects_token(two_keys, fake_redis, monkeypatch):
 async def test_unknown_kid_rejected(two_keys, fake_redis, monkeypatch):
     """Forged token carrying an unknown kid must be rejected (anti-forgery guard)."""
     from app.core import redis as redis_mod
+
     monkeypatch.setattr(redis_mod, "get_redis", lambda: fake_redis)
 
     import jwt as pyjwt
@@ -140,6 +151,7 @@ async def test_unknown_kid_rejected(two_keys, fake_redis, monkeypatch):
     )
 
     from app.identity.infrastructure.jwt_signer import JwtSigner
+
     signer = JwtSigner()
 
     with pytest.raises(Unauthenticated, match="kid_unknown"):

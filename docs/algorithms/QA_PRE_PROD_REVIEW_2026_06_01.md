@@ -12,7 +12,7 @@
 
 > **GO-WITH-CAVEATS.**
 
-The repo is in a defensible shape to ship an MVP. Domain math, catalog scope, schema migrations, mobile contract, and deploy config are at "ship" quality. The caveats are concentrated in three areas that **do not block deploy** but must be addressed within the first 14 days post-launch: (a) the test pyramid has zero executable integration / e2e / load coverage on the host (everything green is unit + contract + property), (b) the catalog contains 25 recipes whose `description` literally uses the word *"insulina"* in a clinically-correct but regulator-sensitive context, and (c) mutation testing has never been run on the new domain code. None of these is a hard blocker for a soft launch; all three are tractable in <1 week of follow-up work.
+The repo is in a defensible shape to ship an MVP. Domain math, catalog scope, schema migrations, mobile contract, and deploy config are at "ship" quality. The caveats are concentrated in three areas that **do not block deploy** but must be addressed within the first 14 days post-launch: (a) the test pyramid has zero executable integration / e2e / load coverage on the host (everything green is unit + contract + property), (b) the catalog contains 25 recipes whose `description` literally uses the word *"insulina"* in a nutritionally-correct but regulator-sensitive context, and (c) mutation testing has never been run on the new domain code. None of these is a hard blocker for a soft launch; all three are tractable in <1 week of follow-up work.
 
 **Recommendation: deploy to PROD this session, behind a closed-beta gate (invite-only) for the first 7 days, then open up.**
 
@@ -37,7 +37,7 @@ The repo is in a defensible shape to ship an MVP. Domain math, catalog scope, sc
 | Mutation testing | not run | ≥70% on plan+nutrition domain | GAP |
 
 **Pre-existing failures (carried forward, not introduced this session):**
-- `tests/clinical/test_coach_medical_refuse.py` — coach LLM refuse contract; flaky against real OpenAI fixtures.
+- `tests/nutrition/test_coach_medical_refuse.py` — coach LLM refuse contract; flaky against real OpenAI fixtures.
 - `tests/unit/nutrition/test_macros.py::test_macros_satisfy_tolerance` — legacy ±2% gate vs current spec; superseded by new property tests in `tests/unit/plan/`.
 - `tests/unit/nutrition/test_recalibration.py::test_result_clamped_within_15pct` — legacy clamp logic.
 
@@ -68,10 +68,10 @@ These are tracked, deselected at command line; their replacement coverage in `te
 | Macro tolerance p99 | 0.0% (enforced at generation) | OK |
 | Closed-enum drift (allergens / conditions / goals / activity / meal_times) | 0 unknown values | OK |
 | Supplements / pills / drugs / claims (regex) | 0 / 0 / 0 / 0 *(see caveat)* | OK |
-| Coverage per clinical condition | positive + contraindicated sets present for all 7 condiciones | OK |
+| Coverage per declared condition | positive + contraindicated sets present for all 7 condiciones | OK |
 | Backup snapshots in repo | 9 | OK |
 
-**Caveat (P2, not blocking):** the regex `\binsulina\b` matches **25 recipes** (`nova_meal_r3_d1s_0001..0025`). On inspection, every hit is a description string like *"Snack pequeño con macros estables (carbs controlados + proteína + grasa) para ajuste fino de insulina."* This is clinically-correct language used for diabetes_t2 snacks (it refers to endogenous insulin response, not the drug), but a regulator may not parse the distinction. **Action: rewrite these 25 descriptions to use "respuesta glicémica" / "glucemia" instead of "insulina" before opening to the public.** Estimated effort: 10 min sed-style script + re-run scope scan. Does not block soft-launch.
+**Caveat (P2, not blocking):** the regex `\binsulina\b` matches **25 recipes** (`nova_meal_r3_d1s_0001..0025`). On inspection, every hit is a description string like *"Snack pequeño con macros estables (carbs controlados + proteína + grasa) para ajuste fino de insulina."* This is nutritionally-correct language used for diabetes_t2 snacks (it refers to endogenous insulin response, not the drug), but a regulator may not parse the distinction. **Action: rewrite these 25 descriptions to use "respuesta glicémica" / "glucemia" instead of "insulina" before opening to the public.** Estimated effort: 10 min sed-style script + re-run scope scan. Does not block soft-launch.
 
 ### Axis 3 — Schema migrations — **SUFFICIENT**
 
@@ -201,7 +201,7 @@ There are **no P0 blockers**. The session work is shippable.
 ### P1 — three items, mitigable in <1 week post-launch
 
 1. **Zero performance telemetry on production-size data.** Layer1 SQL + pgvector recall + plan-gen p95 are projections, not measurements. Mitigation: closed-beta cap of N users week 1 + slow query log + alarms (DOKPLOY_DEPLOY.md §8.4).
-2. **25 "insulina" recipe descriptions** — regulator-sensitive wording even though clinically correct. Mitigation: 10-minute rewrite script before public launch.
+2. **25 "insulina" recipe descriptions** — regulator-sensitive wording even though nutritionally correct. Mitigation: 10-minute rewrite script before public launch.
 3. **Coach LLM medical-refuse test is flaky (deselected).** Mitigation: pin VCR cassette + re-enable in CI within 7 days.
 
 ### P2 — four items, fold into sprint S1
@@ -223,7 +223,7 @@ There are **no P0 blockers**. The session work is shippable.
 6. (5 min) Run catalog seed per §4.
 7. (30 min) Embedding backfill per §5 (~$0.40 OpenAI spend, behind `COST_CAP_USD_PER_USER_PER_DAY=1.50` cap).
 
-If owner skips step 1, the system is still safe to ship (descriptions are clinically correct), but the wording rewrite should happen before any public marketing.
+If owner skips step 1, the system is still safe to ship (descriptions are nutritionally correct), but the wording rewrite should happen before any public marketing.
 
 ---
 
@@ -303,7 +303,7 @@ Owner applied 2 of 3 P1 caveats. Re-ran 10-axis review against `main @ 42942e0`.
 ### Evidence
 
 ```
-pytest (unit+clinical+contract+property): 437 passed, 2 skipped, 0 failed
+pytest (unit+nutrition+contract+property): 437 passed, 2 skipped, 0 failed
 lint-imports:                              3 contracts kept, 0 broken
 catalog scope scan:
   insulina:        0   (was 25)

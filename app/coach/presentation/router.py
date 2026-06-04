@@ -10,14 +10,15 @@
 SSE backpressure: per-worker counter `coach:sse:active` capped at 50.
 Rate limit: 30/min/user via Redis counter.
 """
+
 from __future__ import annotations
 
-import asyncio
-from datetime import datetime, timezone
-from typing import Annotated, AsyncIterator
+from collections.abc import AsyncIterator
+from datetime import UTC, datetime
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Query, Request, status
+from fastapi import APIRouter, Query, status
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
@@ -52,7 +53,7 @@ RATE_LIMIT_PER_MIN = 30
 
 async def _check_rate(user_id: UUID) -> None:
     r = get_redis()
-    minute = datetime.now(timezone.utc).strftime("%Y%m%d%H%M")
+    minute = datetime.now(UTC).strftime("%Y%m%d%H%M")
     key = f"rl:coach:{user_id}:{minute}"
     pipe = r.pipeline()
     pipe.incr(key)
@@ -64,7 +65,9 @@ async def _check_rate(user_id: UUID) -> None:
 
 @router.post("/sse-ticket", response_model=SseTicketResponse)
 async def sse_ticket(
-    body: SseTicketRequest, current_user: CurrentUserDep, session: SessionDep,
+    body: SseTicketRequest,
+    current_user: CurrentUserDep,
+    session: SessionDep,
 ) -> SseTicketResponse:
     repo = SqlConversationRepository(session)
     conv = await repo.get_or_create(current_user, body.conv_id)
@@ -77,9 +80,13 @@ async def chat(
     body: ChatRequest,
     session: SessionDep,
     ticket: Annotated[str | None, Query()] = None,
-    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> StreamingResponse:
     # Ticket-only auth for this endpoint (browser EventSource can't send Bearer).
+    # NOTE: This endpoint does NOT support `Idempotency-Key`. LLM streaming
+    # responses are non-deterministic; idempotent replay is semantically
+    # incoherent. Mobile clients MUST NOT retry transient failures expecting
+    # the same response. User message persistence is idempotent at the
+    # database level via the conversation/message insert path.
     user_id, conv_id = await consume(session, token=ticket or "")
     await _check_rate(user_id)
 
@@ -101,8 +108,10 @@ async def chat(
     async def _gen() -> AsyncIterator[bytes]:
         try:
             async for chunk in chat_uc.stream(
-                user_id=user_id, conv_id=conv_id,
-                user_message=body.message, locale=body.locale,
+                user_id=user_id,
+                conv_id=conv_id,
+                user_message=body.message,
+                locale=body.locale,
             ):
                 # Format as SSE data event.
                 payload = chunk.replace("\n", " ")
@@ -116,7 +125,8 @@ async def chat(
 
 @router.get("/conversations", response_model=ConversationsList)
 async def list_conversations(
-    current_user: CurrentUserDep, session: SessionDep,
+    current_user: CurrentUserDep,
+    session: SessionDep,
     limit: int = Query(20, ge=1, le=50),
     cursor: str | None = Query(None),
 ) -> ConversationsList:
@@ -133,12 +143,17 @@ async def list_conversations(
 
 @router.get("/conversations/{conv_id}/messages", response_model=MessagesList)
 async def list_messages(
-    conv_id: UUID, current_user: CurrentUserDep, session: SessionDep,
+    conv_id: UUID,
+    current_user: CurrentUserDep,
+    session: SessionDep,
     limit: int = Query(50, ge=1, le=100),
     cursor: str | None = Query(None),
 ) -> MessagesList:
     await assert_owns(
-        session, table="coach_conversations", resource_id=conv_id, user_id=current_user,
+        session,
+        table="coach_conversations",
+        resource_id=conv_id,
+        user_id=current_user,
     )
     repo = SqlConversationRepository(session)
     msgs, nxt = await repo.get_messages(conv_id, limit=limit, cursor=cursor)
@@ -157,7 +172,9 @@ async def list_messages(
     response_class=Response,
 )
 async def delete_conversation(
-    conv_id: UUID, current_user: CurrentUserDep, session: SessionDep,
+    conv_id: UUID,
+    current_user: CurrentUserDep,
+    session: SessionDep,
 ) -> Response:
     # BOLA OK: repo.delete(conv_id, current_user) filters by both conv_id AND user_id.
     await SqlConversationRepository(session).delete(conv_id, current_user)
@@ -170,7 +187,9 @@ class SwapResponse(BaseModel):
 
 @router.post("/swap", response_model=SwapResponse)
 async def propose_swap(
-    body: SwapProposalRequest, current_user: CurrentUserDep, session: SessionDep,
+    body: SwapProposalRequest,
+    current_user: CurrentUserDep,
+    session: SessionDep,
 ) -> SwapResponse:
     uc = ProposeSwap(session=session)
     candidates = await uc(user_id=current_user, plan_meal_id=body.plan_meal_id, top_k=body.top_k)

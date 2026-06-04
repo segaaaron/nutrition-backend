@@ -4,13 +4,16 @@ Centralised so importing modules don't accidentally re-declare a counter
 under the same name (which raises in prometheus_client). Individual
 bounded contexts may import these and increment from their own code.
 """
+
 from __future__ import annotations
 
 import time
 
 from fastapi import Request
 from prometheus_client import Counter, Gauge, Histogram
-from starlette.middleware.base import BaseHTTPMiddleware
+from redis.asyncio import Redis
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.responses import Response
 
 # --- HTTP ---
 HTTP_DURATION = Histogram(
@@ -25,6 +28,45 @@ VISION_JOB_DURATION = Histogram(
     "vision_job_duration_seconds",
     "End-to-end vision IA job wall-clock duration",
     buckets=(0.5, 1.0, 2.5, 5.0, 10.0, 20.0, 40.0, 80.0),
+)
+
+# --- Vision cost-cascade (SHA dedup + mini→full fallback) ---
+VISION_CACHE_HITS = Counter(
+    "vision_cache_hits_total",
+    "Vision jobs short-circuited by SHA256 dedup cache (no provider call)",
+)
+VISION_CACHE_MISSES = Counter(
+    "vision_cache_misses_total",
+    "Vision jobs that missed the SHA256 cache and called the provider",
+)
+VISION_FALLBACK = Counter(
+    "vision_fallback_total",
+    "Times the cascade escalated from the primary (mini) to the full model",
+    ["reason"],
+)
+VISION_PRIMARY_OK = Counter(
+    "vision_primary_ok_total",
+    "Times the primary (mini) model output was accepted without fallback",
+)
+VISION_DETAIL_LEVEL = Counter(
+    "vision_detail_level_total",
+    "Distribution of the auto-selected image detail level",
+    ["detail"],
+)
+VISION_PARSE_ERRORS = Counter(
+    "vision_parse_errors_total",
+    "Times the OpenAI response failed to JSON-decode (truncation, malformed)",
+    ["model"],
+)
+VISION_INFLIGHT_LOCK_WAITS = Counter(
+    "vision_inflight_lock_waits_total",
+    "Times a worker waited on another worker's in-flight SHA lock",
+    ["outcome"],  # outcome: hit, timeout
+)
+VISION_PREFILTER_TOTAL = Counter(
+    "vision_prefilter_total",
+    "Pre-filter classification result (accept/reject)",
+    ["result", "reason"],
 )
 
 # --- Arq ---
@@ -60,10 +102,22 @@ CATALOG_INGEST_REJECTED = Counter(
     "Catalog ingest rows rejected per gate",
     ["gate"],
 )
+CATALOG_NULL_RATIO = Gauge(
+    "catalog_null_ratio",
+    "Ratio of recipe rows where the named column is NULL. Driven by "
+    "scripts/catalog_completeness_audit.py — see docs/ops/CATALOG_AUDIT.md. "
+    "R6 fail-closed (2026-06-03): NULL safety-critical columns exclude rows from "
+    "Layer 1 candidate sets, so a rising ratio shrinks the catalogue.",
+    ["column"],
+)
 
 
 class HttpMetricsMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):  # type: ignore[override]
+    async def dispatch(
+        self,
+        request: Request,
+        call_next: RequestResponseEndpoint,
+    ) -> Response:
         start = time.perf_counter()
         response = await call_next(request)
         elapsed = time.perf_counter() - start
@@ -72,14 +126,17 @@ class HttpMetricsMiddleware(BaseHTTPMiddleware):
         route = request.scope.get("route")
         path = getattr(route, "path", None) or request.url.path
         HTTP_DURATION.labels(
-            method=request.method, path=path, status=str(response.status_code),
+            method=request.method,
+            path=path,
+            status=str(response.status_code),
         ).observe(elapsed)
         return response
 
 
-async def get_arq_queue_depth(redis) -> int:
+async def get_arq_queue_depth(redis: Redis) -> int:
     """LLEN of the default Arq queue. Defensive: returns 0 on any error."""
     try:
-        return int(await redis.llen("arq:queue"))
+        result = await redis.llen("arq:queue")  # type: ignore[misc]
+        return int(result)
     except Exception:  # noqa: BLE001
         return 0

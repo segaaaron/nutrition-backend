@@ -6,6 +6,7 @@ too similar to what the user has eaten in the last N days.
 Concrete implementations live in the tracking bounded context (or its
 infrastructure layer). The domain only declares the contract.
 """
+
 from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
@@ -22,8 +23,6 @@ class RecentRecipesReader(Protocol):
 
     async def tags_used_14d(self, user_id: UUID) -> frozenset[str]: ...
 
-    async def ingredient_classes_used_14d(
-        self, user_id: UUID
-    ) -> frozenset[str]: ...
+    async def ingredient_classes_used_14d(self, user_id: UUID) -> frozenset[str]: ...
 
     async def recipe_ids_used_7d(self, user_id: UUID) -> frozenset[UUID]: ...

@@ -1,4 +1,5 @@
 """Sprint 7.B — fasting domain invariants."""
+
 from __future__ import annotations
 
 from datetime import timedelta
@@ -17,7 +18,9 @@ def test_target_seconds_matches_hours():
 
 def test_start_initialises_open_session():
     fs = FastingSession.start(
-        id_=uuid4(), user_id=uuid4(), method=FastingMethod.SIXTEEN,
+        id_=uuid4(),
+        user_id=uuid4(),
+        method=FastingMethod.SIXTEEN,
     )
     assert fs.end_ts is None
     assert fs.duration_s is None
@@ -28,7 +31,9 @@ def test_start_initialises_open_session():
 
 def test_stop_marks_achieved_when_duration_meets_target():
     fs = FastingSession.start(
-        id_=uuid4(), user_id=uuid4(), method=FastingMethod.SIXTEEN,
+        id_=uuid4(),
+        user_id=uuid4(),
+        method=FastingMethod.SIXTEEN,
     )
     # Simulate that we started 17h ago.
     fs.start_ts = fs.start_ts - timedelta(hours=17)
@@ -41,7 +46,9 @@ def test_stop_marks_achieved_when_duration_meets_target():
 
 def test_stop_marks_not_achieved_when_too_short():
     fs = FastingSession.start(
-        id_=uuid4(), user_id=uuid4(), method=FastingMethod.EIGHTEEN,
+        id_=uuid4(),
+        user_id=uuid4(),
+        method=FastingMethod.EIGHTEEN,
     )
     fs.start_ts = fs.start_ts - timedelta(hours=10)
     fs.stop()
@@ -52,7 +59,9 @@ def test_stop_marks_not_achieved_when_too_short():
 
 def test_double_stop_raises():
     fs = FastingSession.start(
-        id_=uuid4(), user_id=uuid4(), method=FastingMethod.SIXTEEN,
+        id_=uuid4(),
+        user_id=uuid4(),
+        method=FastingMethod.SIXTEEN,
     )
     fs.stop()
     with pytest.raises(ValueError):

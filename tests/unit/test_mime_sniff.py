@@ -1,4 +1,5 @@
 """Magic-byte MIME sniff tests (OWASP ASVS V12)."""
+
 from __future__ import annotations
 
 import pytest

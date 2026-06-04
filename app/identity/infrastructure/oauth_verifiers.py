@@ -5,6 +5,7 @@ issuer, audience, and expiry. Apple revocation handling (POST to apple's
 revocation endpoint on logout) is documented as a TODO — Apple Sign-in flow
 in the iOS client carries it for now.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -42,6 +43,7 @@ class _BaseOAuthVerifier:
             if key_data is None:
                 raise Unauthenticated("oauth_unknown_kid")
             import json
+
             public_key = RSAAlgorithm.from_jwk(json.dumps(key_data))
             claims: dict = pyjwt.decode(
                 id_token,

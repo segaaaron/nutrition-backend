@@ -1,4 +1,5 @@
 """Identity domain events. Frozen dataclasses subclass DomainEvent."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

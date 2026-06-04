@@ -2,11 +2,11 @@
 
 **Status:** Accepted
 **Date:** 2026-06-01
-**Context:** First clinical segment unlock from the MVP gate per master plan H2.
+**Context:** First nutrition segment unlock from the MVP gate per master plan H2.
 
 ## Decision
 
-Lift the `lactation` condition from `MVP_BLOCKED_CONDITIONS` and ship the foundation for clinical segment expansion:
+Lift the `lactation` condition from `MVP_BLOCKED_CONDITIONS` and ship the foundation for nutrition segment expansion:
 
 1. `LactationGate` Strategy class registered in `app/plan/domain/condition_gates/`.
 2. `apply_lactation_adjustment(kcal_target, conditions)` in `app/plan/domain/bmr_safety.py` — adds Decimal("500") kcal when `"lactation" in conditions`.
@@ -30,7 +30,7 @@ Master plan H2 minimum was 150. Hit with margin.
 |-----------|-----------|-----------|
 | Teratogenic ingredients | None (vitamin A from liver not contraindicated post-partum) | High (mercury, retinol, alcohol) |
 | Trimester logic | No trimester variation | +0 / +340 / +452 per trimester |
-| Required clinical review | Lactation gates non-life-threatening; document in ADR | Requires OB-GYN sign-off |
+| Required specialist review | Lactation gates non-life-threatening; document in ADR | Requires OB-GYN sign-off |
 | Catalog count | 200 ready | 0 generated |
 | Algorithm code change | +1 ConditionGate + 1 kcal adjustment | +trimester field + +trimester adjustment + pregnancy_safe hard exclude + folate ≥600 enforce + iron ≥27 enforce |
 | Effort to ship | 3-5 days | 2-3 weeks |
@@ -120,7 +120,7 @@ Pre-requisites tracked in `docs/algorithms/MASTER_PLAN_ALGORITHM.md`:
 - `PregnancyGate` Strategy + register
 - Hard exclude: raw fish, soft cheese, Hg-high fish, liver/foie, alcohol — strict (no COALESCE-passthrough)
 - Folate ≥600 hard daily, iron ≥27, calcium ≥1000
-- Clinical review of recipe set
+- Specialist review of recipe set
 
 Estimated H2.2 effort: 2-3 weeks. Not started.
 

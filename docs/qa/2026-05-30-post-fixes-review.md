@@ -15,7 +15,7 @@
 
 **REQUEST_CHANGES** — but materially closer to APPROVE than the first pass.
 
-The senior closed the design-level findings well: schema patches, ADRs, ingest-pipeline spec, and SSE/idempotency/cost-cap contracts are all sound. The remaining gap is **execution discipline**: catalog data is still untouched on disk, the ingest pipeline is design-only (no `scripts/audit_catalog.py`), the clinical generator agent is stale (still emits ±5 kcal, no `sesame`, no `snack`), and several cross-doc inconsistencies survived the patch round (DELETE /me / cancel-deletion endpoint missing, allergens-denorm trigger DDL absent, plan state machine still informal, FK cascades from `users` not actually expressed in SQL).
+The senior closed the design-level findings well: schema patches, ADRs, ingest-pipeline spec, and SSE/idempotency/cost-cap contracts are all sound. The remaining gap is **execution discipline**: catalog data is still untouched on disk, the ingest pipeline is design-only (no `scripts/audit_catalog.py`), the nutrition generator agent is stale (still emits ±5 kcal, no `sesame`, no `snack`), and several cross-doc inconsistencies survived the patch round (DELETE /me / cancel-deletion endpoint missing, allergens-denorm trigger DDL absent, plan state machine still informal, FK cascades from `users` not actually expressed in SQL).
 
 The blockers that remain are not "argue the design" blockers — they are "the document still says X in one place and Y in another" or "the design says trigger does this, the DDL does not include the trigger".
 
@@ -27,7 +27,7 @@ Implementation of `0001_init.py` can begin **only** once: (1) recipes.allergens 
 
 | Dimension | Pre-1st-review | Senior self-reported post-fix | Independent re-check |
 |---|---:|---:|---:|
-| clinical  | 4 | 1 | **2** (data still dirty; sesame/snack absent in generator) |
+| nutrition  | 4 | 1 | **2** (data still dirty; sesame/snack absent in generator) |
 | security  | 3 | 1 | **2** (FK cascades from users not in SQL; SSE ticket cleanup job missing; OTP/cost-cap not enumerated in §11 errors) |
 | perf      | 2 | 2 | **2** (HNSW tuned, recall test promised — still no committed baselines; coach_sse_tickets unbounded growth) |
 | data      | 5 | 2 | **4** (spec/ADRs sound, catalog file unchanged: still 0 snacks, still `mustard`, still 100% placeholder URLs, still 64 condition labels including `egg`/`shellfish` leaks; gates are designed but unbuilt) |
@@ -172,7 +172,7 @@ All of these are new design surface that has no committed test:
 - `tests/unit/domain/plan/test_state_machine.py::test_illegal_transitions_raise` (#17 — still no state machine to test)
 - `tests/data/test_catalog_*` (all 8 gates from §20 — none built; the entire `scripts/audit_catalog.py` script is design-only)
 
-Plus the original pass-1 missing test list (allergen hard-exclude property, Mifflin symmetry, KcalRange invariant, recipe composition, recalibration property, clinical safety scenarios, AI eval harness, schemathesis, IDOR matrix, performance baselines) — none of those have been committed.
+Plus the original pass-1 missing test list (allergen hard-exclude property, Mifflin symmetry, KcalRange invariant, recipe composition, recalibration property, nutrition safety scenarios, AI eval harness, schemathesis, IDOR matrix, performance baselines) — none of those have been committed.
 
 ---
 

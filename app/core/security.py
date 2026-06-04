@@ -1,6 +1,7 @@
 """Auth + rate-limit primitives. Detailed JWT issuance lives in
 `app.identity.infrastructure.jwt_service`; this module is intentionally thin.
 """
+
 from __future__ import annotations
 
 from argon2 import PasswordHasher

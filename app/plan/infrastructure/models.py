@@ -5,13 +5,24 @@ recipe lookup is deferred to a separate batched call by the application
 layer (we do not joinedload PlanMeal→Recipe by default to avoid hauling the
 full recipe row into every plan query).
 """
+
 from __future__ import annotations
 
 from datetime import date, datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, ForeignKey, Integer, Numeric, String, Text
-from sqlalchemy.dialects.postgresql import ARRAY, BIGINT, UUID as PG_UUID
+from sqlalchemy import (
+    Boolean,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    Text,
+)
+from sqlalchemy.dialects.postgresql import ARRAY, BIGINT
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.identity.infrastructure.models import Base
@@ -34,7 +45,7 @@ class PlanModel(Base):
     version: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
-    days: Mapped[list["PlanDayModel"]] = relationship(
+    days: Mapped[list[PlanDayModel]] = relationship(
         "PlanDayModel",
         cascade="all, delete-orphan",
         order_by="PlanDayModel.day_index",
@@ -52,7 +63,7 @@ class PlanDayModel(Base):
     date: Mapped[date] = mapped_column(Date)
     completed: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    meals: Mapped[list["PlanMealModel"]] = relationship(
+    meals: Mapped[list[PlanMealModel]] = relationship(
         "PlanMealModel",
         cascade="all, delete-orphan",
         order_by="PlanMealModel.meal_time",

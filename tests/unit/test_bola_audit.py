@@ -5,6 +5,7 @@ Tests:
   2. Forbidden raised when user_id does NOT match.
   3. NotFoundError raised when the row doesn't exist.
 """
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
@@ -42,7 +43,10 @@ async def test_forbidden_when_user_mismatch(session: AsyncMock) -> None:
     session.execute.return_value.first.return_value = (str(other_user),)
     with pytest.raises(Forbidden):
         await assert_owns(
-            session, table="food_logs", resource_id=uuid4(), user_id=requester,
+            session,
+            table="food_logs",
+            resource_id=uuid4(),
+            user_id=requester,
         )
 
 
@@ -52,5 +56,8 @@ async def test_not_found_when_row_missing(session: AsyncMock) -> None:
     session.execute.return_value.first.return_value = None
     with pytest.raises(NotFoundError):
         await assert_owns(
-            session, table="food_logs", resource_id=uuid4(), user_id=uuid4(),
+            session,
+            table="food_logs",
+            resource_id=uuid4(),
+            user_id=uuid4(),
         )

@@ -4,6 +4,7 @@ Routers are registered by each bounded context's presentation layer once their
 endpoints land. Today the factory only wires cross-cutting middleware,
 exception handlers, health checks and metrics.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -15,32 +16,32 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from app.billing.router import router as billing_router
+from app.coach.presentation.router import router as coach_router
+from app.core.anti_sniff import AntiSniffMiddleware
 from app.core.config import get_settings
 from app.core.db import dispose_engine, get_engine
-from app.core.errors import register_exception_handlers
-from app.core.problem_details import register_problem_handlers
-from app.core.logging import configure_logging, get_logger
-from app.core.anti_sniff import AntiSniffMiddleware
 from app.core.error_tracker import ErrorTrackerMiddleware
+from app.core.errors import register_exception_handlers
 from app.core.ip_rate_limit import IpRateLimitMiddleware
-from app.core.security_headers import SecurityHeadersMiddleware
+from app.core.logging import configure_logging, get_logger
 from app.core.metrics import ARQ_QUEUE_DEPTH, HttpMetricsMiddleware, get_arq_queue_depth
+from app.core.problem_details import register_problem_handlers
 from app.core.redis import close_redis, get_redis
-from app.coach.presentation.router import router as coach_router
+from app.core.security_headers import SecurityHeadersMiddleware
+from app.gamification.presentation.router import router as gamification_router
+from app.grocery.router import router as grocery_router
 from app.identity.presentation.router import router as identity_router
 from app.notifications.presentation.router import router as notifications_router
 from app.nutrition.presentation.router import router as nutrition_router
-from app.profile.presentation.router import router as profile_router
 from app.plan.presentation.router import router as plan_router
+from app.profile.presentation.router import router as profile_router
 from app.recipes.presentation.router import router as recipes_router
 from app.tracking.presentation.fasting_router import router as fasting_router
 from app.tracking.presentation.food_log_router import router as food_log_router
 from app.tracking.presentation.goals_today import router as goals_today_router
 from app.tracking.presentation.progress_router import router as progress_router
 from app.tracking.presentation.router import router as tracking_router
-from app.grocery.router import router as grocery_router
-from app.gamification.presentation.router import router as gamification_router
-from app.billing.router import router as billing_router
 from app.vision.presentation.router import router as vision_router
 from app.voice.presentation.router import router as voice_router
 
@@ -54,11 +55,14 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
         return response
 
 
-
-
 def create_app() -> FastAPI:
     settings = get_settings()
     configure_logging(settings.log_level)
+    # Sentry — no-op if SENTRY_DSN is unset (dev/test). PII strip enforced
+    # inside ``init_sentry`` (see app/core/observability.py).
+    from app.core.observability import init_sentry
+
+    init_sentry("api")
     log = get_logger("app.main")
 
     is_prod = settings.env == "prod"
@@ -78,8 +82,11 @@ def create_app() -> FastAPI:
         allow_credentials=True,
         allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=[
-            "Authorization", "Content-Type", "Idempotency-Key",
-            "x-request-id", "x-signature",
+            "Authorization",
+            "Content-Type",
+            "Idempotency-Key",
+            "x-request-id",
+            "x-signature",
         ],
         expose_headers=["x-request-id"],
         max_age=600,
@@ -118,11 +125,14 @@ def create_app() -> FastAPI:
     app.include_router(billing_router)
 
     # --- Domain event subscriptions ---
-    from app.core.event_bus import get_event_bus
     from app.coach.application.event_handlers import register as register_coach_handlers
-    from app.gamification.application.event_handlers import register as register_gamification_handlers
+    from app.core.event_bus import get_event_bus
+    from app.gamification.application.event_handlers import (
+        register as register_gamification_handlers,
+    )
     from app.nutrition.event_handlers import register as register_nutrition_handlers
     from app.tracking.event_handlers import register as register_tracking_handlers
+
     bus = get_event_bus()
     register_nutrition_handlers(bus)
     register_coach_handlers(bus)

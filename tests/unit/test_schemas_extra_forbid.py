@@ -3,6 +3,7 @@
 Loads all *Update/*Create/*Patch/*In/*Request BaseModel subclasses from the
 app and asserts they have model_config with extra='forbid'.
 """
+
 from __future__ import annotations
 
 import importlib
@@ -13,7 +14,6 @@ import pytest
 from pydantic import BaseModel
 
 import app
-
 
 INPUT_SUFFIXES = ("Create", "Update", "Patch", "In", "Request", "Body")
 # Exempt: known response/internal schemas that happen to match the suffix.
@@ -48,7 +48,9 @@ def _all_models():
     return found
 
 
-@pytest.mark.parametrize("mod,name,cls", _all_models(), ids=lambda x: x if isinstance(x, str) else "")
+@pytest.mark.parametrize(
+    "mod,name,cls", _all_models(), ids=lambda x: x if isinstance(x, str) else ""
+)
 def test_input_schema_forbids_extra_fields(mod, name, cls):
     extra = cls.model_config.get("extra")
     assert extra == "forbid", (

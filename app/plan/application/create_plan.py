@@ -13,12 +13,13 @@ Per-meal-slot kcal share = daily kcal / meals_per_day; per-meal protein
 share = daily protein / meals_per_day. Layer 4 is best-effort: failures
 return the unmodified plan.
 """
+
 from __future__ import annotations
 
 import secrets
 import time
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from typing import Protocol
 from uuid import UUID, uuid4
 
@@ -82,7 +83,7 @@ class CreatePlan:
         protein_share = protein_daily // max(1, meals_per_day)
 
         plan_id = uuid4()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         days: list[PlanDay] = []
 
         # rolling 7-day forbidden set, by meal_time, for repetition cap.
@@ -100,7 +101,8 @@ class CreatePlan:
 
                 t0 = time.perf_counter()
                 shortlist = await self.layer2(
-                    candidate_ids=cand_ids, meal_time=mt,
+                    candidate_ids=cand_ids,
+                    meal_time=mt,
                     kcal_target_share=kcal_share,
                     protein_target_share=protein_share,
                     forbidden_ids=forbidden[mt],
@@ -125,10 +127,18 @@ class CreatePlan:
                 alternatives_by_slot[(d, mt)] = [str(rid) for rid, _ in ranked[1:6]]
 
                 meal_id = uuid4()
-                meals.append(PlanMeal(
-                    id=meal_id, plan_day_id=day_id, meal_time=mt,  # type: ignore[arg-type]
-                    recipe_id=chosen, kcal=None, protein_g=None, carbs_g=None, fat_g=None,
-                ))
+                meals.append(
+                    PlanMeal(
+                        id=meal_id,
+                        plan_day_id=day_id,
+                        meal_time=mt,  # type: ignore[arg-type]
+                        recipe_id=chosen,
+                        kcal=None,
+                        protein_g=None,
+                        carbs_g=None,
+                        fat_g=None,
+                    )
+                )
                 forbidden_window.append((d, mt, chosen))
                 forbidden[mt].add(chosen)
 
@@ -139,23 +149,32 @@ class CreatePlan:
             for _, mt, rid in forbidden_window:
                 forbidden[mt].add(rid)
 
-            days.append(PlanDay(
-                id=day_id, plan_id=plan_id, day_index=d,
-                date=(now.date() + timedelta(days=d)),
-                completed=False, meals=meals,
-            ))
+            days.append(
+                PlanDay(
+                    id=day_id,
+                    plan_id=plan_id,
+                    day_index=d,
+                    date=(now.date() + timedelta(days=d)),
+                    completed=False,
+                    meals=meals,
+                )
+            )
 
         # Layer 4 — one LLM call over the whole plan.
         t0 = time.perf_counter()
         candidate_plan_payload = [
-            {"day": dd.day_index, "meals": [
-                {"meal_time": m.meal_time, "recipe_id": str(m.recipe_id)} for m in dd.meals
-            ]}
+            {
+                "day": dd.day_index,
+                "meals": [
+                    {"meal_time": m.meal_time, "recipe_id": str(m.recipe_id)} for m in dd.meals
+                ],
+            }
             for dd in days
         ]
         try:
             coherence = await self.layer4(
-                user_id=user_id, user_profile=profile,
+                user_id=user_id,
+                user_profile=profile,
                 candidate_plan=candidate_plan_payload,
                 alternatives_by_slot=alternatives_by_slot,
             )
@@ -173,16 +192,29 @@ class CreatePlan:
         _layer_hist.labels(layer="4").observe(time.perf_counter() - t0)
 
         plan = Plan(
-            id=plan_id, user_id=user_id, type=plan_type,
-            total_days=total_days, current_day=1, status="active",
-            goal=str(targets.get("goal") or ""), meals_per_day=meals_per_day,
+            id=plan_id,
+            user_id=user_id,
+            type=plan_type,
+            total_days=total_days,
+            current_day=1,
+            status="active",
+            goal=str(targets.get("goal") or ""),
+            meals_per_day=meals_per_day,
             preferences=preferences or [],
-            kcal_target=kcal_daily, version=0, created_at=now, days=days,
+            kcal_target=kcal_daily,
+            version=0,
+            created_at=now,
+            days=days,
         )
         await self.plans.save(plan)
         await self.plans.save_seed(plan_id, seed)
-        await self.bus.publish(PlanCreated(
-            plan_id=plan_id, user_id=user_id, type=plan_type,
-            total_days=total_days, at=now,
-        ))
+        await self.bus.publish(
+            PlanCreated(
+                plan_id=plan_id,
+                user_id=user_id,
+                type=plan_type,
+                total_days=total_days,
+                at=now,
+            )
+        )
         return plan

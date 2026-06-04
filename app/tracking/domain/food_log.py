@@ -4,6 +4,7 @@ The food_logs table is already provisioned by migration 0001. This module adds
 the domain-layer view used by Sprint 7 query/aggregate use cases. Stays
 framework-agnostic — repositories materialise rows into these dataclasses.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

@@ -9,6 +9,7 @@ even before the tracking bounded context lands. When the tracking context is
 implemented (Sprint 3 onward) it should import this `WeightLogged` symbol or
 re-export it from `app.tracking.domain.events`.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -41,8 +42,9 @@ class WeightLogged(DomainEvent):
 
 
 async def _on_biometrics_changed(evt: BiometricsChanged) -> None:
-    if not (evt.weight_kg and evt.height_cm and evt.age and evt.sex
-            and evt.goal and evt.activity_level):
+    if not (
+        evt.weight_kg and evt.height_cm and evt.age and evt.sex and evt.goal and evt.activity_level
+    ):
         return  # need full biometrics to compute baseline
     async with session_scope() as s:
         uc = ComputeInitialGoals(
@@ -53,10 +55,12 @@ async def _on_biometrics_changed(evt: BiometricsChanged) -> None:
         try:
             await uc(user_id=evt.user_id)
         except Exception as e:  # noqa: BLE001
-            log.warning("nutrition.biometrics_baseline_failed", user_id=str(evt.user_id), error=str(e))
+            log.warning(
+                "nutrition.biometrics_baseline_failed", user_id=str(evt.user_id), error=str(e)
+            )
 
 
-async def _on_weight_logged(evt: "WeightLogged") -> None:
+async def _on_weight_logged(evt: WeightLogged) -> None:
     async with session_scope() as s:
         uc = RecalibrateGoals(
             profile_reader=SqlProfileReader(s),
@@ -65,7 +69,11 @@ async def _on_weight_logged(evt: "WeightLogged") -> None:
             bus=__import__("app.core.event_bus", fromlist=["get_event_bus"]).get_event_bus(),
         )
         result = await uc(user_id=evt.user_id)
-        log.info("nutrition.recalibrate.attempted", user_id=str(evt.user_id), result=type(result).__name__)
+        log.info(
+            "nutrition.recalibrate.attempted",
+            user_id=str(evt.user_id),
+            result=type(result).__name__,
+        )
 
 
 def register(bus: EventBus) -> None:
@@ -76,6 +84,7 @@ def register(bus: EventBus) -> None:
     # until the duck-typed local copy can be retired.
     try:
         from app.tracking.domain.events import WeightLogged as TrackingWeightLogged
+
         bus.subscribe(TrackingWeightLogged, _on_weight_logged)  # type: ignore[arg-type]
     except Exception:  # noqa: BLE001
         pass

@@ -3,11 +3,12 @@
 Concentrated in one module to keep wiring obvious and code review compact.
 Each use case is a callable class with `__call__` and explicit dependencies.
 """
+
 from __future__ import annotations
 
 import secrets
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 from app.core.errors import (
@@ -48,7 +49,7 @@ DELETION_GRACE = timedelta(days=30)
 
 
 def _now() -> datetime:
-    return datetime.now(tz=timezone.utc)
+    return datetime.now(tz=UTC)
 
 
 @dataclass(slots=True)
@@ -61,6 +62,7 @@ class TokenPair:
 # ---------------------------------------------------------------------------
 # Registration / login
 # ---------------------------------------------------------------------------
+
 
 @dataclass(slots=True)
 class RegisterUser:
@@ -80,15 +82,24 @@ class RegisterUser:
 
         now = _now()
         user = User(
-            id=uuid4(), email=e, password_hash=self.hasher.hash(password),
-            oauth_provider=None, oauth_subject=None, email_verified=False,
-            role="user", created_at=now,
+            id=uuid4(),
+            email=e,
+            password_hash=self.hasher.hash(password),
+            oauth_provider=None,
+            oauth_subject=None,
+            email_verified=False,
+            role="user",
+            created_at=now,
         )
         await self.users.add(user)
         await self.bus.publish(UserRegistered(user_id=user.id, email=e, at=now))
 
         return await _issue_token_pair(
-            user, self.refresh_tokens, self.jwt, self.bus, method="password",
+            user,
+            self.refresh_tokens,
+            self.jwt,
+            self.bus,
+            method="password",
         )
 
 
@@ -108,7 +119,11 @@ class LoginUser:
         if not self.hasher.verify(password, user.password_hash):
             raise Unauthenticated("invalid_credentials")
         return await _issue_token_pair(
-            user, self.refresh_tokens, self.jwt, self.bus, method="password",
+            user,
+            self.refresh_tokens,
+            self.jwt,
+            self.bus,
+            method="password",
         )
 
 
@@ -128,21 +143,28 @@ async def _issue_token_pair(
     refresh_hash = jwt.hash_refresh(refresh_plain)
     family = family_id or uuid4()
     token = RefreshToken(
-        id=uuid4(), user_id=user.id, token_hash=refresh_hash,
-        family_id=family, parent_id=parent_id,
-        expires_at=now + REFRESH_TTL, created_at=now,
+        id=uuid4(),
+        user_id=user.id,
+        token_hash=refresh_hash,
+        family_id=family,
+        parent_id=parent_id,
+        expires_at=now + REFRESH_TTL,
+        created_at=now,
     )
     await refresh_tokens.add(token)
-    await bus.publish_many([
-        UserLoggedIn(user_id=user.id, at=now, method=method),
-        RefreshTokenIssued(user_id=user.id, token_id=token.id, family_id=family, at=now),
-    ])
+    await bus.publish_many(
+        [
+            UserLoggedIn(user_id=user.id, at=now, method=method),
+            RefreshTokenIssued(user_id=user.id, token_id=token.id, family_id=family, at=now),
+        ]
+    )
     return TokenPair(access=access, refresh=refresh_plain, user_id=user.id)
 
 
 # ---------------------------------------------------------------------------
 # Refresh — family reuse detection (RFC 6819 §5.2.2.3)
 # ---------------------------------------------------------------------------
+
 
 @dataclass(slots=True)
 class RefreshTokens:
@@ -163,9 +185,14 @@ class RefreshTokens:
             # Reuse detected — revoke entire family.
             await self.refresh_tokens.mark_reused(rec.id, now)
             n = await self.refresh_tokens.revoke_family(rec.family_id, now)
-            await self.bus.publish(RefreshTokenReused(
-                user_id=rec.user_id, token_id=rec.id, family_id=rec.family_id, at=now,
-            ))
+            await self.bus.publish(
+                RefreshTokenReused(
+                    user_id=rec.user_id,
+                    token_id=rec.id,
+                    family_id=rec.family_id,
+                    at=now,
+                )
+            )
             raise Unauthenticated(f"refresh_reused_family_revoked:{n}")
 
         # Valid: rotate. Mark current revoked, issue new in same family.
@@ -174,8 +201,13 @@ class RefreshTokens:
         if user is None or user.is_deleted:
             raise Unauthenticated("user_gone")
         return await _issue_token_pair(
-            user, self.refresh_tokens, self.jwt, self.bus,
-            method="refresh", family_id=rec.family_id, parent_id=rec.id,
+            user,
+            self.refresh_tokens,
+            self.jwt,
+            self.bus,
+            method="refresh",
+            family_id=rec.family_id,
+            parent_id=rec.id,
         )
 
 
@@ -191,8 +223,9 @@ class Logout:
         await self.refresh_tokens.revoke(rec.id, _now())
         # OWASP API2: revoke access token jti so it cannot be reused until expiry.
         if access_token:
-            from app.identity.infrastructure.jwt_signer import revoke_jti
             from app.core.config import get_settings
+            from app.identity.infrastructure.jwt_signer import revoke_jti
+
             try:
                 claims = await self.jwt.verify_access(access_token)
                 jti = claims.get("jti")
@@ -206,6 +239,7 @@ class Logout:
 # ---------------------------------------------------------------------------
 # OAuth (Google / Apple)
 # ---------------------------------------------------------------------------
+
 
 @dataclass(slots=True)
 class OAuthLogin:
@@ -248,7 +282,10 @@ class OAuthLogin:
             await self.users.update(user)
 
         return await _issue_token_pair(
-            user, self.refresh_tokens, self.jwt, self.bus,
+            user,
+            self.refresh_tokens,
+            self.jwt,
+            self.bus,
             method=f"oauth_{self.provider}",
         )
 
@@ -256,6 +293,7 @@ class OAuthLogin:
 # ---------------------------------------------------------------------------
 # OTP
 # ---------------------------------------------------------------------------
+
 
 def _new_code() -> str:
     return f"{secrets.randbelow(1_000_000):06d}"
@@ -282,8 +320,11 @@ class SendOtp:
             raise LockedError("otp_locked")
         code = _new_code()
         otp = OtpCode(
-            id=uuid4(), user_id=user.id, code_hash=self.hasher.hash(code),
-            purpose=purpose, expires_at=_now() + OTP_TTL,
+            id=uuid4(),
+            user_id=user.id,
+            code_hash=self.hasher.hash(code),
+            purpose=purpose,
+            expires_at=_now() + OTP_TTL,
         )
         await self.otps.add(otp)
         return code
@@ -315,9 +356,13 @@ class VerifyOtp:
             if attempts >= OTP_MAX_ATTEMPTS:
                 lock_until = now + OTP_LOCK_DURATION
                 await self.otps.lock(otp.id, lock_until)
-                await self.bus.publish(OtpLocked(
-                    user_id=user.id, purpose=purpose, locked_until=lock_until,
-                ))
+                await self.bus.publish(
+                    OtpLocked(
+                        user_id=user.id,
+                        purpose=purpose,
+                        locked_until=lock_until,
+                    )
+                )
                 raise LockedError("otp_locked")
             raise Unauthenticated("otp_invalid")
         await self.otps.consume(otp.id)
@@ -325,13 +370,18 @@ class VerifyOtp:
             user.email_verified = True
             await self.users.update(user)
         return await _issue_token_pair(
-            user, self.refresh_tokens, self.jwt, self.bus, method="otp",
+            user,
+            self.refresh_tokens,
+            self.jwt,
+            self.bus,
+            method="otp",
         )
 
 
 # ---------------------------------------------------------------------------
 # GDPR (ADR-0005)
 # ---------------------------------------------------------------------------
+
 
 @dataclass(slots=True)
 class DeleteAccount:
@@ -388,7 +438,8 @@ class ExportData:
         # a minimal acknowledgement payload with the user identity row.
         return {
             "user": {
-                "id": str(user.id), "email": user.email,
+                "id": str(user.id),
+                "email": user.email,
                 "email_verified": user.email_verified,
                 "created_at": user.created_at.isoformat(),
                 "role": user.role,

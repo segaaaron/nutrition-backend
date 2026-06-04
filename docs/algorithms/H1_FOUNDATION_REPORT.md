@@ -133,7 +133,7 @@ All pass. **Two ad-hoc bounds were caught by hypothesis as wrong (LBM lower boun
 - 4 deselected:
   - `tests/integration/` (DB required, not available in session)
   - `tests/e2e/` (full stack required)
-  - `tests/clinical/test_coach_medical_refuse.py::test_medical_refuse_keyword_rate` — **PRE-EXISTING FAILURE** (coach module, not touched). Skipped not introduced.
+  - `tests/nutrition/test_coach_medical_refuse.py::test_medical_refuse_keyword_rate` — **PRE-EXISTING FAILURE** (coach module, not touched). Skipped not introduced.
   - `tests/unit/nutrition/test_macros.py::test_macros_satisfy_tolerance` — **PRE-EXISTING FAILURE** (legacy float macro tolerance edge case)
   - `tests/unit/nutrition/test_recalibration.py::test_result_clamped_within_15pct` — **PRE-EXISTING FAILURE** (recalibration clamping)
 
@@ -167,7 +167,7 @@ invariant MacroConsistency OK
 
 | Risk | Why it can no longer happen silently |
 |------|----|
-| Float drift in clinical math | All new domain code Decimal-strict; mypy strict bans untyped casts; importlinter forbids framework deps that smuggle float |
+| Float drift in nutrition math | All new domain code Decimal-strict; mypy strict bans untyped casts; importlinter forbids framework deps that smuggle float |
 | Magic tolerance constants drift | `MACRO_TOLERANCE` is single Decimal source; test guards exact value |
 | Property invariant regression | 15 invariants × 200 examples each run on every PR via pytest |
 | New conditions added without test coverage | Property strategies use `st.sampled_from` over closed enums; expanding enum forces hypothesis to explore new cases |
@@ -185,7 +185,7 @@ invariant MacroConsistency OK
 |---|------|------------------|------------------|
 | **F1** | Two parallel BMR implementations (legacy float vs new Decimal) may diverge in edge cases | Track C migration deferred to avoid breaking existing users without telemetry baseline | Cross-check test (legacy vs new across 1000-profile population, delta ≤ 1 kcal) — owner P2 |
 | **F2** | Existing users with `kcal_target < bmr·0.9` continue receiving unsafe values | Hard cutoff would break onboarding immediately for small female weight_loss segment | Telemetry warn surfaces incidence; weekly rollup; flip `STRICT_KCAL_SAFETY_FLOOR=true` once <5% impact |
-| **F3** | Catalog patches (37 tree-nut + 87 diabetes_t2) still pending | Requires clinical-generator agent batch run, out of scope this session | Already documented in `docs/algorithms/OPTION_A_SHIP_REPORT.md`; defensive regex in Layer1 mitigates tree-nut risk |
+| **F3** | Catalog patches (37 tree-nut + 87 diabetes_t2) still pending | Requires nutrition-generator agent batch run, out of scope this session | Already documented in `docs/algorithms/OPTION_A_SHIP_REPORT.md`; defensive regex in Layer1 mitigates tree-nut risk |
 | **F4** | Embedding backfill blocked (no OpenAI key + no DB in session) | Owner-runnable, ~$0.40 / 30min | Master plan owner P0 task — `scripts/compute_embeddings.py --only recipes --max-usd 1.00` |
 | **F5** | Pipeline pattern is foundation only — not yet plugged into `app/plan/application/create_plan.py` | Wiring would change response shape + risk regression; needs ADR-0009 Track C | Master plan owner P1 task; 1-shot Stage adapter for existing 4 layers, gradual extraction |
 | **F6** | Schema migrations 0008/0009 not yet applied to dev/staging/prod DBs | DB not available this session | Owner runs `alembic upgrade head` when DB up; both migrations are additive + reversible |
@@ -271,7 +271,7 @@ docs(adr): ADR-0009 Decimal-strict migration strategy + H1 ship report
 ## Why this is elite
 
 - **Math correctness:** 3,000 property-based cases prove the invariants hold across realistic population. Two invariants tightened by hypothesis catching wrong assumptions in the test author's spec (not the algorithm).
-- **Decimal-strict:** No silent float drift in clinical math. ROUND_HALF_EVEN explicit. ADR-0009 documents the migration path.
+- **Decimal-strict:** No silent float drift in nutrition math. ROUND_HALF_EVEN explicit. ADR-0009 documents the migration path.
 - **Reversible:** All migrations have downgrade. Defensive instrumentation, not replacement. Feature-flag gated cutover (`STRICT_KCAL_SAFETY_FLOOR`).
 - **Architecturally enforced:** import-linter contracts block regressions at lint time. mypy strict bans `Any`. Anti-coupling Protocols ensure plan never imports tracking infra.
 - **Audit-ready:** Every plan will persist `algorithm_version + variant_id + weights_checksum + inputs_hash`. Compliance can reconstruct any plan from these four fields.

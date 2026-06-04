@@ -9,6 +9,7 @@ Endpoints declare minimum required role; deps enforce via JWT claim.
 Roles are versioned: never delete a role, only deprecate. Storing the string
 in JWT keeps tokens portable across schema changes.
 """
+
 from __future__ import annotations
 
 from enum import IntEnum
@@ -21,7 +22,7 @@ class Role(IntEnum):
     ADMIN = 100
 
     @classmethod
-    def from_str(cls, value: str) -> "Role":
+    def from_str(cls, value: str) -> Role:
         try:
             return _STR_TO_ROLE[value.lower()]
         except KeyError as e:

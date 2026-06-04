@@ -5,6 +5,7 @@ is its own aggregate (catalog item). Translation maps live on the aggregate
 itself (jsonb in the schema); the application layer projects them per
 `Accept-Language`.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

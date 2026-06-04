@@ -1,4 +1,5 @@
 """Pydantic DTOs for the vision presentation layer."""
+
 from __future__ import annotations
 
 from datetime import datetime

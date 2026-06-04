@@ -28,6 +28,7 @@ Documented as a known asymmetry; it does not break the [0,1] bound.
 All math is ``Decimal``. Result is quantized to 4 decimal places using
 ``ROUND_HALF_EVEN``.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -35,7 +36,6 @@ from decimal import ROUND_HALF_EVEN, Decimal
 
 from app.plan.domain.context import PlanGenContext, RecipeView
 from app.plan.domain.recent_recipes import RecentRecipesReader
-
 
 _NEUTRAL: Decimal = Decimal("0.5")
 _HARD_CAP: Decimal = Decimal("0")
@@ -55,9 +55,7 @@ class JaccardVarietyPenalty:
     reader: RecentRecipesReader
     key: str = "variety_jaccard"
 
-    async def score(
-        self, recipe: RecipeView, ctx: PlanGenContext
-    ) -> Decimal:
+    async def score(self, recipe: RecipeView, ctx: PlanGenContext) -> Decimal:
         # 1) Hard 7-day repetition cap — short-circuits everything else.
         recent_ids = await self.reader.recipe_ids_used_7d(ctx.user_id)
         if recipe.id in recent_ids:
@@ -65,9 +63,7 @@ class JaccardVarietyPenalty:
 
         # 2) Build sets.
         recent_tags = await self.reader.tags_used_14d(ctx.user_id)
-        recent_classes = await self.reader.ingredient_classes_used_14d(
-            ctx.user_id
-        )
+        recent_classes = await self.reader.ingredient_classes_used_14d(ctx.user_id)
         recent_set: frozenset[str] = recent_tags | recent_classes
         candidate_set: frozenset[str] = frozenset(recipe.tags)
 

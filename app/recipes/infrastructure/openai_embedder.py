@@ -5,9 +5,8 @@ embedder is on the hot path for semantic search and a hung OpenAI call must
 not cascade to the FastAPI worker. Cost is tracked through `CostCap` before
 issuing the call.
 """
-from __future__ import annotations
 
-from typing import Any
+from __future__ import annotations
 
 from openai import AsyncOpenAI
 
@@ -36,7 +35,9 @@ class OpenAIEmbedder:
     async def embed(self, text: str) -> list[float]:
         async def _call() -> list[float]:
             resp = await _get_client().embeddings.create(
-                model=self.model, input=text, dimensions=self.dim,
+                model=self.model,
+                input=text,
+                dimensions=self.dim,
             )
             return list(resp.data[0].embedding)
 

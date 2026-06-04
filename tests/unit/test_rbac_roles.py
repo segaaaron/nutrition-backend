@@ -1,9 +1,10 @@
 """RBAC role hierarchy tests (OWASP API5, ASVS V4)."""
+
 from __future__ import annotations
 
 import pytest
 
-from app.identity.domain.roles import Role, role_at_least, VALID_ROLE_STRINGS
+from app.identity.domain.roles import VALID_ROLE_STRINGS, Role, role_at_least
 
 
 def test_role_order_strict_total():
@@ -32,19 +33,22 @@ def test_to_str_roundtrip():
         assert Role.from_str(s).to_str() == s
 
 
-@pytest.mark.parametrize("claim,required,expected", [
-    ("admin", Role.USER, True),
-    ("admin", Role.ADMIN, True),
-    ("support", Role.SUPPORT, True),
-    ("support", Role.ADMIN, False),
-    ("premium", Role.USER, True),
-    ("premium", Role.SUPPORT, False),
-    ("user", Role.USER, True),
-    ("user", Role.PREMIUM, False),
-    ("user", Role.ADMIN, False),
-    ("", Role.USER, False),
-    ("invalid", Role.USER, False),
-])
+@pytest.mark.parametrize(
+    "claim,required,expected",
+    [
+        ("admin", Role.USER, True),
+        ("admin", Role.ADMIN, True),
+        ("support", Role.SUPPORT, True),
+        ("support", Role.ADMIN, False),
+        ("premium", Role.USER, True),
+        ("premium", Role.SUPPORT, False),
+        ("user", Role.USER, True),
+        ("user", Role.PREMIUM, False),
+        ("user", Role.ADMIN, False),
+        ("", Role.USER, False),
+        ("invalid", Role.USER, False),
+    ],
+)
 def test_role_at_least(claim, required, expected):
     assert role_at_least(claim, required) is expected
 

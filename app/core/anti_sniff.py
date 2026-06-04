@@ -9,6 +9,7 @@ reject or log as security event.
 CANNOT prevent sniffing on jailbroken devices with custom CA installed
 when SSL pinning is missing client-side. That is mobile team's job.
 """
+
 from __future__ import annotations
 
 import re
@@ -42,9 +43,9 @@ SUSPICIOUS_UA_PATTERNS = re.compile(
 
 # Proxy-injected headers that legitimate Cloudflare-only chain shouldn't have.
 PROXY_FOOTPRINT_HEADERS = (
-    "via",                 # often added by intermediate proxies
-    "x-charles-proxy",     # Charles signature
-    "x-burp-comment",      # Burp signature
+    "via",  # often added by intermediate proxies
+    "x-charles-proxy",  # Charles signature
+    "x-burp-comment",  # Burp signature
     "x-mitm",
 )
 
@@ -94,7 +95,8 @@ class AntiSniffMiddleware(BaseHTTPMiddleware):
                 ANTISNIFF_REJECTS.labels(reason=r).inc()
             log.warning(
                 "antisniff.reject",
-                reasons=reasons, ua=ua[:200],
+                reasons=reasons,
+                ua=ua[:200],
                 path=request.url.path,
             )
             return JSONResponse(
@@ -112,7 +114,8 @@ class AntiSniffMiddleware(BaseHTTPMiddleware):
             ANTISNIFF_SUSPECTS.labels(reason=r).inc()
         log.info(
             "antisniff.suspect",
-            reasons=reasons, ua=ua[:200],
+            reasons=reasons,
+            ua=ua[:200],
             path=request.url.path,
         )
         return await call_next(request)

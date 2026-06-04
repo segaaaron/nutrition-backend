@@ -8,7 +8,7 @@
 
 ## Context
 
-The recalibration loop is the headline clinical differentiator vs Fitia. The
+The recalibration loop is the headline nutrition differentiator vs Fitia. The
 spec previously said `tdee_nuevo = blend(mifflin_recalc, energy_balance_inferred)`
 without defining `blend()`, `slope()`, the trigger threshold, or any cool-down.
 The two architect agents disagreed on the threshold direction (`<50%` vs `>0.5`).
@@ -64,7 +64,7 @@ Algorithm choices:
   (over-gaining beyond plan), not on the symmetric `0.5 < |delta_ratio - 1|`
   rule. Implemented as a guard in the use case.
 - **Post-partum / illness** markers: the use case checks
-  `feature_flags.recalibration.enabled` per user; clinicians (or the user) can
+  `feature_flags.recalibration.enabled` per user; specialists (or the user) can
   pause recalibration via that flag.
 - **Insufficient data** (`< 7` weight points in 14d): SKIP silently, emit
   `recalibration_skipped_total{reason="insufficient_data"}`.

@@ -1,6 +1,8 @@
 """Idempotency-Key middleware/helpers (RFC draft-ietf-httpapi-idempotency-key-06).
 
-Scope (whitelist):
+Enforced explicitly per-endpoint via ``require_idempotency_key`` (no global
+middleware whitelist — see note on IDEMPOTENCY_TTL below). Current endpoints
+that hard-require the header:
     POST /v1/plan/generate
     POST /v1/plan/me/swap/{...}
     POST /v1/plan/me/recalibrate
@@ -23,13 +25,14 @@ required by this module; the existing Redis-layered impl in
 ``app/identity/presentation/dependencies.py`` remains the fast path for
 endpoints already wired to it.
 """
+
 from __future__ import annotations
 
 import hashlib
 import json
 import re
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
 
 from fastapi import Request
@@ -38,29 +41,16 @@ from fastapi.responses import JSONResponse
 from app.core.errors import ValidationError
 
 # RFC 4122 §3 — UUIDv4 canonical form. Strict: lowercase hex only.
-_UUID4_RE = re.compile(
-    r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
-)
+_UUID4_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
 
 IDEMPOTENCY_TTL = timedelta(hours=24)
 
-WHITELISTED_ROUTES: frozenset[str] = frozenset(
-    {
-        "POST:/v1/plan/generate",
-        "POST:/v1/plan/me/recalibrate",
-        "POST:/v1/profile/me/onboarding",
-        # /v1/plan/me/swap/{...} — matched by prefix in `is_whitelisted`
-    }
-)
-
-_SWAP_PREFIX = "POST:/v1/plan/me/swap/"
-
-
-def is_whitelisted(method: str, path: str) -> bool:
-    key = f"{method.upper()}:{path}"
-    if key in WHITELISTED_ROUTES:
-        return True
-    return key.startswith(_SWAP_PREFIX)
+# Note: idempotency enforcement is endpoint-explicit (each handler calls
+# ``require_idempotency_key`` directly). A module-level whitelist was
+# considered but removed (2026-06-03 hygiene sprint) because it never had
+# a middleware enforcing it — keeping it would invite bit-rot drift between
+# the constant and the real enforcement surface. Add a router-level
+# dependency on the affected endpoints instead.
 
 
 def validate_idempotency_key(value: str) -> str:
@@ -100,16 +90,14 @@ class IdempotencyRepo(Protocol):
         """Postgres advisory lock — released at txn end."""
         ...
 
-    async def lookup(self, storage_key: str) -> CachedResponse | None:
-        ...
+    async def lookup(self, storage_key: str) -> CachedResponse | None: ...
 
     async def store(
         self,
         storage_key: str,
         cached: CachedResponse,
         expires_at: datetime,
-    ) -> None:
-        ...
+    ) -> None: ...
 
 
 class IdempotencyConflict(Exception):
@@ -167,7 +155,7 @@ async def remember(
         status_code=status_code,
         fingerprint=fingerprint_body(body),
     )
-    expires = datetime.now(timezone.utc) + IDEMPOTENCY_TTL
+    expires = datetime.now(UTC) + IDEMPOTENCY_TTL
     await repo.store(skey, cached, expires)
 
 
@@ -176,17 +164,85 @@ def cached_to_response(cached: CachedResponse) -> JSONResponse:
     return JSONResponse(status_code=cached.status_code, content=cached.body)
 
 
+def require_idempotency_key(value: str | None) -> str:
+    """Hard-require ``Idempotency-Key`` header.
+
+    Used by routers where the header is mandatory (POST /plans,
+    POST /logs/food/text). Raises :class:`ValidationError` with detail
+    ``idempotency_key_required`` (missing) or ``idempotency_key_invalid_uuid4``
+    (malformed) — both map to HTTP 422.
+    """
+    if not value:
+        raise ValidationError("idempotency_key_required", field="Idempotency-Key")
+    return validate_idempotency_key(value)
+
+
+async def lookup_redis(
+    *,
+    redis: Any,
+    user_id: str,
+    path: str,
+    raw_key: str,
+    body: bytes,
+) -> tuple[str, CachedResponse | None]:
+    """Redis-backed idempotency lookup.
+
+    Returns ``(storage_key, cached_or_None)``. The caller MUST short-circuit
+    with the cached response on a hit, or proceed with the handler on miss
+    and call :func:`remember_redis` after a successful response.
+
+    Raises:
+        IdempotencyConflict: same key, different body fingerprint.
+        ValidationError: malformed ``raw_key``.
+    """
+    validate_idempotency_key(raw_key)
+    skey = storage_key(user_id, path, raw_key)
+    raw = await redis.get(skey)
+    if raw is None:
+        return skey, None
+    data = json.loads(raw if isinstance(raw, str) else raw.decode())
+    fp = fingerprint_body(body)
+    if data.get("fingerprint") and data["fingerprint"] != fp:
+        raise IdempotencyConflict(skey)
+    cached = CachedResponse(
+        body=data.get("body", {}),
+        status_code=int(data.get("status_code", 200)),
+        fingerprint=data.get("fingerprint"),
+    )
+    return skey, cached
+
+
+async def remember_redis(
+    *,
+    redis: Any,
+    storage_key: str,
+    body: bytes,
+    response_body: dict[str, Any],
+    status_code: int,
+) -> None:
+    """Persist a freshly computed response under ``storage_key`` for 24h."""
+    payload = json.dumps(
+        {
+            "body": response_body,
+            "status_code": status_code,
+            "fingerprint": fingerprint_body(body),
+        }
+    )
+    await redis.set(storage_key, payload, ex=int(IDEMPOTENCY_TTL.total_seconds()))
+
+
 __all__ = [
     "CachedResponse",
     "IDEMPOTENCY_TTL",
     "IdempotencyConflict",
     "IdempotencyRepo",
-    "WHITELISTED_ROUTES",
     "cached_to_response",
     "fingerprint_body",
-    "is_whitelisted",
+    "lookup_redis",
     "remember",
+    "remember_redis",
     "replay_or_remember",
+    "require_idempotency_key",
     "storage_key",
     "validate_idempotency_key",
 ]

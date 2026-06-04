@@ -1,4 +1,5 @@
 """Recipes ports — domain-level abstractions, infrastructure implements them."""
+
 from __future__ import annotations
 
 from typing import Protocol

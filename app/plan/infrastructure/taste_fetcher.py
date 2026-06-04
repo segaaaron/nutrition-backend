@@ -1,4 +1,5 @@
 """Adapter that retrieves recent completed-meal embeddings + onboarding centroid."""
+
 from __future__ import annotations
 
 from uuid import UUID
@@ -17,7 +18,8 @@ class SqlEmbeddingFetcher:
         # Pull completed plan meals from the last `weeks_back` weeks with
         # their recipe embedding. We compute weeks-ago in Python from
         # plan_days.date to keep the SQL portable.
-        sql = text("""
+        sql = text(
+            """
             SELECT pd.date AS d, r.embedding AS emb
               FROM plan_meals pm
               JOIN plan_days pd ON pd.id = pm.plan_day_id
@@ -29,10 +31,12 @@ class SqlEmbeddingFetcher:
                AND r.embedding IS NOT NULL
              ORDER BY pd.date DESC
              LIMIT 50
-        """)
+        """
+        )
         res = await self.s.execute(sql, {"uid": str(user_id), "weeks": weeks_back})
         out: list[tuple[int, list[float]]] = []
         from datetime import date as _date
+
         today = _date.today()
         for row in res.mappings():
             weeks_ago = max(0, (today - row["d"]).days // 7)
@@ -41,7 +45,8 @@ class SqlEmbeddingFetcher:
 
     async def get_onboarding_centroid(self, user_id: UUID) -> list[float] | None:
         # Compute centroid of recipes matching the user's preference tags.
-        sql = text("""
+        sql = text(
+            """
             SELECT AVG(r.embedding) AS centroid
               FROM recipes r
              WHERE r.embedding IS NOT NULL
@@ -50,7 +55,8 @@ class SqlEmbeddingFetcher:
                      FROM plans WHERE user_id = :uid
                   ORDER BY created_at DESC LIMIT 1
                )
-        """)
+        """
+        )
         try:
             res = await self.s.execute(sql, {"uid": str(user_id)})
             row = res.first()

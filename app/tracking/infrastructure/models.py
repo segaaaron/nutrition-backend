@@ -1,4 +1,5 @@
 """SQLAlchemy ORM matching Timescale hypertable schema (water_logs/weight_logs)."""
+
 from __future__ import annotations
 
 from datetime import datetime

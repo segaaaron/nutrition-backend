@@ -3,6 +3,7 @@
 `FoodPhotoLogged` → `foto_cross_check` (Feature B).
 Registered into the in-process event bus at app startup.
 """
+
 from __future__ import annotations
 
 from app.coach.application.features import foto_cross_check
@@ -16,7 +17,8 @@ def register(bus: EventBus) -> None:
         async with session_scope() as session:
             await foto_cross_check(
                 session,
-                user_id=evt.user_id, meal_time=evt.meal_time,
+                user_id=evt.user_id,
+                meal_time=evt.meal_time,
                 detected_kcal=evt.kcal,
                 detected_names=evt.detected_names,
             )

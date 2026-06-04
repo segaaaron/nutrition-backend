@@ -1,4 +1,5 @@
 """KcalRange — ±100 around target (width 200 enforced by VO)."""
+
 from __future__ import annotations
 
 from app.shared.domain.value_objects import KcalRange

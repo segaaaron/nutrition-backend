@@ -3,6 +3,7 @@
 Lives in the plan context because it's an anti-corruption layer over the
 profile aggregate — only the four fields needed by Layer 1 leak through.
 """
+
 from __future__ import annotations
 
 from uuid import UUID

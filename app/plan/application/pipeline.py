@@ -6,11 +6,12 @@ threading a budget and emitting a StageTrace for each stage.
 Zero business logic lives here - this module only orchestrates Stage
 implementations declared in the domain layer.
 """
+
 from __future__ import annotations
 
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Sequence
 
 from app.core.logging import get_logger
 from app.plan.domain.context import PlanGenContext, StageTrace
@@ -23,9 +24,7 @@ class StageBudgetExceeded(Exception):
     """Raised when the pipeline's remaining time budget is exhausted."""
 
     def __init__(self, stage_name: str, budget_remaining_ms: int) -> None:
-        super().__init__(
-            f"stage_budget_exceeded:{stage_name}:remaining={budget_remaining_ms}ms"
-        )
+        super().__init__(f"stage_budget_exceeded:{stage_name}:remaining={budget_remaining_ms}ms")
         self.stage_name = stage_name
         self.budget_remaining_ms = budget_remaining_ms
 

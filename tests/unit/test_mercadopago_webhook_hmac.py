@@ -6,6 +6,7 @@ MP signature spec:
   HMAC-SHA256 with MERCADOPAGO_WEBHOOK_SECRET.
   Replay window: 5 minutes.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -28,6 +29,7 @@ def _sign(secret: str, data_id: str, request_id: str, ts: str) -> str:
 def gw(monkeypatch):
     monkeypatch.setenv("MERCADOPAGO_WEBHOOK_SECRET", "supersecret")
     from app.core.config import get_settings
+
     get_settings.cache_clear()
     return MercadoPagoGateway()
 
@@ -74,6 +76,7 @@ async def test_stale_timestamp_rejected(gw):
 async def test_missing_secret_rejects_all(monkeypatch):
     monkeypatch.setenv("MERCADOPAGO_WEBHOOK_SECRET", "")
     from app.core.config import get_settings
+
     get_settings.cache_clear()
     gw = MercadoPagoGateway()
     with pytest.raises(UpstreamError, match="secret_not_configured"):

@@ -8,6 +8,7 @@ value in the JSON catalog outside the closed vocabularies fails the build.
 Vocabularies sourced from `app.shared.domain.vocabularies` (single runtime
 source of truth, mirrors migration 0001 DDL).
 """
+
 from __future__ import annotations
 
 import json
@@ -20,7 +21,6 @@ from app.shared.domain.vocabularies import (
     ALLERGENS_14,
     CONDITIONS_25,
     GOALS_5,
-    MEAL_TIMES_4,
 )
 
 CATALOG = Path(__file__).resolve().parents[2] / "data" / "meals" / "nova_meals_catalog.cleaned.json"
@@ -71,7 +71,9 @@ def test_recommended_conditions_within_closed_vocabulary(catalog: list[dict[str,
     assert not drift, f"recommendedForConditions drift: {sorted(drift)}"
 
 
-def test_contraindicated_conditions_within_closed_vocabulary(catalog: list[dict[str, object]]) -> None:
+def test_contraindicated_conditions_within_closed_vocabulary(
+    catalog: list[dict[str, object]]
+) -> None:
     observed = _collect(catalog, ("matching_criteria", "contraindicated_conditions"))
     drift = observed - CONDITIONS_25
     assert not drift, f"contraindicatedConditions drift: {sorted(drift)}"
@@ -107,7 +109,11 @@ def test_macro_consistency_within_5_percent(catalog: list[dict[str, object]]) ->
         p = macros.get("protein_g") or 0
         c = macros.get("carbs_g") or 0
         f = macros.get("fat_g") or 0
-        if not isinstance(p, (int, float)) or not isinstance(c, (int, float)) or not isinstance(f, (int, float)):
+        if (
+            not isinstance(p, (int, float))
+            or not isinstance(c, (int, float))
+            or not isinstance(f, (int, float))
+        ):
             continue
         derived = 4 * p + 4 * c + 9 * f
         if kcal <= 0:
@@ -117,6 +123,5 @@ def test_macro_consistency_within_5_percent(catalog: list[dict[str, object]]) ->
             rid = recipe.get("id") if isinstance(recipe, dict) else "?"
             violations.append((str(rid), delta))
     assert not violations, (
-        f"{len(violations)} recipes violate macro consistency >5%: "
-        f"sample={violations[:5]}"
+        f"{len(violations)} recipes violate macro consistency >5%: " f"sample={violations[:5]}"
     )

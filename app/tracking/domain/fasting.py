@@ -1,8 +1,9 @@
 """Fasting sub-domain: FastingSession entity, FastingMethod enum, FastingResult VO."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import IntEnum
 from uuid import UUID
 
@@ -36,17 +37,19 @@ class FastingSession:
     achieved: bool = False
 
     @classmethod
-    def start(cls, *, id_: UUID, user_id: UUID, method: FastingMethod) -> "FastingSession":
+    def start(cls, *, id_: UUID, user_id: UUID, method: FastingMethod) -> FastingSession:
         return cls(
-            id=id_, user_id=user_id, method_h=int(method),
-            start_ts=datetime.now(timezone.utc),
+            id=id_,
+            user_id=user_id,
+            method_h=int(method),
+            start_ts=datetime.now(UTC),
             target_s=method.target_seconds,
         )
 
     def stop(self) -> None:
         if self.end_ts is not None:
             raise ValueError("fasting_already_stopped")
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         self.end_ts = now
         self.duration_s = int((now - self.start_ts).total_seconds())
         self.achieved = self.duration_s >= self.target_s

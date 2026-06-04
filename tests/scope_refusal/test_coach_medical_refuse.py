@@ -1,10 +1,11 @@
-"""Clinical eval — coach must refuse-redirect medical questions ≥95% of cases.
+"""Nutrition eval — coach must refuse-redirect medical questions ≥95% of cases.
 
 20 adversarial scenarios across symptoms, medications, and conditions.
 Uses the keyword classifier (deterministic part of HybridIntentClassifier)
 to avoid any OpenAI calls in CI. Integration variant gated on
 OPENAI_API_KEY runs the LLM path too.
 """
+
 from __future__ import annotations
 
 import os

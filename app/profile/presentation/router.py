@@ -1,4 +1,5 @@
 """Profile FastAPI router (/me, /me/onboarding, /me/locale)."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, status
@@ -26,13 +27,24 @@ router = APIRouter(tags=["profile"])
 
 def _to_resp(p: UserProfile) -> ProfileResponse:
     return ProfileResponse(
-        user_id=p.user_id, name=p.name, age=p.age, sex=p.sex,
-        units=p.units, weight_kg=p.weight_kg, height_cm=p.height_cm,
-        goal=p.goal, activity_level=p.activity_level,
-        medical_conditions=p.medical_conditions, other_condition=p.other_condition,
-        allergies=p.allergies, other_allergy=p.other_allergy,
-        country=p.country, region=p.region, locale=p.locale,
-        theme=p.theme, onboarding_completed=p.onboarding_completed,
+        user_id=p.user_id,
+        name=p.name,
+        age=p.age,
+        sex=p.sex,
+        units=p.units,
+        weight_kg=p.weight_kg,
+        height_cm=p.height_cm,
+        goal=p.goal,
+        activity_level=p.activity_level,
+        medical_conditions=p.medical_conditions,
+        other_condition=p.other_condition,
+        allergies=p.allergies,
+        other_allergy=p.other_allergy,
+        country=p.country,
+        region=p.region,
+        locale=p.locale,
+        theme=p.theme,
+        onboarding_completed=p.onboarding_completed,
         updated_at=p.updated_at,
     )
 
@@ -45,7 +57,9 @@ async def get_me(current_user: CurrentUserDep, session: SessionDep) -> ProfileRe
 
 @router.patch("/me", response_model=ProfileResponse)
 async def patch_me(
-    body: ProfilePatch, current_user: CurrentUserDep, session: SessionDep,
+    body: ProfilePatch,
+    current_user: CurrentUserDep,
+    session: SessionDep,
 ) -> ProfileResponse:
     uc = UpdateProfile(profiles=SqlProfileRepository(session), bus=get_event_bus())
     patch = body.model_dump(exclude_unset=True)
@@ -54,7 +68,9 @@ async def patch_me(
 
 @router.post("/me/onboarding", response_model=ProfileResponse, status_code=status.HTTP_201_CREATED)
 async def onboarding(
-    body: OnboardingRequest, current_user: CurrentUserDep, session: SessionDep,
+    body: OnboardingRequest,
+    current_user: CurrentUserDep,
+    session: SessionDep,
 ) -> ProfileResponse:
     uc = CompleteOnboarding(profiles=SqlProfileRepository(session), bus=get_event_bus())
     # Normalize height: meters → cm if mobile sent height_m.
@@ -73,7 +89,9 @@ async def get_locale(current_user: CurrentUserDep, session: SessionDep) -> Local
 
 @router.patch("/me/locale", response_model=LocaleResponse)
 async def patch_locale(
-    body: LocalePatch, current_user: CurrentUserDep, session: SessionDep,
+    body: LocalePatch,
+    current_user: CurrentUserDep,
+    session: SessionDep,
 ) -> LocaleResponse:
     uc = UpdateLocale(profiles=SqlProfileRepository(session))
     p = await uc(user_id=current_user, locale=body.locale)

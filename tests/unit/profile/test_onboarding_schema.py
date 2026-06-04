@@ -4,6 +4,7 @@ Covers every required + conditional field + every documented error path. iOS
 and Android implementations should produce request bodies that pass these
 exact assertions; mobile QA can mirror the parametrized cases.
 """
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -31,6 +32,7 @@ def _base_payload(**overrides: object) -> dict[str, object]:
 
 # ── happy paths ──────────────────────────────────────────────────────────────
 
+
 def test_minimum_required_omnivore() -> None:
     body = OnboardingRequest(**_base_payload())  # type: ignore[arg-type]
     assert body.resolved_height_cm == Decimal("175.0")
@@ -46,9 +48,12 @@ def test_height_cm_alternative_to_height_m() -> None:
 
 
 def test_athlete_with_bodyfat() -> None:
-    body = OnboardingRequest(**_base_payload(  # type: ignore[arg-type]
-        activity_level="extra_active", bodyfat_pct="12.5",
-    ))
+    body = OnboardingRequest(
+        **_base_payload(  # type: ignore[arg-type]
+            activity_level="extra_active",
+            bodyfat_pct="12.5",
+        )
+    )
     assert body.bodyfat_pct == Decimal("12.5")
 
 
@@ -60,43 +65,58 @@ def test_all_dietary_patterns_accepted(pattern: str) -> None:
 def test_celiac_writes_both_condition_and_gluten_allergen() -> None:
     """UI chip "Celiaquía" → server expects BOTH 'celiac' in conditions AND
     'gluten' in allergies. Mobile sends both."""
-    body = OnboardingRequest(**_base_payload(  # type: ignore[arg-type]
-        medical_conditions=["celiac"], allergies=["gluten"],
-    ))
+    body = OnboardingRequest(
+        **_base_payload(  # type: ignore[arg-type]
+            medical_conditions=["celiac"],
+            allergies=["gluten"],
+        )
+    )
     assert "celiac" in body.medical_conditions
     assert "gluten" in body.allergies
 
 
 def test_colesterol_alto_maps_to_dyslipidemia() -> None:
     """UI chip "Colesterol alto" → backend enum 'dyslipidemia' (NOT hyperchol)."""
-    body = OnboardingRequest(**_base_payload(  # type: ignore[arg-type]
-        medical_conditions=["dyslipidemia"],
-    ))
+    body = OnboardingRequest(
+        **_base_payload(  # type: ignore[arg-type]
+            medical_conditions=["dyslipidemia"],
+        )
+    )
     assert "dyslipidemia" in body.medical_conditions
 
 
 def test_lactation_with_breastfeeding_status_exclusive() -> None:
-    body = OnboardingRequest(**_base_payload(  # type: ignore[arg-type]
-        medical_conditions=["lactation"], is_exclusively_breastfeeding=True,
-    ))
+    body = OnboardingRequest(
+        **_base_payload(  # type: ignore[arg-type]
+            medical_conditions=["lactation"],
+            is_exclusively_breastfeeding=True,
+        )
+    )
     assert body.is_exclusively_breastfeeding is True
 
 
 def test_lactation_partial_breastfeeding() -> None:
-    body = OnboardingRequest(**_base_payload(  # type: ignore[arg-type]
-        medical_conditions=["lactation"], is_exclusively_breastfeeding=False,
-    ))
+    body = OnboardingRequest(
+        **_base_payload(  # type: ignore[arg-type]
+            medical_conditions=["lactation"],
+            is_exclusively_breastfeeding=False,
+        )
+    )
     assert body.is_exclusively_breastfeeding is False
 
 
 def test_pregnancy_with_trimester() -> None:
-    body = OnboardingRequest(**_base_payload(  # type: ignore[arg-type]
-        medical_conditions=["pregnancy"], trimester="second",
-    ))
+    body = OnboardingRequest(
+        **_base_payload(  # type: ignore[arg-type]
+            medical_conditions=["pregnancy"],
+            trimester="second",
+        )
+    )
     assert body.trimester == "second"
 
 
 # ── refuse paths (mobile must surface these as UI errors) ─────────────────────
+
 
 def test_allergen_freetext_refuses() -> None:
     """ANY non-empty other_allergy → server refuses plan.
@@ -121,17 +141,21 @@ def test_height_missing_both_refuses() -> None:
 
 def test_pregnancy_without_trimester_refuses() -> None:
     with pytest.raises(ValidationError) as ei:
-        OnboardingRequest(**_base_payload(  # type: ignore[arg-type]
-            medical_conditions=["pregnancy"],
-        ))
+        OnboardingRequest(
+            **_base_payload(  # type: ignore[arg-type]
+                medical_conditions=["pregnancy"],
+            )
+        )
     assert "trimester_required_for_pregnancy" in str(ei.value)
 
 
 def test_lactation_without_breastfeeding_flag_refuses() -> None:
     with pytest.raises(ValidationError) as ei:
-        OnboardingRequest(**_base_payload(  # type: ignore[arg-type]
-            medical_conditions=["lactation"],
-        ))
+        OnboardingRequest(
+            **_base_payload(  # type: ignore[arg-type]
+                medical_conditions=["lactation"],
+            )
+        )
     assert "breastfeeding_status_required_for_lactation" in str(ei.value)
 
 
@@ -183,12 +207,13 @@ def test_extra_field_refuses() -> None:
 
 def test_other_condition_freetext_persists_does_not_refuse() -> None:
     """Free-text condition is allowed (PII column) — NOT a refuse path. Just
-    not routed to clinical Layer1 filter. Mobile must show warning UI."""
+    not routed to condition Layer1 filter. Mobile must show warning UI."""
     body = OnboardingRequest(**_base_payload(other_condition="alergia al maíz"))  # type: ignore[arg-type]
     assert body.other_condition == "alergia al maíz"
 
 
 # ── conversion / round-trip ──────────────────────────────────────────────────
+
 
 def test_height_m_to_cm_conversion_precision() -> None:
     body = OnboardingRequest(**_base_payload(height_m="1.83"))  # type: ignore[arg-type]
@@ -196,7 +221,10 @@ def test_height_m_to_cm_conversion_precision() -> None:
 
 
 def test_height_cm_wins_when_both_present() -> None:
-    body = OnboardingRequest(**_base_payload(  # type: ignore[arg-type]
-        height_m="1.75", height_cm="180.0",
-    ))
+    body = OnboardingRequest(
+        **_base_payload(  # type: ignore[arg-type]
+            height_m="1.75",
+            height_cm="180.0",
+        )
+    )
     assert body.resolved_height_cm == Decimal("180.0")

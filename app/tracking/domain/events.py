@@ -5,6 +5,7 @@ already imports a duck-typed copy (`app.nutrition.event_handlers.WeightLogged`)
 so this re-export becomes the source of truth — both classes are structurally
 compatible.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

@@ -4,13 +4,18 @@ Pure domain logic — the canonical source is the `regions` table seeded by
 migration 0001, but we mirror the mapping here to keep onboarding latency
 sub-ms (no DB roundtrip) and let tests run without a DB.
 """
+
 from __future__ import annotations
 
 from typing import Final
 
 _COUNTRY_TO_REGION: Final[dict[str, str]] = {}
 _REGION_DEFAULT_LOCALE: Final[dict[str, str]] = {
-    "us": "en", "ca": "en", "eu": "en", "uk": "en", "latam": "es",
+    "us": "en",
+    "ca": "en",
+    "eu": "en",
+    "uk": "en",
+    "latam": "es",
 }
 
 # US
@@ -20,13 +25,58 @@ _COUNTRY_TO_REGION["CA"] = "ca"
 # UK
 _COUNTRY_TO_REGION["GB"] = "uk"
 # EU
-for c in ["DE", "FR", "IT", "ES", "PT", "NL", "BE", "AT", "IE", "FI", "SE", "DK",
-          "PL", "CZ", "GR", "RO", "HU", "BG", "HR", "SI", "SK", "LU", "MT", "CY",
-          "EE", "LV", "LT"]:
+for c in [
+    "DE",
+    "FR",
+    "IT",
+    "ES",
+    "PT",
+    "NL",
+    "BE",
+    "AT",
+    "IE",
+    "FI",
+    "SE",
+    "DK",
+    "PL",
+    "CZ",
+    "GR",
+    "RO",
+    "HU",
+    "BG",
+    "HR",
+    "SI",
+    "SK",
+    "LU",
+    "MT",
+    "CY",
+    "EE",
+    "LV",
+    "LT",
+]:
     _COUNTRY_TO_REGION[c] = "eu"
 # LATAM
-for c in ["MX", "PE", "CO", "AR", "CL", "BR", "VE", "EC", "UY", "PY", "BO", "CR",
-          "PA", "GT", "HN", "SV", "NI", "DO", "PR"]:
+for c in [
+    "MX",
+    "PE",
+    "CO",
+    "AR",
+    "CL",
+    "BR",
+    "VE",
+    "EC",
+    "UY",
+    "PY",
+    "BO",
+    "CR",
+    "PA",
+    "GT",
+    "HN",
+    "SV",
+    "NI",
+    "DO",
+    "PR",
+]:
     _COUNTRY_TO_REGION[c] = "latam"
 
 

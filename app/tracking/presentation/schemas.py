@@ -1,4 +1,5 @@
 """Pydantic schemas for tracking endpoints."""
+
 from __future__ import annotations
 
 from datetime import datetime

@@ -16,12 +16,11 @@ Implemented as a pure function `advance(plan, event, **payload) -> Plan` that
 raises `IllegalTransition` (subclass of ConflictError → 409) for unsupported
 edges. The orchestrator commits a new ORM snapshot per transition.
 """
+
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import datetime, timezone
 from typing import Literal
-from uuid import UUID
 
 from app.core.errors import IllegalTransition
 from app.plan.domain.entities import Plan
@@ -39,7 +38,8 @@ def advance(plan: Plan, event: Event, **_payload: object) -> Plan:
     if event not in _ALLOWED.get(plan.status, set()):
         raise IllegalTransition(
             f"illegal_transition:{plan.status}+{event}",
-            current_state=plan.status, event=event,
+            current_state=plan.status,
+            event=event,
         )
 
     if event == "CANCEL":

@@ -14,6 +14,7 @@ exception class. Alert if rate >5/min indicates regression.
 
 Zero external dependency. Zero monthly cost. RAM cost ≈ 500 * ~2KB = 1MB.
 """
+
 from __future__ import annotations
 
 import json
@@ -21,7 +22,7 @@ import os
 import threading
 import traceback
 from collections import deque
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -63,7 +64,7 @@ def record_error(
     """Persist error to ring buffer + file + metrics. Best-effort, never raises."""
     try:
         entry = {
-            "ts": datetime.now(timezone.utc).isoformat(),
+            "ts": datetime.now(UTC).isoformat(),
             "type": type(exc).__name__,
             "message": str(exc)[:500],
             "path": path,

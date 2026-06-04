@@ -1,8 +1,9 @@
 """Shared hypothesis strategies for plan H1 property tests.
 
-All strategies produce Decimal values within the realistic adult clinical
+All strategies produce Decimal values within the realistic adult nutrition
 population range. No floats. No randomness outside hypothesis.
 """
+
 from __future__ import annotations
 
 from decimal import Decimal

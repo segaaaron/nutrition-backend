@@ -14,6 +14,7 @@ Canonicalization rules (ADR-0010):
 
 Deterministic across processes / Python versions / machine endianness.
 """
+
 from __future__ import annotations
 
 import hashlib

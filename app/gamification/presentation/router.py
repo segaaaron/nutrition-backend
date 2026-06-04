@@ -1,4 +1,5 @@
 """Gamification REST endpoints."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Query
@@ -21,22 +22,31 @@ router = APIRouter(prefix="/gamification", tags=["gamification"])
 async def get_streak(current_user: CurrentUserDep, session: SessionDep) -> dict:
     repo = SqlGamificationRepository(session)
     from app.gamification.domain.entities import StreakType
+
     s = await repo.streak(user_id=current_user, type_=StreakType.DAILY)
     if not s:
         return {"type": "daily", "value": 0, "last_day": None}
-    return {"type": s.type.value, "value": s.value,
-            "last_day": s.last_day.isoformat() if s.last_day else None}
+    return {
+        "type": s.type.value,
+        "value": s.value,
+        "last_day": s.last_day.isoformat() if s.last_day else None,
+    }
 
 
 @router.get("/streaks")
 async def get_streaks(current_user: CurrentUserDep, session: SessionDep) -> dict:
     repo = SqlGamificationRepository(session)
     rows = await repo.streaks_for(current_user)
-    return {"streaks": [
-        {"type": s.type.value, "value": s.value,
-         "last_day": s.last_day.isoformat() if s.last_day else None}
-        for s in rows
-    ]}
+    return {
+        "streaks": [
+            {
+                "type": s.type.value,
+                "value": s.value,
+                "last_day": s.last_day.isoformat() if s.last_day else None,
+            }
+            for s in rows
+        ]
+    }
 
 
 @router.get("/achievements")
@@ -67,9 +77,12 @@ async def get_leaderboard(
 ) -> dict:
     # Feature flag gate
     from sqlalchemy import text
-    flag = (await session.execute(
-        text("SELECT enabled FROM feature_flags WHERE key = 'leaderboard_enabled'")
-    )).scalar()
+
+    flag = (
+        await session.execute(
+            text("SELECT enabled FROM feature_flags WHERE key = 'leaderboard_enabled'")
+        )
+    ).scalar()
     if not flag:
         return {"enabled": False, "rows": []}
     uc = GetLeaderboard(redis=get_redis())

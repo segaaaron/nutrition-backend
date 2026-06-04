@@ -4,6 +4,7 @@
 A sync fake ``RecentRecipesReader`` is used; its methods are ``async``
 to honour the Protocol.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -18,7 +19,6 @@ from app.plan.domain.context import MacroTargets, PlanGenContext, RecipeView
 from app.plan.domain.ranking_signals.variety_jaccard import (
     JaccardVarietyPenalty,
 )
-
 
 _SETTINGS = settings(
     max_examples=200,
@@ -42,9 +42,7 @@ class FakeRecentReader:
     async def tags_used_14d(self, user_id: UUID) -> frozenset[str]:
         return self.tags
 
-    async def ingredient_classes_used_14d(
-        self, user_id: UUID
-    ) -> frozenset[str]:
+    async def ingredient_classes_used_14d(self, user_id: UUID) -> frozenset[str]:
         return self.classes
 
     async def recipe_ids_used_7d(self, user_id: UUID) -> frozenset[UUID]:
@@ -120,9 +118,7 @@ def test_variety_bounded(
 
 @_SETTINGS
 @given(cand=_tag_set, recent=_tag_set)
-def test_variety_orthogonal_disjoint_max(
-    cand: frozenset[str], recent: frozenset[str]
-) -> None:
+def test_variety_orthogonal_disjoint_max(cand: frozenset[str], recent: frozenset[str]) -> None:
     """Disjoint non-empty sets → Jaccard = 0 → variety = 1."""
     disjoint_recent = frozenset(f"R_{t}" for t in recent)
     if not cand or not disjoint_recent:
@@ -173,9 +169,7 @@ def test_hard_7d_cap(
 
 @_SETTINGS
 @given(a=_tag_set, b=_tag_set)
-def test_jaccard_symmetric(
-    a: frozenset[str], b: frozenset[str]
-) -> None:
+def test_jaccard_symmetric(a: frozenset[str], b: frozenset[str]) -> None:
     """Swapping candidate and recent yields same score (no hard cap)."""
     # Skip cases where the candidate side would be empty under either
     # ordering — the spec returns the neutral 0.5 there for safety,

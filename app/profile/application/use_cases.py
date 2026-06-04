@@ -1,9 +1,9 @@
 """Profile use cases."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from decimal import Decimal
+from datetime import UTC, datetime
 from typing import Any, Protocol
 from uuid import UUID
 
@@ -16,7 +16,7 @@ from app.profile.domain.region_mapper import country_to_locale, country_to_regio
 
 
 def _now() -> datetime:
-    return datetime.now(tz=timezone.utc)
+    return datetime.now(tz=UTC)
 
 
 def _enforce_mvp_segment_gate(profile: UserProfile) -> None:
@@ -39,9 +39,7 @@ def _enforce_mvp_segment_gate(profile: UserProfile) -> None:
             f"segment_unsupported_mvp:conditions:{','.join(hit_conditions)}"
         )
     if profile.region and profile.region in blocked_regions:
-        raise BusinessRuleViolation(
-            f"segment_unsupported_mvp:region:{profile.region}"
-        )
+        raise BusinessRuleViolation(f"segment_unsupported_mvp:region:{profile.region}")
 
 
 class ProfileRepository(Protocol):
@@ -74,15 +72,21 @@ class CompleteOnboarding:
         profile.onboarding_completed = True
         profile.updated_at = _now()
         await self.profiles.upsert(profile)
-        await self.bus.publish_many([
-            OnboardingCompleted(user_id=user_id, at=profile.updated_at),
-            BiometricsChanged(
-                user_id=user_id,
-                weight_kg=profile.weight_kg, height_cm=profile.height_cm,
-                age=profile.age, sex=profile.sex, goal=profile.goal,
-                activity_level=profile.activity_level, at=profile.updated_at,
-            ),
-        ])
+        await self.bus.publish_many(
+            [
+                OnboardingCompleted(user_id=user_id, at=profile.updated_at),
+                BiometricsChanged(
+                    user_id=user_id,
+                    weight_kg=profile.weight_kg,
+                    height_cm=profile.height_cm,
+                    age=profile.age,
+                    sex=profile.sex,
+                    goal=profile.goal,
+                    activity_level=profile.activity_level,
+                    at=profile.updated_at,
+                ),
+            ]
+        )
         return profile
 
 
@@ -106,12 +110,18 @@ class UpdateProfile:
         profile.updated_at = _now()
         await self.profiles.upsert(profile)
         if biometrics_before != biometrics_after:
-            await self.bus.publish(BiometricsChanged(
-                user_id=user_id,
-                weight_kg=profile.weight_kg, height_cm=profile.height_cm,
-                age=profile.age, sex=profile.sex, goal=profile.goal,
-                activity_level=profile.activity_level, at=profile.updated_at,
-            ))
+            await self.bus.publish(
+                BiometricsChanged(
+                    user_id=user_id,
+                    weight_kg=profile.weight_kg,
+                    height_cm=profile.height_cm,
+                    age=profile.age,
+                    sex=profile.sex,
+                    goal=profile.goal,
+                    activity_level=profile.activity_level,
+                    at=profile.updated_at,
+                )
+            )
         return profile
 
 

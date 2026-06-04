@@ -46,7 +46,7 @@ allergen hard-exclude are not enforceable.
 
 - New allergen values: require an FDA / Codex Alimentarius citation **and** a
   schema migration **and** a UI string in every supported locale **and** a backfill
-  plan for existing recipes. Reviewed by qa-elite + clinical-nutrition-generator.
+  plan for existing recipes. Reviewed by qa-elite + nutrition-nutrition-generator.
 - New condition values: require ICD-10 category mapping **and** test scenarios
   for plan filtering (positive and negative cases). Reviewed by the same pair.
 - Removals: never — deprecation only (`active=false`), to preserve historical
@@ -62,7 +62,7 @@ allergen hard-exclude are not enforceable.
 
 ## Appendix A — Canonical conditions (Spanish StrEnum, 25 values)
 
-Clinical priority list curated by `nova-clinical-nutrition-generator` and
+Priority list curated by `nova-clinical-nutrition-generator` and
 `nova-qa-elite`. Spanish snake_case identifiers match the DB enum convention
 (§21 of the design spec); ICD-10 categories are informational and used by the
 admin tooling to group filters.

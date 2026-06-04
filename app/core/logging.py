@@ -1,4 +1,5 @@
 """Structlog JSON logging — request_id, user_id, trace_id propagation."""
+
 from __future__ import annotations
 
 import logging

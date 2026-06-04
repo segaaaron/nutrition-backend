@@ -55,6 +55,11 @@ CRON_JOBS: list[Any] = [
 
 async def on_startup(ctx: dict[str, Any]) -> None:
     ctx["settings"] = _settings
+    # Sentry init — no-op when SENTRY_DSN unset. Arq has no first-party
+    # integration; AsyncioIntegration covers task scheduling. Exceptions
+    # raised inside Arq tasks propagate to the SDK's global excepthook.
+    from app.core.observability import init_sentry
+    init_sentry("worker")
 
 
 async def on_shutdown(ctx: dict[str, Any]) -> None:  # noqa: ARG001

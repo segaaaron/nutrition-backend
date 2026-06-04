@@ -2,6 +2,7 @@
 
 Food logs land in Sprint 5 (Vision IA). Fasting/grocery in Sprint 7.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

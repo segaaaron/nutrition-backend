@@ -1,4 +1,5 @@
 """Nutritional goals ORM."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -15,7 +16,9 @@ from app.identity.infrastructure.models import Base
 class NutritionalGoalsModel(Base):
     __tablename__ = "nutritional_goals"
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
-    user_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
+    user_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE")
+    )
     kcal_min: Mapped[int] = mapped_column(Integer)
     kcal_max: Mapped[int] = mapped_column(Integer)
     protein_g: Mapped[int] = mapped_column(Integer)

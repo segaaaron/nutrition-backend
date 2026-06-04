@@ -1,6 +1,7 @@
 """When the user edits a detected item, upsert vision_user_corrections so
 future matches resolve instantly without LLM/embedding lookup.
 """
+
 from __future__ import annotations
 
 import re
@@ -31,7 +32,9 @@ class LearnUserCorrection:
         corrected_food_id: UUID | None,
         corrected_amount_g: Decimal | None,
     ) -> None:
-        await self.session.execute(text("""
+        await self.session.execute(
+            text(
+                """
             INSERT INTO vision_user_corrections (
                 user_id, detected_name_norm, corrected_food_id,
                 corrected_amount_g, occurrences, last_seen_at
@@ -43,9 +46,12 @@ class LearnUserCorrection:
                   corrected_amount_g = EXCLUDED.corrected_amount_g,
                   occurrences = vision_user_corrections.occurrences + 1,
                   last_seen_at = now()
-        """), {
-            "uid": str(user_id),
-            "n": _norm(detected_name),
-            "fid": str(corrected_food_id) if corrected_food_id else None,
-            "ag": float(corrected_amount_g) if corrected_amount_g is not None else None,
-        })
+        """
+            ),
+            {
+                "uid": str(user_id),
+                "n": _norm(detected_name),
+                "fid": str(corrected_food_id) if corrected_food_id else None,
+                "ag": float(corrected_amount_g) if corrected_amount_g is not None else None,
+            },
+        )

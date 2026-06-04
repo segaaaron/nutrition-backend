@@ -15,6 +15,7 @@ Current line:
 - 0.1.0 — H1 foundation shipped (Decimal-strict BMR/TDEE/macros, pipeline,
           ports, lactation Strategy registered).
 """
+
 from __future__ import annotations
 
 from typing import Final

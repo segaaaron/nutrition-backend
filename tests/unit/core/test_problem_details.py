@@ -4,6 +4,7 @@ A minimal FastAPI app is constructed per test — we do *not* spin up the
 real `create_app()` factory because it requires DB/Redis. The handlers
 are pure functions of the exception + request, so an isolated app
 exercises every path."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -85,7 +86,7 @@ def test_business_rule_segment_unsupported_returns_urn_with_segment_extra(
         ("height_required", "plan:height-required"),
         ("onboarding_incomplete", "plan:onboarding-incomplete"),
         ("pediatric_outside_mvp_scope", "plan:pediatric-outside-mvp-scope"),
-        ("geriatric_requires_clinical_review", "plan:geriatric-requires-clinical-review"),
+        ("geriatric_requires_specialist_review", "plan:geriatric-requires-specialist-review"),
     ],
 )
 def test_business_rule_known_details_map_to_urn(

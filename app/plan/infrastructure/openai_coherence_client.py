@@ -7,6 +7,7 @@ for 24h keyed by `(user_profile_hash, candidate_set_hash)` because the
 expensive bit is the LLM call — the underlying plan is deterministic given
 those two hashes.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -117,12 +118,15 @@ class CoherencePass:
             resp = await _get_client().chat.completions.create(
                 model=model,
                 messages=[
-                    {"role": "system", "content": (
-                        "You are a registered dietitian validating a meal plan for "
-                        "macro/micro balance, repetition, and cultural coherence. "
-                        "Suggest at most 3 swaps and choose only from the provided "
-                        "alternatives map. Output strict JSON conforming to the schema."
-                    )},
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a registered dietitian validating a meal plan for "
+                            "macro/micro balance, repetition, and cultural coherence. "
+                            "Suggest at most 3 swaps and choose only from the provided "
+                            "alternatives map. Output strict JSON conforming to the schema."
+                        ),
+                    },
                     {"role": "user", "content": prompt},
                 ],
                 response_format={
@@ -138,7 +142,8 @@ class CoherencePass:
             content = resp.choices[0].message.content or "{}"
             usage = resp.usage
             await record_usage(
-                user_id=self.user_id, model=model,
+                user_id=self.user_id,
+                model=model,
                 in_tok=getattr(usage, "prompt_tokens", 0) if usage else 0,
                 out_tok=getattr(usage, "completion_tokens", 0) if usage else 0,
             )
@@ -160,17 +165,19 @@ class CoherencePass:
         candidate_plan: list[dict],
         alternatives: dict[tuple[int, str], list[str]],
     ) -> str:
-        return json.dumps({
-            "user_profile": user_profile,
-            "plan": candidate_plan,
-            "alternatives": {
-                f"{d}|{mt}": ids for (d, mt), ids in alternatives.items()
+        return json.dumps(
+            {
+                "user_profile": user_profile,
+                "plan": candidate_plan,
+                "alternatives": {f"{d}|{mt}": ids for (d, mt), ids in alternatives.items()},
             },
-        }, sort_keys=True)
+            sort_keys=True,
+        )
 
     @staticmethod
     def _validate_swaps(
-        raw: dict, alternatives: dict[tuple[int, str], list[str]],
+        raw: dict,
+        alternatives: dict[tuple[int, str], list[str]],
     ) -> dict:
         out_swaps: list[dict] = []
         for swap in raw.get("swaps", []) or []:

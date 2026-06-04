@@ -1,4 +1,5 @@
 """Gamification entities + VO."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -45,7 +46,7 @@ class UserLevel:
     next_level_points: int
 
     @classmethod
-    def from_points(cls, points: int) -> "UserLevel":
+    def from_points(cls, points: int) -> UserLevel:
         if points <= 0:
             return cls(points=0, level=0, next_level_points=100)
         level = int((points / 100.0) ** (1 / 1.5))

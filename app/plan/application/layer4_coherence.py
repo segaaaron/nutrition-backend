@@ -3,6 +3,7 @@
 Thin adapter that delegates to the OpenAI client. Lives in `application` so
 the use case can swap implementations (e.g., a no-op stub in tests).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

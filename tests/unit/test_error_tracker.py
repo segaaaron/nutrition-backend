@@ -1,4 +1,5 @@
 """Local error tracker tests — replaces Sentry tests."""
+
 from __future__ import annotations
 
 from fastapi import FastAPI
@@ -7,8 +8,8 @@ from fastapi.testclient import TestClient
 from app.core.error_tracker import (
     ErrorTrackerMiddleware,
     clear_ring,
-    record_error,
     recent_errors,
+    record_error,
 )
 
 

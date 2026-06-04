@@ -1,7 +1,7 @@
 """Soften regulator-sensitive "insulina" wording in catalog descriptions.
 
 QA review 2026-06-01 flagged 25 diabetes_t1 snack descriptions using the
-literal word "insulina" (clinically correct context — talking about endogenous
+literal word "insulina" (nutritionally correct context — talking about endogenous
 glycemic response — but regulator-sensitive surface wording).
 
 This script replaces:

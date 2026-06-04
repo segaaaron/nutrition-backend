@@ -5,6 +5,7 @@ Each constraint implements the `Constraint` Protocol from
 `DraftPlan`. Layer 4 coherence iterates the registry; the greedy solver swaps
 slots to drive violations to zero.
 """
+
 from __future__ import annotations
 
 from app.plan.domain.constraints.liquid_cap import LiquidCap

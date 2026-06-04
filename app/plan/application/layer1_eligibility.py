@@ -14,7 +14,7 @@ slot. **Hard** rules (no soft fallback):
          (2026-06-01) found 37 such mistagged recipes.
   3. Contraindicated conditions: any recipe listing a user's condition in
      `contraindicated_conditions` is dropped.
-  4. Condition-specific clinical gates (per spec §6 / ADR-0001):
+  4. Condition-specific gates (per spec §6 / ADR-0001):
        diabetes_t2          → sugar_g/portion ≤ 15
        hypertension         → sodium_mg/portion ≤ 600
        ckd                  → protein_g/portion ≤ weight_kg * 0.8 / 3
@@ -24,6 +24,7 @@ slot. **Hard** rules (no soft fallback):
 
 Budget: <50 ms (single round-trip indexed query, GIN-backed array ops).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -94,24 +95,46 @@ class Layer1Eligibility:
                 params["nut_pattern"] = _TREE_NUT_PATTERN
 
         if conditions:
-            where.append(
-                "NOT (r.contraindicated_conditions && CAST(:conditions AS text[]))"
-            )
+            where.append("NOT (r.contraindicated_conditions && CAST(:conditions AS text[]))")
             params["conditions"] = conditions
 
+            # ----------------------------------------------------------------
+            # CRITICAL conditions — FAIL-CLOSED on missing data (R6, 2026-06-03).
+            #
+            # Policy: for safety-critical filters, a NULL column means
+            # the catalog row is INCOMPLETE, not safe. We exclude it rather
+            # than include it. This biases recommendations toward recipes with
+            # fully audited macros; catalog backfill keeps the candidate pool
+            # healthy (see `scripts/catalog_completeness_audit.py`).
+            #
+            # Trade-off: until backfill is complete, users with these
+            # conditions see a narrower catalogue. Acceptable: false negatives
+            # (missing safe recipe) are recoverable; false positives (unsafe
+            # recipe served to at-risk user) are not.
+            # ----------------------------------------------------------------
             if "diabetes_t2" in conditions:
-                where.append("(r.sugar_g IS NULL OR r.sugar_g <= 15)")
+                # Source: ADA 2024 Standards of Care — added sugars ≤10% kcal
+                # ⇒ ≈15 g/meal at ~2000 kcal across 4 occasions.
+                where.append("(r.sugar_g IS NOT NULL AND r.sugar_g <= 15)")
             if "hypertension" in conditions:
-                where.append("(r.sodium_mg IS NULL OR r.sodium_mg <= 600)")
+                # Source: 2017 ACC/AHA + WHO 2023 — Na <2000 mg/day ⇒
+                # ≤600 mg/meal at 3 meals with snack margin.
+                where.append("(r.sodium_mg IS NOT NULL AND r.sodium_mg <= 600)")
             if "hypercholesterolemia" in conditions:
-                where.append("(r.sat_fat_g IS NULL OR r.sat_fat_g <= 5)")
+                # Source: 2018 AHA/ACC Cholesterol Guideline (Circulation
+                # 139:e1082) — sat fat <6% kcal ⇒ ≈5 g/meal at 2000 kcal/3
+                # meals.
+                where.append("(r.sat_fat_g IS NOT NULL AND r.sat_fat_g <= 5)")
             if "ckd" in conditions and weight_kg is not None:
+                # Source: KDOQI 2020 Nutrition in CKD — 0.8 g protein/kg/day
+                # spread across 3 meals as the non-dialysis-dependent
+                # conservative target (real recommendation is 0.55-0.60
+                # g/kg/day for stages 3-5 without diabetes).
                 ckd_cap = max(1, int(float(weight_kg) * 0.8 / 3))
-                where.append(f"(r.protein_g IS NULL OR r.protein_g <= {ckd_cap})")
+                where.append("(r.protein_g IS NOT NULL AND r.protein_g <= :ckd_protein_cap)")
+                params["ckd_protein_cap"] = ckd_cap
             if "gout" in conditions:
-                where.append(
-                    "NOT (r.tags && ARRAY['organ_meat','shellfish']::text[])"
-                )
+                where.append("NOT (r.tags && ARRAY['organ_meat','shellfish']::text[])")
             # ConditionGate Strategy dispatch (H2). Registered gates live in
             # app/plan/domain/condition_gates. Layer 1 dispatches ALL registered
             # gates for each declared user condition, composing their SQL
@@ -122,15 +145,20 @@ class Layer1Eligibility:
             # hypertension, celiac. Defensive COALESCE on un-backfilled
             # micronutrient columns (safety > variety).
             from app.plan.domain.condition_gates import gates_for
+
             for cond in conditions:
                 for gate in gates_for(cond):
                     g_sql, g_params = gate.contribute_sql()
                     where.append(g_sql)
                     params.update(g_params)
 
+        # S608 noqa: `where` is assembled exclusively from literal SQL
+        # fragments authored in this function or returned by registered
+        # ConditionGate strategies. User-controlled values are bound via
+        # :params. No injection vector.
         sql = f"""
             SELECT r.id FROM recipes r
              WHERE {' AND '.join(where)}
-        """
+        """  # noqa: S608
         res = await self.session.execute(text(sql), params)
         return [row[0] for row in res.all()]

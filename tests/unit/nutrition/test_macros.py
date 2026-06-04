@@ -1,10 +1,11 @@
 """MacroBreakdown property test — must satisfy MACRO_TOLERANCE."""
+
 from __future__ import annotations
 
 from decimal import Decimal
 
-import pytest
-from hypothesis import given, strategies as st
+from hypothesis import given
+from hypothesis import strategies as st
 
 from app.nutrition.domain.kcal_range import to_range
 from app.nutrition.domain.macro_partitioning import compute_macros, is_within_tolerance

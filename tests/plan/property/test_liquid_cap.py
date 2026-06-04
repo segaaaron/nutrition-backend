@@ -2,6 +2,7 @@
 
 Pure-domain, no DB, no async. ~200 hypothesis examples per property.
 """
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -20,7 +21,6 @@ from app.plan.domain.context import (
     Violation,
 )
 from app.plan.domain.ports import Constraint
-
 
 _SETTINGS = settings(
     max_examples=200,
@@ -128,9 +128,9 @@ def test_liquid_cap_weight_loss_one_max(formats: list[str]) -> None:
 
 
 @_SETTINGS
-@given(formats=_formats_st, goal=st.sampled_from(
-    ["maintain", "muscle_gain", "weight_gain", "health"]
-))
+@given(
+    formats=_formats_st, goal=st.sampled_from(["maintain", "muscle_gain", "weight_gain", "health"])
+)
 def test_liquid_cap_maintain_two_max(formats: list[str], goal: str) -> None:
     """Non-weight-loss goals with >2 liquid → one violation."""
     if _count_liquid(formats) <= 2:
@@ -142,14 +142,10 @@ def test_liquid_cap_maintain_two_max(formats: list[str], goal: str) -> None:
 
 @_SETTINGS
 @given(
-    formats=st.lists(
-        st.sampled_from(["solid", "semi_solid"]), min_size=0, max_size=6
-    ),
+    formats=st.lists(st.sampled_from(["solid", "semi_solid"]), min_size=0, max_size=6),
     goal=_goal_st,
 )
-def test_liquid_cap_zero_liquid_passes(
-    formats: list[str], goal: str
-) -> None:
+def test_liquid_cap_zero_liquid_passes(formats: list[str], goal: str) -> None:
     """No liquid meals → never violates regardless of goal."""
     cap = LiquidCap()
     assert cap.check(_plan(formats, goal)) == []
@@ -157,9 +153,7 @@ def test_liquid_cap_zero_liquid_passes(
 
 @_SETTINGS
 @given(formats=_formats_st, goal=_goal_st)
-def test_liquid_cap_policy_consistent(
-    formats: list[str], goal: str
-) -> None:
+def test_liquid_cap_policy_consistent(formats: list[str], goal: str) -> None:
     """Same plan + goal twice → identical violations (pure function)."""
     cap = LiquidCap()
     plan = _plan(formats, goal)
@@ -168,9 +162,7 @@ def test_liquid_cap_policy_consistent(
 
 @_SETTINGS
 @given(formats=_formats_st, goal=_goal_st)
-def test_liquid_cap_magnitude_equals_excess(
-    formats: list[str], goal: str
-) -> None:
+def test_liquid_cap_magnitude_equals_excess(formats: list[str], goal: str) -> None:
     """Violation magnitude == n_liquid - max_allowed."""
     n_liquid = _count_liquid(formats)
     max_allowed = _max_for(goal)
@@ -183,12 +175,8 @@ def test_liquid_cap_magnitude_equals_excess(
 
 
 @_SETTINGS
-@given(
-    n_semi_solid=st.integers(min_value=0, max_value=6), goal=_goal_st
-)
-def test_liquid_cap_not_counting_semi_solid(
-    n_semi_solid: int, goal: str
-) -> None:
+@given(n_semi_solid=st.integers(min_value=0, max_value=6), goal=_goal_st)
+def test_liquid_cap_not_counting_semi_solid(n_semi_solid: int, goal: str) -> None:
     """semi_solid does NOT count toward the liquid cap."""
     formats = ["semi_solid"] * n_semi_solid
     cap = LiquidCap()

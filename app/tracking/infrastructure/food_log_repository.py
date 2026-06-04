@@ -5,6 +5,7 @@ achieved by appending an entry to `audit_log` and physically deleting the row.
 Restoration is out of scope (immutability of nutrition history is preferred
 once N days have elapsed — see backup procedure).
 """
+
 from __future__ import annotations
 
 import base64
@@ -62,7 +63,10 @@ class SqlFoodLogRepository:
             params["cid"] = str(lid)
 
         where = " AND ".join(clauses)
-        sql = text(f"""
+        # S608 noqa: `clauses` is assembled exclusively from literal WHERE
+        # fragments authored in this function. All values bound via :params.
+        sql = text(
+            f"""
             SELECT id, user_id, date, meal_time, method, food_id, recipe_id,
                    free_text_name, amount_g, kcal, protein_g, carbs_g, fat_g,
                    confidence, source_image_url, created_at
@@ -70,7 +74,8 @@ class SqlFoodLogRepository:
              WHERE {where}
              ORDER BY created_at DESC, id DESC
              LIMIT :limit
-        """)
+        """
+        )  # noqa: S608
         rows = (await self.s.execute(sql, params)).mappings().all()
         next_cursor: str | None = None
         if len(rows) > q.limit:
@@ -79,13 +84,22 @@ class SqlFoodLogRepository:
             next_cursor = _encode_cursor(last["created_at"], last["id"])
         out = [
             FoodLog(
-                id=r["id"], user_id=r["user_id"], date=r["date"],
-                meal_time=r["meal_time"], method=r["method"],
-                food_id=r["food_id"], recipe_id=r["recipe_id"],
-                free_text_name=r["free_text_name"], amount_g=r["amount_g"],
-                kcal=r["kcal"], protein_g=r["protein_g"], carbs_g=r["carbs_g"],
-                fat_g=r["fat_g"], confidence=r["confidence"],
-                source_image_url=r["source_image_url"], created_at=r["created_at"],
+                id=r["id"],
+                user_id=r["user_id"],
+                date=r["date"],
+                meal_time=r["meal_time"],
+                method=r["method"],
+                food_id=r["food_id"],
+                recipe_id=r["recipe_id"],
+                free_text_name=r["free_text_name"],
+                amount_g=r["amount_g"],
+                kcal=r["kcal"],
+                protein_g=r["protein_g"],
+                carbs_g=r["carbs_g"],
+                fat_g=r["fat_g"],
+                confidence=r["confidence"],
+                source_image_url=r["source_image_url"],
+                created_at=r["created_at"],
             )
             for r in rows
         ]
@@ -101,36 +115,45 @@ class SqlFoodLogRepository:
         if row is None:
             raise NotFoundError(detail="food_log_not_found")
         await self.s.execute(
-            text("""
+            text(
+                """
                 INSERT INTO audit_log (actor_type, actor_id, action, target, payload)
                 VALUES ('user', :uid, 'food_log.delete', :tid, :payload::jsonb)
-            """),
+            """
+            ),
             {
                 "uid": str(user_id),
                 "tid": str(log_id),
                 "payload": json.dumps({"reason": reason or ""}),
             },
         )
-        await self.s.execute(
-            text("DELETE FROM food_logs WHERE id = :id"), {"id": str(log_id)}
-        )
+        await self.s.execute(text("DELETE FROM food_logs WHERE id = :id"), {"id": str(log_id)})
 
     async def daily_totals(
-        self, *, user_id: UUID, on: date,
+        self,
+        *,
+        user_id: UUID,
+        on: date,
     ) -> DailyTotals:
         # Prefer the daily continuous aggregate (added in migration 0004) when
         # it exists; fall back to a per-row sum otherwise.
-        sql_agg = text("""
+        sql_agg = text(
+            """
             SELECT day, kcal, protein_g, carbs_g, fat_g
               FROM food_logs_aggregates_daily
              WHERE user_id = :uid AND day = :d
-        """)
+        """
+        )
         try:
             r = (await self.s.execute(sql_agg, {"uid": str(user_id), "d": on})).mappings().first()
             if r:
                 # Fiber/sugar/sodium are NOT in the continuous aggregate
                 # (kept narrow to bound storage). Fetch them via a quick scan.
-                extras = (await self.s.execute(text("""
+                extras = (
+                    (
+                        await self.s.execute(
+                            text(
+                                """
                     SELECT
                       COALESCE(SUM(CASE WHEN f.fiber_g IS NOT NULL
                                         THEN (f.fiber_g * COALESCE(fl.amount_g,100) / 100.0) END),0)::int AS fiber_g,
@@ -141,7 +164,15 @@ class SqlFoodLogRepository:
                       FROM food_logs fl
                       LEFT JOIN foods f ON f.id = fl.food_id
                      WHERE fl.user_id = :uid AND fl.date = :d
-                """), {"uid": str(user_id), "d": on})).mappings().first() or {}
+                """
+                            ),
+                            {"uid": str(user_id), "d": on},
+                        )
+                    )
+                    .mappings()
+                    .first()
+                    or {}
+                )
                 return DailyTotals(
                     date=on,
                     kcal=int(r["kcal"] or 0),
@@ -155,7 +186,8 @@ class SqlFoodLogRepository:
         except Exception:  # noqa: BLE001 — aggregate may not exist yet
             pass
 
-        sql = text("""
+        sql = text(
+            """
             SELECT
               COALESCE(SUM(fl.kcal),0)::int      AS kcal,
               COALESCE(SUM(fl.protein_g),0)::int AS protein_g,
@@ -170,7 +202,8 @@ class SqlFoodLogRepository:
               FROM food_logs fl
               LEFT JOIN foods f ON f.id = fl.food_id
              WHERE fl.user_id = :uid AND fl.date = :d
-        """)
+        """
+        )
         r = (await self.s.execute(sql, {"uid": str(user_id), "d": on})).mappings().first() or {}
         return DailyTotals(
             date=on,
@@ -184,22 +217,32 @@ class SqlFoodLogRepository:
         )
 
     async def trend(
-        self, *, user_id: UUID, window_days: int,
+        self,
+        *,
+        user_id: UUID,
+        window_days: int,
     ) -> list[dict]:
-        sql = text("""
+        sql = text(
+            """
             SELECT day, kcal, protein_g, carbs_g, fat_g
               FROM food_logs_aggregates_daily
              WHERE user_id = :uid AND day >= (CURRENT_DATE - (:n || ' days')::interval)
              ORDER BY day ASC
-        """)
+        """
+        )
         try:
-            rows = (await self.s.execute(sql, {"uid": str(user_id), "n": window_days})).mappings().all()
+            rows = (
+                (await self.s.execute(sql, {"uid": str(user_id), "n": window_days}))
+                .mappings()
+                .all()
+            )
             if rows:
                 return [dict(r) for r in rows]
         except Exception:  # noqa: BLE001
             pass
         # Fallback raw aggregation per date.
-        sql2 = text("""
+        sql2 = text(
+            """
             SELECT date AS day,
                    COALESCE(SUM(kcal),0)::int      AS kcal,
                    COALESCE(SUM(protein_g),0)::int AS protein_g,
@@ -210,8 +253,11 @@ class SqlFoodLogRepository:
                AND date >= (CURRENT_DATE - (:n || ' days')::interval)::date
              GROUP BY date
              ORDER BY date ASC
-        """)
-        rows = (await self.s.execute(sql2, {"uid": str(user_id), "n": window_days})).mappings().all()
+        """
+        )
+        rows = (
+            (await self.s.execute(sql2, {"uid": str(user_id), "n": window_days})).mappings().all()
+        )
         return [dict(r) for r in rows]
 
     async def micros_today(self, *, user_id: UUID) -> dict[str, float]:
@@ -219,21 +265,43 @@ class SqlFoodLogRepository:
 
         Each foods.micronutrients is e.g. {"calcium_mg": 120, "iron_mg": 2.4}.
         Scaling: micros are per-100g; multiply by amount_g/100.
+
+        CLAUDE.md non-negotiable #2 — Decimal + ROUND_HALF_EVEN (banker's
+        rounding, IEEE 754-2008 default) for nutrition macro/micro math.
+        Float arithmetic is forbidden in nutrition numbers. We accumulate
+        in Decimal, quantize at 4 decimal places, and cast to float only
+        at the API boundary (response is JSON-serialisable).
         """
-        sql = text("""
+        from decimal import ROUND_HALF_EVEN, Decimal, InvalidOperation
+
+        sql = text(
+            """
             SELECT fl.amount_g, f.micronutrients
               FROM food_logs fl
               JOIN foods f ON f.id = fl.food_id
              WHERE fl.user_id = :uid AND fl.date = CURRENT_DATE
                AND f.micronutrients IS NOT NULL
-        """)
+        """
+        )
         rows = (await self.s.execute(sql, {"uid": str(user_id)})).all()
-        totals: dict[str, float] = {}
+        totals: dict[str, Decimal] = {}
+        q = Decimal("0.0001")
         for amount_g, micros in rows:
-            scale = float(amount_g or 100) / 100.0
+            try:
+                scale = Decimal(str(amount_g if amount_g is not None else 100)) / Decimal("100")
+            except (InvalidOperation, TypeError, ValueError):
+                continue
             for k, v in (micros or {}).items():
                 try:
-                    totals[k] = round(totals.get(k, 0.0) + float(v) * scale, 4)
-                except (TypeError, ValueError):
+                    increment = (Decimal(str(v)) * scale).quantize(
+                        q,
+                        rounding=ROUND_HALF_EVEN,
+                    )
+                    totals[k] = (totals.get(k, Decimal("0")) + increment).quantize(
+                        q,
+                        rounding=ROUND_HALF_EVEN,
+                    )
+                except (InvalidOperation, TypeError, ValueError):
                     continue
-        return totals
+        # Float cast only at the API boundary — values already quantized.
+        return {k: float(v) for k, v in totals.items()}

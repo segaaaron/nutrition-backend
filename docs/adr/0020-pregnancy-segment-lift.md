@@ -14,7 +14,7 @@ Layer 1 SQL gate:
 
 ## Why lift now (no +250 pregnancy-specific recipes)
 
-NOVA scope per ADR-0017: nutrition planning, not clinical advice. The 26,827 `pregnancy_safe = true` recipes already in catalog form a safe filter pool. Adding +250 pregnancy-recommended recipes (boost ranking) is a future quality improvement, NOT a safety prerequisite.
+NOVA scope per ADR-0017: nutrition planning, not nutrition guidance. The 26,827 `pregnancy_safe = true` recipes already in catalog form a safe filter pool. Adding +250 pregnancy-recommended recipes (boost ranking) is a future quality improvement, NOT a safety prerequisite.
 
 Layer 1 safety floor + micros thresholds + pregnancy_safe filter cover the legal-critical floor. Trimester-aware kcal surplus aligns plan energy with IOM DRI guidance.
 

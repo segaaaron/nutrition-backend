@@ -1,4 +1,5 @@
 """Plan aggregate (Plan → PlanDay → PlanMeal). Framework-agnostic."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

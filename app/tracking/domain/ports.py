@@ -1,4 +1,5 @@
 """Tracking ports."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -15,6 +16,4 @@ class WaterLogRepository(Protocol):
 
 class WeightLogRepository(Protocol):
     async def append(self, log: WeightLog) -> None: ...
-    async def trend(
-        self, user_id: UUID, *, window_days: int
-    ) -> list[tuple[datetime, float]]: ...
+    async def trend(self, user_id: UUID, *, window_days: int) -> list[tuple[datetime, float]]: ...

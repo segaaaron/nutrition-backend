@@ -1,4 +1,5 @@
 """Billing domain — entities, VO, events, ports."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -132,8 +133,14 @@ class PaymentGateway(Protocol):
     name: BillingProvider
 
     async def create_checkout(
-        self, *, user_id: UUID, email: str, plan: Plan,
-        country: str, success_url: str, cancel_url: str,
+        self,
+        *,
+        user_id: UUID,
+        email: str,
+        plan: Plan,
+        country: str,
+        success_url: str,
+        cancel_url: str,
     ) -> dict: ...
 
     async def cancel_subscription(self, *, provider_sub_id: str) -> None: ...

@@ -1,9 +1,10 @@
 """Fasting REST endpoints."""
+
 from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Header, status
+from fastapi import APIRouter, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.event_bus import get_event_bus
@@ -37,12 +38,16 @@ async def start_fasting(
     body: StartFastingBody,
     current_user: CurrentUserDep,
     session: SessionDep,
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),  # noqa: ARG001
 ) -> StartFastingOut:
+    # NOTE: `Idempotency-Key` not supported. Concurrent start is guarded by the
+    # active-fasting uniqueness invariant inside `StartFasting` use case.
     uc = StartFasting(repo=SqlFastingRepository(session), bus=get_event_bus())
     fs = await uc(user_id=current_user, method_h=body.method_h)
     return StartFastingOut(
-        id=fs.id, method_h=fs.method_h, start_ts=fs.start_ts.isoformat(), target_s=fs.target_s,
+        id=fs.id,
+        method_h=fs.method_h,
+        start_ts=fs.start_ts.isoformat(),
+        target_s=fs.target_s,
     )
 
 
@@ -55,13 +60,18 @@ class StopFastingOut(BaseModel):
 
 @router.post("/fasting/{session_id}/stop", response_model=StopFastingOut)
 async def stop_fasting(
-    session_id: UUID, current_user: CurrentUserDep, session: SessionDep,
+    session_id: UUID,
+    current_user: CurrentUserDep,
+    session: SessionDep,
 ) -> StopFastingOut:
     # BOLA OK: StopFasting use case checks fs.user_id != user_id → NotFoundError.
     uc = StopFasting(repo=SqlFastingRepository(session), bus=get_event_bus())
     fs = await uc(user_id=current_user, session_id=session_id)
     return StopFastingOut(
-        id=fs.id, duration_s=fs.duration_s or 0, target_s=fs.target_s, achieved=fs.achieved,
+        id=fs.id,
+        duration_s=fs.duration_s or 0,
+        target_s=fs.target_s,
+        achieved=fs.achieved,
     )
 
 

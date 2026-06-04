@@ -1,8 +1,9 @@
 """Fasting use cases."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from app.core.errors import ConflictError, NotFoundError
@@ -36,10 +37,14 @@ class StartFasting:
             method=FastingMethod(method_h),
         )
         await self.repo.insert(fs)
-        await self.bus.publish(FastingStarted(
-            session_id=fs.id, user_id=user_id, method_h=method_h,
-            at=datetime.now(timezone.utc),
-        ))
+        await self.bus.publish(
+            FastingStarted(
+                session_id=fs.id,
+                user_id=user_id,
+                method_h=method_h,
+                at=datetime.now(UTC),
+            )
+        )
         return fs
 
 
@@ -56,11 +61,16 @@ class StopFasting:
             raise ConflictError(detail="fasting_already_stopped")
         fs.stop()
         await self.repo.finalize(fs)
-        await self.bus.publish(FastingCompleted(
-            session_id=fs.id, user_id=user_id, method_h=fs.method_h,
-            duration_s=fs.duration_s or 0, achieved=fs.achieved,
-            at=datetime.now(timezone.utc),
-        ))
+        await self.bus.publish(
+            FastingCompleted(
+                session_id=fs.id,
+                user_id=user_id,
+                method_h=fs.method_h,
+                duration_s=fs.duration_s or 0,
+                achieved=fs.achieved,
+                at=datetime.now(UTC),
+            )
+        )
         return fs
 
 
@@ -72,7 +82,7 @@ class GetActiveFasting:
         fs = await self.repo.active_for(user_id)
         if fs is None:
             return None
-        elapsed = int((datetime.now(timezone.utc) - fs.start_ts).total_seconds())
+        elapsed = int((datetime.now(UTC) - fs.start_ts).total_seconds())
         return {
             "id": str(fs.id),
             "method_h": fs.method_h,
@@ -88,18 +98,26 @@ class GetFastingHistory:
     repo: SqlFastingRepository
 
     async def __call__(
-        self, *, user_id: UUID, cursor: str | None = None, limit: int = 30,
+        self,
+        *,
+        user_id: UUID,
+        cursor: str | None = None,
+        limit: int = 30,
     ) -> dict:
         items, nxt = await self.repo.history(
-            user_id=user_id, cursor=cursor, limit=min(limit, 100),
+            user_id=user_id,
+            cursor=cursor,
+            limit=min(limit, 100),
         )
         return {
             "items": [
                 {
-                    "id": str(i.id), "method_h": i.method_h,
+                    "id": str(i.id),
+                    "method_h": i.method_h,
                     "start_ts": i.start_ts.isoformat(),
                     "end_ts": i.end_ts.isoformat() if i.end_ts else None,
-                    "duration_s": i.duration_s, "target_s": i.target_s,
+                    "duration_s": i.duration_s,
+                    "target_s": i.target_s,
                     "achieved": i.achieved,
                 }
                 for i in items

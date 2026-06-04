@@ -18,7 +18,7 @@ Catalog readiness:
 - 974 recipes `recommended_for: diabetes_t2` (round 1 + 2 + 3 batches)
 - 24 recipes `contraindicated_for: diabetes_t2` (high-carb derecommended)
 
-NOVA scope (ADR-0017): nutrition planning, not clinical advice. Diabetic users self-declare their condition. Layer 1 safety floor prevents glycemic harm regardless of clinical-advice scope. Disclaimer covers liability.
+NOVA scope (ADR-0017): nutrition planning, not nutrition guidance. Diabetic users self-declare their condition. Layer 1 safety floor prevents glycemic harm regardless of nutrition-advice scope. Disclaimer covers liability.
 
 ## Consequences
 

@@ -31,7 +31,7 @@ Catalog needs **3 additive fields** (no breaks): `dietary_pattern`, `cuisine_reg
 | Talla (m) e.g. 1.75 | `height_m: Decimal` → `height_cm = ×100` | Mifflin BMR | OK — bounds 1.20-2.40 m |
 | Objetivo (5 buttons) | `goal: Goal` | kcal adjust, fat fraction, protein k | OK |
 | Nivel de actividad (5 levels) | `activity_level: ActivityLevel` | TDEE multiplier | OK + auto-derive `athletic` if `extra_active` |
-| Condición médica (multi) | `conditions: list[Condition]` | Layer1 clinical gates | OK enum subset, **"Otros…" decoupled** |
+| Condición médica (multi) | `conditions: list[Condition]` | Layer1 safety gates | OK enum subset, **"Otros…" decoupled** |
 | Alergias (multi) | `allergens: list[Allergen]` | Layer1 hard exclude | OK enum, **"Otra alergia…" P0 BLOCK** |
 | (missing) | `dietary_pattern: DietaryPattern` | Catalog filter | **P0 ADD** |
 | (missing) | `region: Region` | Catalog `regions[]` filter | OK auto-derive from `Accept-Language` |
@@ -82,7 +82,7 @@ UI label "TALLA (M)" with value `1.75` reads as meters but `M` could be misread 
 
 ### P1.3 — "Otros…" condition free text
 
-Layer1 routes only known conditions to clinical gates. "Otros…" cannot be safely routed (NLP mapping is H2 scope).
+Layer1 routes only known conditions to safety gates. "Otros…" cannot be safely routed (NLP mapping is H2 scope).
 
 **Decision:** persist as `conditions_freetext` (encrypted PII column). Surface in coach LLM context only with explicit consent flag. Do NOT pass to Layer1. Surface warning `unmapped_condition_ignored_for_plan` in profile.
 
@@ -148,7 +148,7 @@ class OnboardingRequest(_Strict):
         return self
 ```
 
-Age <18 → `pediatric_outside_mvp_scope`. Age >80 → `geriatric_requires_clinical_review`. Both block (segment gate).
+Age <18 → `pediatric_outside_mvp_scope`. Age >80 → `geriatric_requires_specialist_review`. Both block (segment gate).
 
 ---
 
@@ -205,7 +205,7 @@ Migration 0010 (TBD): adds columns + defaults + GIN on `dietary_pattern`. Revers
 | Smoothies funcionales | 10 | snack/breakfast | liquid |
 | Mezclas/preparaciones virales | 10 | breakfast/snack | semi_solid |
 
-3 exemplar JSONs documented in agent report (piña+linaza+chía, smoothie proteico cacao+plátano, chía pudding overnight). Owner approves → clinical-generator runs batch.
+3 exemplar JSONs documented in agent report (piña+linaza+chía, smoothie proteico cacao+plátano, chía pudding overnight). Owner approves → nutrition-generator runs batch.
 
 ---
 
@@ -213,7 +213,7 @@ Migration 0010 (TBD): adds columns + defaults + GIN on `dietary_pattern`. Revers
 
 | ADR | Title | Scope |
 |---|---|---|
-| ADR-0012 | Sex binary MVP + sex_at_birth rename | Document inclusion limitation + clinical rationale |
+| ADR-0012 | Sex binary MVP + sex_at_birth rename | Document inclusion limitation + nutrition rationale |
 | ADR-0013 | dietary_pattern + cuisine_region + meal_format catalog fields | 3 additive fields + migration plan |
 | ADR-0014 | Allergen freetext refuse-policy | P0 safety: never silently ignore |
 | ADR-0015 | Liquid meal cap per day | Layer4 coherence constraint + adherence rationale |
@@ -297,7 +297,7 @@ migrations/versions/
 tests/
 ├── catalog/
 │   └── test_enum_closure.py               # 7 tests, drift guard
-├── clinical/
+├── nutrition/
 │   └── test_allergen_hard_exclude.py      # 4 tests, Layer1 invariants
 ├── plan/
 │   └── property/
@@ -353,14 +353,14 @@ scripts/
 | O2 | Vegan gets meat | Mandatory `dietary_pattern` field | P0 — schema ready |
 | O3 | Height meter/cm confusion | Pydantic range + UI label | P1 |
 | O4 | Athlete underestimated BMR | Optional bodyfat in step 2 + warning | P1 |
-| O5 | "Otros…" routed to clinical gates | Freetext column, no filter | P1 |
+| O5 | "Otros…" routed to safety gates | Freetext column, no filter | P1 |
 | O6 | "Colesterol alto" → wrong condition | Map to `dyslipidemia` not `hypercholesterolemia` | P1 |
 | O7 | Celiac written as allergen only | Write BOTH `celiac` + `gluten` | P1 |
 | O8 | Liquid over-consumption → satiety drop → churn | Layer4 LiquidCap constraint | P1 — ADR-0015 |
 | O9 | Smoothie hidden sugar diabetes harm | Catalog validator + GL audit on liquids | P1 — validators ready |
 | O10 | Cultural mismatch (mate vs agua fresca) | `cuisine_region[]` + `_audit.cultural_origin` | P2 |
 | O11 | Pediatric age sneaks past UI | Pydantic `age ≥ 18` reject | P1 |
-| O12 | Geriatric (>80) Mifflin questionable | Reject + clinical review queue | P1 |
+| O12 | Geriatric (>80) Mifflin questionable | Reject + specialist review queue | P1 |
 | O13 | Sex/gender misalignment for trans users | ADR-0012 internal rename `sex_at_birth` + helper text | P1 |
 | O14 | `meals_per_day` defaulted wrong | Step 2 + warning fallback | P2 |
 | O15 | Region inferred wrong (VPN/travel) | Profile override option | P2 |
@@ -374,7 +374,7 @@ scripts/
 - [ ] Approve `dietary_pattern` as new mandatory onboarding field (UI work for iOS)
 - [ ] Approve `allergens_freetext` refuse-policy (UX implication: support route)
 - [ ] Approve catalog field additions (`dietary_pattern`, `cuisine_region`, `meal_format`) → migration 0010
-- [ ] Approve liquid batch of 30 generation by clinical-generator
+- [ ] Approve liquid batch of 30 generation by nutrition-generator
 - [ ] Approve label change "Talla (M)" → "Estatura (m, ej. 1.75)" for iOS team
 - [ ] Approve condition mapping rules (Colesterol→dyslipidemia, Celiaquía→celiac+gluten)
 
@@ -391,6 +391,6 @@ scripts/
 - iOS UI implementation (mobile team scope)
 - A/B onboarding flow (single vs split screen) — design call
 - Localization beyond es (en/pt/fr/de translation strings)
-- Pediatric (<18) algorithm — separate clinical track
+- Pediatric (<18) algorithm — separate nutrition track
 - Pregnancy/lactation flow — H2 segment unlock
 - Coach LLM integration with `conditions_freetext` — coach module scope

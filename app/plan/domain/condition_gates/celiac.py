@@ -15,6 +15,7 @@ Catalog readiness (2026-06-01):
 - 106 recipes `recommended_for: celiac` (all verified GF ingredients)
 - 1 recipe `contraindicated_for: celiac`
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

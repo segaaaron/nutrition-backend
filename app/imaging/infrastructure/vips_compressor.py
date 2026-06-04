@@ -4,6 +4,7 @@ Implements spec §10 including the mandatory EXIF-strip verification gate.
 Fails closed via EXIFLeakError if any disallowed key survives the
 `write_to_buffer(..., strip)` call.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -57,8 +58,6 @@ def _compress_sync(raw: bytes, profile: CompressionProfile) -> CompressedImage:
 
 
 class VipsImageCompressor(ImageCompressor):
-    async def compress(
-        self, raw: bytes, *, profile: CompressionProfile
-    ) -> CompressedImage:
+    async def compress(self, raw: bytes, *, profile: CompressionProfile) -> CompressedImage:
         # pyvips is C-bound and blocking; offload to a thread.
         return await asyncio.to_thread(_compress_sync, raw, profile)

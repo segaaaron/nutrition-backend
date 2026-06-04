@@ -7,6 +7,7 @@ on rounded outputs across a realistic population fails the build.
 Population: 1000 deterministic profiles spanning sex × age × weight × height.
 Bound: `|legacy_bmr - round(new_bmr)| <= 1` for every profile.
 """
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -22,12 +23,27 @@ from app.plan.domain.bmr_safety import mifflin_st_jeor as new_bmr
 @settings(max_examples=1000, deadline=None, suppress_health_check=[HealthCheck.too_slow])
 @given(
     sex=st.sampled_from(["male", "female"]),
-    weight_kg=st.decimals(min_value=Decimal("40"), max_value=Decimal("200"), allow_nan=False, allow_infinity=False, places=1),
-    height_cm=st.decimals(min_value=Decimal("140"), max_value=Decimal("210"), allow_nan=False, allow_infinity=False, places=1),
+    weight_kg=st.decimals(
+        min_value=Decimal("40"),
+        max_value=Decimal("200"),
+        allow_nan=False,
+        allow_infinity=False,
+        places=1,
+    ),
+    height_cm=st.decimals(
+        min_value=Decimal("140"),
+        max_value=Decimal("210"),
+        allow_nan=False,
+        allow_infinity=False,
+        places=1,
+    ),
     age=st.integers(min_value=18, max_value=80),
 )
 def test_legacy_vs_new_bmr_within_1_kcal(
-    sex: str, weight_kg: Decimal, height_cm: Decimal, age: int,
+    sex: str,
+    weight_kg: Decimal,
+    height_cm: Decimal,
+    age: int,
 ) -> None:
     legacy = legacy_bmr(sex=sex, weight_kg=weight_kg, height_cm=height_cm, age=age)  # type: ignore[arg-type]
     new = new_bmr(weight_kg=weight_kg, height_cm=height_cm, age=age, sex=sex)  # type: ignore[arg-type]
@@ -52,7 +68,10 @@ def test_legacy_vs_new_bmr_within_1_kcal(
     ],
 )
 def test_legacy_vs_new_bmr_known_anchors(
-    sex: str, weight_kg: Decimal, height_cm: Decimal, age: int,
+    sex: str,
+    weight_kg: Decimal,
+    height_cm: Decimal,
+    age: int,
 ) -> None:
     """Anchor cases — guard against silent regression on representative profiles."""
     legacy = legacy_bmr(sex=sex, weight_kg=weight_kg, height_cm=height_cm, age=age)  # type: ignore[arg-type]

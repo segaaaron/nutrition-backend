@@ -5,7 +5,7 @@
 
 ## Quick Resume for New Session
 
-NOVA (Neural Nutrition AI) is a B2C nutrition app combining an AI coach, computer-vision meal logging, and clinically-grounded meal planning. The backend MVP is **complete in code** (8 sprints, ~40 commits, ~18.8k LoC of Python across 12 bounded contexts) and now sits at the *local-test → Dokploy deploy* boundary. All architectural decisions are locked: Python 3.12 + FastAPI, Postgres 16 (Timescale + pgvector), Redis 7, Arq worker, OpenAI (gpt-4o vision + gpt-4o-mini chat/plan + whisper + text-embedding-3-large), Stripe + Mercado Pago for billing, EN as canonical language with i18n for ES/PT/FR/DE, multi-region day 1 (US, CA, EU, UK, LatAm).
+NOVA (Neural Nutrition AI) is a B2C nutrition app combining an AI coach, computer-vision meal logging, and nutritionally-grounded meal planning. The backend MVP is **complete in code** (8 sprints, ~40 commits, ~18.8k LoC of Python across 12 bounded contexts) and now sits at the *local-test → Dokploy deploy* boundary. All architectural decisions are locked: Python 3.12 + FastAPI, Postgres 16 (Timescale + pgvector), Redis 7, Arq worker, OpenAI (gpt-4o vision + gpt-4o-mini chat/plan + whisper + text-embedding-3-large), Stripe + Mercado Pago for billing, EN as canonical language with i18n for ES/PT/FR/DE, multi-region day 1 (US, CA, EU, UK, LatAm).
 
 The next concrete moves are: (1) bring the Docker stack up locally, run migrations + seeds, smoke-test endpoints; (2) generate the snack catalog (~$3 OpenAI spend); (3) provision Dokploy on the existing Hostinger KVM 2 VPS (ID 1544011, 8GB RAM, 100GB NVMe, 2 vCPU) and deploy; (4) kick off the mobile app. Two seed-catalog duplicates need manual resolution before snack generation. The user wants no premature VPS upgrades — the agreed signal to migrate to Hetzner CX42 (€13/mo) is when active users exceed ~1,500.
 
@@ -106,7 +106,7 @@ Plus cross-cutting modules: `core/`, `shared/`, `imaging/`, `notifications/`.
 - **Seed / utility scripts:** `scripts/seed_foods.py`, `scripts/seed_recipes.py`, `scripts/seed_i18n.py`, `scripts/compute_embeddings.py`, `scripts/generate_snacks.py`, `scripts/audit_catalog.py`, `scripts/resolve_ingredients.py`, `scripts/backup.sh`, `scripts/restore.sh`
 - **Agents:** `.claude/agents/nova-backend-architect.md`, `nova-nutrition-backend-architect.md`, `nova-clinical-nutrition-generator.md`, `nova-qa-elite.md`
 - **Compose / Docker:** `docker-compose.yml`, `docker/`
-- **Tests:** `tests/` (clinical, compliance, contract, e2e, i18n, integration, load, perf, security, unit)
+- **Tests:** `tests/` (nutrition, compliance, contract, e2e, i18n, integration, load, perf, security, unit)
 - **Reports:** `reports/` (audit output, cleaned catalog, etc.)
 
 ## Pending Manual Actions

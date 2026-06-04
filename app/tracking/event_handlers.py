@@ -1,4 +1,5 @@
 """Tracking event handlers — invalidate per-day totals cache on writes."""
+
 from __future__ import annotations
 
 from datetime import date

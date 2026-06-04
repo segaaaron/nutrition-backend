@@ -16,6 +16,7 @@ and that the model preferentially picks recipes the user actually completes.
 
 Budget: <400 ms for K=20 candidates.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -59,11 +60,13 @@ class Layer3Ranking:
         country = (ctx.get("country") or "").lower() or None
         prep_pref = ctx.get("prep_time_pref_min")
 
-        sql = text("""
+        sql = text(
+            """
             SELECT id, regions, prep_min, embedding
               FROM recipes
              WHERE id = ANY(CAST(:ids AS uuid[]))
-        """)
+        """
+        )
         res = await self.session.execute(sql, {"ids": [str(i) for i in candidate_ids]})
         rows = list(res.mappings())
 
@@ -80,13 +83,7 @@ class Layer3Ranking:
             s_prep = prep_time_fit(prep_pref, r["prep_min"])
             s_nov = novelty(novelty_counts.get(rid, 0))
             s_adh = adherence(adherence_rates.get(rid))
-            total = (
-                0.40 * s_taste
-                + 0.20 * s_cult
-                + 0.20 * s_prep
-                + 0.10 * s_nov
-                + 0.10 * s_adh
-            )
+            total = 0.40 * s_taste + 0.20 * s_cult + 0.20 * s_prep + 0.10 * s_nov + 0.10 * s_adh
             scored.append((rid, total))
         scored.sort(key=lambda x: x[1], reverse=True)
         return scored

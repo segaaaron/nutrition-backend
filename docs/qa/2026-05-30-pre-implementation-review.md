@@ -15,7 +15,7 @@
 
 ## Verdict
 
-**REQUEST_CHANGES** (with several `BLOCK`-level findings on data quality and clinical safety that must be resolved before implementation begins).
+**REQUEST_CHANGES** (with several `BLOCK`-level findings on data quality and nutrition safety that must be resolved before implementation begins).
 
 The spec is internally coherent, decisions are locked, and the layering is sound. Three classes of problems prevent approval:
 1. Catalog data is **not safe to ship** as-is (allergen and contraindication false negatives; allergen-as-condition leakage; uncontrolled condition vocabulary).
@@ -28,7 +28,7 @@ The spec is internally coherent, decisions are locked, and the layering is sound
 
 | Dimension | Score (0–5) | Justification |
 |---|---:|---|
-| clinical  | **4** | Catalog has 144 recipes with purine-rich ingredients lacking `gout`, 161 dairy false-negatives, 169 gluten false-negatives, 22 unknown allergens (`sesame`, `mustard`). Allergy hard-exclude (spec §9.5, QA suite §2) will silently fail on real data. |
+| nutrition  | **4** | Catalog has 144 recipes with purine-rich ingredients lacking `gout`, 161 dairy false-negatives, 169 gluten false-negatives, 22 unknown allergens (`sesame`, `mustard`). Allergy hard-exclude (spec §9.5, QA suite §2) will silently fail on real data. |
 | security  | **3** | Auth design fine on paper but missing: refresh-token reuse detection family-revoke, JWT `kid`/JWKS rotation procedure, OTP brute-force lockout policy, audit-log row-level revoke DDL, EXIF strip verification harness, secrets rotation runbook, GDPR/LGPD right-to-erasure. PII at rest mentioned (`pgcrypto`) but no key-management story. |
 | perf      | **2** | SLOs stated (§13) but no per-endpoint budget, no N+1 detector, no k6 baselines committed. Vision job 8s is loose without retry budget. HNSW index has no `m`/`ef_construction` tuning. |
 | data      | **5** | Macro math is perfect (0/2000 fails — credit where due) but every other data-quality dimension fails: enum drift, allergen-as-condition pollution, near-duplicate condition labels (`peanut_allergy` ⟂ `peanuts_allergy`), zero `snack` records, no `fiber/sugar/sodium/sat_fat` fields, only one placeholder image URL, no embeddings, no `nombre_norm`, no `country`. |
@@ -52,7 +52,7 @@ The spec is internally coherent, decisions are locked, and the layering is sound
   - Purine-rich keywords without `gout`: `salmón` ×105, `atún` ×39, `anchoa` ×1.
 - Why it matters: spec §9.5 "hard-exclude by allergies" and QA mandate "Allergen hard-exclude" pillar are violated at the data layer. A user with `alergias=['lacteos']` who logs into NOVA day-1 will be served `b01_001` because the catalog says it has no dairy.
 - Suggested fix: pre-ingest gate — a curated `ingredient -> allergens[]` lookup table runs on every record and **overrides** the LLM-generated tags before insert. Reject the record (or auto-add) if mismatch.
-- Failing test: `tests/data/test_catalog_clinical_safety.py::test_no_known_allergen_in_ingredients_without_tag` — parametrised over the dairy/gluten/egg/soy/fish/shellfish/peanuts/tree_nuts/sesame keyword sets; mandatory CI gate.
+- Failing test: `tests/data/test_catalog_nutrition_safety.py::test_no_known_allergen_in_ingredients_without_tag` — parametrised over the dairy/gluten/egg/soy/fish/shellfish/peanuts/tree_nuts/sesame keyword sets; mandatory CI gate.
 
 ### #3 BLOCK — Allergen labels leaking into `recommendedForConditions` / `contraindicatedConditions`
 - Evidence: 26 records have `egg` (and others: `shellfish`, `fish`) appearing as a *condition*. Sample: `nova_meal_b01_002`, `b01_011`, `b01_013`, `b01_014`, `b01_020`.
@@ -80,12 +80,12 @@ The spec is internally coherent, decisions are locked, and the layering is sound
 
 ### #7 REQUEST_CHANGES — Catalog macros lack `fiber`, `sugar`, `sodium_mg`, `saturated_fat`
 - Evidence: catalog records carry only `proteinG/carbsG/fatG`. Spec §7 `foods` table has `fibra, azucar, sodio_mg, grasa_sat`. Spec §9.5 "Contraindication" QA scenario (`diabetes_t2 → no recipe with azucar_g > N`) cannot run on this data.
-- Why it matters: clinical filtering by sugar/sodium/sat-fat (the entire diabetes/hypertension/CVD safety pillar) is undefined at the recipe level. Reverse-engineering from ingredients via USDA FDC is a separate workstream.
+- Why it matters: nutrition filtering by sugar/sodium/sat-fat (the entire diabetes/hypertension/CVD safety pillar) is undefined at the recipe level. Reverse-engineering from ingredients via USDA FDC is a separate workstream.
 - Suggested fix: extend the catalog schema (additive fields, default null), backfill via USDA FDC lookup in a `scripts/enrich_catalog_micros.py` job, and gate plan generation for sensitive conditions until enrichment ≥ 95%.
 - Failing test: `tests/data/test_catalog_completeness.py::test_diabetes_recipes_have_sugar_field`.
 
 ### #8 REQUEST_CHANGES — Macro-math invariant in spec (`±5%`) vs QA suite (`±10%`)
-- Evidence: spec §6 says `kcal == p*4 + c*4 + g*9 ± 5%`; QA mandate §11 says `±10%`; clinical generator agent says `±5 kcal` absolute. Three different tolerances.
+- Evidence: spec §6 says `kcal == p*4 + c*4 + g*9 ± 5%`; QA mandate §11 says `±10%`; nutrition generator agent says `±5 kcal` absolute. Three different tolerances.
 - Why it matters: ambiguous invariant → tests inconsistent with the domain VO; downstream filtering uncertain. (Empirical: current catalog is exact, max deviation = 0 kcal, mean abs deviation = 0.00 — so any of the three passes, but the contradiction must be resolved before code is written.)
 - Suggested fix: pick `±2%` for in-domain VO (it's already exact) and document why; QA suite §11 catalog audit uses the same constant.
 - Failing test: `tests/unit/domain/test_macro_breakdown.py::test_invariant_constant_matches_audit_constant`.
@@ -98,7 +98,7 @@ The spec is internally coherent, decisions are locked, and the layering is sound
 
 ### #10 REQUEST_CHANGES — Recalibration formula is underspecified
 - Evidence: spec §9.2 says `tdee_nuevo = blend(mifflin_recalc, energy_balance_inferred)` — `blend()` is undefined; threshold `|delta_ratio - 1| > 0.5` has no smoothing; `slope(weight)` algorithm unspecified (OLS? Theil-Sen? robust to outlier daily fluctuation?). Architect agent says "rolling 14-day window <50% expected delta" → different threshold (0.5 vs <0.5 ratio is inverted).
-- Why it matters: recalibration is the headline clinical differentiator. Two architects already disagree. Without a precise formula, property-based tests cannot exist.
+- Why it matters: recalibration is the headline nutrition differentiator. Two architects already disagree. Without a precise formula, property-based tests cannot exist.
 - Suggested fix: lock formula as ADR-002: `tdee_new = 0.6 * mifflin_recalc + 0.4 * energy_balance_estimate` clamped to ±15% of previous, requires ≥10 weight points in 14d, slope via Theil-Sen estimator; energy balance estimate `tdee_eb = mean(kcal_in) - (slope_kg_per_day * 7700)`.
 - Failing test: `tests/unit/domain/test_recalibration.py::test_blend_function_is_deterministic_and_bounded` + property test `|tdee_new - tdee_prev| <= 0.15 * tdee_prev`.
 
@@ -171,7 +171,7 @@ The spec is internally coherent, decisions are locked, and the layering is sound
 - Suggested fix: edit both architect agent files to say "pgvector on Postgres (per spec §2). Qdrant/Pinecone explicitly rejected — single-DB cost/ops winner at MVP scale."
 - Failing test: n/a (doc lint: `grep -r "Qdrant\|Pinecone" .claude/agents/` should return zero outside an explicit "rejected alternatives" block).
 
-### #22 REQUEST_CHANGES — Clinical generator agent emits `firebaseImageUrl` placeholder; spec defers image storage
+### #22 REQUEST_CHANGES — Nutrition generator agent emits `firebaseImageUrl` placeholder; spec defers image storage
 - Evidence: all 2000 catalog records have identical `firebaseImageUrl: https://storage.googleapis.com/tu-proyecto/placeholder.webp`. Spec §2 / §18: image storage deferred. The catalog field is a Firebase URL but the spec leans Postgres-only with storage TBD.
 - Why it matters: contract drift. If we ship as-is, every recipe card shows the same placeholder, every `recipes.imagen_url` is a lie. Better to be nullable.
 - Suggested fix: ingest sets `recipes.imagen_url = NULL` when value equals the placeholder; UI handles null. Track in `docs/qa/known-data-gaps.md`.
@@ -210,7 +210,7 @@ Domain (Hypothesis):
 - `Plan` state machine: illegal transitions raise.
 - `Recalibration.blend` bounded ±15% (finding #10).
 
-Clinical safety (deterministic, named):
+Nutrition safety (deterministic, named):
 - Allergen hard-exclude on every plan and every swap (parametrised over all 9 allergens).
 - Pediatric (<18) and elderly (>75) bound caps.
 - Diabetes type-2 sugar ceiling per recipe.

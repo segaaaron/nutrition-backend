@@ -1,25 +1,79 @@
 # Project State Snapshot
 
 ## Last Updated
-2026-05-31
+2026-06-03
 
-## Status
+## Status — Closed-Beta GO (2026-06-03)
+
+**Verdict:** GO for PROD closed-beta (≤100 users). QA approved Sprint 1+2+3 + bug-fix sprint.
+
+**Test suite:** 684+ unit tests pass / 3 env-gated skipped. 0 failures.
+
+**Algorithm coverage (property-based + invariant):**
+- Property-based tests for BMR, TDEE, macro back-adjust, recalibration, intake bias, AT, hydration thresholds
+- Multi-condition composite invariants property-tested
+- Mutation testing tooling (mutmut) removed 2026-06-03: low ROI for solo-dev + pre-revenue. Historical baseline preserved in `docs/archive/mutation_baseline_sprint3.md`. Confidence now relies on hypothesis property tests + Sentry production error tracking.
+
+**Security hardened:**
+- SQL bind params throughout (0 injection vectors)
+- Catalog fail-closed for diabetes_t2 / hypertension / hypercholesterolemia / ckd
+- Retry-After RFC 6585 on 429/503
+- Idempotency-Key required on /plans, /logs/food/text, /logs/food/photo
+- Prompt injection delimiters + sanitizer in coach
+- Audit log immutability tests + GRANT REVOKE
+- PII log grep gate (`scripts/pii_log_grep.py`)
+- Advisory lock + partial unique index on recalibration
+
+### Remaining blockers for PROD general (>1k users)
+
+1. Perf baselines k6 captured + CI regression gate >15% (defer: needs staging)
+2. AI eval golden set ≥100 platos (vision + coach evaluation)
+3. k6 load tests `steady_100rps_10m` + `spike_500rps_30s` green on staging
+4. S0-residual security backlog (auto-trigger at ≥100 paying users per CLAUDE.md)
+5. Sentry release tracking wired + structured logs audit (PII grep + retention policy verified in prod)
+
+### Closed-beta launch conditions
+
+- Block onboarding `conditions in {ckd, chf}` until R8 wired fully verified prod
+- Monitor `recalibration_concurrent_conflict` WARN log for 7 days
+- Sentry + observability dashboards live
+- Mobile SDK regenerated for D12 breaking changes (Idempotency-Key required on plan + food endpoints)
+
+### Mobile SDK breaking changes (D12)
+
+| Endpoint | Header required |
+|---|---|
+| POST /v1/plan/generate | Idempotency-Key UUIDv4 |
+| POST /v1/plan/me/recalibrate | Idempotency-Key UUIDv4 |
+| POST /v1/plan/me/swap/{id} | Idempotency-Key UUIDv4 |
+| POST /v1/logs/food/text | Idempotency-Key UUIDv4 |
+| POST /v1/logs/food/photo | Idempotency-Key UUIDv4 |
+
+Coach `/chat` does NOT support Idempotency-Key (LLM responses non-idempotent by nature, RFC 9110 §9.2.2).
+
+## Operational Status
 
 - Backend MVP code **COMPLETE**
-- Pending: deploy to local Docker stack, smoke-test, then migrate to Dokploy on Hostinger
-- Pending: snack catalog generation, FCM iOS, mobile app, MercadoPago HMAC hardening
+- Branch policy: `main` only (master DEAD per CLAUDE.md GR#2)
+- Pending: owner to commit 50+ working tree changes from session 2026-06-03
+- Pending: Dokploy `.env` update + redeploy → auto-apply migration 0011
+- Pending: golden set calibration → flip `VISION_CASCADE_ENABLED=true`
 
-## Statistics
+## Statistics (post session 2026-06-03)
 
 | Metric | Value |
 |---|---|
-| Git commits | 60 |
-| Python LoC (excluding tests/cache) | ~18,810 |
 | Bounded contexts | 12 |
-| Alembic migrations | 6 (0001 → 0006) |
-| ADRs | 8 (0001 → 0008) |
+| Alembic migrations | 11 (0001 → 0011) |
+| ADRs | 21 (0001 → 0021) |
 | REST + SSE endpoints | 30+ |
-| Test cases | ~50 (unit + integration + clinical + e2e + load) |
+| Test cases | 598 passed + 8 integration (Docker-gated) |
+| Vision coverage | 92.72% |
+| mypy strict touched files | 0 errors |
+| ruff touched files | 0 issues |
+| Active conditions | lactation, diabetes_t2, ckd, pregnancy, hypertension, celiac |
+| Blocked conditions | diabetes_t1 |
+| Blocked regions | us |
 
 ## Directory Tree (current, depth 3)
 
@@ -58,7 +112,7 @@
 ├── migrations/versions/           (0001_init → 0006_billing)
 ├── reports/                       (audit output, cleaned catalog)
 ├── scripts/                       (audit, seed, embeddings, generate_snacks, backup, restore, resolve_ingredients)
-├── tests/                         (clinical, compliance, contract, e2e, i18n, integration, load, perf, security, unit)
+├── tests/                         (nutrition, compliance, contract, e2e, i18n, integration, load, perf, security, unit)
 ├── worker/                        (Arq tasks)
 ├── docker-compose.yml
 ├── pyproject.toml

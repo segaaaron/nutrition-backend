@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-01
 **Branch:** main
-**Scope:** LatAm omnivore + 3 goals + no clinical conditions
+**Scope:** LatAm omnivore + 3 goals + no declared conditions
 **Effort actual:** ~1.5h (planned 8h — 4 items, 3 finished here, 1 deferred to owner)
 
 ---
@@ -30,7 +30,7 @@
   macadamia/brazil nut/pine nut/chestnut + ES translations).
 - **Defends against:** 37 catalog recipes with nuts in `ingredients[]` but
   missing `tree_nuts` allergen tag (anaphylaxis / lawsuit / App Store reject).
-- **Tests:** `tests/clinical/test_allergen_hard_exclude.py` — 4 pass, including
+- **Tests:** `tests/nutrition/test_allergen_hard_exclude.py` — 4 pass, including
   new `test_layer1_treenut_defensive_ingredient_scan_present`.
 
 ### 3. MVP segment gate (profile boundary)
@@ -66,7 +66,7 @@ ranking weight (`cosine(taste_vector, recipe.embedding)`).
 ## Test summary
 
 ```
-tests/clinical/test_allergen_hard_exclude.py ......... 4 passed
+tests/nutrition/test_allergen_hard_exclude.py ......... 4 passed
 tests/unit/profile/test_mvp_segment_gate.py .......... 8 passed
                                               total: 15 passed (incl pre-existing)
 ```
@@ -82,7 +82,7 @@ Full regression not run in session (DB-dependent suites need docker stack).
 Without remap = MVP cannot deploy. Cost of bug in prod: full data-load rollback +
 investigation cycle. Cost prevented: ~4h of debugging at deploy-day pressure.
 
-### Legal/clinical risk: zero tree-nut anaphylaxis vector
+### Legal/safety risk: zero tree-nut anaphylaxis vector
 The 37-recipe gap was the single highest-severity bug in the catalog audit.
 A user marked `tree_nuts` allergic could receive an almond-containing recipe
 because the catalog allergens array was wrong. Defense-in-depth at Layer 1
@@ -92,7 +92,7 @@ means **catalog bug ≠ patient harm**. Direct mitigation against:
 - App Store review — health-claim apps reject on safety
 - Civil exposure — anaphylaxis lawsuit single-incident → company-ending
 
-### Segment narrowing = clinical safety bound
+### Segment narrowing = nutrition safety bound
 Diabetes/CKD/pregnancy/lactation gating means no user receives a plan the
 algorithms aren't ready to produce. Without gate, defaults silently leak
 (e.g., diabetic gets 60g-carb breakfast because `recommendedForConditions`
@@ -112,7 +112,7 @@ overrides ship — zero code change required.
 ## Next on resume (owner action items)
 
 1. **Run embeddings backfill** when next DB session up (~30min, $0.40).
-2. **Patch catalog** (clinical-generator agent task):
+2. **Patch catalog** (nutrition-generator agent task):
    - 37 tree-nut allergen tags
    - 87 diabetes_t2 high-carb recipes (re-tag or remove)
 3. **Algorithm gaps** (algorithms-expert):
@@ -129,6 +129,6 @@ Suggested 4 atomic commits:
 ```
 feat(catalog): remap legacy enum values to canonical schema (idempotent script)
 feat(plan): defensive tree-nut ingredient scan in Layer 1 eligibility
-feat(profile): MVP segment gate refuses unsafe clinical segments + US region
+feat(profile): MVP segment gate refuses unsafe nutrition segments + US region
 docs(algorithms): Option A ship report
 ```

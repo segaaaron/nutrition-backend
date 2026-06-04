@@ -11,7 +11,7 @@
 Sprint S0 + S1-quick shipped. ErrorTracker local replaced Sentry. Team docs + RBAC + BACKLOG + STATUS all committed. Two coordinated agent audits (`nova-clinical-nutrition-generator` + `nova-nutrition-algorithms-expert` persona) finished pre-prod analysis of nutrition catalog + algorithms.
 
 Detailed reports:
-- `docs/algorithms/CATALOG_AUDIT.md` — 2000 recipes clinical audit (265 LoC)
+- `docs/algorithms/CATALOG_AUDIT.md` — 2000 recipes nutrition audit (265 LoC)
 - `docs/algorithms/PRE_PROD_AUDIT.md` — math + algorithms gaps (312 LoC)
 - `docs/security/STATUS.md` — full security posture
 - `docs/security/BACKLOG.md` — S1/S2/S3 deferred with triggers
@@ -40,7 +40,7 @@ JSON `data/meals/nova_meals_catalog.cleaned.json` uses legacy enum values
 }
 ```
 
-### 2. SAFETY — 2 critical clinical/legal issues
+### 2. SAFETY — 2 critical nutrition/legal issues
 
 **Tree-nut allergen leak (37 recipes):**
 - Recipes with almond/walnut/cashew/pistachio/etc in `ingredients[]`
@@ -48,7 +48,7 @@ JSON `data/meals/nova_meals_catalog.cleaned.json` uses legacy enum values
 - Anaphylaxis risk = lawsuit + FALCPA + EU 1169 violation + App Store reject
 - **Mitigation today (1h):** add defensive regex in `app/plan/application/layer1_eligibility.py`
   that scans `ingredients[]` for nut keywords regardless of allergens array
-- **Fix catalog (2h):** patch 37 entries (clinical-generator agent task)
+- **Fix catalog (2h):** patch 37 entries (nutrition-generator agent task)
 
 **Diabetes_t2 high-carb tagging (87 recipes):**
 - Marked `recommendedForConditions: ["diabetes_t2"]` with carbs > 60g/meal
@@ -101,7 +101,7 @@ python scripts/compute_embeddings.py --table recipes --batch 50
 
 | Option | Effort | Coverage | Risk |
 |--------|--------|----------|------|
-| **A) Ship narrow this week** | 8h | LatAm omnivore + 3 goals + no clinical conditions | Zero medical/legal risk |
+| **A) Ship narrow this week** | 8h | LatAm omnivore + 3 goals + no declared conditions | Zero medical/legal risk |
 | **B) Ship full in 1-2 weeks** | 25h | + diabetes/CKD/preg/lactation + US region | Catalog must be patched first |
 
 My recommendation: **A**. Validate hypothesis with safe segment. Expand when you have real user data.
@@ -166,7 +166,7 @@ After 90min you have a safe-to-ship MVP narrow slice.
 
 When you resume and dispatch agents:
 
-**To clinical-generator:**
+**To nutrition-generator:**
 - "Patch the 37 tree-nut recipes — add `tree_nuts` to allergens[]"
 - "Patch the 87 diabetes_t2 high-carb recipes — re-tag or remove diabetes_t2"
 - "Generate 50 snacks for LatAm/omnivore covering 3 goals"

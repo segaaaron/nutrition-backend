@@ -1,4 +1,5 @@
 """Billing REST endpoints — checkout, subscription, cancel, webhooks, invoices."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Header, Query, Request, status
@@ -30,12 +31,16 @@ class CheckoutBody(BaseModel):
 
 @router.post("/billing/checkout", status_code=status.HTTP_200_OK)
 async def checkout(
-    body: CheckoutBody, current_user: CurrentUserDep, session: SessionDep,
+    body: CheckoutBody,
+    current_user: CurrentUserDep,
+    session: SessionDep,
 ) -> dict:
     uc = CreateCheckout(session=session)
     return await uc(
-        user_id=current_user, plan=body.plan,
-        success_url=body.success_url, cancel_url=body.cancel_url,
+        user_id=current_user,
+        plan=body.plan,
+        success_url=body.success_url,
+        cancel_url=body.cancel_url,
     )
 
 
@@ -67,7 +72,8 @@ async def cancel(current_user: CurrentUserDep, session: SessionDep) -> dict:
 
 @router.get("/billing/invoices")
 async def list_invoices(
-    current_user: CurrentUserDep, session: SessionDep,
+    current_user: CurrentUserDep,
+    session: SessionDep,
     cursor: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
 ) -> dict:
@@ -75,9 +81,12 @@ async def list_invoices(
     items, nxt = await repo.list_invoices(user_id=current_user, cursor=cursor, limit=limit)
     return {
         "items": [
-            {**i, "id": str(i["id"]),
-             "created_at": i["created_at"].isoformat(),
-             "paid_at": i["paid_at"].isoformat() if i["paid_at"] else None}
+            {
+                **i,
+                "id": str(i["id"]),
+                "created_at": i["created_at"].isoformat(),
+                "paid_at": i["paid_at"].isoformat() if i["paid_at"] else None,
+            }
             for i in items
         ],
         "next_cursor": nxt,
@@ -89,14 +98,16 @@ async def list_invoices(
 
 @router.post("/webhooks/stripe")
 async def stripe_webhook(
-    request: Request, session: SessionDep,
+    request: Request,
+    session: SessionDep,
     stripe_signature: str = Header(default="", alias="Stripe-Signature"),
 ) -> dict:
     payload = await request.body()
     gw = StripeGateway()
     event = await gw.verify_webhook(payload=payload, signature=stripe_signature)
     uc = HandleWebhook(
-        repo=SqlBillingRepository(session), bus=get_event_bus(),
+        repo=SqlBillingRepository(session),
+        bus=get_event_bus(),
         provider=BillingProvider.STRIPE,
     )
     return await uc(event=event)
@@ -104,17 +115,21 @@ async def stripe_webhook(
 
 @router.post("/webhooks/mercadopago")
 async def mercadopago_webhook(
-    request: Request, session: SessionDep,
+    request: Request,
+    session: SessionDep,
     x_signature: str = Header(default="", alias="X-Signature"),
     x_request_id: str = Header(default="", alias="X-Request-Id"),
 ) -> dict:
     payload = await request.body()
     gw = MercadoPagoGateway()
     event = await gw.verify_webhook(
-        payload=payload, signature=x_signature, request_id=x_request_id,
+        payload=payload,
+        signature=x_signature,
+        request_id=x_request_id,
     )
     uc = HandleWebhook(
-        repo=SqlBillingRepository(session), bus=get_event_bus(),
+        repo=SqlBillingRepository(session),
+        bus=get_event_bus(),
         provider=BillingProvider.MERCADOPAGO,
     )
     return await uc(event=event)

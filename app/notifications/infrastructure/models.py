@@ -1,11 +1,13 @@
 """ORM for push_tokens (migration 0003)."""
+
 from __future__ import annotations
 
 from datetime import datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy import DateTime, ForeignKey, String, Text
-from sqlalchemy.dialects.postgresql import CHAR, UUID as PG_UUID
+from sqlalchemy.dialects.postgresql import CHAR
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.identity.infrastructure.models import Base

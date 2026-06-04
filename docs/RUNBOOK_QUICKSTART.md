@@ -72,7 +72,7 @@ docker compose exec api bash
 
 # Run tests
 docker compose exec api pytest -x
-docker compose exec api pytest tests/clinical -v
+docker compose exec api pytest tests/nutrition -v
 docker compose exec api pytest tests/coach -v
 
 # Create new migration

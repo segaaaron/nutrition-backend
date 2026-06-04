@@ -158,7 +158,7 @@ tests/
 ├── contract/             # schemathesis
 ├── e2e/                  # full flows
 ├── load/                 # k6 / locust
-├── clinical/             # nutritionist-reviewed scenarios
+├── nutrition/             # nutritionist-reviewed scenarios
 ├── compliance/           # GDPR/LGPD flows
 └── security/             # OWASP regression
 ```

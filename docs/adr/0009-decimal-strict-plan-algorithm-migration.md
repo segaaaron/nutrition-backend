@@ -8,7 +8,7 @@
 
 The pre-existing nutrition module (`app/nutrition/domain/`) computes BMR (Mifflin-St Jeor), TDEE, macro partitioning, and hydration using a mix of `int` and `float` arithmetic. The legacy `compute_bmr`, `compute_macros`, and `compute_tdee` cast Decimal inputs to `float`, perform IEEE-754 math, then round to `int`. This was acceptable for MVP launch but breaks two non-negotiable engineering principles:
 
-1. **Decimal precision for clinical math** (CLAUDE.md rule #2). Float introduces non-deterministic rounding at sub-kcal granularity; the bug rarely surfaces but produces silent drift over long recalibration sequences.
+1. **Decimal precision for nutrition math** (CLAUDE.md rule #2). Float introduces non-deterministic rounding at sub-kcal granularity; the bug rarely surfaces but produces silent drift over long recalibration sequences.
 2. **Master plan H1 invariants** require:
    - Macro back-adjust within `MACRO_TOLERANCE = Decimal("0.02")` of `target_kcal` (currently met to 0.05% via existing back-adjust loop; not formally tested).
    - BMR safety floor: `kcal_target >= bmr * Decimal("0.9")` (currently violated — existing clamp at 800 kcal can sit below floor for small female users on weight_loss).
@@ -44,7 +44,7 @@ Plug Track A into the existing flow by:
 
 Migration gating criteria:
 - Telemetry: `<5%` of new onboardings hit the safety-floor warning across 30 days.
-- For impacted users, manual review + clinical signoff before flipping `STRICT_KCAL_SAFETY_FLOOR=true`.
+- For impacted users, manual review + nutrition signoff before flipping `STRICT_KCAL_SAFETY_FLOOR=true`.
 - All 15 property invariants in `tests/plan/property/` remain green.
 
 ## Consequences

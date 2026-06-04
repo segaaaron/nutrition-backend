@@ -3,9 +3,9 @@
 Circuit breaker: openai_coach. Cost cap pre-check on every call.
 Streaming yields content deltas as plain strings.
 """
+
 from __future__ import annotations
 
-import json
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from uuid import UUID
@@ -13,6 +13,12 @@ from uuid import UUID
 from openai import AsyncOpenAI
 
 from app.coach.domain.value_objects import ContextWindow
+from app.coach.infrastructure.prompt_sanitizer import (
+    USER_DATA_CLOSE,
+    USER_DATA_OPEN,
+    PromptInjectionDetected,
+    sanitize_for_prompt,
+)
 from app.core.circuit_breaker import CircuitBreaker
 from app.core.config import get_settings
 from app.core.cost_cap import estimate_input_cost, pre_check, record_usage
@@ -32,20 +38,35 @@ def _get_client() -> AsyncOpenAI:
 
 
 def _render_context(ctx: ContextWindow) -> str:
+    """Render ContextWindow with USER_DATA delimiters (OWASP LLM01 defense).
+
+    The system prompt instructs the model to treat anything between
+    ``USER_DATA_OPEN`` and ``USER_DATA_CLOSE`` as DATA, never INSTRUCTIONS.
+    Fields are already sanitised in ``context_builder``; we sanitise again
+    defensively here so any future caller cannot bypass the guard.
+    """
     parts: list[str] = []
     if ctx.profile_compact:
+        # profile_compact is built from enum/numeric fields; pass through.
         parts.append("PERFIL:\n" + ctx.profile_compact)
     if ctx.active_plan_today:
         parts.append("PLAN HOY:\n" + ctx.active_plan_today)
     if ctx.last_food_logs:
-        parts.append("ÚLTIMOS LOGS:\n" + ctx.last_food_logs)
+        parts.append("ULTIMOS LOGS:\n" + ctx.last_food_logs)
     if ctx.rag_recipes:
-        rag_str = "\n".join(
-            f"- {r.get('name_en')}: {r.get('kcal')} kcal / {r.get('protein_g')}g prot"
-            for r in ctx.rag_recipes[:5]
-        )
-        parts.append("RECETAS RELEVANTES:\n" + rag_str)
-    return "\n\n".join(parts)
+        rag_lines: list[str] = []
+        for r in ctx.rag_recipes[:5]:
+            raw_name = r.get("name_en") or ""
+            try:
+                # belt-and-braces — context_builder already sanitised.
+                name = sanitize_for_prompt(str(raw_name), max_len=200)
+            except PromptInjectionDetected:
+                continue
+            rag_lines.append(f"- {name}: {r.get('kcal')} kcal / {r.get('protein_g')}g prot")
+        if rag_lines:
+            parts.append("RECETAS RELEVANTES:\n" + "\n".join(rag_lines))
+    body = "\n\n".join(parts)
+    return f"{USER_DATA_OPEN}\n{body}\n{USER_DATA_CLOSE}"
 
 
 @dataclass(slots=True)
@@ -71,13 +92,17 @@ class OpenAICoachClient:
 
         messages = [{"role": "system", "content": system_prompt + "\n\n" + ctx_block}]
         for m in context.last_messages:
-            messages.append({"role": m["role"], "content": m["content"][:500]})
+            # context_builder already sanitised m["content"]; cap defensively.
+            messages.append({"role": m["role"], "content": str(m["content"])[:500]})
         messages.append({"role": "user", "content": user_message})
 
         async def _open_stream():
             return await _get_client().chat.completions.create(
-                model=model, messages=messages, stream=True,
-                temperature=0.4, max_tokens=400,
+                model=model,
+                messages=messages,
+                stream=True,
+                temperature=0.4,
+                max_tokens=400,
             )
 
         try:
@@ -104,5 +129,8 @@ class OpenAICoachClient:
         out_tok_est = max(1, len(joined) // 4)
         in_tok_est = max(1, len(full_input) // 4)
         await record_usage(
-            user_id=user_id, model=model, in_tok=in_tok_est, out_tok=out_tok_est,
+            user_id=user_id,
+            model=model,
+            in_tok=in_tok_est,
+            out_tok=out_tok_est,
         )

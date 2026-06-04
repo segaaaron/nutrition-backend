@@ -18,6 +18,7 @@ manual book-keeping.
 
 Returns top-K `(recipe_id, score)` tuples sorted DESC. Budget: <200 ms.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -47,12 +48,14 @@ class Layer2Shortlist:
         if not filtered:
             return []
 
-        sql = text("""
+        sql = text(
+            """
             SELECT id, COALESCE(kcal, 0) AS kcal, COALESCE(protein_g, 0) AS protein_g
               FROM recipes
              WHERE id = ANY(CAST(:ids AS uuid[]))
                AND (meal_time IS NULL OR meal_time = :meal_time)
-        """)
+        """
+        )
         res = await self.session.execute(
             sql, {"ids": [str(i) for i in filtered], "meal_time": meal_time}
         )

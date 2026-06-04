@@ -6,7 +6,7 @@
 
 ## TL;DR
 
-Una sesión. Catálogo 2,000 → **33,069 recetas**. Algoritmo H1 + H1.5 + H2.1 lactation shipped. Schema v2 universal snake_case. Scope legal limpio (sin suplementos, sin claims clínicos). 332 tests passing, 3 importlinter contracts kept, mypy strict clean en 11 módulos nuevos. Cero regresiones. 7 ADRs nuevos.
+Una sesión. Catálogo 2,000 → **33,069 recetas**. Algoritmo H1 + H1.5 + H2.1 lactation shipped. Schema v2 universal snake_case. Scope legal limpio (sin suplementos, sin claims nutricionales). 332 tests passing, 3 importlinter contracts kept, mypy strict clean en 11 módulos nuevos. Cero regresiones. 7 ADRs nuevos.
 
 ---
 
@@ -130,7 +130,7 @@ Una sesión. Catálogo 2,000 → **33,069 recetas**. Algoritmo H1 + H1.5 + H2.1 
 ✅ Allergen hard exclude: `NOT (allergens && user.allergies)`
 ✅ Tree-nut defensive scan: NOT EXISTS subquery sobre recipe_components+foods regardless of allergen array tag
 ✅ Contraindicated conditions exclude: `NOT (contraindicated_conditions && user.conditions)`
-✅ Inline clinical gates: diabetes_t2 sugar≤15, hypertension sodium≤600, hypercholesterolemia satfat≤5, ckd protein cap, gout NOT organ_meat/shellfish, lactation pregnancy_safe+folate+Ca+Fe
+✅ Inline safety gates: diabetes_t2 sugar≤15, hypertension sodium≤600, hypercholesterolemia satfat≤5, ckd protein cap, gout NOT organ_meat/shellfish, lactation pregnancy_safe+folate+Ca+Fe
 
 ### Legal scope cleanup ✅
 - 157 supplement recipes (whey/casein/BCAA/mass gainer/pre-workout) REMOVED
@@ -194,7 +194,7 @@ Binary `Sexo` OK MVP. Internal field `sex_at_birth: Literal["male","female"]` + 
 | ibd | 0 | 🔴 | next batch |
 | hyperthyroidism | 0 | 🔴 | next batch |
 | chronic_insomnia | 1 | 🔴 | next batch |
-| diabetes_t1 | 0 | 🔴 still in MVP block | next clinical work |
+| diabetes_t1 | 0 | 🔴 still in MVP block | next nutrition work |
 
 ---
 
@@ -289,7 +289,7 @@ migrations/versions/
 
 tests/
 ├── catalog/test_enum_closure.py                     [N] 7 tests
-├── clinical/test_allergen_hard_exclude.py           [M] +tree-nut
+├── nutrition/test_allergen_hard_exclude.py           [M] +tree-nut
 ├── plan/property/                                   [N]
 │   ├── strategies.py
 │   ├── test_macro_invariants.py                     8 props × 200 examples
@@ -453,7 +453,7 @@ feat(plan): H1.5 Variety Jaccard RankingSignal
 feat(plan): H2.1 Lactation Strategy + lift + adjust(+500 kcal)
 feat(db): migration 0008 recipe micronutrients
 feat(db): migration 0009 plan_versions + outbox + plan_weight_vectors
-feat(profile): MVP segment gate refuses unsafe clinical segments
+feat(profile): MVP segment gate refuses unsafe nutrition segments
 test(plan): 30 property invariants (macro/bmr/variety/lactation/bmr_cross_check)
 test(catalog): closed-enum drift guard + macro consistency
 chore(arch): import-linter contracts + dev dep
@@ -495,7 +495,7 @@ docs(algorithms): MASTER_PLAN + ONBOARDING_FORM + 7 catalog reports + session re
 |----------|-----------|
 | No fabricación | 0 URLs inventadas (placeholder GCS universal); 0 macro fudging (validators rejected silently); 0 supplement re-introduction post-cleanup |
 | Hard dedup | Signature sha1 + cell exact name + Levenshtein originally; final 100% unique names |
-| Hard validators | 9 gates per recipe (macro/allergen/sugar cap/GL/closed-enum/plausibility/dedup/pregnancy_safe/clinical) |
+| Hard validators | 9 gates per recipe (macro/allergen/sugar cap/GL/closed-enum/plausibility/dedup/pregnancy_safe/nutrition) |
 | Tests | 332 passing + 22 property × 200 examples each ≈ 4,400 generated cases |
 | mypy strict | 11 nuevos modules clean, 0 errors, 0 `Any`, 0 `# type: ignore` |
 | Importlinter | 3 contracts kept, blocks domain pollution at CI time |
@@ -514,7 +514,7 @@ Sesión densa. Catalog 16.5× growth + algorithm foundation + scope legal cleanu
 - LatAm omnivore/vegan/vegetarian/pescatarian (weight_loss / muscle_gain / maintain / health)
 - EU/US/CA/UK secondary markets
 - Lactation segment unlocked (200 catalog + LactationGate + +500 kcal adjustment)
-- 17 condiciones clínicas con recetas helpful + safety floor enforced
+- 17 condiciones nutricionales con recetas helpful + safety floor enforced
 
 **Pendiente owner:**
 - DB seed + migrations apply + embedding backfill

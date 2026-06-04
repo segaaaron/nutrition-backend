@@ -1,9 +1,11 @@
 """H1.4 BMR selection + TDEE + goal + safety floor. Pure domain. Decimal-only."""
+
 from __future__ import annotations
 
 from decimal import ROUND_HALF_EVEN, Decimal
 from typing import Final, Literal
 
+from app.nutrition.domain.mifflin_st_jeor import mifflin_st_jeor
 from app.plan.domain.macro_calculator import lbm_kg as _lbm_kg
 
 Sex = Literal["male", "female"]
@@ -20,35 +22,20 @@ class KcalTargetBelowSafetyFloor(Exception):
     """H1.4 kcal_target violated BMR * 0.9 floor."""
 
     def __init__(self, target: Decimal, floor: Decimal) -> None:
-        super().__init__(
-            f"kcal_target_below_bmr_safety_floor: target={target} < floor={floor}"
-        )
+        super().__init__(f"kcal_target_below_bmr_safety_floor: target={target} < floor={floor}")
         self.target = target
         self.floor = floor
 
 
-def mifflin_st_jeor(
-    *,
-    weight_kg: Decimal,
-    height_cm: Decimal,
-    age: int,
-    sex: Sex,
-) -> Decimal:
-    """BMR = 10W + 6.25H - 5A + (5 male / -161 female). kcal int."""
-    base = (
-        Decimal("10") * weight_kg
-        + Decimal("6.25") * height_cm
-        - Decimal("5") * Decimal(age)
-    )
-    offset = Decimal("5") if sex == "male" else Decimal("-161")
-    return (base + offset).quantize(_INT, rounding=ROUND_HALF_EVEN)
-
-
 def cunningham(*, lbm_kg: Decimal) -> Decimal:
-    """BMR = 500 + 22 * LBM. Athletes with known LBM."""
-    return (Decimal("500") + Decimal("22") * lbm_kg).quantize(
-        _INT, rounding=ROUND_HALF_EVEN
-    )
+    """BMR = 500 + 22 * LBM. Athletes with known LBM.
+
+    Source: Cunningham JJ. A reanalysis of the factors influencing basal
+    metabolic rate in normal adults. Am J Clin Nutr 1980;33(11):2372-2374.
+    Preferred over Mifflin in lean/athletic populations where total body
+    weight overestimates metabolically active mass.
+    """
+    return (Decimal("500") + Decimal("22") * lbm_kg).quantize(_INT, rounding=ROUND_HALF_EVEN)
 
 
 def select_bmr(
@@ -71,20 +58,41 @@ def select_bmr(
 
 
 def tdee(*, bmr: Decimal, activity_level: ActivityLevel) -> Decimal:
-    """TDEE = BMR * activity multiplier."""
+    """TDEE = BMR * activity multiplier.
+
+    Source: Harris-Benedict activity factors as standardized by the
+    Mayo Clinic / ADA practice. Discrete ladder per FAO/WHO/UNU 2001
+    "Human Energy Requirements" PAL classes.
+    """
     mult: dict[str, Decimal] = {
+        # PAL 1.40-1.69 — sedentary lifestyle (FAO/WHO/UNU 2001).
         "sedentary": Decimal("1.2"),
+        # PAL 1.55-1.69 — active or moderately active lifestyle, low end.
         "lightly_active": Decimal("1.375"),
+        # PAL 1.70-1.99 — vigorous lifestyle.
         "moderately_active": Decimal("1.55"),
         "very_active": Decimal("1.725"),
+        # PAL ≥2.00 — vigorous occupational + training load (rare).
         "extra_active": Decimal("1.9"),
     }
     return (bmr * mult[activity_level]).quantize(_INT, rounding=ROUND_HALF_EVEN)
 
 
 def apply_goal_to_tdee(*, tdee_val: Decimal, goal: Goal) -> Decimal:
-    """Goal kcal: weight_loss min(500, 25% tdee) deficit; muscle/weight gain surplus."""
+    """Goal kcal: weight_loss min(500, 25% tdee) deficit; muscle/weight gain surplus.
+
+    Sources:
+    - 500 kcal/day deficit ≈ 0.45 kg/week loss (Wishnofsky 1958 conversion,
+      JAMA 168:445) — capped at 25% TDEE to avoid metabolic adaptation.
+    - 250 kcal/day muscle-gain surplus: Slater & Phillips 2011 (J Sports Sci
+      29 Suppl 1:S67) optimal range to support lean accretion without
+      excess fat gain.
+    - 300 kcal/day weight-gain surplus for underweight repletion.
+    """
     if goal == "weight_loss":
+        # 500 kcal/day cap or 25% TDEE, whichever smaller. Source: Hall 2011
+        # (Lancet 378:826) — quasi-linear early phase before adaptive
+        # thermogenesis blunts response.
         deficit = Decimal("500")
         pct = tdee_val * Decimal("0.25")
         cut = deficit if deficit < pct else pct
@@ -99,7 +107,12 @@ def apply_goal_to_tdee(*, tdee_val: Decimal, goal: Goal) -> Decimal:
 
 
 def enforce_bmr_safety_floor(*, kcal_target: Decimal, bmr: Decimal) -> Decimal:
-    """H1.4 raise if kcal_target < BMR * 0.9. Else passthrough."""
+    """H1.4 raise if kcal_target < BMR * 0.9. Else passthrough.
+
+    Source: AND/ACSM/Dietitians of Canada Joint Position 2016 (Med Sci
+    Sports Exerc 48:543) — sustained intake below BMR risks RED-S and
+    metabolic adaptation. 0.9 factor adds a 10% guardrail margin.
+    """
     floor = bmr * Decimal("0.9")
     if kcal_target < floor:
         raise KcalTargetBelowSafetyFloor(target=kcal_target, floor=floor)
@@ -109,9 +122,7 @@ def enforce_bmr_safety_floor(*, kcal_target: Decimal, bmr: Decimal) -> Decimal:
 _LACTATION_KCAL_SURPLUS = Decimal("500")
 
 
-def apply_lactation_adjustment(
-    *, kcal_target: Decimal, conditions: frozenset[str]
-) -> Decimal:
+def apply_lactation_adjustment(*, kcal_target: Decimal, conditions: frozenset[str]) -> Decimal:
     """Add lactation energy surplus to kcal target when applicable.
 
     Per IOM DRI for breastfeeding women, energy needs rise ~+500 kcal/day

@@ -1,10 +1,11 @@
 """Grocery use cases: generate, mark purchased, add manual, scale, share."""
+
 from __future__ import annotations
 
 import hashlib
 import hmac
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 from sqlalchemy import text
@@ -26,9 +27,16 @@ class GenerateGroceryList:
     repo: SqlGroceryRepository
 
     async def __call__(
-        self, *, plan_id: UUID, scale: float = 1.0,
+        self,
+        *,
+        plan_id: UUID,
+        scale: float = 1.0,
     ) -> GroceryList:
-        rows = (await self.session.execute(text("""
+        rows = (
+            (
+                await self.session.execute(
+                    text(
+                        """
             SELECT f.name_en, fl.amount_g
               FROM plan_meals pm
               JOIN plan_days pd ON pd.id = pm.plan_day_id
@@ -37,9 +45,20 @@ class GenerateGroceryList:
               LEFT JOIN foods f ON f.id = rc.food_id
               LEFT JOIN food_logs fl ON false  -- placeholder dummy alias
              WHERE pd.plan_id = :pid AND f.id IS NOT NULL
-        """), {"pid": str(plan_id)})).mappings().all()
+        """
+                    ),
+                    {"pid": str(plan_id)},
+                )
+            )
+            .mappings()
+            .all()
+        )
         # Re-run: simpler query — components only
-        rows = (await self.session.execute(text("""
+        rows = (
+            (
+                await self.session.execute(
+                    text(
+                        """
             SELECT COALESCE(f.name_en, rc.free_text_name) AS name,
                    COALESCE(SUM(rc.amount_g), 0) AS total_g
               FROM plan_meals pm
@@ -51,7 +70,14 @@ class GenerateGroceryList:
                AND (f.name_en IS NOT NULL OR rc.free_text_name IS NOT NULL)
              GROUP BY COALESCE(f.name_en, rc.free_text_name)
              ORDER BY name
-        """), {"pid": str(plan_id)})).mappings().all()
+        """
+                    ),
+                    {"pid": str(plan_id)},
+                )
+            )
+            .mappings()
+            .all()
+        )
 
         gl = await self.repo.get_or_create_list(plan_id)
         # Clear previous items (idempotent regeneration).
@@ -64,10 +90,15 @@ class GenerateGroceryList:
             name = r["name"]
             total_g = float(r["total_g"] or 0) * scale
             amount = f"{int(round(total_g))} g" if total_g > 0 else None
-            items.append(GroceryItem(
-                id=uuid4(), list_id=gl.id,
-                category=categorise(name), name=name, amount=amount,
-            ))
+            items.append(
+                GroceryItem(
+                    id=uuid4(),
+                    list_id=gl.id,
+                    category=categorise(name),
+                    name=name,
+                    amount=amount,
+                )
+            )
         await self.repo.bulk_insert_items(items)
         gl.items = items
         return gl
@@ -78,11 +109,16 @@ class MarkItemPurchased:
     repo: SqlGroceryRepository
 
     async def __call__(
-        self, *, item_id: UUID, purchased: bool | None = None,
+        self,
+        *,
+        item_id: UUID,
+        purchased: bool | None = None,
         amount: str | None = None,
     ) -> GroceryItem | None:
         return await self.repo.update_item(
-            item_id=item_id, purchased=purchased, amount=amount,
+            item_id=item_id,
+            purchased=purchased,
+            amount=amount,
         )
 
 
@@ -91,13 +127,19 @@ class AddManualItem:
     repo: SqlGroceryRepository
 
     async def __call__(
-        self, *, list_id: UUID, name: str, amount: str | None = None,
+        self,
+        *,
+        list_id: UUID,
+        name: str,
+        amount: str | None = None,
         category: GroceryCategory | None = None,
     ) -> GroceryItem:
         item = GroceryItem(
-            id=uuid4(), list_id=list_id,
+            id=uuid4(),
+            list_id=list_id,
             category=category or categorise(name),
-            name=name, amount=amount,
+            name=name,
+            amount=amount,
         )
         await self.repo.add_item(item)
         return item
@@ -133,10 +175,12 @@ def verify_share_token(list_id: UUID, token: str) -> bool:
         exp = int(exp_str)
     except Exception:  # noqa: BLE001
         return False
-    if exp < int(datetime.now(timezone.utc).timestamp()):
+    if exp < int(datetime.now(UTC).timestamp()):
         return False
     expected = hmac.new(
-        _share_secret(), f"{list_id}.{exp}".encode(), hashlib.sha256,
+        _share_secret(),
+        f"{list_id}.{exp}".encode(),
+        hashlib.sha256,
     ).hexdigest()
     return hmac.compare_digest(expected, mac)
 
@@ -146,12 +190,15 @@ class ShareList:
     repo: SqlGroceryRepository
 
     async def __call__(
-        self, *, list_id: UUID, ttl_hours: int = 168,
+        self,
+        *,
+        list_id: UUID,
+        ttl_hours: int = 168,
     ) -> dict:
         gl = await self.repo.get_list(list_id)
         if gl is None:
             raise NotFoundError(detail="list_not_found")
-        exp = int((datetime.now(timezone.utc) + timedelta(hours=ttl_hours)).timestamp())
+        exp = int((datetime.now(UTC) + timedelta(hours=ttl_hours)).timestamp())
         token = _sign(list_id, exp)
         return {
             "url": f"/grocery-lists/{list_id}/shared?token={token}",
@@ -161,7 +208,10 @@ class ShareList:
 
 
 async def ensure_owner(
-    session: AsyncSession, *, list_id: UUID, user_id: UUID,
+    session: AsyncSession,
+    *,
+    list_id: UUID,
+    user_id: UUID,
 ) -> None:
     repo = SqlGroceryRepository(session)
     owner = await repo.list_owner(list_id)

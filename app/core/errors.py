@@ -2,6 +2,7 @@
 
 HTTP status map is the authoritative source — keep it in sync with spec §11.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -131,8 +132,16 @@ def problem_for(exc: DomainError) -> dict[str, Any]:
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(DomainError)
     async def _domain_handler(request: Request, exc: DomainError) -> JSONResponse:  # noqa: ARG001
+        headers: dict[str, str] | None = None
+        # RFC 6585 §4 / RFC 7231 §7.1.3: Retry-After on 429/503 when
+        # the domain layer signalled a bounded retry window.
+        if exc.http_status in (429, 503):
+            ra = exc.extra.get("retry_after") or exc.extra.get("retry_after_s")
+            if ra is not None:
+                headers = {"Retry-After": str(int(ra))}
         return JSONResponse(
             status_code=exc.http_status,
             content=problem_for(exc),
             media_type="application/problem+json",
+            headers=headers,
         )

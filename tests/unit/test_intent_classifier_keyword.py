@@ -1,4 +1,5 @@
 """Unit — keyword-side of the intent classifier (no OpenAI)."""
+
 from __future__ import annotations
 
 import pytest
@@ -27,7 +28,9 @@ async def test_template_intents_match() -> None:
 async def test_medical_short_circuit() -> None:
     c = HybridIntentClassifier()
     intent, conf = await c.classify(
-        text="tengo dolor de cabeza y tomo metformina", locale="es", user_id=None,
+        text="tengo dolor de cabeza y tomo metformina",
+        locale="es",
+        user_id=None,
     )
     assert intent == Intent.MEDICAL_REDIRECT
     assert conf == 1.0

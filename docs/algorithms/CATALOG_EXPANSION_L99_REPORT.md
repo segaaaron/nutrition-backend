@@ -116,7 +116,7 @@ Name duplicates (1,703) exist across different cells — same dish name in diffe
 | GL audit liquids → strip diabetes if GL>10 | 100% | applied |
 | Allergen lookup EN+ES tokens | 100% | applied |
 | Closed-enum test suite post-merge | **7 passed** | 0 |
-| Full test suite (unit + property + clinical) | **325 passed** | 0 |
+| Full test suite (unit + property + nutrition) | **325 passed** | 0 |
 | Import-linter contracts | **3 kept / 0 broken** | n/a |
 
 ## Distribution analysis vs L99 brief

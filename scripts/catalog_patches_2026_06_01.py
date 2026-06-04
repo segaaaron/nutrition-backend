@@ -1,4 +1,4 @@
-"""Clinical-safety catalog patches — 2026-06-01.
+"""Nutrition-safety catalog patches — 2026-06-01.
 
 Idempotent patches applied to data/meals/nova_meals_catalog.cleaned.json:
 

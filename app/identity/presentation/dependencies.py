@@ -1,21 +1,23 @@
 """FastAPI dependencies: session, current user, Idempotency-Key resolver,
 rate-limit binders.
 """
+
 from __future__ import annotations
 
 import json
 from collections.abc import AsyncIterator
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import Depends, Header, HTTPException, Request
+from fastapi import Depends, Header, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_sessionmaker
 from app.core.errors import Forbidden, Unauthenticated
+from app.core.event_bus import get_event_bus
 from app.core.redis import get_redis
 from app.identity.application.use_cases import (
     CancelDeletion,
@@ -40,7 +42,6 @@ from app.identity.infrastructure.repositories import (
     SqlRefreshTokenRepository,
     SqlUserRepository,
 )
-from app.core.event_bus import get_event_bus
 
 _bearer = HTTPBearer(auto_error=False)
 _jwt_singleton: JwtSigner | None = None
@@ -109,7 +110,7 @@ async def require_admin(
     return user_id
 
 
-def require_role(min_role: "Role"):  # type: ignore[name-defined]
+def require_role(min_role: Role):  # type: ignore[name-defined]
     """RBAC dependency factory — endpoint authorises iff JWT claim role >= min_role.
 
     Usage:
@@ -117,7 +118,7 @@ def require_role(min_role: "Role"):  # type: ignore[name-defined]
 
     OWASP API5 (Broken Function Level Authorization), ASVS V4.
     """
-    from app.identity.domain.roles import Role, role_at_least
+    from app.identity.domain.roles import role_at_least
 
     async def _dep(
         creds: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
@@ -146,10 +147,15 @@ CurrentUserDep = Annotated[UUID, Depends(get_current_user)]
 
 async def db_lookup_idempotent(session: AsyncSession, rkey: str) -> dict | None:
     """Check Postgres for a cached idempotency response (Redis fallback)."""
-    row = (await session.execute(text(
-        "SELECT response_body FROM idempotency_keys "
-        "WHERE key = :k AND expires_at > now()"
-    ), {"k": rkey})).first()
+    row = (
+        await session.execute(
+            text(
+                "SELECT response_body FROM idempotency_keys "
+                "WHERE key = :k AND expires_at > now()"
+            ),
+            {"k": rkey},
+        )
+    ).first()
     if row is None:
         return None
     body = row[0]
@@ -171,6 +177,7 @@ async def idempotency_key(
         return None
     redis = get_redis()
     import hashlib
+
     composite = f"{user_id}:{request.url.path}:{idempotency_key}"
     rkey = "idem:" + hashlib.sha256(composite.encode()).hexdigest()
     cached = await redis.get(rkey)
@@ -193,22 +200,30 @@ async def remember_idempotent(
     """Dual-write idempotency response to Redis and Postgres."""
     r = redis or get_redis()
     payload = json.dumps(body)
-    expires = datetime.now(timezone.utc) + timedelta(hours=24)
+    expires = datetime.now(UTC) + timedelta(hours=24)
     await r.set(rkey, payload, ex=24 * 3600)
-    await session.execute(text("""
+    await session.execute(
+        text(
+            """
         INSERT INTO idempotency_keys (key, response_body, expires_at)
         VALUES (:k, CAST(:b AS jsonb), :e)
         ON CONFLICT (key) DO NOTHING
-    """), {"k": rkey, "b": payload, "e": expires})
+    """
+        ),
+        {"k": rkey, "b": payload, "e": expires},
+    )
 
 
 # --- Use-case factories (DI sugar) ---
+
 
 def make_register(session: SessionDep) -> RegisterUser:
     return RegisterUser(
         users=SqlUserRepository(session),
         refresh_tokens=SqlRefreshTokenRepository(session),
-        hasher=get_hasher(), jwt=get_jwt(), bus=get_event_bus(),
+        hasher=get_hasher(),
+        jwt=get_jwt(),
+        bus=get_event_bus(),
     )
 
 
@@ -216,7 +231,9 @@ def make_login(session: SessionDep) -> LoginUser:
     return LoginUser(
         users=SqlUserRepository(session),
         refresh_tokens=SqlRefreshTokenRepository(session),
-        hasher=get_hasher(), jwt=get_jwt(), bus=get_event_bus(),
+        hasher=get_hasher(),
+        jwt=get_jwt(),
+        bus=get_event_bus(),
     )
 
 
@@ -224,13 +241,15 @@ def make_refresh(session: SessionDep) -> RefreshTokens:
     return RefreshTokens(
         users=SqlUserRepository(session),
         refresh_tokens=SqlRefreshTokenRepository(session),
-        jwt=get_jwt(), bus=get_event_bus(),
+        jwt=get_jwt(),
+        bus=get_event_bus(),
     )
 
 
 def make_logout(session: SessionDep) -> Logout:
     return Logout(
-        refresh_tokens=SqlRefreshTokenRepository(session), jwt=get_jwt(),
+        refresh_tokens=SqlRefreshTokenRepository(session),
+        jwt=get_jwt(),
     )
 
 
@@ -239,7 +258,10 @@ def make_oauth(session: SessionDep, provider: str) -> OAuthLogin:
     return OAuthLogin(
         users=SqlUserRepository(session),
         refresh_tokens=SqlRefreshTokenRepository(session),
-        verifier=verifier, jwt=get_jwt(), bus=get_event_bus(), provider=provider,
+        verifier=verifier,
+        jwt=get_jwt(),
+        bus=get_event_bus(),
+        provider=provider,
     )
 
 
@@ -256,7 +278,9 @@ def make_verify_otp(session: SessionDep) -> VerifyOtp:
         users=SqlUserRepository(session),
         otps=SqlOtpRepository(session),
         refresh_tokens=SqlRefreshTokenRepository(session),
-        hasher=get_hasher(), jwt=get_jwt(), bus=get_event_bus(),
+        hasher=get_hasher(),
+        jwt=get_jwt(),
+        bus=get_event_bus(),
     )
 
 
@@ -274,11 +298,33 @@ def make_export(session: SessionDep) -> ExportData:
 
 # --- OWASP API1 (BOLA) defence ---
 
+# Allowlist of (table, id_col, user_col) tuples permitted by `assert_owns`.
+# SQL identifiers cannot be bound — defence-in-depth requires a closed set so
+# that no caller (current or future) can pass attacker-controlled values into
+# the identifier slot. Add a row here when introducing a new owned resource.
+_ASSERT_OWNS_ALLOWLIST: frozenset[tuple[str, str, str]] = frozenset(
+    {
+        ("food_logs", "id", "user_id"),
+        ("fasting_sessions", "id", "user_id"),
+        ("progress_photos", "id", "user_id"),
+        ("plans", "id", "user_id"),
+        ("grocery_lists", "id", "user_id"),
+        ("grocery_items", "id", "user_id"),
+        ("vision_jobs", "id", "user_id"),
+        ("coach_conversations", "id", "user_id"),
+        ("notifications", "id", "user_id"),
+        ("invoices", "id", "user_id"),
+        ("subscriptions", "id", "user_id"),
+        ("user_profiles", "user_id", "user_id"),
+    }
+)
+
+
 async def assert_owns(
     session: AsyncSession,
     *,
     table: str,
-    resource_id: "UUID | str",
+    resource_id: UUID | str,
     user_id: UUID,
     id_col: str = "id",
     user_col: str = "user_id",
@@ -295,13 +341,29 @@ async def assert_owns(
         user_id: UUID from the verified JWT (``current_user``).
         id_col: Primary-key column name (default ``"id"``).
         user_col: Ownership column name (default ``"user_id"``).
+
+    Raises:
+        ValueError: When ``(table, id_col, user_col)`` is not in the closed
+            allowlist. SQL identifiers cannot be parameterised, so this is the
+            only safe pattern.
     """
     from app.core.errors import Forbidden, NotFoundError  # local to avoid circular
 
-    row = (await session.execute(
-        text(f"SELECT {user_col} FROM {table} WHERE {id_col} = :rid"),
-        {"rid": str(resource_id)},
-    )).first()
+    triple = (table, id_col, user_col)
+    if triple not in _ASSERT_OWNS_ALLOWLIST:
+        raise ValueError(
+            f"assert_owns_disallowed_identifier: {triple!r} not in allowlist. "
+            "Add an explicit row to _ASSERT_OWNS_ALLOWLIST."
+        )
+
+    # S608 noqa: identifiers validated against closed allowlist immediately
+    # above; resource_id is bound. No injection vector.
+    row = (
+        await session.execute(
+            text(f"SELECT {user_col} FROM {table} WHERE {id_col} = :rid"),  # noqa: S608
+            {"rid": str(resource_id)},
+        )
+    ).first()
     if row is None:
         raise NotFoundError(f"{table}_not_found")
     if str(row[0]) != str(user_id):

@@ -3,10 +3,12 @@
 Reuses `HybridFoodMatcher` from the vision context to resolve item names
 to `food_id`. Items with no match are persisted as `free_text_name`.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
+from decimal import ROUND_HALF_EVEN, Decimal
 from typing import Literal
 from uuid import UUID, uuid4
 
@@ -40,24 +42,48 @@ class LogFoodText:
         total_kcal = 0
         for it in items:
             food_id, name_norm, method_match = await self.matcher.match(
-                name=it.name, amount_g=it.quantity_g, locale=locale, user_id=user_id,
+                name=it.name,
+                amount_g=it.quantity_g,
+                locale=locale,
+                user_id=user_id,
             )
             # If matched, fetch macros per 100g and scale; else free_text only.
             kcal = protein = carbs = fat = 0
             if food_id is not None:
-                row = (await self.session.execute(text("""
+                row = (
+                    await self.session.execute(
+                        text(
+                            """
                     SELECT COALESCE(kcal,0), COALESCE(protein_g,0),
                            COALESCE(carbs_g,0), COALESCE(fat_g,0)
                       FROM foods WHERE id = :fid
-                """), {"fid": str(food_id)})).first()
+                """
+                        ),
+                        {"fid": str(food_id)},
+                    )
+                ).first()
                 if row:
-                    factor = it.quantity_g / 100.0
-                    kcal = int(float(row[0]) * factor)
-                    protein = int(float(row[1]) * factor)
-                    carbs = int(float(row[2]) * factor)
-                    fat = int(float(row[3]) * factor)
+                    # CLAUDE.md non-negotiable #2 — Decimal for nutrition macro math.
+                    # Scale per-100g foods by amount_g/100 with banker's rounding;
+                    # only cast to int at the storage boundary.
+                    factor = Decimal(str(it.quantity_g)) / Decimal("100")
+
+                    def _scale(v: object) -> int:
+                        return int(
+                            (Decimal(str(v)) * factor).quantize(
+                                Decimal("1"),
+                                rounding=ROUND_HALF_EVEN,
+                            )
+                        )
+
+                    kcal = _scale(row[0])
+                    protein = _scale(row[1])
+                    carbs = _scale(row[2])
+                    fat = _scale(row[3])
             flog_id = uuid4()
-            await self.session.execute(text("""
+            await self.session.execute(
+                text(
+                    """
                 INSERT INTO food_logs (
                     id, user_id, date, meal_time, food_id, free_text_name,
                     amount_g, kcal, protein_g, carbs_g, fat_g,
@@ -68,21 +94,33 @@ class LogFoodText:
                     :method, :idem, now()
                 )
                 ON CONFLICT (user_id, idempotency_key) DO NOTHING
-            """), {
-                "id": str(flog_id), "uid": str(user_id),
-                "d": date.today(), "mt": meal_time,
-                "fid": str(food_id) if food_id else None,
-                "ftn": it.name if food_id is None else None,
-                "ag": it.quantity_g,
-                "kc": kcal, "pg": protein, "cg": carbs, "fg": fat,
-                "method": method,
-                "idem": f"{idempotency_key}:{flog_id}" if idempotency_key else None,
-            })
+            """
+                ),
+                {
+                    "id": str(flog_id),
+                    "uid": str(user_id),
+                    "d": date.today(),
+                    "mt": meal_time,
+                    "fid": str(food_id) if food_id else None,
+                    "ftn": it.name if food_id is None else None,
+                    "ag": it.quantity_g,
+                    "kc": kcal,
+                    "pg": protein,
+                    "cg": carbs,
+                    "fg": fat,
+                    "method": method,
+                    "idem": f"{idempotency_key}:{flog_id}" if idempotency_key else None,
+                },
+            )
             food_log_ids.append(flog_id)
             total_kcal += kcal
 
-        await self.bus.publish(FoodLogged(
-            user_id=user_id, meal_time=meal_time,  # type: ignore[arg-type]
-            kcal=total_kcal, at=datetime.now(timezone.utc),
-        ))
+        await self.bus.publish(
+            FoodLogged(
+                user_id=user_id,
+                meal_time=meal_time,  # type: ignore[arg-type]
+                kcal=total_kcal,
+                at=datetime.now(UTC),
+            )
+        )
         return food_log_ids

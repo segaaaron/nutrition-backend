@@ -1,4 +1,5 @@
 """Imaging domain port: ImageCompressor protocol + CompressionProfile enum."""
+
 from __future__ import annotations
 
 from enum import Enum
@@ -15,5 +16,5 @@ class CompressionProfile(Enum):
 class ImageCompressor(Protocol):
     async def compress(
         self, raw: bytes, *, profile: CompressionProfile
-    ) -> "CompressedImage":  # noqa: F821 — forward ref
+    ) -> CompressedImage:  # noqa: F821 — forward ref
         ...

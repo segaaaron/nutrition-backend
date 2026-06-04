@@ -1,8 +1,8 @@
 """Recipes use cases. Application orchestration only — no SQL, no HTTP."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol
 from uuid import UUID
 
 from app.core.errors import NotFoundError
@@ -45,8 +45,13 @@ class SwapRecipe:
     recipes: RecipeRepository
 
     async def __call__(
-        self, *, recipe_id: UUID, regions: list[str], allergens_exclude: list[str],
-        conditions: list[str], k: int = 3,
+        self,
+        *,
+        recipe_id: UUID,
+        regions: list[str],
+        allergens_exclude: list[str],
+        conditions: list[str],
+        k: int = 3,
     ) -> list[Recipe]:
         original = await self.recipes.get(recipe_id)
         if original is None:
@@ -85,13 +90,22 @@ class GetAlternatives:
     recipes: RecipeRepository
 
     async def __call__(
-        self, *, query: RecipeSearchQuery, k: int = 20,
+        self,
+        *,
+        query: RecipeSearchQuery,
+        k: int = 20,
     ) -> list[tuple[Recipe, float]]:
         q = RecipeSearchQuery(
-            q=query.q, meal_time=query.meal_time, regions=query.regions,
-            allergens_exclude=query.allergens_exclude, conditions=query.conditions,
-            tags=query.tags, max_kcal=query.max_kcal, min_protein_g=query.min_protein_g,
-            ingredients_avoid=query.ingredients_avoid, target_goals=query.target_goals,
+            q=query.q,
+            meal_time=query.meal_time,
+            regions=query.regions,
+            allergens_exclude=query.allergens_exclude,
+            conditions=query.conditions,
+            tags=query.tags,
+            max_kcal=query.max_kcal,
+            min_protein_g=query.min_protein_g,
+            ingredients_avoid=query.ingredients_avoid,
+            target_goals=query.target_goals,
             limit=k,
         )
         return await self.recipes.search(q)

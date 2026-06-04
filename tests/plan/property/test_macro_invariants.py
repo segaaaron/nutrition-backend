@@ -3,6 +3,7 @@
 Each property runs ≥200 hypothesis examples. Assertions use Decimal arithmetic
 exclusively. No float equality. No mocks. Pure domain.
 """
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -91,12 +92,10 @@ def test_back_adjust_never_returns_negative_macros(
 @pytest.mark.property
 @_SETTINGS
 @given(w=weight_kg, s=sex, bf=bodyfat_pct)
-def test_lbm_bounded_between_half_weight_and_weight(
-    w: Decimal, s: str, bf: Decimal | None
-) -> None:
+def test_lbm_bounded_between_half_weight_and_weight(w: Decimal, s: str, bf: Decimal | None) -> None:
     lbm = lbm_kg(w, s, bf)  # type: ignore[arg-type]
     # Physiological invariant: LBM is a non-negative fraction of body weight.
-    # No fixed floor at 0.5w — a body composition of 60% fat (clinically
+    # No fixed floor at 0.5w — a body composition of 60% fat (nutritionally
     # possible in severe obesity) places LBM at 0.4w.
     assert lbm <= w
     assert lbm >= Decimal("0")
@@ -108,7 +107,7 @@ def test_lbm_bounded_between_half_weight_and_weight(
 @pytest.mark.property
 @_SETTINGS
 @given(w=weight_kg, s=sex, g=goal, bf=bodyfat_pct)
-def test_protein_target_within_clinical_clamp(
+def test_protein_target_within_nutrition_clamp(
     w: Decimal, s: str, g: str, bf: Decimal | None
 ) -> None:
     p = protein_target_g(weight_kg=w, sex=s, goal=g, bodyfat_pct=bf)  # type: ignore[arg-type]
@@ -125,9 +124,7 @@ def test_protein_target_within_clinical_clamp(
 @pytest.mark.property
 @_SETTINGS
 @given(w=weight_kg, kcal=kcal_target, g=goal)
-def test_fat_target_respects_minimum_floor(
-    w: Decimal, kcal: Decimal, g: str
-) -> None:
+def test_fat_target_respects_minimum_floor(w: Decimal, kcal: Decimal, g: str) -> None:
     f = fat_target_g(weight_kg=w, kcal=kcal, goal=g)  # type: ignore[arg-type]
     floor = Decimal("0.6") * w
     assert f >= floor - Decimal("1")  # 1g quantisation cushion
@@ -143,9 +140,7 @@ def test_fat_target_respects_minimum_floor(
     kcal=decimal_in_range("1800", "3500", places=0),
     g=goal,
 )
-def test_fat_fraction_of_kcal_within_physiological_range(
-    w: Decimal, kcal: Decimal, g: str
-) -> None:
+def test_fat_fraction_of_kcal_within_physiological_range(w: Decimal, kcal: Decimal, g: str) -> None:
     f = fat_target_g(weight_kg=w, kcal=kcal, goal=g)  # type: ignore[arg-type]
     kcal_from_fat = f * Decimal("9")
     fraction = kcal_from_fat / kcal

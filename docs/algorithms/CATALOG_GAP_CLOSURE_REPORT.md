@@ -31,7 +31,7 @@ Generator: `scripts/generate_recipes_gap_closure_2026_06_01.py`. 67 templates af
 | kcal_out_of_range | 16 |
 | jugo_carbs_high (>25 g) | 3 |
 
-All rejections are clinical-gate enforcements, not enum/schema drift. Zero macro-math rejections, zero allergen drift, zero vocabulary drift.
+All rejections are nutrition-gate enforcements, not enum/schema drift. Zero macro-math rejections, zero allergen drift, zero vocabulary drift.
 
 ## Final catalog state
 

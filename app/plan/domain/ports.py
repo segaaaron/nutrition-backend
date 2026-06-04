@@ -5,10 +5,12 @@ Constraint, Solver, WeightVectorRepo, TasteProfileReader) drive the
 plan-generation pipeline. Implementations live in infrastructure or
 application layers; this module declares contract only.
 """
+
 from __future__ import annotations
 
+from collections.abc import Sequence
 from decimal import Decimal
-from typing import TYPE_CHECKING, Protocol, Sequence, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 from uuid import UUID
 
 from app.plan.domain.entities import Plan
@@ -80,7 +82,7 @@ class TasteProfileReader(Protocol):
 class WeightVectorRepo(Protocol):
     """Loads the ranking-signal weight vector for a given variant."""
 
-    async def for_variant(self, variant_id: str) -> "WeightVector": ...
+    async def for_variant(self, variant_id: str) -> WeightVector: ...
 
 
 @runtime_checkable
@@ -89,10 +91,10 @@ class Solver(Protocol):
 
     async def solve(
         self,
-        plan: "DraftPlan",
-        constraints: Sequence["Constraint"],
-        ctx: "PlanGenContext",
-    ) -> tuple["MealSlot", ...]: ...
+        plan: DraftPlan,
+        constraints: Sequence[Constraint],
+        ctx: PlanGenContext,
+    ) -> tuple[MealSlot, ...]: ...
 
 
 @runtime_checkable
@@ -101,16 +103,16 @@ class Constraint(Protocol):
 
     name: str
 
-    def check(self, plan: "DraftPlan") -> list["Violation"]: ...
+    def check(self, plan: DraftPlan) -> list[Violation]: ...
 
 
 @runtime_checkable
 class ConditionGate(Protocol):
-    """Mutates a recipe query to reflect a clinical condition."""
+    """Mutates a recipe query to reflect a user-reported condition."""
 
     condition: str
 
-    def contribute(self, q: "RecipeQuery") -> "RecipeQuery": ...
+    def contribute(self, q: RecipeQuery) -> RecipeQuery: ...
 
 
 @runtime_checkable
@@ -119,9 +121,7 @@ class RankingSignal(Protocol):
 
     key: str
 
-    async def score(
-        self, recipe: "RecipeView", ctx: "PlanGenContext"
-    ) -> Decimal: ...
+    async def score(self, recipe: RecipeView, ctx: PlanGenContext) -> Decimal: ...
 
 
 @runtime_checkable
@@ -130,7 +130,7 @@ class Stage(Protocol):
 
     name: str
 
-    async def apply(self, ctx: "PlanGenContext") -> "PlanGenContext": ...
+    async def apply(self, ctx: PlanGenContext) -> PlanGenContext: ...
 
 
 class RecipeQuery(Protocol):

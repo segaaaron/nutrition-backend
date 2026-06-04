@@ -4,6 +4,7 @@ Each property runs ≥200 hypothesis examples. End-to-end pipeline closes the
 loop: Mifflin → TDEE → goal → fat/protein → back_adjust must respect
 MacroConsistency and the BMR*0.9 safety floor.
 """
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -53,9 +54,7 @@ _SETTINGS = settings(
 @pytest.mark.property
 @_SETTINGS
 @given(w=weight_kg, h=height_cm, a=age, s=sex)
-def test_mifflin_within_realistic_adult_range(
-    w: Decimal, h: Decimal, a: int, s: str
-) -> None:
+def test_mifflin_within_realistic_adult_range(w: Decimal, h: Decimal, a: int, s: str) -> None:
     bmr = mifflin_st_jeor(weight_kg=w, height_cm=h, age=a, sex=s)  # type: ignore[arg-type]
     # Realistic adult range. The corner (small elderly woman) bottoms near
     # ~800; the large young man corner tops near ~2800. Bounds are loose
@@ -105,7 +104,7 @@ def test_tdee_strictly_ordered_by_activity_level(bmr: Decimal) -> None:
 @pytest.mark.property
 @_SETTINGS
 @given(tdee_val=decimal_in_range("1200", "4500", places=0))
-def test_goal_adjustment_direction_matches_clinical_intent(
+def test_goal_adjustment_direction_matches_nutrition_intent(
     tdee_val: Decimal,
 ) -> None:
     wl = apply_goal_to_tdee(tdee_val=tdee_val, goal="weight_loss")

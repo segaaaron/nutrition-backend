@@ -20,7 +20,9 @@
 #
 # DEPLOY:
 #   1. Dokploy: connect repo, set env vars (.env.example as template)
-#   2. Dokploy auto-runs `alembic upgrade head` via api container pre-start
+#   2. api container entrypoint (docker/entrypoint.sh) auto-runs
+#      `alembic upgrade head` BEFORE starting uvicorn on every boot/redeploy.
+#      Idempotent. Override with SKIP_MIGRATIONS=1 (NOT recommended in prod).
 #   3. Owner SSH to VPS once:
 #        docker exec -it $(docker ps -qf name=api) python -m scripts.seed_recipes
 #        docker exec -it $(docker ps -qf name=api) python -m scripts.compute_embeddings --max-usd 1.00
@@ -34,6 +36,11 @@ services:
     env_file: .env
     environment:
       WEB_CONCURRENCY: "1"
+    volumes:
+      # JWT keys mounted from host (Dokploy bind mount).
+      # Owner places keys on VPS at /var/dokploy/secrets/nova/jwt.{pem,pub}.
+      - /var/dokploy/secrets/nova/jwt.pem:/jwt.pem:ro
+      - /var/dokploy/secrets/nova/jwt.pub:/jwt.pub:ro
     depends_on:
       db:
         condition: service_healthy
@@ -41,18 +48,16 @@ services:
         condition: service_healthy
     ports:
       - "8000:8000"
-    # Pre-start hook: applies migrations before serving requests.
-    # Idempotent (alembic skips already-applied revisions).
-    command: >
-      sh -c "
-        alembic upgrade head &&
-        uvicorn app.main:app
-        --host 0.0.0.0
-        --port 8000
-        --workers 1
-        --limit-concurrency 100
-        --timeout-keep-alive 30
-      "
+    # Migrations applied automatically by docker/entrypoint.sh (ENTRYPOINT
+    # in api.Dockerfile) BEFORE the uvicorn CMD runs. Idempotent.
+    command:
+      - "uvicorn"
+      - "app.main:app"
+      - "--host=0.0.0.0"
+      - "--port=8000"
+      - "--workers=1"
+      - "--limit-concurrency=100"
+      - "--timeout-keep-alive=30"
     deploy:
       resources:
         limits:

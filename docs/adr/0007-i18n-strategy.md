@@ -13,7 +13,7 @@ posture to **USA + LatAm simultaneously**, with EU as a near-term target
 (Stripe is enabled for US/CA/EU on day 1). Three concrete problems with
 keeping ES canonical:
 
-1. Clinical and regulatory codes the system has to cite (ICD-10, FALCPA,
+1. Nutrition and regulatory codes the system has to cite (ICD-10, FALCPA,
    EU 1169/2011, USDA FDC nutrient IDs) are all English-anchored. Naming
    our enums in Spanish forces every interaction with those sources through
    a translation table.
@@ -75,7 +75,7 @@ keeping ES canonical:
   the codebase has no application code yet (we are pre-implementation).
 - Catalog ingest pipeline §20 drops its EN→ES mapping step entirely — gate 1
   validates EN canonical IDs directly.
-- The clinical generator agent emits EN identifiers (already its prior
+- The nutrition generator agent emits EN identifiers (already its prior
   default; ADR-0007 makes it canonical, not transitional).
 - Adding `it` or `ja` post-MVP is a translation-row import + a test rerun.
 
@@ -83,7 +83,7 @@ keeping ES canonical:
 
 - **Keep ES canonical and store EN as alias** (round-2 plus a synonyms
   table): rejected — every regulatory citation would still go through a
-  translation; clinical-AI prompts in EN would emit EN tokens we then
+  translation; nutrition-AI prompts in EN would emit EN tokens we then
   re-translate before persistence; double-translation surface.
 - **Mixed canonical** (allergens EN, goals ES): rejected — splits the
   mental model; lints have to know which enum is which language.

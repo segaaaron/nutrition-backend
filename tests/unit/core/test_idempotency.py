@@ -1,4 +1,5 @@
 """Idempotency helpers — UUID validation, repo replay, conflict detection."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -13,13 +14,11 @@ from app.core.idempotency import (
     IdempotencyConflict,
     IdempotencyRepo,
     fingerprint_body,
-    is_whitelisted,
     remember,
     replay_or_remember,
     storage_key,
     validate_idempotency_key,
 )
-
 
 VALID_KEY = "550e8400-e29b-41d4-a716-446655440000"
 
@@ -43,9 +42,7 @@ class FakeRepo:
             return None
         return cached
 
-    async def store(
-        self, storage_key: str, cached: CachedResponse, expires_at: datetime
-    ) -> None:
+    async def store(self, storage_key: str, cached: CachedResponse, expires_at: datetime) -> None:
         self._store[storage_key] = (cached, expires_at)
 
 
@@ -74,21 +71,6 @@ def test_validate_idempotency_key_rejects_malformed(bad: str) -> None:
         validate_idempotency_key(bad)
     assert exc.value.http_status == 422  # mapped to 400-equivalent client error
     assert exc.value.extra.get("field") == "Idempotency-Key"
-
-
-def test_is_whitelisted_matches_exact_routes() -> None:
-    assert is_whitelisted("POST", "/v1/plan/generate")
-    assert is_whitelisted("POST", "/v1/plan/me/recalibrate")
-    assert is_whitelisted("POST", "/v1/profile/me/onboarding")
-
-
-def test_is_whitelisted_matches_swap_prefix() -> None:
-    assert is_whitelisted("POST", "/v1/plan/me/swap/breakfast-2026-06-01")
-
-
-def test_is_whitelisted_rejects_non_whitelisted() -> None:
-    assert not is_whitelisted("GET", "/v1/plan/generate")
-    assert not is_whitelisted("POST", "/v1/recipes")
 
 
 async def test_replay_returns_none_on_miss() -> None:

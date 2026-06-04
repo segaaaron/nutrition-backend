@@ -1,4 +1,5 @@
 """Sprint 8.A — pricing matrix + entitlement defaults."""
+
 from __future__ import annotations
 
 from app.billing.domain import Plan

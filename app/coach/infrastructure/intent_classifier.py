@@ -3,6 +3,7 @@
 Returns one of `Intent`. Medical-risk patterns short-circuit to
 MEDICAL_REDIRECT regardless of LLM result (Camino 4).
 """
+
 from __future__ import annotations
 
 import json
@@ -43,9 +44,9 @@ MEDICAL_PATTERNS = [
     r"\b(hipo|hiper)tiroid(ismo|eo)?\b",
     # Mental-health symptoms (not nutrition scope).
     r"\b(ansiedad|anxiety|depresi[óo]n|depression|insomnio|insomnia|p[áa]nico|panic|trastorno)\b",
-    # Supplement clinical dosing (high-risk advice).
+    # Supplement dosing (out of nutrition scope).
     r"\b(creatina|creatine|bcaa|preworkout|pre[\s\-]?workout|protein.{0,5}powder)\b.{0,30}\b(dosis|dose|cu[áa]nto|how much)\b",
-    # Extended fasting (>48h) — clinical territory.
+    # Extended fasting (>48h) — out of nutrition scope.
     r"\b(ayuno.{0,20}prolongado|fasting.{0,10}days|cetosis|ketosis|keto.{0,10}flu)\b",
 ]
 _MED_RE = re.compile("|".join(MEDICAL_PATTERNS), re.IGNORECASE)
@@ -87,7 +88,10 @@ TEMPLATE_PATTERNS: list[tuple[Intent, re.Pattern]] = [
     (Intent.STREAK_STATUS, re.compile(r"\b(racha|streak)\b", re.I)),
     (Intent.WATER_PROGRESS, re.compile(r"\b(agua|water)\b.*\b(hoy|today|progress|llevo)\b", re.I)),
     (Intent.PROTEIN_REMAINING, re.compile(r"\b(prote[íi]na|protein).*(falta|remain|left)\b", re.I)),
-    (Intent.MARK_WATER, re.compile(r"\b(toma|tom[eé]|bebe|drank|marca|register).{0,15}(agua|water)\b", re.I)),
+    (
+        Intent.MARK_WATER,
+        re.compile(r"\b(toma|tom[eé]|bebe|drank|marca|register).{0,15}(agua|water)\b", re.I),
+    ),
     (Intent.SWAP_MEAL, re.compile(r"\b(cambia|swap|reemplaz|replace)\b", re.I)),
     (Intent.WHY_PLAN, re.compile(r"\b(por qu[eé]|why).{0,30}(plan|comida|meal)\b", re.I)),
     (Intent.IM_HUNGRY, re.compile(r"\b(hambre|hungry|snack)\b", re.I)),
@@ -117,7 +121,11 @@ def _get_client() -> AsyncOpenAI:
 @dataclass(slots=True)
 class HybridIntentClassifier:
     async def classify(
-        self, *, text: str, locale: str, user_id: UUID | None,
+        self,
+        *,
+        text: str,
+        locale: str,
+        user_id: UUID | None,
     ) -> tuple[Intent, float]:
         # Hard prompt-injection guard — never reach LLM. Logged as security.
         if _INJECTION_RE.search(text):
@@ -162,7 +170,8 @@ class HybridIntentClassifier:
             content = resp.choices[0].message.content or "{}"
             usage = resp.usage
             await record_usage(
-                user_id=user_id, model=model,
+                user_id=user_id,
+                model=model,
                 in_tok=(getattr(usage, "prompt_tokens", 0) if usage else 0),
                 out_tok=(getattr(usage, "completion_tokens", 0) if usage else 0),
             )

@@ -1,12 +1,21 @@
 """Plan router — async creation via Arq, hot reads via Redis cache."""
+
 from __future__ import annotations
 
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Header, Path, Response, status
+from fastapi import APIRouter, Header, Path, Request, Response, status
 
+from app.core.errors import ConflictError
 from app.core.event_bus import get_event_bus
+from app.core.idempotency import (
+    IdempotencyConflict,
+    cached_to_response,
+    lookup_redis,
+    remember_redis,
+    require_idempotency_key,
+)
 from app.core.logging import get_logger
 from app.core.redis import get_redis
 from app.identity.presentation.dependencies import CurrentUserDep, SessionDep, assert_owns
@@ -40,19 +49,35 @@ router = APIRouter(tags=["plan"])
 
 def _to_resp(p: Plan) -> PlanResponse:
     return PlanResponse(
-        id=p.id, user_id=p.user_id, type=p.type, total_days=p.total_days,
-        current_day=p.current_day, status=p.status, goal=p.goal,
-        meals_per_day=p.meals_per_day, preferences=p.preferences,
-        kcal_target=p.kcal_target, version=p.version,
+        id=p.id,
+        user_id=p.user_id,
+        type=p.type,
+        total_days=p.total_days,
+        current_day=p.current_day,
+        status=p.status,
+        goal=p.goal,
+        meals_per_day=p.meals_per_day,
+        preferences=p.preferences,
+        kcal_target=p.kcal_target,
+        version=p.version,
         created_at=p.created_at,
         days=[
             PlanDayResponse(
-                id=d.id, day_index=d.day_index, date=d.date, completed=d.completed,
+                id=d.id,
+                day_index=d.day_index,
+                date=d.date,
+                completed=d.completed,
                 meals=[
                     PlanMealResponse(
-                        id=m.id, meal_time=m.meal_time, recipe_id=m.recipe_id,  # type: ignore[arg-type]
-                        kcal=m.kcal, protein_g=m.protein_g, carbs_g=m.carbs_g,
-                        fat_g=m.fat_g, completed=m.completed, swapped_from=m.swapped_from,
+                        id=m.id,
+                        meal_time=m.meal_time,
+                        recipe_id=m.recipe_id,  # type: ignore[arg-type]
+                        kcal=m.kcal,
+                        protein_g=m.protein_g,
+                        carbs_g=m.carbs_g,
+                        fat_g=m.fat_g,
+                        completed=m.completed,
+                        swapped_from=m.swapped_from,
                     )
                     for m in d.meals
                 ],
@@ -63,19 +88,40 @@ def _to_resp(p: Plan) -> PlanResponse:
 
 
 @router.post(
-    "/plans", status_code=status.HTTP_202_ACCEPTED, response_model=CreatePlanResponse,
+    "/plans",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=CreatePlanResponse,
 )
 async def create_plan(
     body: CreatePlanRequest,
     current_user: CurrentUserDep,
+    request: Request,
     response: Response,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
-) -> CreatePlanResponse:
-    """Enqueues `generate_plan_task`. Idempotency-Key is required to dedupe
-    a retried request after a client-side timeout (spec §11)."""
-    if not idempotency_key:
-        # Surface the requirement explicitly rather than silently dropping.
-        return CreatePlanResponse(job_id="", plan_id=None, status="queued")
+) -> Response:
+    """Enqueues `generate_plan_task`. ``Idempotency-Key`` (UUIDv4) is REQUIRED.
+
+    On replay within 24 h the cached 202 body is returned verbatim. Body
+    fingerprint mismatch with same key -> 409. RFC: draft-ietf-httpapi-
+    idempotency-key-06.
+    """
+    key = require_idempotency_key(idempotency_key)
+
+    raw_body = await request.body()
+    redis = get_redis()
+    try:
+        skey, cached = await lookup_redis(
+            redis=redis,
+            user_id=str(current_user),
+            path=request.url.path,
+            raw_key=key,
+            body=raw_body,
+        )
+    except IdempotencyConflict as exc:
+        raise ConflictError("idempotency_body_mismatch") from exc
+    if cached is not None:
+        return cached_to_response(cached)
+
     from arq.connections import RedisSettings, create_pool
 
     from app.core.config import get_settings
@@ -88,13 +134,28 @@ async def create_plan(
             plan_type=body.type,
             preferences=body.preferences,
             seed=body.seed,
-            _job_id=f"plan:{current_user}:{idempotency_key}",
+            _job_id=f"plan:{current_user}:{key}",
         )
     finally:
         await pool.close()
     response.headers["x-job-id"] = job.job_id if job else ""
-    return CreatePlanResponse(
-        job_id=job.job_id if job else "", plan_id=None, status="queued",
+    payload = CreatePlanResponse(
+        job_id=job.job_id if job else "",
+        plan_id=None,
+        status="queued",
+    )
+    await remember_redis(
+        redis=redis,
+        storage_key=skey,
+        body=raw_body,
+        response_body=payload.model_dump(mode="json"),
+        status_code=status.HTTP_202_ACCEPTED,
+    )
+    return Response(
+        content=payload.model_dump_json(),
+        media_type="application/json",
+        status_code=status.HTTP_202_ACCEPTED,
+        headers={"x-job-id": job.job_id if job else ""},
     )
 
 
@@ -122,7 +183,8 @@ async def advance_plan(
 
 
 @router.patch(
-    "/plans/{plan_id}/meals/{meal_id}/complete", status_code=status.HTTP_204_NO_CONTENT,
+    "/plans/{plan_id}/meals/{meal_id}/complete",
+    status_code=status.HTTP_204_NO_CONTENT,
 )
 async def complete_meal(
     plan_id: Annotated[uuid.UUID, Path()],
@@ -151,16 +213,21 @@ async def swap_meal(
     # and rely on the layer3 to rank an empty list → empty alternatives. The
     # full swap-with-search workflow is the Sprint-5 enhancement.
     taste = await TasteProfileService(
-        redis=get_redis(), fetcher=SqlEmbeddingFetcher(session),
+        redis=get_redis(),
+        fetcher=SqlEmbeddingFetcher(session),
     ).get_or_build(current_user)
     user_ctx = SqlUserContext(session)
     layer3 = Layer3Ranking(session=session, profile_ctx=user_ctx, taste_vector=taste)
     uc = SwapMeal(
-        plans=SqlPlanRepository(session), cache=cache, layer3=layer3,
+        plans=SqlPlanRepository(session),
+        cache=cache,
+        layer3=layer3,
         bus=get_event_bus(),
     )
     alts = await uc(
-        plan_id=plan_id, meal_id=meal_id, reason_code=body.reason_code,
+        plan_id=plan_id,
+        meal_id=meal_id,
+        reason_code=body.reason_code,
         candidate_ids=[],
     )
     return SwapMealResponse(alternatives=alts)

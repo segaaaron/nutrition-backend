@@ -10,6 +10,7 @@ Heuristic unit assumption: when no grams given for fruits/single items,
 use a default portion from a small lookup table (banana=120g, manzana=180g,
 plátano=120g, huevo=50g, café=200g, leche=240g).
 """
+
 from __future__ import annotations
 
 import json
@@ -39,24 +40,55 @@ def _get_client() -> AsyncOpenAI:
 
 
 NUMBER_WORDS_ES = {
-    "un": 1, "una": 1, "uno": 1, "dos": 2, "tres": 3, "cuatro": 4,
-    "cinco": 5, "seis": 6, "siete": 7, "ocho": 8, "nueve": 9, "diez": 10,
-    "medio": 0.5, "media": 0.5,
+    "un": 1,
+    "una": 1,
+    "uno": 1,
+    "dos": 2,
+    "tres": 3,
+    "cuatro": 4,
+    "cinco": 5,
+    "seis": 6,
+    "siete": 7,
+    "ocho": 8,
+    "nueve": 9,
+    "diez": 10,
+    "medio": 0.5,
+    "media": 0.5,
 }
 NUMBER_WORDS_EN = {
-    "a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4,
-    "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+    "a": 1,
+    "an": 1,
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
     "half": 0.5,
 }
 
 DEFAULT_PORTION_G = {
-    "banana": 120, "plátano": 120, "platano": 120,
-    "manzana": 180, "apple": 180,
-    "huevo": 50, "egg": 50, "eggs": 50,
-    "café": 200, "cafe": 200, "coffee": 200,
-    "leche": 240, "milk": 240,
-    "pan": 30, "bread": 30,
-    "yogurt": 170, "yogur": 170,
+    "banana": 120,
+    "plátano": 120,
+    "platano": 120,
+    "manzana": 180,
+    "apple": 180,
+    "huevo": 50,
+    "egg": 50,
+    "eggs": 50,
+    "café": 200,
+    "cafe": 200,
+    "coffee": 200,
+    "leche": 240,
+    "milk": 240,
+    "pan": 30,
+    "bread": 30,
+    "yogurt": 170,
+    "yogur": 170,
 }
 
 # Pattern: optional number (digit or word) + optional unit (g, gr, ml) + food name.
@@ -154,7 +186,8 @@ async def parse_llm(text: str, *, user_id: UUID | None) -> list[ParsedItem]:
         content = resp.choices[0].message.content or "{}"
         usage = resp.usage
         await record_usage(
-            user_id=user_id, model=model,
+            user_id=user_id,
+            model=model,
             in_tok=(getattr(usage, "prompt_tokens", 0) if usage else 0),
             out_tok=(getattr(usage, "completion_tokens", 0) if usage else 0),
         )

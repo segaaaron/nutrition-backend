@@ -1,4 +1,5 @@
 """Coach value objects — Role, Intent enums + ContextWindow."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -36,8 +37,8 @@ class Intent(str, Enum):
 class ContextWindow:
     """Compact grounded context (~600 tokens fixed budget)."""
 
-    profile_compact: str = ""           # ~150 tokens
-    active_plan_today: str = ""         # ~100 tokens
-    last_food_logs: str = ""            # ~80 tokens
+    profile_compact: str = ""  # ~150 tokens
+    active_plan_today: str = ""  # ~100 tokens
+    last_food_logs: str = ""  # ~80 tokens
     rag_recipes: list[dict] = field(default_factory=list)  # ~400 tokens for top 5
     last_messages: list[dict] = field(default_factory=list)  # ~200 tokens, 4 msgs

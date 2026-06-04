@@ -4,7 +4,7 @@ Generates condition-aligned recipes for under-represented conditions in the
 catalog (fatty_liver, hypercholesterolemia, pcos, ibs, hypothyroidism, gout,
 vitamin_d_deficiency, lactose_intolerance, overweight).
 
-NOVA scope: NUTRITION PLANNING, not clinical advice. Tagging semantics:
+NOVA scope: NUTRITION PLANNING, not nutrition guidance. Tagging semantics:
   - `recommended_for_conditions`: nutrient gates aligned with condition needs
     (informational; UI shows "alineado con tu condición").
   - `contraindicated_conditions`: safety floor — recipe is unsafe for that

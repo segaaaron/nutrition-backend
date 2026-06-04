@@ -8,6 +8,7 @@ Cached in Redis under `taste:{user_id}` for 24h. The recalibration job
 invalidates this key when a user logs a new completed meal (handled in the
 plan event handlers; out of scope here).
 """
+
 from __future__ import annotations
 
 import json

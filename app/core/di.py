@@ -2,6 +2,7 @@
 presentation routers can `Depends(...)` without importing infrastructure
 directly.
 """
+
 from __future__ import annotations
 
 from collections.abc import AsyncIterator

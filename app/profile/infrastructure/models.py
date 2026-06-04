@@ -1,4 +1,5 @@
 """SQLAlchemy ORM model for user_profiles."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -6,7 +7,8 @@ from decimal import Decimal
 from uuid import UUID
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text
-from sqlalchemy.dialects.postgresql import ARRAY, UUID as PG_UUID
+from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.identity.infrastructure.models import Base

@@ -7,18 +7,24 @@ embedded XSS, executable disguised as image).
 Hardcoded magic-byte signatures for the 5 image formats NOVA accepts.
 No external system dependency (no libmagic / file(1) required).
 """
+
 from __future__ import annotations
 
 JPEG_MAGIC = b"\xff\xd8\xff"
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 WEBP_RIFF = b"RIFF"
 WEBP_WEBP = b"WEBP"
-HEIF_BRANDS = {b"heic", b"heix", b"heim", b"heis", b"hevc", b"hevx",
-                b"mif1", b"msf1", b"heif"}
+HEIF_BRANDS = {b"heic", b"heix", b"heim", b"heis", b"hevc", b"hevx", b"mif1", b"msf1", b"heif"}
 
-ALLOWED_MIME_TYPES: frozenset[str] = frozenset({
-    "image/jpeg", "image/png", "image/heic", "image/heif", "image/webp",
-})
+ALLOWED_MIME_TYPES: frozenset[str] = frozenset(
+    {
+        "image/jpeg",
+        "image/png",
+        "image/heic",
+        "image/heif",
+        "image/webp",
+    }
+)
 
 
 def sniff_mime(raw: bytes) -> str | None:
@@ -70,8 +76,6 @@ def assert_mime_matches(raw: bytes, declared_mime: str) -> str:
         return actual
 
     if actual != declared_mime:
-        raise ValueError(
-            f"mime_mismatch:declared={declared_mime}:actual={actual}"
-        )
+        raise ValueError(f"mime_mismatch:declared={declared_mime}:actual={actual}")
 
     return actual

@@ -6,7 +6,7 @@
 - plan_weight_vectors: algorithm A/B weight vectors; baseline seeded.
 
 Weights are stored as canonical decimal strings inside JSONB to preserve
-precision (Decimal-first policy — float forbidden in clinical math).
+precision (Decimal-first policy — float forbidden in nutrition math).
 """
 import hashlib
 import json

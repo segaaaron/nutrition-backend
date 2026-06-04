@@ -31,7 +31,7 @@ uv run alembic upgrade head
 ## Tests
 
 ```bash
-uv run pytest                  # unit + clinical + i18n
+uv run pytest                  # unit + nutrition + i18n
 uv run pytest -m integration   # requires Docker for testcontainers
 uv run pytest --cov=app --cov-report=term-missing
 ```
@@ -87,7 +87,7 @@ docs/ops/             backup + deploy runbooks
 docs/architecture/    CONTEXT.md domain language glossary
 docs/qa/              QA pre-launch reviews
 docs/superpowers/     specs
-tests/                unit / integration / contract / e2e / clinical /
+tests/                unit / integration / contract / e2e / nutrition /
                       security / compliance / perf / i18n / data / load
 ```
 

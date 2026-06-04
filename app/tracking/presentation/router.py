@@ -1,4 +1,5 @@
 """Tracking router — /logs/water, /logs/weight, /logs/weight/trend."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Query, status
@@ -23,7 +24,9 @@ router = APIRouter(tags=["tracking"])
 
 @router.post("/logs/water", response_model=LogWaterResponse, status_code=status.HTTP_201_CREATED)
 async def log_water(
-    body: LogWaterRequest, current_user: CurrentUserDep, session: SessionDep,
+    body: LogWaterRequest,
+    current_user: CurrentUserDep,
+    session: SessionDep,
 ) -> LogWaterResponse:
     uc = LogWater(repo=SqlWaterLogRepository(session), bus=get_event_bus())
     total = await uc(user_id=current_user, ml=body.ml)
@@ -38,12 +41,16 @@ async def get_water_today(current_user: CurrentUserDep, session: SessionDep) -> 
 
 @router.post("/logs/weight", status_code=status.HTTP_201_CREATED)
 async def log_weight(
-    body: LogWeightRequest, current_user: CurrentUserDep, session: SessionDep,
+    body: LogWeightRequest,
+    current_user: CurrentUserDep,
+    session: SessionDep,
 ) -> dict:
     uc = LogWeight(repo=SqlWeightLogRepository(session), bus=get_event_bus())
     await uc(
-        user_id=current_user, weight_kg=body.weight_kg,
-        body_fat_pct=body.body_fat_pct, waist_cm=body.waist_cm,
+        user_id=current_user,
+        weight_kg=body.weight_kg,
+        body_fat_pct=body.body_fat_pct,
+        waist_cm=body.waist_cm,
         photo_url=body.photo_url,
     )
     return {"ok": True}
@@ -51,7 +58,8 @@ async def log_weight(
 
 @router.get("/logs/weight/trend", response_model=WeightTrendResponse)
 async def get_weight_trend(
-    current_user: CurrentUserDep, session: SessionDep,
+    current_user: CurrentUserDep,
+    session: SessionDep,
     window: str = Query(default="30d", pattern=r"^\d+d$"),
 ) -> WeightTrendResponse:
     days = int(window.rstrip("d"))

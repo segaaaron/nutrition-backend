@@ -9,16 +9,13 @@ Fails if a new vector model is introduced without classification.
 
 See docs/security/pgvector-tenancy.md for the policy.
 """
+
 from __future__ import annotations
 
 import importlib
 import inspect
 import pkgutil
-from typing import Iterable
-
-import pytest
-from sqlalchemy.orm import DeclarativeBase
-
+from collections.abc import Iterable
 
 # Tables that legitimately have no per-user tenancy: shared catalogs.
 GLOBAL_CATALOG_TABLES = {
@@ -46,6 +43,7 @@ def _has_vector_column(cols) -> bool:
 
 def _all_model_classes() -> Iterable[type]:
     import app
+
     seen: set[type] = set()
     for mod_info in pkgutil.walk_packages(app.__path__, prefix="app."):
         try:
@@ -95,6 +93,6 @@ def test_every_vector_table_is_classified():
         f"GLOBAL_CATALOG_TABLES. See docs/security/pgvector-tenancy.md."
     )
     # Sanity: at least the known vector tables were detected.
-    assert any("recipes" in c or "foods" in c for c in classified), (
-        f"Expected to detect recipes/foods vector tables; got: {classified}"
-    )
+    assert any(
+        "recipes" in c or "foods" in c for c in classified
+    ), f"Expected to detect recipes/foods vector tables; got: {classified}"

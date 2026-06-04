@@ -2,6 +2,7 @@
 
 Mapped onto migration 0002 (§7 patch).
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -9,9 +10,11 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID, uuid4
 
-from pgvector.sqlalchemy import Vector
+# pgvector lacks py.typed marker, runtime works.
+from pgvector.sqlalchemy import Vector  # type: ignore[import-untyped]
 from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, Text
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.identity.infrastructure.models import Base

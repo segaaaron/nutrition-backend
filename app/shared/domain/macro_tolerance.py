@@ -2,23 +2,30 @@
 
 Cited by spec section 6, by every gate-2 macro consistency check (catalog
 ingest pipeline section 20), by `MacroBreakdown.validate_tolerance`, by the
-plan-generation pipeline coherence layer, and by the clinical-nutrition
+plan-generation pipeline coherence layer, and by the nutrition recipe
 generator agent.
 
 Never inline these values elsewhere - import them.
 
 All tolerances are Decimal to preserve the project-wide invariant that no
-float appears in clinical math. Comparisons against int/float ratios are
+float appears in nutrition math. Comparisons against int/float ratios are
 permitted because `Decimal.__le__` accepts numeric types; only mixed
 arithmetic raises `TypeError`.
 """
+
 from __future__ import annotations
 
 from decimal import Decimal
 from typing import Final
 
 # kcal vs derived from (4 P + 4 C + 9 F) must agree within this fraction.
-# Source: NOVA master plan invariant MacroConsistency. ADR pending.
+# Source: NOVA master plan invariant MacroConsistency. Domain-internal.
+# Atwater coefficients (4/4/9) carry ±5% reporting noise in food labels
+# (FDA 21 CFR 101.9 nutrition labeling tolerance ±20% on 'good source'
+# claims; macro-derived kcal in our catalog is tighter than label noise).
+# We pick 2% as a precision target that ensures plan output kcal headers
+# agree with the macro decomposition shown alongside, avoiding user-visible
+# arithmetic discrepancy. ADR pending to formalise.
 MACRO_TOLERANCE: Final[Decimal] = Decimal("0.02")
 """Relative tolerance between declared kcal and the macro-derived kcal.
 

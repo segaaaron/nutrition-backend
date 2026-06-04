@@ -7,11 +7,11 @@ Hard guarantees:
   thresholds.
 - Non-lactation conditions: adjustment is a no-op (passthrough).
 """
+
 from __future__ import annotations
 
 from decimal import Decimal
 
-import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -24,7 +24,6 @@ from app.plan.domain.bmr_safety import (
 )
 from app.plan.domain.condition_gates import LactationGate, gates_for
 
-
 _NON_LACTATION_CONDITIONS = st.sets(
     st.sampled_from(["diabetes_t2", "hypertension", "hypercholesterolemia", "celiac"]),
     max_size=3,
@@ -32,34 +31,61 @@ _NON_LACTATION_CONDITIONS = st.sets(
 
 
 @settings(max_examples=200, deadline=None)
-@given(kcal=st.decimals(min_value=Decimal("1200"), max_value=Decimal("4000"),
-                       allow_nan=False, allow_infinity=False, places=0),
-       extras=_NON_LACTATION_CONDITIONS)
+@given(
+    kcal=st.decimals(
+        min_value=Decimal("1200"),
+        max_value=Decimal("4000"),
+        allow_nan=False,
+        allow_infinity=False,
+        places=0,
+    ),
+    extras=_NON_LACTATION_CONDITIONS,
+)
 def test_non_lactation_passthrough(kcal: Decimal, extras: set[str]) -> None:
     out = apply_lactation_adjustment(kcal_target=kcal, conditions=frozenset(extras))
     assert out == kcal
 
 
 @settings(max_examples=200, deadline=None)
-@given(kcal=st.decimals(min_value=Decimal("1200"), max_value=Decimal("4000"),
-                       allow_nan=False, allow_infinity=False, places=0))
+@given(
+    kcal=st.decimals(
+        min_value=Decimal("1200"),
+        max_value=Decimal("4000"),
+        allow_nan=False,
+        allow_infinity=False,
+        places=0,
+    )
+)
 def test_lactation_adds_500_kcal(kcal: Decimal) -> None:
     out = apply_lactation_adjustment(
-        kcal_target=kcal, conditions=frozenset({"lactation"}),
+        kcal_target=kcal,
+        conditions=frozenset({"lactation"}),
     )
     assert out == kcal + Decimal("500")
 
 
 @settings(max_examples=200, deadline=None)
 @given(
-    weight=st.decimals(min_value=Decimal("45"), max_value=Decimal("100"),
-                       allow_nan=False, allow_infinity=False, places=1),
-    height=st.decimals(min_value=Decimal("150"), max_value=Decimal("190"),
-                       allow_nan=False, allow_infinity=False, places=1),
+    weight=st.decimals(
+        min_value=Decimal("45"),
+        max_value=Decimal("100"),
+        allow_nan=False,
+        allow_infinity=False,
+        places=1,
+    ),
+    height=st.decimals(
+        min_value=Decimal("150"),
+        max_value=Decimal("190"),
+        allow_nan=False,
+        allow_infinity=False,
+        places=1,
+    ),
     age=st.integers(min_value=18, max_value=45),
 )
 def test_lactation_kcal_at_or_above_tdee_under_deficit(
-    weight: Decimal, height: Decimal, age: int,
+    weight: Decimal,
+    height: Decimal,
+    age: int,
 ) -> None:
     """Under weight_loss goal the deficit caps at min(500, 0.25·TDEE). Lactation
     surplus (+500) at minimum cancels that deficit, so final kcal ≥ TDEE.
@@ -69,11 +95,10 @@ def test_lactation_kcal_at_or_above_tdee_under_deficit(
     k = apply_goal_to_tdee(tdee_val=t, goal="weight_loss")
     enforce_bmr_safety_floor(kcal_target=k, bmr=b)
     final = apply_lactation_adjustment(
-        kcal_target=k, conditions=frozenset({"lactation"}),
+        kcal_target=k,
+        conditions=frozenset({"lactation"}),
     )
-    assert final >= t, (
-        f"lactation net kcal below TDEE: tdee={t} final={final}"
-    )
+    assert final >= t, f"lactation net kcal below TDEE: tdee={t} final={final}"
 
 
 def test_lactation_gate_registered_at_import() -> None:
@@ -107,7 +132,9 @@ def test_layer1_inlines_lactation_gate() -> None:
     Post H2 sweep, the dispatch is generic over all registered gates
     (lactation included)."""
     import inspect
+
     from app.plan.application import layer1_eligibility
+
     src = inspect.getsource(layer1_eligibility)
     assert "gates_for" in src
     assert "for cond in conditions" in src

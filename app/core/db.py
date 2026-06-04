@@ -1,5 +1,6 @@
 """Async SQLAlchemy engine + session factory. Pool sized to Postgres
 max_connections=75 on the Hostinger VPS (spec §23.3)."""
+
 from __future__ import annotations
 
 from collections.abc import AsyncIterator

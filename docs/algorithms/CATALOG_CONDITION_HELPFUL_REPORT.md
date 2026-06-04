@@ -2,7 +2,7 @@
 
 ## Scope
 
-NOVA = nutrition planning (NOT clinical advice). Recipes adapt to declared
+NOVA = nutrition planning (NOT nutrition guidance). Recipes adapt to declared
 condition via two informational signals:
 
 - `recommended_for_conditions[]` — nutrient gates aligned with condition needs.

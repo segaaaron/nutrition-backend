@@ -1,10 +1,10 @@
-# NOVA Nutrition — Clinical Catalog Audit (Pre-Launch)
+# NOVA Nutrition — Nutrition Catalog Audit (Pre-Launch)
 
 **Audit date:** 2026-06-01
-**Auditor:** NOVA-Core (clinical nutritionist + DB engineer)
+**Auditor:** NOVA-Core (nutrition nutritionist + DB engineer)
 **Scope:** `data/meals/nova_meals_catalog.cleaned.json` + `data/meals/nova_meals_catalog.json`
 **Standards:** ADR-0001 Appendix A (revised), ADR-0007/0008 dual-language, spec §6/§7
-**Result:** **NO-GO for production** as-is. Blocking enum drift + clinical contradictions + zero algorithmic-coverage on 8 micronutrient fields.
+**Result:** **NO-GO for production** as-is. Blocking enum drift + nutrition contradictions + zero algorithmic-coverage on 8 micronutrient fields.
 
 ---
 
@@ -102,7 +102,7 @@ The cleaned file already mapped `recommendedForConditions` correctly — that pa
 | gain_weight → weight_gain | 415 | 446 / 904 / 730 |
 | general_health → health | 460 | 180 / 742 / 445 |
 
-Goal kcal distributions are clinically coherent (weight_loss caps at 606, weight_gain floors at 446).
+Goal kcal distributions are nutritionally coherent (weight_loss caps at 606, weight_gain floors at 446).
 
 ### regions — **CRITICAL FOR US LAUNCH**
 
@@ -151,11 +151,11 @@ Several are launch-critical (pregnancy, lactation, lactose_intolerance, diabetes
 
 Macros are *exact* — `P×4 + C×4 + F×9 == calories` to integer precision on every recipe. This is the strongest part of the catalog. The math constraint from spec §6 (`MACRO_TOLERANCE = 0.02`) is satisfied with margin to spare.
 
-**Outliers / extreme values:** none. kcal range 167–904, protein ≤ 70 g, fat ≤ 42 g — all clinically plausible.
+**Outliers / extreme values:** none. kcal range 167–904, protein ≤ 70 g, fat ≤ 42 g — all plausible.
 
 ---
 
-## 6. Clinical contradictions — **130 in cleaned, 245 in raw**
+## 6. Nutrition contradictions — **130 in cleaned, 245 in raw**
 
 ### Cleaned file breakdown
 
@@ -198,7 +198,7 @@ Every recipe lacks **all 10** of the algorithm-critical fields:
 | `omega3_mg` (EPA+DHA) | 2 000 / 2 000 | ischemic_heart_disease, dyslipidemia |
 | `embeddings` (1536-dim) | 2 000 / 2 000 | variety penalty + semantic search |
 
-Without these, the algorithms-expert can only rank on (kcal, P, C, F, mealTime, goal). That degrades the recommender to a glorified macro filter — the entire clinical-personalization story collapses.
+Without these, the algorithms-expert can only rank on (kcal, P, C, F, mealTime, goal). That degrades the recommender to a glorified macro filter — the entire nutrition-personalization story collapses.
 
 ---
 
@@ -216,7 +216,7 @@ Without these, the algorithms-expert can only rank on (kcal, P, C, F, mealTime, 
 ### 🟡 Month 1 (data quality)
 
 7. Backfill the **10 algorithm-critical fields** for all 2 000 recipes — start with `fiber_g`, `sodium_mg`, `glycemicIndex` (highest-leverage), then ckd-specific (`potassium_mg`, `phosphorus_mg`), then `embeddings`.
-8. Add recipes for the **12 missing conditions** — at minimum **pregnancy, lactation, lactose_intolerance, diabetes_t1** (clinically critical), then `pcos, dyslipidemia, athletic_load`.
+8. Add recipes for the **12 missing conditions** — at minimum **pregnancy, lactation, lactose_intolerance, diabetes_t1** (nutritionally critical), then `pcos, dyslipidemia, athletic_load`.
 9. Resolve the **4 duplicate names**.
 10. Delete or quarantine `nova_meals_catalog.json` (raw) so it cannot be re-imported.
 
@@ -233,15 +233,15 @@ Without these, the algorithms-expert can only rank on (kcal, P, C, F, mealTime, 
 ### What NOVA-Core (this audit role) produces & validates
 
 - **In:** raw recipe drafts (from generator, scrapers, or human dietitians).
-- **Out:** clinically-validated JSON conforming to ADR-0001 / ADR-0007 / spec §6.
+- **Out:** nutritionally-validated JSON conforming to ADR-0001 / ADR-0007 / spec §6.
 - **Guarantees:** macro math ≤ 2 % error, enum-clean, allergen-complete, condition-safe.
 - **Owns:** `matchingCriteria.*`, `nutritionProfile.*`, micronutrient backfill.
 
 ### What algorithms-expert produces & NOVA-Core validates
 
 - Ranking outputs (top-N recipes for a user profile) — NOVA-Core spot-checks that no `contraindicatedConditions` leaks through.
-- Variety/embedding scores — NOVA-Core reviews diversity weights so that clinical fit isn't sacrificed for novelty.
-- A/B experiments — NOVA-Core signs off on clinical safety of any heuristic before it goes live.
+- Variety/embedding scores — NOVA-Core reviews diversity weights so that nutrition fit isn't sacrificed for novelty.
+- A/B experiments — NOVA-Core signs off on nutrition safety of any heuristic before it goes live.
 
 ### Expansion requests
 

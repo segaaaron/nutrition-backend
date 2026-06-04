@@ -3,6 +3,7 @@
 Skipped unless `RUN_PERF=1` is set and a Postgres DSN with pgvector is
 available — most CI runs don't have the data fixture loaded.
 """
+
 from __future__ import annotations
 
 import os

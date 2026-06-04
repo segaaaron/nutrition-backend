@@ -3,6 +3,7 @@
 Invalidated by `complete_meal` and `swap_meal` use cases so the cached
 representation is never stale by more than one user action.
 """
+
 from __future__ import annotations
 
 import json

@@ -12,6 +12,7 @@ Caps the number of liquid meals per daily plan to preserve satiety.
 
 Pure domain — no I/O, no framework imports, Decimal-only math.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -31,9 +32,7 @@ class LiquidCap:
 
     def check(self, plan: DraftPlan) -> list[Violation]:
         max_allowed = self._max_allowed(plan.targets.goal)
-        n_liquid = sum(
-            1 for slot in plan.meals if slot.recipe.meal_format == "liquid"
-        )
+        n_liquid = sum(1 for slot in plan.meals if slot.recipe.meal_format == "liquid")
         if n_liquid > max_allowed:
             return [
                 Violation(

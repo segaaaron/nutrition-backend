@@ -8,9 +8,11 @@ SQL fragment contributions.
 Threadsafe: registry only mutated at module import time (auto-register in
 `__init__.py`). Runtime access is read-only.
 """
+
 from __future__ import annotations
 
 from typing import Protocol
+
 
 # Forward-declare the gate shape locally to avoid importing ports.py
 # (which depends on context.py — keeps registry import-light). Read-only

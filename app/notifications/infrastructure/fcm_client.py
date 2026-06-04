@@ -4,6 +4,7 @@ The interface is stable so call sites can compile today; the actual HTTP
 call lands when we ship mobile clients. For now `send` returns False and
 logs at debug.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

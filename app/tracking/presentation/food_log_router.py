@@ -7,6 +7,7 @@ Routes:
   - GET    /logs/food/totals/trend
   - GET    /logs/food/micros/today
 """
+
 from __future__ import annotations
 
 from datetime import date, datetime
@@ -63,26 +64,45 @@ async def query_food_logs(
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
     meal_time: Literal["breakfast", "lunch", "dinner", "snack"] | None = Query(default=None),
-    method: Literal["photo", "voice", "text", "barcode", "search", "manual"] | None = Query(default=None),
+    method: Literal["photo", "voice", "text", "barcode", "search", "manual"] | None = Query(
+        default=None
+    ),
     cursor: str | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
 ) -> FoodLogPage:
     # BOLA OK: QueryFoodLogs passes user_id to FoodLogSearchQuery — repo filters by user_id.
     uc = QueryFoodLogs(repo=SqlFoodLogRepository(session))
-    items, next_cursor = await uc(FoodLogSearchQuery(
-        user_id=current_user, date_from=date_from, date_to=date_to,
-        meal_time=meal_time, method=method, cursor=cursor, limit=limit,
-    ))
+    items, next_cursor = await uc(
+        FoodLogSearchQuery(
+            user_id=current_user,
+            date_from=date_from,
+            date_to=date_to,
+            meal_time=meal_time,
+            method=method,
+            cursor=cursor,
+            limit=limit,
+        )
+    )
     out = [
         FoodLogOut(
-            id=i.id, user_id=i.user_id, date=i.date, meal_time=i.meal_time,
-            method=i.method, food_id=i.food_id, recipe_id=i.recipe_id,
+            id=i.id,
+            user_id=i.user_id,
+            date=i.date,
+            meal_time=i.meal_time,
+            method=i.method,
+            food_id=i.food_id,
+            recipe_id=i.recipe_id,
             free_text_name=i.free_text_name,
             amount_g=float(i.amount_g) if i.amount_g is not None else None,
-            kcal=i.kcal, protein_g=i.protein_g, carbs_g=i.carbs_g, fat_g=i.fat_g,
+            kcal=i.kcal,
+            protein_g=i.protein_g,
+            carbs_g=i.carbs_g,
+            fat_g=i.fat_g,
             confidence=float(i.confidence) if i.confidence is not None else None,
-            source_image_url=i.source_image_url, created_at=i.created_at,
-        ) for i in items
+            source_image_url=i.source_image_url,
+            created_at=i.created_at,
+        )
+        for i in items
     ]
     return FoodLogPage(items=out, next_cursor=next_cursor)
 
@@ -103,7 +123,9 @@ async def delete_food_log(
     # BOLA OK: DeleteFoodLog use case passes user_id to repo which filters
     # DELETE ... WHERE id = :id AND user_id = :uid — raises NotFoundError if mismatch.
     uc = DeleteFoodLog(
-        repo=SqlFoodLogRepository(session), bus=get_event_bus(), redis=get_redis(),
+        repo=SqlFoodLogRepository(session),
+        bus=get_event_bus(),
+        redis=get_redis(),
     )
     await uc(user_id=current_user, log_id=log_id, reason=(body.reason if body else None))
 
@@ -124,8 +146,14 @@ async def totals_today(current_user: CurrentUserDep, session: SessionDep) -> Dai
     uc = GetDailyTotals(repo=SqlFoodLogRepository(session), redis=get_redis())
     t = await uc(user_id=current_user)
     return DailyTotalsOut(
-        date=t.date, kcal=t.kcal, protein_g=t.protein_g, carbs_g=t.carbs_g,
-        fat_g=t.fat_g, fiber_g=t.fiber_g, sugar_g=t.sugar_g, sodium_mg=t.sodium_mg,
+        date=t.date,
+        kcal=t.kcal,
+        protein_g=t.protein_g,
+        carbs_g=t.carbs_g,
+        fat_g=t.fat_g,
+        fiber_g=t.fiber_g,
+        sugar_g=t.sugar_g,
+        sodium_mg=t.sodium_mg,
     )
 
 

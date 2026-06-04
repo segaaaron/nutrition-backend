@@ -5,6 +5,7 @@ IOM DRI 2002:
 - Trimester 2: +340 kcal/day
 - Trimester 3: +452 kcal/day
 """
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -16,12 +17,18 @@ from hypothesis import strategies as st
 from app.plan.domain.bmr_safety import apply_trimester_adjustment
 
 _KCAL_ANY: st.SearchStrategy[Decimal] = st.decimals(
-    min_value=Decimal("0"), max_value=Decimal("10000"),
-    allow_nan=False, allow_infinity=False, places=0,
+    min_value=Decimal("0"),
+    max_value=Decimal("10000"),
+    allow_nan=False,
+    allow_infinity=False,
+    places=0,
 )
 _KCAL_REALISTIC: st.SearchStrategy[Decimal] = st.decimals(
-    min_value=Decimal("1200"), max_value=Decimal("4000"),
-    allow_nan=False, allow_infinity=False, places=0,
+    min_value=Decimal("1200"),
+    max_value=Decimal("4000"),
+    allow_nan=False,
+    allow_infinity=False,
+    places=0,
 )
 
 
@@ -97,7 +104,7 @@ def test_trimester_in_bounds_for_realistic_inputs(
     kcal: Decimal,
     trimester: Literal["first", "second", "third"] | None,
 ) -> None:
-    """For clinically plausible kcal targets (1200..4000), trimester-adjusted
+    """For plausible kcal targets (1200..4000), trimester-adjusted
     output stays within (1200..5000) — caps the maximum surplus impact."""
     out = apply_trimester_adjustment(kcal_target=kcal, trimester=trimester)
     assert Decimal("1200") <= out <= Decimal("5000")

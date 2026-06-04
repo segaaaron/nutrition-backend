@@ -19,9 +19,7 @@ def fake_session():
 
 
 async def test_db_lookup_returns_cached_body(fake_session):
-    fake_session.execute.return_value.first.return_value = (
-        {"ok": True, "n": 1},
-    )
+    fake_session.execute.return_value.first.return_value = ({"ok": True, "n": 1},)
     body = await db_lookup_idempotent(fake_session, "idem:abc")
     assert body == {"ok": True, "n": 1}
 

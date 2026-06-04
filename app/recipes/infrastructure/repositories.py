@@ -8,12 +8,12 @@ Performance contract:
   and `NOT &&` for `allergens_exclude` — the hard exclusion rule (ADR-0001).
 - Hybrid scoring blends trigram similarity (0.5) + vector cosine (0.5).
 """
+
 from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import bindparam, select, text
-from sqlalchemy.dialects.postgresql import ARRAY, CHAR, TEXT
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -24,45 +24,73 @@ from app.recipes.infrastructure.models import FoodModel, RecipeComponentModel, R
 
 def _recipe_from_model(m: RecipeModel, components: list[RecipeComponent] | None = None) -> Recipe:
     return Recipe(
-        id=m.id, name_en=m.name_en, name_translations=dict(m.name_translations or {}),
+        id=m.id,
+        name_en=m.name_en,
+        name_translations=dict(m.name_translations or {}),
         description_en=m.description_en,
         description_translations=dict(m.description_translations or {}),
-        image_url=m.image_url, kcal=m.kcal, protein_g=m.protein_g,
-        carbs_g=m.carbs_g, fat_g=m.fat_g,
-        fiber_g=m.fiber_g, sugar_g=m.sugar_g, sodium_mg=m.sodium_mg, sat_fat_g=m.sat_fat_g,
+        image_url=m.image_url,
+        kcal=m.kcal,
+        protein_g=m.protein_g,
+        carbs_g=m.carbs_g,
+        fat_g=m.fat_g,
+        fiber_g=m.fiber_g,
+        sugar_g=m.sugar_g,
+        sodium_mg=m.sodium_mg,
+        sat_fat_g=m.sat_fat_g,
         tags=list(m.tags or []),
         meal_time=m.meal_time,  # type: ignore[arg-type]
         prep_min=m.prep_min,
         instructions_en=list(m.instructions_en or []),
         instructions_translations=dict(m.instructions_translations or {}),
-        regions=list(m.regions or []), allergens=list(m.allergens or []),
+        regions=list(m.regions or []),
+        allergens=list(m.allergens or []),
         recommended_conditions=list(m.recommended_conditions or []),
         contraindicated_conditions=list(m.contraindicated_conditions or []),
         target_goals=list(m.target_goals or []),
-        components=components if components is not None else [
-            _component_from_model(c) for c in (m.components or [])
-        ],
+        components=(
+            components
+            if components is not None
+            else [_component_from_model(c) for c in (m.components or [])]
+        ),
         created_at=m.created_at,
     )
 
 
 def _component_from_model(c: RecipeComponentModel) -> RecipeComponent:
     return RecipeComponent(
-        id=c.id, recipe_id=c.recipe_id, food_id=c.food_id, sub_recipe_id=c.sub_recipe_id,
-        free_text_name=c.free_text_name, amount_g=c.amount_g, modifier=c.modifier,
+        id=c.id,
+        recipe_id=c.recipe_id,
+        food_id=c.food_id,
+        sub_recipe_id=c.sub_recipe_id,
+        free_text_name=c.free_text_name,
+        amount_g=c.amount_g,
+        modifier=c.modifier,
         position=c.position,
     )
 
 
 def _food_from_model(m: FoodModel) -> Food:
     return Food(
-        id=m.id, name_en=m.name_en, name_norm=m.name_norm,
+        id=m.id,
+        name_en=m.name_en,
+        name_norm=m.name_norm,
         name_translations=dict(m.name_translations or {}),
-        brand=m.brand, country=m.country, portion_g=m.portion_g,
-        kcal=m.kcal, protein_g=m.protein_g, carbs_g=m.carbs_g, fat_g=m.fat_g,
-        fiber_g=m.fiber_g, sugar_g=m.sugar_g, sodium_mg=m.sodium_mg, sat_fat_g=m.sat_fat_g,
+        brand=m.brand,
+        country=m.country,
+        portion_g=m.portion_g,
+        kcal=m.kcal,
+        protein_g=m.protein_g,
+        carbs_g=m.carbs_g,
+        fat_g=m.fat_g,
+        fiber_g=m.fiber_g,
+        sugar_g=m.sugar_g,
+        sodium_mg=m.sodium_mg,
+        sat_fat_g=m.sat_fat_g,
         micronutrients=dict(m.micronutrients) if m.micronutrients else None,
-        barcode=m.barcode, verified=m.verified, source=m.source,
+        barcode=m.barcode,
+        verified=m.verified,
+        source=m.source,
     )
 
 
@@ -126,21 +154,19 @@ class SqlRecipeRepository:
         if query.min_protein_g is not None:
             where.append("r.protein_g >= :min_protein")
 
-        score_expr = (
-            "GREATEST(similarity(r.name_en, :q), 0.0)" if query.q else "0.0"
-        )
+        score_expr = "GREATEST(similarity(r.name_en, :q), 0.0)" if query.q else "0.0"
         if query.cursor_last_score is not None and query.cursor_last_id:
-            where.append(
-                f"({score_expr}, r.id::text) < (:cursor_score, :cursor_id)"
-            )
+            where.append(f"({score_expr}, r.id::text) < (:cursor_score, :cursor_id)")
         where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+        # S608 noqa: `where_sql` and `score_expr` are assembled exclusively
+        # from literal fragments authored in this function. All values bound.
         sql = f"""
             SELECT r.*, {score_expr} AS score
               FROM recipes r
               {where_sql}
              ORDER BY score DESC, r.id ASC
              LIMIT :limit
-        """
+        """  # noqa: S608
         res = await self.s.execute(text(sql), params)
         rows = list(res.mappings())
         if not rows:
@@ -193,21 +219,19 @@ class SqlRecipeRepository:
             where.append("r.protein_g >= :min_protein")
 
         trgm = "GREATEST(similarity(r.name_en, :q), 0.0)" if query.q else "0.0"
-        score_expr = (
-            f"(0.5 * {trgm}) + 0.5 * (1.0 - (r.embedding <=> CAST(:embedding AS vector)))"
-        )
+        score_expr = f"(0.5 * {trgm}) + 0.5 * (1.0 - (r.embedding <=> CAST(:embedding AS vector)))"
         if query.cursor_last_score is not None and query.cursor_last_id:
-            where.append(
-                f"({score_expr}, r.id::text) < (:cursor_score, :cursor_id)"
-            )
+            where.append(f"({score_expr}, r.id::text) < (:cursor_score, :cursor_id)")
         where_sql = "WHERE " + " AND ".join(where)
+        # S608 noqa: `where_sql` and `score_expr` are assembled exclusively
+        # from literal fragments authored in this function. All values bound.
         sql = f"""
             SELECT r.id, {score_expr} AS score
               FROM recipes r
               {where_sql}
              ORDER BY score DESC, r.id ASC
              LIMIT :limit
-        """
+        """  # noqa: S608
         res = await self.s.execute(text(sql), params)
         scored = [(r["id"], float(r["score"])) for r in res.mappings()]
         if not scored:
@@ -252,13 +276,15 @@ class SqlFoodRepository:
         if query.cursor_last_score is not None and query.cursor_last_id:
             where.append(f"({score_expr}, f.id::text) < (:cursor_score, :cursor_id)")
         where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+        # S608 noqa: `where_sql` and `score_expr` are assembled exclusively
+        # from literal fragments authored in this function. All values bound.
         sql = f"""
             SELECT f.*, {score_expr} AS score
               FROM foods f
               {where_sql}
              ORDER BY score DESC, f.id ASC
              LIMIT :limit
-        """
+        """  # noqa: S608
         res = await self.s.execute(text(sql), params)
         rows = list(res.mappings())
         out: list[tuple[Food, float]] = []

@@ -1,7 +1,7 @@
 """Legal scope cleanup — catálogo nutrition-only.
 
 Scope decision (2026-06-01): NOVA es planificador nutricional. NO recomienda
-pastillas, vitaminas en suplemento, medicamentos. NO hace claims clínicos.
+pastillas, vitaminas en suplemento, medicamentos. NO hace claims nutricionales.
 
 Acciones idempotentes sobre `data/meals/nova_meals_catalog.cleaned.json`:
 

@@ -3,6 +3,7 @@
 Use isolated FastAPI instance with just the middleware to avoid loading the
 full router graph (which has a pre-existing 204-with-body issue elsewhere).
 """
+
 from __future__ import annotations
 
 from fastapi import FastAPI

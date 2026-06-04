@@ -301,7 +301,7 @@ Gate on: HIGH/CRITICAL CVE blocks merge. MEDIUM warns. License scan via `pip-lic
 - **Pen-test deferred to month 3.** Pre-launch budget tight. Run OWASP ZAP baseline self-scan as compensating control.
 - **Field-level encryption deferred to S2.** App-level pgcrypto adds query complexity. Acceptable risk while VPS disk encryption is provider-managed and no breach observed.
 - **Cookie banner.** Backend out of scope. Web landing team handles.
-- **HIPAA.** Explicitly out of scope. Marketing must not claim "medical" or "clinical" or scope creeps.
+- **HIPAA.** Explicitly out of scope. Marketing must not claim "medical" or "nutrition" or scope creeps.
 
 ---
 

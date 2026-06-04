@@ -38,6 +38,9 @@ dependencies = [
     "httpx>=0.27,<0.28",
     # observability
     "prometheus-client>=0.21,<0.22",
+    # Sentry — no-op when SENTRY_DSN is unset (see app/core/observability.py).
+    # Integrations pinned: fastapi, asyncio, arq. PII strip in before_send.
+    "sentry-sdk[fastapi]>=2.18,<3",
     # i18n / formatting
     "babel>=2.16,<3",
 ]
@@ -52,7 +55,6 @@ dev = [
     "factory-boy>=3.3,<4",
     "testcontainers[postgres,redis]>=4.8,<5",
     "fakeredis>=2.26,<3",
-    "mutmut>=2.5,<3",
     "schemathesis>=3.39,<4",
     "ruff>=0.7,<0.8",
     "black>=24.10,<25",
@@ -72,6 +74,14 @@ target-version = "py312"
 line-length = 100
 
 [tool.ruff.lint]
+# `S` enables the full flake8-bandit ruleset (S101..S701), which covers:
+#   S608  hardcoded-sql-expression  — flags `text(f"...")` and string-built SQL
+#   S602..S607  shell injection family
+#   S301..S324  pickle / hashlib weak crypto
+# Any acceptable use of f-string SQL (pgvector vector literals, statically
+# authored WHERE-clause builders) MUST carry an inline `# noqa: S608` with a
+# justification comment explaining why the f-string substitution is not a
+# vector. The audit log lives in docs/security/PLAN.md.
 select = ["E", "F", "I", "B", "UP", "ASYNC", "S", "PL"]
 ignore = ["S101", "PLR2004"]
 
@@ -91,7 +101,6 @@ addopts = "-ra --strict-markers --strict-config"
 markers = [
     "slow: tests slower than 1s",
     "integration: requires testcontainers",
-    "clinical: ADR-gated clinical safety tests",
     "property: hypothesis property-based tests",
 ]
 

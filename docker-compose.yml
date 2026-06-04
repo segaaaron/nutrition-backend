@@ -11,6 +11,12 @@ services:
     env_file: .env
     environment:
       WEB_CONCURRENCY: "2"
+    volumes:
+      # JWT key files mounted from host (Dokploy bind mount).
+      # Owner places keys at /var/dokploy/secrets/nova/jwt.{pem,pub} on VPS.
+      # Permissions: jwt.pem=400 (owner read), jwt.pub=444 (all read).
+      - /var/dokploy/secrets/nova/jwt.pem:/jwt.pem:ro
+      - /var/dokploy/secrets/nova/jwt.pub:/jwt.pub:ro
     depends_on:
       db:
         condition: service_healthy
@@ -18,13 +24,16 @@ services:
         condition: service_healthy
     ports:
       - "8000:8000"
-    command: >
-      uvicorn app.main:app
-      --host 0.0.0.0
-      --port 8000
-      --workers 2
-      --limit-concurrency 200
-      --timeout-keep-alive 30
+    # Migrations applied automatically by docker/entrypoint.sh (ENTRYPOINT
+    # in api.Dockerfile) BEFORE the uvicorn CMD runs. Idempotent.
+    command:
+      - "uvicorn"
+      - "app.main:app"
+      - "--host=0.0.0.0"
+      - "--port=8000"
+      - "--workers=2"
+      - "--limit-concurrency=200"
+      - "--timeout-keep-alive=30"
     deploy:
       resources:
         limits:
@@ -35,7 +44,7 @@ services:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/healthz"]
       interval: 30s
       timeout: 10s
-      start_period: 15s
+      start_period: 30s  # allow alembic upgrade on first boot
       retries: 3
 
   worker:

@@ -1,8 +1,7 @@
 """PyJWT signer round-trip + claims contract."""
+
 from __future__ import annotations
 
-import tempfile
-from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -29,14 +28,17 @@ def keypair(monkeypatch, tmp_path):
     monkeypatch.setenv("JWT_PRIVATE_KEY_PATH", str(priv_path))
     monkeypatch.setenv("JWT_PUBLIC_KEY_PATH", str(pub_path))
     from app.core.config import get_settings
+
     get_settings.cache_clear()
     yield
 
 
 async def test_sign_and_verify_access(keypair, fake_redis, monkeypatch):
     from app.core import redis as redis_mod
+
     monkeypatch.setattr(redis_mod, "get_redis", lambda: fake_redis)
     from app.identity.infrastructure.jwt_signer import JwtSigner
+
     signer = JwtSigner()
     uid = uuid4()
     token = signer.sign_access(user_id=uid, role="user")
@@ -49,9 +51,11 @@ async def test_sign_and_verify_access(keypair, fake_redis, monkeypatch):
 
 async def test_verify_rejects_tampered(keypair, fake_redis, monkeypatch):
     from app.core import redis as redis_mod
+
     monkeypatch.setattr(redis_mod, "get_redis", lambda: fake_redis)
-    from app.identity.infrastructure.jwt_signer import JwtSigner
     from app.core.errors import Unauthenticated
+    from app.identity.infrastructure.jwt_signer import JwtSigner
+
     signer = JwtSigner()
     token = signer.sign_access(user_id=uuid4(), role="user")
     head, payload, sig = token.split(".")
@@ -62,9 +66,11 @@ async def test_verify_rejects_tampered(keypair, fake_redis, monkeypatch):
 
 async def test_verify_rejects_wrong_audience(keypair, fake_redis, monkeypatch):
     from app.core import redis as redis_mod
+
     monkeypatch.setattr(redis_mod, "get_redis", lambda: fake_redis)
-    from app.identity.infrastructure.jwt_signer import JwtSigner
     from app.core.errors import Unauthenticated
+    from app.identity.infrastructure.jwt_signer import JwtSigner
+
     signer = JwtSigner()
     token = signer.sign_access(user_id=uuid4(), role="user")
     monkeypatch.setattr(signer, "_audience", "wrong-audience")

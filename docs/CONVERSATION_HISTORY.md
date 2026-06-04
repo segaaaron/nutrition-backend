@@ -7,7 +7,7 @@ Chronological log of every load-bearing decision the product owner (Miguel) made
 ### Decision 1 — Stack runtime
 - **Asked:** Node.js + TypeScript / Python + FastAPI / Go
 - **Chosen:** **Python 3.12 + FastAPI**
-- **Rationale:** native fit for AI/ML pipelines (vision, embeddings, STT, planner), Pydantic v2 ergonomics for clinical schemas, async-first with `asyncpg`.
+- **Rationale:** native fit for AI/ML pipelines (vision, embeddings, STT, planner), Pydantic v2 ergonomics for nutrition schemas, async-first with `asyncpg`.
 
 ### Decision 2 — Scope MVP
 - **Asked:** minimum / standard / full (MVP + AI)
@@ -89,7 +89,7 @@ Chronological log of every load-bearing decision the product owner (Miguel) made
 - **Chosen:** stand stack up locally with `docker compose`, smoke-test, then provision Dokploy on Hostinger.
 - **Rationale:** isolate "does the code work" from "does the deploy pipeline work".
 
-### Decision 16 — Clinical vocabulary
+### Decision 16 — Nutrition vocabulary
 - **Chosen:** **14-allergen superset** (US + EU + LatAm) and **25 canonical conditions** (ADR-0001).
 - **Rationale:** one schema covers all target regions; per-region label compliance handled in presentation layer.
 

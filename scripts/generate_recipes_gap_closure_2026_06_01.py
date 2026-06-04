@@ -15,7 +15,7 @@ Hard validators (mirror L99 + bucket-specific gates):
 - Macro plausibility kcal [100,1500]; protein [0,80]; carbs [0,200]; fat [0,80]
 - Dedup signature (sha1 over name_norm + sorted core ingredient nouns)
 - Cell exact-name dedup vs full catalog + new buckets
-- Bucket clinical gates (CKD potassium/phosphorus; DT2 carb/sugar/fiber/GL;
+- Bucket safety gates (CKD potassium/phosphorus; DT2 carb/sugar/fiber/GL;
   jugos GL≤10 + carb cap)
 
 Outputs:
@@ -903,7 +903,7 @@ def validate_base(recipe: dict) -> tuple[bool, str]:
 
 
 def bucket_gate(recipe: dict, bucket: str) -> tuple[bool, str]:
-    """Bucket-specific clinical gates. If failed, strip the bucket-specific
+    """Bucket-specific safety gates. If failed, strip the bucket-specific
     condition rather than rejecting outright (except for hard-required buckets)."""
     m = recipe["nutrition_profile"]["macros"]
     micros = recipe["nutrition_profile"]["micronutrients"]

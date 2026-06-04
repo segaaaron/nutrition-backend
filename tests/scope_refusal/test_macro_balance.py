@@ -6,9 +6,8 @@ and assert the best meal lands closest to the kcal share. End-to-end DB
 testing of the full pipeline is integration-tagged and skipped without
 testcontainers.
 """
-from __future__ import annotations
 
-from uuid import uuid4
+from __future__ import annotations
 
 
 def _score(kcal: int, protein_g: int, kcal_share: int, protein_share: int) -> float:

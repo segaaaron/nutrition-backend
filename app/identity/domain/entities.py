@@ -1,8 +1,9 @@
 """Identity domain entities. Framework-agnostic."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Literal
 from uuid import UUID
 
@@ -42,7 +43,9 @@ class RefreshToken:
     expires_at: datetime
     revoked_at: datetime | None = None
     reused_at: datetime | None = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(
+        default_factory=lambda: datetime.now(UTC),
+    )
 
     @property
     def is_revoked(self) -> bool:
@@ -58,7 +61,9 @@ class OtpCode:
     expires_at: datetime
     attempts: int = 0
     locked_until: datetime | None = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(
+        default_factory=lambda: datetime.now(UTC),
+    )
 
     def is_locked(self, now: datetime) -> bool:
         return self.locked_until is not None and self.locked_until > now

@@ -1,4 +1,5 @@
 """FastAPI router for identity endpoints (/auth/*, /me/{delete,cancel-deletion,export})."""
+
 from __future__ import annotations
 
 from typing import Annotated, Literal
@@ -62,18 +63,25 @@ async def _optional_bearer(request: Request) -> str | None:
 
 def _token_resp(pair) -> TokenPairResponse:
     return TokenPairResponse(
-        access_token=pair.access, refresh_token=pair.refresh, user_id=pair.user_id,
+        access_token=pair.access,
+        refresh_token=pair.refresh,
+        user_id=pair.user_id,
     )
 
 
 # ---------------- /auth/* ----------------
 
-@router.post("/auth/register", response_model=TokenPairResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/auth/register", response_model=TokenPairResponse, status_code=status.HTTP_201_CREATED
+)
 async def register(
     body: RegisterRequest,
     session: SessionDep,
 ) -> TokenPairResponse:
-    await rate_limit(scope="auth", identifier=body.email, limit_per_min=get_settings().rate_limit_auth_per_min)
+    await rate_limit(
+        scope="auth", identifier=body.email, limit_per_min=get_settings().rate_limit_auth_per_min
+    )
     uc: RegisterUser = make_register(session)
     pair = await uc(email=body.email, password=body.password)
     return _token_resp(pair)
@@ -84,7 +92,9 @@ async def login(
     body: LoginRequest,
     session: SessionDep,
 ) -> TokenPairResponse:
-    await rate_limit(scope="auth", identifier=body.email, limit_per_min=get_settings().rate_limit_auth_per_min)
+    await rate_limit(
+        scope="auth", identifier=body.email, limit_per_min=get_settings().rate_limit_auth_per_min
+    )
     uc: LoginUser = make_login(session)
     pair = await uc(email=body.email, password=body.password)
     return _token_resp(pair)
@@ -96,7 +106,11 @@ async def oauth_login(
     body: OAuthLoginRequest,
     session: SessionDep,
 ) -> TokenPairResponse:
-    await rate_limit(scope="auth", identifier=f"oauth:{provider}", limit_per_min=get_settings().rate_limit_auth_per_min)
+    await rate_limit(
+        scope="auth",
+        identifier=f"oauth:{provider}",
+        limit_per_min=get_settings().rate_limit_auth_per_min,
+    )
     uc: OAuthLogin = make_oauth(session, provider)
     pair = await uc(id_token=body.id_token)
     return _token_resp(pair)
@@ -127,7 +141,11 @@ async def otp_send(
     body: SendOtpRequest,
     session: SessionDep,
 ) -> dict:
-    await rate_limit(scope="auth", identifier=f"otp:{body.email}", limit_per_min=get_settings().rate_limit_auth_per_min)
+    await rate_limit(
+        scope="auth",
+        identifier=f"otp:{body.email}",
+        limit_per_min=get_settings().rate_limit_auth_per_min,
+    )
     uc: SendOtp = make_send_otp(session)
     code = await uc(email=body.email, purpose=body.purpose)
     # Dev mode echoes the code so QA can test without an email worker.
@@ -148,7 +166,10 @@ async def otp_verify(
 
 # ---------------- /me/* (GDPR) ----------------
 
-@router.delete("/me", response_model=DeletionScheduledResponse, status_code=status.HTTP_202_ACCEPTED)
+
+@router.delete(
+    "/me", response_model=DeletionScheduledResponse, status_code=status.HTTP_202_ACCEPTED
+)
 async def delete_account(
     current_user: CurrentUserDep,
     session: SessionDep,

@@ -3,6 +3,7 @@
 US default = imperial; rest of supported locales default to metric. The user
 profile's `units` override wins over the locale default.
 """
+
 from __future__ import annotations
 
 from decimal import Decimal

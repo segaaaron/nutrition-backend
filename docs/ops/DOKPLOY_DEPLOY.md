@@ -14,7 +14,7 @@ git status   # should be empty (excluding .claude/)
 
 # Confirm tests pass
 uv run python -m pytest -q --ignore=tests/integration --ignore=tests/e2e \
-  --deselect tests/clinical/test_coach_medical_refuse.py \
+  --deselect tests/nutrition/test_coach_medical_refuse.py \
   --deselect tests/unit/nutrition/test_macros.py::test_macros_satisfy_tolerance \
   --deselect tests/unit/nutrition/test_recalibration.py::test_result_clamped_within_15pct
 

@@ -4,10 +4,11 @@ Read-side leans on a 60s Redis TTL cache for `daily_totals` since clients
 poll it once per second from the dashboard. The cache key is invalidated by
 the FoodLogged subscriber registered in `app.tracking.event_handlers`.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import date
 from uuid import UUID
 
 from redis.asyncio import Redis
@@ -21,7 +22,7 @@ from app.tracking.domain.food_log import (
 from app.tracking.infrastructure.food_log_repository import SqlFoodLogRepository
 
 # RDA targets (adult baseline — see ADR-0002). Used to compute % satisfied
-# for the micros gap dashboard; clinical agent overrides per condition.
+# for the micros gap dashboard; condition gates override per condition.
 RDA_DEFAULTS: dict[str, float] = {
     "calcium_mg": 1000.0,
     "iron_mg": 8.0,
@@ -56,7 +57,11 @@ class DeleteFoodLog:
     redis: Redis | None = None
 
     async def __call__(
-        self, *, user_id: UUID, log_id: UUID, reason: str | None = None,
+        self,
+        *,
+        user_id: UUID,
+        log_id: UUID,
+        reason: str | None = None,
     ) -> None:
         await self.repo.delete(user_id=user_id, log_id=log_id, reason=reason)
         if self.redis is not None:
@@ -74,16 +79,22 @@ class GetDailyTotals:
             cached = await self.redis.get(_cache_key_totals(user_id, on))
             if cached:
                 import json
+
                 d = json.loads(cached)
                 return DailyTotals(
-                    date=on, kcal=d["kcal"], protein_g=d["protein_g"],
-                    carbs_g=d["carbs_g"], fat_g=d["fat_g"],
-                    fiber_g=d.get("fiber_g", 0), sugar_g=d.get("sugar_g", 0),
+                    date=on,
+                    kcal=d["kcal"],
+                    protein_g=d["protein_g"],
+                    carbs_g=d["carbs_g"],
+                    fat_g=d["fat_g"],
+                    fiber_g=d.get("fiber_g", 0),
+                    sugar_g=d.get("sugar_g", 0),
                     sodium_mg=d.get("sodium_mg", 0),
                 )
         totals = await self.repo.daily_totals(user_id=user_id, on=on)
         if self.redis is not None and on == date.today():
             import json
+
             await self.redis.set(
                 _cache_key_totals(user_id, on),
                 json.dumps(totals.as_dict()),
@@ -100,10 +111,10 @@ class GetMacrosTrend:
         rows = await self.repo.trend(user_id=user_id, window_days=window_days)
         n = max(len(rows), 1)
         avg = {
-            "kcal":      round(sum(r["kcal"] for r in rows) / n, 1),
+            "kcal": round(sum(r["kcal"] for r in rows) / n, 1),
             "protein_g": round(sum(r["protein_g"] for r in rows) / n, 1),
-            "carbs_g":   round(sum(r["carbs_g"] for r in rows) / n, 1),
-            "fat_g":     round(sum(r["fat_g"] for r in rows) / n, 1),
+            "carbs_g": round(sum(r["carbs_g"] for r in rows) / n, 1),
+            "fat_g": round(sum(r["fat_g"] for r in rows) / n, 1),
         }
         return {"window_days": window_days, "points": rows, "rolling_avg": avg}
 
@@ -113,7 +124,10 @@ class GetMicrosToday:
     repo: SqlFoodLogRepository
 
     async def __call__(
-        self, *, user_id: UUID, rda_overrides: dict[str, float] | None = None,
+        self,
+        *,
+        user_id: UUID,
+        rda_overrides: dict[str, float] | None = None,
     ) -> dict:
         totals = await self.repo.micros_today(user_id=user_id)
         targets = {**RDA_DEFAULTS, **(rda_overrides or {})}
@@ -122,7 +136,9 @@ class GetMicrosToday:
             current = float(totals.get(nutrient, 0.0))
             pct = round(min(100.0, current / target * 100.0), 1) if target else 0.0
             gaps[nutrient] = {
-                "current": current, "target": target,
-                "pct": pct, "deficit": max(0.0, round(target - current, 4)),
+                "current": current,
+                "target": target,
+                "pct": pct,
+                "deficit": max(0.0, round(target - current, 4)),
             }
         return {"totals": totals, "gaps": gaps}

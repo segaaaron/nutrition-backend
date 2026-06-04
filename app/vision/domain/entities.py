@@ -4,6 +4,7 @@
 `DetectedFoodItem` is the upstream LLM-emitted item with provenance.
 `VisionResult` is the validated, food-matched output persisted to food_logs.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

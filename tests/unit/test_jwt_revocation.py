@@ -2,10 +2,12 @@
 
 OWASP API2 / ASVS V3: access token must be invalidatable on logout.
 """
+
 from __future__ import annotations
 
-import pytest
 from uuid import uuid4
+
+import pytest
 
 from app.core.errors import Unauthenticated
 
@@ -32,6 +34,7 @@ def keypair(monkeypatch, tmp_path):
     monkeypatch.setenv("JWT_PRIVATE_KEY_PATH", str(priv_path))
     monkeypatch.setenv("JWT_PUBLIC_KEY_PATH", str(pub_path))
     from app.core.config import get_settings
+
     get_settings.cache_clear()
     yield
 
@@ -39,6 +42,7 @@ def keypair(monkeypatch, tmp_path):
 async def test_revoked_token_rejected(keypair, fake_redis, monkeypatch):
     """Token added to denylist must raise Unauthenticated on verify."""
     from app.core import redis as redis_mod
+
     monkeypatch.setattr(redis_mod, "get_redis", lambda: fake_redis)
 
     from app.identity.infrastructure.jwt_signer import JwtSigner, revoke_jti
@@ -56,6 +60,7 @@ async def test_revoked_token_rejected(keypair, fake_redis, monkeypatch):
 async def test_non_revoked_token_passes(keypair, fake_redis, monkeypatch):
     """Token not in denylist must verify successfully."""
     from app.core import redis as redis_mod
+
     monkeypatch.setattr(redis_mod, "get_redis", lambda: fake_redis)
 
     from app.identity.infrastructure.jwt_signer import JwtSigner
@@ -69,9 +74,10 @@ async def test_non_revoked_token_passes(keypair, fake_redis, monkeypatch):
 async def test_is_jti_revoked_returns_true_when_in_denylist(fake_redis, monkeypatch):
     """is_jti_revoked reflects exact denylist state."""
     from app.core import redis as redis_mod
+
     monkeypatch.setattr(redis_mod, "get_redis", lambda: fake_redis)
 
-    from app.identity.infrastructure.jwt_signer import revoke_jti, is_jti_revoked
+    from app.identity.infrastructure.jwt_signer import is_jti_revoked, revoke_jti
 
     await revoke_jti("abc123", ttl_seconds=60)
     assert await is_jti_revoked("abc123") is True

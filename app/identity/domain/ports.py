@@ -1,4 +1,5 @@
 """Identity ports — repositories + service Protocols. Pure abstractions."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -51,4 +52,5 @@ class OAuthVerifier(Protocol):
     """Protocol shared by Google + Apple verifiers."""
 
     async def verify_id_token(self, id_token: str) -> dict: ...
+
     """Returns {sub, email, email_verified, ...} or raises."""

@@ -14,7 +14,7 @@ Hard validators (mirror gap_closure):
 - Macro plausibility kcal [100,1500]; protein [0,80]; carbs [0,200]; fat [0,80]
 - Dedup signature (sha1 over name_norm + sorted core ingredient nouns)
 - Cell exact-name dedup vs full catalog + new buckets
-- Bucket-specific clinical gates
+- Bucket-specific safety gates
 - Lactation: pregnancy-unsafe ingredient detection (hard reject)
 
 Outputs:

@@ -1,4 +1,5 @@
 """Sprint 7.D — UserLevel curve (level n requires 100 * n^1.5 points)."""
+
 from __future__ import annotations
 
 from app.gamification.domain.entities import UserLevel
@@ -13,7 +14,7 @@ def test_zero_points_is_level_zero():
 def test_one_hundred_points_is_level_one():
     ul = UserLevel.from_points(100)
     assert ul.level == 1
-    assert ul.next_level_points == int(100 * (2 ** 1.5))
+    assert ul.next_level_points == int(100 * (2**1.5))
 
 
 def test_curve_is_monotonic():

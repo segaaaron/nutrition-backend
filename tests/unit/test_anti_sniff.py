@@ -1,4 +1,5 @@
 """Anti-sniff middleware tests (OWASP API8)."""
+
 from __future__ import annotations
 
 from fastapi import FastAPI
@@ -43,19 +44,25 @@ def test_proxyman_signature_rejected():
 
 def test_burp_via_header_rejected():
     c = _client(enforce=True)
-    r = c.get("/ping", headers={
-        "User-Agent": "NOVA-iOS/1.0",
-        "Via": "1.1 burp-proxy",
-    })
+    r = c.get(
+        "/ping",
+        headers={
+            "User-Agent": "NOVA-iOS/1.0",
+            "Via": "1.1 burp-proxy",
+        },
+    )
     assert r.status_code == 403
 
 
 def test_cloudflare_via_allowed():
     c = _client(enforce=True)
-    r = c.get("/ping", headers={
-        "User-Agent": "NOVA-iOS/1.0",
-        "Via": "1.1 cloudflare",
-    })
+    r = c.get(
+        "/ping",
+        headers={
+            "User-Agent": "NOVA-iOS/1.0",
+            "Via": "1.1 cloudflare",
+        },
+    )
     assert r.status_code == 200
 
 
@@ -79,8 +86,11 @@ def test_python_requests_rejected():
 
 def test_charles_proxy_header_rejected():
     c = _client(enforce=True)
-    r = c.get("/ping", headers={
-        "User-Agent": "NOVA-iOS/1.0",
-        "X-Charles-Proxy": "1",
-    })
+    r = c.get(
+        "/ping",
+        headers={
+            "User-Agent": "NOVA-iOS/1.0",
+            "X-Charles-Proxy": "1",
+        },
+    )
     assert r.status_code == 403
