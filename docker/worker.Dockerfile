@@ -1,9 +1,32 @@
-FROM python:3.12-slim
+# NOVA Nutrition — Arq worker container.
+# Multi-stage build mirrors api.Dockerfile to avoid editable+hash pip conflict.
+
+# --- Stage 1: builder ---
+FROM python:3.12-slim AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+
+COPY pyproject.toml uv.lock* ./
+
+RUN pip install --no-cache-dir uv \
+    && uv export --no-dev --frozen --no-emit-project --format requirements-txt > /tmp/requirements.txt \
+    && pip install --prefix=/install --no-cache-dir -r /tmp/requirements.txt
+
+# --- Stage 2: runtime ---
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
 # Vision worker needs libvips + libheif for pyvips at runtime.
 # libheif1 is a transitive dep of libvips42 on slim, kept explicit so
@@ -16,17 +39,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
+# Install built dependencies from builder stage.
+COPY --from=builder /install /usr/local
+
 WORKDIR /app
-
-COPY pyproject.toml uv.lock* ./
-
-RUN pip install --no-cache-dir uv \
-    && uv sync --frozen --no-dev 2>/dev/null \
-       || uv pip install --system -r <(uv pip compile pyproject.toml 2>/dev/null) \
-       || pip install --no-cache-dir .
 
 COPY app ./app
 COPY worker ./worker
+COPY pyproject.toml uv.lock* ./
+
+RUN pip install --no-cache-dir --no-deps .
 
 USER 1000:1000
 

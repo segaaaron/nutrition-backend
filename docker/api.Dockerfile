@@ -20,7 +20,7 @@ WORKDIR /build
 COPY pyproject.toml uv.lock* ./
 
 RUN pip install --no-cache-dir uv \
-    && uv export --no-dev --frozen --format requirements-txt > /tmp/requirements.txt \
+    && uv export --no-dev --frozen --no-emit-project --format requirements-txt > /tmp/requirements.txt \
     && pip install --prefix=/install --no-cache-dir -r /tmp/requirements.txt
 
 # --- Stage 2: runtime ---
@@ -50,8 +50,10 @@ COPY migrations ./migrations
 COPY alembic.ini ./
 COPY scripts ./scripts
 COPY data ./data
+COPY pyproject.toml uv.lock* ./
 COPY docker/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN chmod +x /entrypoint.sh \
+    && pip install --no-cache-dir --no-deps .
 
 USER 1000:1000
 
