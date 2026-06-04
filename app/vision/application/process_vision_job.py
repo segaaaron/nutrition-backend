@@ -246,9 +246,51 @@ class ProcessVisionJob:
             food_log_ids: list[UUID] = []
             total_kcal = sum(i.kcal for i in items)
             _ = cache_hit  # observability hook; keep for log enrichment later
-            for it in items:
-                if it.confidence < FOOD_LOG_AUTO_INSERT_CONFIDENCE and it.matched_food_id is None:
-                    continue
+
+            # ADR-0026 L1 — per-meal-slot cap. Counted by the number of
+            # items that will actually land as food_logs rows. Photo jobs
+            # cannot raise an HTTP error here (worker context); on cap
+            # exhaust we log + skip the inserts to avoid silent XP gain.
+            insertable = [
+                it for it in items
+                if it.confidence >= FOOD_LOG_AUTO_INSERT_CONFIDENCE
+                or it.matched_food_id is not None
+            ]
+            if insertable:
+                from app.gamification.infrastructure.anti_cheat_caps import (
+                    FOOD_LOG_PER_SLOT_CAP,
+                    check_and_increment_food_log_slot,
+                )
+
+                # Redis hiccup must not drop the user's photo log — match
+                # the inflight-lock degradation pattern above.
+                try:
+                    slot_count = await check_and_increment_food_log_slot(
+                        get_redis(),
+                        user_id,
+                        date.today(),
+                        meal_time,
+                        amount=len(insertable),
+                    )
+                except Exception as rexc:  # noqa: BLE001
+                    log.warning(
+                        "vision.slot_cap.redis_down", err=str(rexc)
+                    )
+                    slot_count = 0
+                if slot_count > FOOD_LOG_PER_SLOT_CAP:
+                    log.warning(
+                        "vision.meal_slot_log_cap_exceeded",
+                        extra={
+                            "user_id": str(user_id),
+                            "meal_slot": meal_time,
+                            "current": slot_count,
+                            "cap": FOOD_LOG_PER_SLOT_CAP,
+                            "job_id": str(job_id),
+                        },
+                    )
+                    insertable = []
+
+            for it in insertable:
                 flog_id = uuid4()
                 await self.session.execute(
                     text(

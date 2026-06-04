@@ -14,7 +14,7 @@ from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Query, status
+from fastapi import APIRouter, Body, Query, Response, status
 from pydantic import BaseModel, ConfigDict
 
 from app.core.event_bus import get_event_bus
@@ -119,7 +119,7 @@ async def delete_food_log(
     current_user: CurrentUserDep,
     session: SessionDep,
     body: DeleteReason | None = Body(default=None),
-) -> None:
+) -> Response:
     # BOLA OK: DeleteFoodLog use case passes user_id to repo which filters
     # DELETE ... WHERE id = :id AND user_id = :uid — raises NotFoundError if mismatch.
     uc = DeleteFoodLog(
@@ -128,6 +128,7 @@ async def delete_food_log(
         redis=get_redis(),
     )
     await uc(user_id=current_user, log_id=log_id, reason=(body.reason if body else None))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 class DailyTotalsOut(BaseModel):

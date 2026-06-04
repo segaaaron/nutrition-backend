@@ -1,10 +1,15 @@
-"""Push token registration router."""
+"""Push token registration router (mobile-only: iOS/Android via FCM).
+
+Web Push was removed 2026-06-04 — NOVA backend serves mobile apps only, no PWA.
+Legacy `push_tokens` rows with `platform='web'` remain in DB (dead, dropped next
+migration cycle) but are no longer accepted by the registration endpoint.
+"""
 
 from __future__ import annotations
 
 from typing import Literal
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Response, status
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import text
 
@@ -16,11 +21,8 @@ router = APIRouter(prefix="/push", tags=["notifications"])
 class RegisterTokenRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    platform: Literal["web", "ios", "android"]
+    platform: Literal["ios", "android"]
     token: str
-    endpoint: str | None = None
-    p256dh: str | None = None
-    auth: str | None = None
     locale: str = "en"
 
 
@@ -33,14 +35,11 @@ async def register_token(
     await session.execute(
         text(
             """
-        INSERT INTO push_tokens (user_id, platform, token, endpoint, p256dh, auth, locale, created_at)
-        VALUES (:uid, :p, :tok, :ep, :k, :au, :loc, now())
+        INSERT INTO push_tokens (user_id, platform, token, locale, created_at)
+        VALUES (:uid, :p, :tok, :loc, now())
         ON CONFLICT (token) DO UPDATE SET
           user_id = EXCLUDED.user_id,
           platform = EXCLUDED.platform,
-          endpoint = EXCLUDED.endpoint,
-          p256dh = EXCLUDED.p256dh,
-          auth = EXCLUDED.auth,
           locale = EXCLUDED.locale,
           invalid_at = NULL
     """
@@ -49,9 +48,6 @@ async def register_token(
             "uid": str(current_user),
             "p": body.platform,
             "tok": body.token,
-            "ep": body.endpoint,
-            "k": body.p256dh,
-            "au": body.auth,
             "loc": body.locale,
         },
     )
@@ -63,7 +59,7 @@ async def delete_token(
     token: str,
     current_user: CurrentUserDep,
     session: SessionDep,
-) -> None:
+) -> Response:
     # BOLA OK: DELETE WHERE token = :t AND user_id = :uid — silently no-ops if not owner.
     await session.execute(
         text(
@@ -73,3 +69,4 @@ async def delete_token(
         ),
         {"t": token, "uid": str(current_user)},
     )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

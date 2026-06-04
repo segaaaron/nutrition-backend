@@ -45,7 +45,7 @@ class TasteProfileService:
         if cached:
             try:
                 return list(json.loads(cached))
-            except Exception:  # noqa: BLE001
+            except Exception:  # noqa: BLE001,S110 — cache miss falls through to rebuild
                 pass
         vec = await self._build(user_id)
         await self.redis.set(key, json.dumps(vec), ex=self.ttl_s)

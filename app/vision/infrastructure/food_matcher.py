@@ -108,8 +108,8 @@ class HybridFoodMatcher:
                  WHERE embedding IS NOT NULL
                  ORDER BY embedding <=> '{vec_lit}'::vector
                  LIMIT 1
-            """
-                ),  # noqa: S608
+            """  # noqa: S608 — vec_lit is float-only literal; pgvector requires inline form
+                ),
             )
         ).first()
         if row and row[2] is not None and float(row[2]) <= EMBEDDING_COSINE_DISTANCE_MAX:

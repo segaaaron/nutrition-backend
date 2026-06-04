@@ -32,14 +32,25 @@ from collections.abc import Iterable, Iterator
 from pathlib import Path
 
 BANNED_TOKENS: tuple[str, ...] = (
-    "bmi",
-    "peso",
-    "weight_kg",
-    "condicion",
+    # Spanish PII field variants for LatAm regions (kept alphabetical).
     "alergia",
+    "alergias",
     "allergen",
+    "bmi",
+    "clave",
+    "condicion",
+    "condiciones",
+    "condiciones_medicas",
+    "contrasena",
+    "contraseña",
+    "correo",
     "email",
+    "fecha_nacimiento",
+    "peso",
+    "peso_kg",
     "phone",
+    "telefono",
+    "weight_kg",
 )
 
 # Word-boundary regex per token: matches only when the token sits between

@@ -19,6 +19,7 @@ dependencies = [
     # schemas / config
     "pydantic>=2.9,<3",
     "pydantic-settings>=2.6,<3",
+    "email-validator>=2.2,<3",
     # workers + cache
     "arq>=0.26,<0.27",
     "redis>=5.2,<6",
@@ -28,9 +29,15 @@ dependencies = [
     "pyjwt[crypto]>=2.10,<3",
     "argon2-cffi>=23.1,<24",
     # imaging
+    # pyvips (libvips bindings) covers all NOVA cases as a single tool:
+    # HEIC iOS + JPG/PNG/WEBP/AVIF Android, EXIF-aware autorotate, resize,
+    # encode with metadata stripped, post-strip EXIF verification. libvips
+    # is the same backend used by Sharp (Node.js) — industry standard for
+    # image pipelines: faster, lower-memory than Pillow, and HEIC support
+    # is built in when libvips is compiled with libheif (default on
+    # Debian-slim + brew). Trade-off: one system dep (libvips42 + libheif1)
+    # vs two Python deps (Pillow + pillow-heif). See vips_compressor.py.
     "pyvips>=2.2,<3",
-    "pillow-heif>=0.21,<0.22",
-    "exifread>=3.0,<4",
     # ai
     "openai>=1.50,<2",
     "tiktoken>=0.8,<0.9",
@@ -38,11 +45,6 @@ dependencies = [
     "httpx>=0.27,<0.28",
     # observability
     "prometheus-client>=0.21,<0.22",
-    # Sentry — no-op when SENTRY_DSN is unset (see app/core/observability.py).
-    # Integrations pinned: fastapi, asyncio, arq. PII strip in before_send.
-    "sentry-sdk[fastapi]>=2.18,<3",
-    # i18n / formatting
-    "babel>=2.16,<3",
 ]
 
 [project.optional-dependencies]
@@ -50,16 +52,14 @@ dev = [
     "pytest>=8.3,<9",
     "pytest-asyncio>=0.24,<0.25",
     "pytest-cov>=5.0,<6",
-    "pytest-benchmark>=5.0,<6",
     "hypothesis>=6.118,<7",
-    "factory-boy>=3.3,<4",
-    "testcontainers[postgres,redis]>=4.8,<5",
+    "testcontainers[postgres]>=4.8,<5",
     "fakeredis>=2.26,<3",
-    "schemathesis>=3.39,<4",
     "ruff>=0.7,<0.8",
-    "black>=24.10,<25",
     "mypy>=1.13,<2",
-    "types-jwt>=0.1.0",
+    # Pillow is dev-only: used by tests to synthesise PNG/JPEG test images.
+    # Runtime image pipeline is pyvips. Do NOT promote to runtime deps.
+    "pillow>=12,<13",
 ]
 
 [build-system]
@@ -85,14 +85,24 @@ line-length = 100
 select = ["E", "F", "I", "B", "UP", "ASYNC", "S", "PL"]
 ignore = ["S101", "PLR2004"]
 
-[tool.black]
-target-version = ["py312"]
-line-length = 100
+[tool.ruff.format]
+# ruff format is a drop-in replacement for black; same output, 30x faster.
+# Line length inherited from [tool.ruff].
 
 [tool.mypy]
 python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
+
+# pyvips ships no PEP 561 marker / stubs. The C-bindings surface we use
+# (Image.new_from_buffer, autorot, resize, write_to_buffer, get_fields,
+# remove, .width, .height) is stable since 2.0 and documented; the
+# alternative is hand-rolled stubs that drift. Allow untyped at the
+# import boundary; call sites are still strictly typed via local
+# annotations.
+[[tool.mypy.overrides]]
+module = "pyvips"
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -102,6 +112,7 @@ markers = [
     "slow: tests slower than 1s",
     "integration: requires testcontainers",
     "property: hypothesis property-based tests",
+    "eval: AI golden-set evaluation (skipped unless RUN_GOLDEN_SET=true)",
 ]
 
 [tool.coverage.run]
@@ -113,35 +124,3 @@ fail_under = 75
 show_missing = true
 exclude_lines = ["pragma: no cover", "raise NotImplementedError", "if TYPE_CHECKING:"]
 
-[tool.importlinter]
-root_packages = ["app"]
-include_external_packages = true
-
-[[tool.importlinter.contracts]]
-name = "plan domain may not import tracking domain"
-type = "forbidden"
-source_modules = ["app.plan.domain", "app.plan.application"]
-forbidden_modules = ["app.tracking.domain", "app.tracking.application"]
-
-[[tool.importlinter.contracts]]
-name = "new plan algorithm modules framework-agnostic"
-type = "forbidden"
-source_modules = [
-    "app.plan.domain.macro_calculator",
-    "app.plan.domain.bmr_safety",
-    "app.plan.domain.context",
-    "app.plan.domain.ports",
-    "app.shared.domain",
-]
-forbidden_modules = ["fastapi", "sqlalchemy", "pydantic", "starlette", "app.core.errors"]
-
-[[tool.importlinter.contracts]]
-name = "plan.domain must not import infrastructure or presentation"
-type = "forbidden"
-source_modules = ["app.plan.domain"]
-forbidden_modules = ["app.plan.infrastructure", "app.plan.presentation"]
-
-[dependency-groups]
-dev = [
-    "import-linter>=2.11",
-]

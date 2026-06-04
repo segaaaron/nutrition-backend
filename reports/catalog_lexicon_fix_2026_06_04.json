@@ -1,0 +1,9 @@
+{
+  "generated_at": "2026-06-04T14:07:02.690658+00:00",
+  "catalog": "data/meals/nova_meals_catalog.json",
+  "backup": "data/meals/nova_meals_catalog.json.bak-2026-06-04-v4",
+  "counters": {
+    "total_records": 1997
+  },
+  "diffs": []
+}

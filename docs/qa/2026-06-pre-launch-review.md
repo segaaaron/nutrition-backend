@@ -92,7 +92,7 @@ Sprint 7.A repository fallback when the continuous aggregate is absent.
 - [x] All Sprint 7+8 endpoints have handler implementations
 - [x] Backup script tested at least once against staging DB
 - [x] Stripe + MP test webhooks reach handlers
-- [x] Sentry receiving events
+- [x] Local ErrorTracker capturing events (admin endpoint `/admin/errors/recent`)
 - [ ] Once-deploy manual: `REFRESH MATERIALIZED VIEW food_logs_aggregates_daily`
 - [ ] Manual smoke checklist above completed and signed off
 

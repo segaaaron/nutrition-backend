@@ -86,5 +86,5 @@ def register(bus: EventBus) -> None:
         from app.tracking.domain.events import WeightLogged as TrackingWeightLogged
 
         bus.subscribe(TrackingWeightLogged, _on_weight_logged)  # type: ignore[arg-type]
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001,S110 — optional duck-typed subscription
         pass

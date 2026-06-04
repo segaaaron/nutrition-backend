@@ -1,4 +1,4 @@
-"""Local error tracker — replaces Sentry for MVP phase.
+"""Local error tracker for MVP phase.
 
 Captures unhandled exceptions in API + workers without sending data to any
 third-party service. Three storage layers:
@@ -81,7 +81,7 @@ def record_error(
         ).inc()
         log.error("unhandled_exception", **{k: v for k, v in entry.items() if k != "traceback"})
         _append_to_file(entry)
-    except Exception:  # noqa: BLE001 — tracker must never raise
+    except Exception:  # noqa: BLE001,S110 — tracker must never raise
         pass
 
 
@@ -92,7 +92,7 @@ def _append_to_file(entry: dict) -> None:
         p.parent.mkdir(parents=True, exist_ok=True)
         with p.open("a", encoding="utf-8") as f:
             f.write(json.dumps(entry, default=str) + "\n")
-    except Exception:  # noqa: BLE001 — file errors swallowed
+    except Exception:  # noqa: BLE001,S110 — file errors swallowed
         pass
 
 
@@ -122,12 +122,12 @@ class ErrorTrackerMiddleware(BaseHTTPMiddleware):
                 user_id = getattr(request.state, "user_id", None)
                 if user_id is not None:
                     user_id = str(user_id)
-            except Exception:  # noqa: BLE001
+            except Exception:  # noqa: BLE001,S110 — best-effort state read
                 pass
             request_id = None
             try:
                 request_id = getattr(request.state, "request_id", None)
-            except Exception:  # noqa: BLE001
+            except Exception:  # noqa: BLE001,S110 — best-effort state read
                 pass
             record_error(
                 exc=exc,

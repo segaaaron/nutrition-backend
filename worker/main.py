@@ -13,10 +13,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from arq.connections import RedisSettings
 from arq import cron
+from arq.connections import RedisSettings
 
 from app.core.config import get_settings
+from worker.anomaly_score_task import anomaly_score_task
 from worker.coach_tasks import (
     cleanup_expired_otp_lockouts_cron,
     cleanup_expired_sse_tickets_cron,
@@ -25,9 +26,11 @@ from worker.coach_tasks import (
     coach_recipe_story_backfill_cron,
     coach_weekly_review_cron,
 )
+from worker.email_tasks import send_email_task
+from worker.idempotency_tasks import cleanup_idempotency_keys_cron
+from worker.leaderboard_audit_purge_task import leaderboard_audit_purge_cron
 from worker.plan_tasks import generate_plan_task
 from worker.vision_tasks import vision_recognize_task
-from worker.idempotency_tasks import cleanup_idempotency_keys_cron
 
 _settings = get_settings()
 
@@ -35,6 +38,7 @@ _settings = get_settings()
 FUNCTIONS: list[Any] = [
     generate_plan_task,
     vision_recognize_task,
+    send_email_task,
 ]
 
 
@@ -47,6 +51,15 @@ CRON_JOBS: list[Any] = [
     cron(coach_recipe_story_backfill_cron, name="coach_recipe_story_backfill", hour={3}, minute=0),
     # Nightly cleanup — 03:00 UTC, 30-minute offset to spread I/O.
     cron(cleanup_idempotency_keys_cron, name="cleanup_idempotency_keys", hour={3}, minute=30),
+    # ADR-0026 — anti-cheat audit retention purge (180-day horizon).
+    # 03:00 UTC = 22:00 Lima previous day.
+    cron(leaderboard_audit_purge_cron, name="leaderboard_audit_purge", hour={3}, minute=0),
+    # ADR-0026 L2 — nightly anomaly scorer. 02:00 Lima = 07:00 UTC
+    # (Peru is UTC-5 year-round; no DST). arq's cron() runs in the
+    # worker process timezone which is UTC inside the container, so we
+    # schedule UTC directly. L3 ZADD gate deferred (see PROJECT_STATE.md).
+    # Threshold actions: >=70 ban, 40-69 flag, <40 ok.
+    cron(anomaly_score_task, name="anomaly_score", hour={7}, minute=0),
     # Every 5 minutes — short-lived cleanup.
     cron(cleanup_expired_sse_tickets_cron, name="cleanup_sse_tickets", minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55}),
     cron(cleanup_expired_otp_lockouts_cron, name="cleanup_otp_lockouts", minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55}),
@@ -55,11 +68,6 @@ CRON_JOBS: list[Any] = [
 
 async def on_startup(ctx: dict[str, Any]) -> None:
     ctx["settings"] = _settings
-    # Sentry init — no-op when SENTRY_DSN unset. Arq has no first-party
-    # integration; AsyncioIntegration covers task scheduling. Exceptions
-    # raised inside Arq tasks propagate to the SDK's global excepthook.
-    from app.core.observability import init_sentry
-    init_sentry("worker")
 
 
 async def on_shutdown(ctx: dict[str, Any]) -> None:  # noqa: ARG001

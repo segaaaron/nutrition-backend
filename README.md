@@ -58,7 +58,7 @@ k6 run -e BASE_URL=https://api.nova-nutrition.com -e TOKEN=… \
 | coach          | 4-camino router, intent classifier, SSE, proactive nudges |
 | vision         | gpt-4o photo analyses, 2-tier cost optimisation     |
 | voice          | Whisper STT, NLP food parser                        |
-| notifications  | Web push (VAPID) + FCM scaffold                     |
+| notifications  | FCM scaffold (iOS/Android), mobile-only             |
 | billing        | Stripe + Mercado Pago, entitlements, webhooks       |
 
 ## Catalog audit (before any seed)

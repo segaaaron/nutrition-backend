@@ -1,4 +1,8 @@
-"""Dispatch push to all active tokens for a user. Marks failures as invalid."""
+"""Dispatch push to all active mobile tokens for a user. Marks failures as invalid.
+
+Mobile-only (iOS/Android via FCM). Web Push was removed 2026-06-04 — NOVA backend
+serves mobile apps only, no PWA scope. Legacy `platform='web'` rows are ignored.
+"""
 
 from __future__ import annotations
 
@@ -10,7 +14,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
 from app.notifications.infrastructure.fcm_client import FcmClient
-from app.notifications.infrastructure.web_push_client import WebPushClient
 
 log = get_logger("notifications.send")
 
@@ -18,7 +21,6 @@ log = get_logger("notifications.send")
 @dataclass(slots=True)
 class SendNotification:
     session: AsyncSession
-    web: WebPushClient
     fcm: FcmClient
 
     async def __call__(self, *, user_id: UUID, payload: dict) -> int:
@@ -26,9 +28,11 @@ class SendNotification:
             await self.session.execute(
                 text(
                     """
-            SELECT id::text, platform, token, endpoint, p256dh, auth
+            SELECT id::text, platform, token
               FROM push_tokens
-             WHERE user_id = :uid AND invalid_at IS NULL
+             WHERE user_id = :uid
+               AND invalid_at IS NULL
+               AND platform IN ('ios', 'android')
         """
                 ),
                 {"uid": str(user_id)},
@@ -36,11 +40,7 @@ class SendNotification:
         ).all()
         n_sent = 0
         for r in rows:
-            ok = False
-            if r[1] == "web" and r[3] and r[4] and r[5]:
-                ok = await self.web.send(endpoint=r[3], p256dh=r[4], auth=r[5], payload=payload)
-            elif r[1] in ("ios", "android"):
-                ok = await self.fcm.send(token=r[2], payload=payload)
+            ok = await self.fcm.send(token=r[2], payload=payload)
             if ok:
                 n_sent += 1
                 await self.session.execute(

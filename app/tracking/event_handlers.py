@@ -14,7 +14,7 @@ def register(bus: EventBus) -> None:
     async def _on_food_logged(evt: FoodLogged) -> None:
         try:
             await get_redis().delete(_cache_key_totals(evt.user_id, date.today()))
-        except Exception:  # noqa: BLE001 — cache miss is acceptable
+        except Exception:  # noqa: BLE001,S110 — cache miss is acceptable
             pass
 
     bus.subscribe(FoodLogged, _on_food_logged)

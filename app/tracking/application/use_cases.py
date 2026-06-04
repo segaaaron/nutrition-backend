@@ -62,6 +62,23 @@ class LogWeight:
             days = max(1, (now_dt - last_time).days)
             assert_weight_delta_plausible(weight_kg, last_weight, days)
 
+            # ADR-0026 L1 — stricter anti-cheat sanity on top of the
+            # physiological floor above. Reject any single-day swing
+            # exceeding max(2.0kg, 5% of new bodyweight). This kills
+            # fake weight-loss farming for leaderboard XP without
+            # touching legitimate week-long recoveries.
+            from app.core.errors import BusinessRuleViolation
+
+            sanity_cap = max(Decimal("2.0"), weight_kg * Decimal("0.05"))
+            day_span = max(Decimal("1"), Decimal(days))
+            day_delta = abs(weight_kg - last_weight) / day_span
+            if day_delta > sanity_cap:
+                raise BusinessRuleViolation(
+                    "weight_delta_unrealistic",
+                    delta_kg=str(day_delta),
+                    cap_kg=str(sanity_cap),
+                )
+
         now = datetime.now(UTC)
         await self.repo.append(
             WeightLog(

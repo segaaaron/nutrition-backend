@@ -1,0 +1,23 @@
+{
+  "generated_at": "2026-06-04T14:07:03.302681+00:00",
+  "catalog_path": "/Users/miguelangelsaraviabelmonte/dev-backend/Nova-nutrition-backend/data/meals/nova_meals_catalog.json",
+  "backup_path": "/Users/miguelangelsaraviabelmonte/dev-backend/Nova-nutrition-backend/data/meals/nova_meals_catalog.json.bak-2026-06-04-v5",
+  "canonical_activity_levels": [
+    "extra_active",
+    "lightly_active",
+    "moderately_active",
+    "sedentary",
+    "very_active"
+  ],
+  "collapse_map": {
+    "moderate": "moderately_active",
+    "active": "very_active"
+  },
+  "total_records": 1997,
+  "records_modified": 0,
+  "records_empty_after_collapse": 0,
+  "collapse_counts": {},
+  "tokens_collapsed_total": 0,
+  "unmapped_tail": {},
+  "per_record_diffs": []
+}

@@ -98,7 +98,7 @@ class CoherencePass:
         if cached:
             try:
                 return json.loads(cached)
-            except Exception:  # noqa: BLE001
+            except Exception:  # noqa: BLE001,S110 — cache miss falls through to rebuild
                 pass
 
         prompt = self._prompt(user_profile, candidate_plan, alternatives_by_slot)

@@ -9,6 +9,7 @@ from __future__ import annotations
 import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import UUID, uuid4
 
 from app.core.errors import (
@@ -40,6 +41,7 @@ from app.identity.domain.ports import (
     UserRepository,
 )
 from app.identity.domain.value_objects import Email
+from app.shared.domain.email_sender import EmailSender
 
 OTP_TTL = timedelta(minutes=10)
 OTP_MAX_ATTEMPTS = 5
@@ -231,8 +233,7 @@ class Logout:
                 jti = claims.get("jti")
                 if jti:
                     await revoke_jti(jti, ttl_seconds=get_settings().jwt_access_ttl_seconds)
-            except Exception:
-                # Best-effort: invalid/expired access token doesn't block logout.
+            except Exception:  # noqa: BLE001,S110 — invalid/expired token must not block logout
                 pass
 
 
@@ -304,13 +305,36 @@ class SendOtp:
     users: UserRepository
     otps: OtpRepository
     hasher: PasswordHasher
+    # Optional — when provided, the use-case renders the OTP email template
+    # and dispatches via the sender. When None (default), the plaintext code
+    # is returned to the caller and the presentation layer decides what to
+    # do with it (dev echo, queue an Arq job, etc.). Keeps backward compat
+    # with existing tests and routers.
+    email_sender: EmailSender | None = None
+    # Optional locale hint (es/pt/en). Defaults to es inside the renderer.
+    locale: str | None = None
 
     async def __call__(self, *, email: str, purpose: OtpPurpose) -> str:
-        """Returns the plaintext code (in production: sent via email/SMS; never returned).
+        """Generate + persist an OTP, optionally dispatch via email.
 
-        Returning it from the use-case is acceptable because the presentation
-        layer chooses whether to expose it (dev) or hand off to the email
-        worker (prod).
+        Always returns the plaintext code. When ``email_sender`` is wired,
+        the code is also sent via email. Email delivery failure does NOT
+        roll back OTP persistence — the user can retry. Errors are logged
+        and re-raised as :class:`EmailDeliveryError` so the router can map
+        to 502.
+
+        Dispatch model decision (2026-06-04): INLINE — caller awaits the
+        Resend roundtrip during the request. Closed-beta scope (<=100
+        users), Resend p95 ~200ms, overhead acceptable.
+
+        Migration trigger to Arq enqueue:
+        - p95 ``/v1/identity/otp/send`` > 300ms in production
+        - User-reported delivery delay
+        - Resend rate-limit hit (>100 emails/min sustained)
+
+        Worker task ``worker.email_tasks.send_email_task`` is registered
+        but currently unused from this path. Switch via the
+        ``make_send_otp`` dependency factory when a trigger fires.
         """
         user = await self.users.get_by_email(Email(email).normalized)
         if user is None:
@@ -327,6 +351,23 @@ class SendOtp:
             expires_at=_now() + OTP_TTL,
         )
         await self.otps.add(otp)
+
+        if self.email_sender is not None:
+            # Late import keeps the application layer free of infrastructure
+            # template strings at module-load time (and avoids cycles).
+            from app.identity.infrastructure.email_templates import render_otp_email
+
+            ttl_minutes = max(1, int(OTP_TTL.total_seconds() // 60))
+            rendered = render_otp_email(
+                code=code, ttl_minutes=ttl_minutes, locale=self.locale
+            )
+            await self.email_sender.send(
+                to=Email(email).normalized,
+                subject=rendered.subject,
+                html=rendered.html,
+                text=rendered.text,
+                idempotency_key=str(otp.id),
+            )
         return code
 
 
@@ -427,7 +468,7 @@ class CancelDeletion:
 class ExportData:
     users: UserRepository
 
-    async def __call__(self, *, user_id: UUID) -> dict:
+    async def __call__(self, *, user_id: UUID) -> dict[str, Any]:
         """For MVP returns an inline JSON blob; production hands off to worker."""
         user = await self.users.get_by_id(user_id)
         if user is None:

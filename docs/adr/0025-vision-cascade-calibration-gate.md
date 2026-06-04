@@ -46,7 +46,7 @@ ADR-0021 listed an informal gate ("golden set + eval"). This ADR formalises the 
 - Gate passes when:
   - Divergence in returned items <5 % (Jaccard distance per photo, median).
   - No nutrition-tier discrepancies (e.g. mini misses dairy on a hyperchol user's plate).
-  - Zero Sentry-tracked vision errors attributable to the mini pipeline.
+  - Zero ErrorTracker-captured vision errors attributable to the mini pipeline.
 
 ### Sign-off artefact
 

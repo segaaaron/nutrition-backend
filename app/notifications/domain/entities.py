@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
+# 'web' kept in Literal to read legacy rows; new tokens are mobile-only (FCM).
 Platform = Literal["web", "ios", "android"]
 
 

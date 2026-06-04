@@ -26,7 +26,7 @@ Deferred from S0:
 
 ## ✅ Sprint S1-quick — high-ROI dev-time defenses (shipped)
 
-S1-1 CI security scans (bandit + semgrep + gitleaks + pip-audit + trivy + dependabot)
+S1-1 Security stack (ruff S-rules + GitHub native Dependabot security advisories + GitHub native secret scanning + GitHub Code Scanning default setup); custom security.yml workflow + dependabot.yml removed as native-redundant
 S1-2 RBAC matrix (Role enum + require_role dep + docs)
 S1-3 MIME sniff verification vision uploads (magic bytes, no libmagic dep)
 S1-4 anomaly guard tracking weight (physiological bounds + delta)
@@ -52,15 +52,16 @@ S1-4 anomaly guard tracking weight (physiological bounds + delta)
 | pgcrypto field-level encryption (conditions, allergens) | 8h | First B2B customer demand OR PII regulator inquiry |
 | MFA TOTP (account delete + payment method change) | 6h | First fraud incident OR 1k paying users |
 | OWASP ZAP baseline en CI | 4h | After API surface stabilises (>30 endpoints maturing) |
-| SOPS + age secrets (envar Dokploy → gitops) | 6h | Team ≥2 members |
-| Loki + Promtail self-hosted SIEM | 4h | Sentry free tier exhausted |
+| SOPS + age secrets (envar Dokploy → gitops) | 6h | **DEFERRED** — Team ≥2 members |
+| Loki + Promtail self-hosted SIEM | 4h | **DEFERRED** — >1M log lines/day OR local ErrorTracker insufficient |
 | ROPA — Record of Processing Activities | 6h | GDPR DSAR received OR EU large-scale processing |
 | DPIA-lite (data protection impact assessment) | 4h | Same as ROPA |
 | App attestation hooks (Apple App Attest / Play Integrity) | 6h | Mobile app published to stores |
 
 **NOT in backlog (paid / external action — declined per owner policy):**
 - Pen-test externo (~$1.5k) — defer until $5k MRR + funding
-- **Sentry SaaS backend obs** — replaced by local ErrorTrackerMiddleware
+- **Any third-party error-tracking SaaS for backend** — owner ruled out
+  (cost + data residency). Backend uses local ErrorTrackerMiddleware
   (ring buffer + rotated JSONL + Prometheus counter + admin endpoint).
   Re-evaluate when: >1000 active users OR primer incidente prod sin
   visibilidad suficiente con logs locales OR self-host GlitchTip
@@ -117,16 +118,16 @@ Layer 5 (outbound):
 - Circuit breakers (OpenAI / Stripe / MP)
 
 Layer 6 (observability):
-- Sentry + PII scrubber
+- Local ErrorTracker (ring buffer + JSONL) + PII scrubber
 - Prometheus metrics + alerts
 - Structured logs (structlog)
 
 Layer 7 (CI/CD — S1-1):
-- bandit + semgrep SAST
-- gitleaks secret scan
-- pip-audit dep CVE
-- trivy fs + config scan
-- dependabot weekly bumps
+- ruff S-rules (in lint workflow) — Python SAST patterns S101..S701
+- GitHub native Secret scanning + Push Protection (free private repos)
+- GitHub Code Scanning default setup (CodeQL native, free private repos)
+- GitHub native Dependabot security advisories (24h SLA, no yml config)
+- Manual Dockerfile review one-shot pre-deploy (trivy redundant for 1 image)
 
 Layer 8 (process):
 - SECURITY.md + VDP (S0-E)

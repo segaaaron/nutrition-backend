@@ -15,7 +15,13 @@ from uuid import UUID, uuid4
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.errors import BusinessRuleViolation
 from app.core.event_bus import EventBus
+from app.core.redis import get_redis
+from app.gamification.infrastructure.anti_cheat_caps import (
+    FOOD_LOG_PER_SLOT_CAP,
+    check_and_increment_food_log_slot,
+)
 from app.tracking.domain.events import FoodLogged
 from app.vision.infrastructure.food_matcher import HybridFoodMatcher
 from app.voice.infrastructure.food_text_parser import parse_food_text
@@ -38,6 +44,26 @@ class LogFoodText:
         idempotency_key: str | None = None,
     ) -> list[UUID]:
         items = await parse_food_text(raw_text, user_id=user_id)
+
+        # ADR-0026 L1 — per-meal-slot cap (3 entries / slot / UTC day).
+        # Increment by the batch size so a single quick-log of N items
+        # is counted as N writes against the slot quota.
+        if items:
+            slot_count = await check_and_increment_food_log_slot(
+                get_redis(),
+                user_id,
+                date.today(),
+                meal_time,
+                amount=len(items),
+            )
+            if slot_count > FOOD_LOG_PER_SLOT_CAP:
+                raise BusinessRuleViolation(
+                    "meal_slot_log_cap_exceeded",
+                    meal_slot=meal_time,
+                    cap=FOOD_LOG_PER_SLOT_CAP,
+                    current=slot_count,
+                )
+
         food_log_ids: list[UUID] = []
         total_kcal = 0
         for it in items:

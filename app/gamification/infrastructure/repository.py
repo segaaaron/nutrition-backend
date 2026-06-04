@@ -1,4 +1,14 @@
-"""Gamification SQL repository — streaks, achievements, leaderboard."""
+"""Gamification SQL repository — streaks, achievements, leaderboard.
+
+ADR-0026 L3 placeholder — when the leaderboard ZADD path is added to
+this module (or wherever XP score push happens), the writer MUST first
+check `gamification_shadow_ban` (cached in Redis with 60s TTL) for the
+user; banned users get ZADD into a private shadow sorted-set instead
+of the public `leaderboard:<country>:<period>` key. Owner reviews the
+shadow set weekly. Status today: ZADD path not yet implemented —
+gated together with the public leaderboard endpoint behind sub-flag
+`leaderboard_l1_caps_enabled` (see ADR-0026 §"7-gate rollout").
+"""
 
 from __future__ import annotations
 

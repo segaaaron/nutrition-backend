@@ -183,7 +183,7 @@ class SqlFoodLogRepository:
                     sugar_g=int(extras.get("sugar_g") or 0),
                     sodium_mg=int(extras.get("sodium_mg") or 0),
                 )
-        except Exception:  # noqa: BLE001 — aggregate may not exist yet
+        except Exception:  # noqa: BLE001,S110 — aggregate may not exist yet (falls through)
             pass
 
         sql = text(
@@ -238,7 +238,7 @@ class SqlFoodLogRepository:
             )
             if rows:
                 return [dict(r) for r in rows]
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001,S110 — aggregate table optional; fallback below
             pass
         # Fallback raw aggregation per date.
         sql2 = text(

@@ -30,7 +30,6 @@ from app.core.db import session_scope
 from app.core.logging import get_logger
 from app.notifications.application.send_notification import SendNotification
 from app.notifications.infrastructure.fcm_client import FcmClient
-from app.notifications.infrastructure.web_push_client import WebPushClient
 
 log = get_logger("worker.coach")
 
@@ -69,7 +68,7 @@ async def coach_macro_repair_cron(ctx: dict[str, Any]) -> dict[str, int]:
 async def coach_proactive_alert_cron(ctx: dict[str, Any]) -> dict[str, int]:
     async with session_scope() as session:
         uids = await _users_for_local_hour(session, target_hour=18)
-        sender = SendNotification(session, WebPushClient(), FcmClient())
+        sender = SendNotification(session, FcmClient())
         n = 0
         for uid in uids:
             try:

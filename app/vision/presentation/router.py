@@ -18,7 +18,7 @@ from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from arq.connections import ArqRedis, create_pool
-from fastapi import APIRouter, File, Form, Header, UploadFile, status
+from fastapi import APIRouter, File, Form, Header, Response, UploadFile, status
 
 from app.core.config import get_settings
 from app.core.errors import ValidationError
@@ -173,7 +173,7 @@ async def edit_food_log(
     body: EditDetectedItemRequest,
     current_user: CurrentUserDep,
     session: SessionDep,
-) -> None:
+) -> Response:
     # BOLA: verify the food_log belongs to current_user before applying correction.
     await assert_owns(session, table="food_logs", resource_id=food_log_id, user_id=current_user)
     uc = LearnUserCorrection(session=session)
@@ -183,3 +183,4 @@ async def edit_food_log(
         corrected_food_id=body.corrected_food_id,
         corrected_amount_g=body.corrected_amount_g,
     )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -1,4 +1,4 @@
-"""Local error tracker tests — replaces Sentry tests."""
+"""Local error tracker tests."""
 
 from __future__ import annotations
 

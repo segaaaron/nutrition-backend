@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Literal
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Response, status
 from pydantic import BaseModel
 from sqlalchemy import text
 
@@ -132,7 +132,7 @@ async def toggle_daily_item(
     item: Literal["breakfast", "lunch", "dinner", "water"],
     current_user: CurrentUserDep,
     session: SessionDep,
-) -> None:
+) -> Response:
     await session.execute(
         text(
             """
@@ -145,3 +145,4 @@ async def toggle_daily_item(
         ),
         {"uid": str(current_user), "d": date.today(), "it": item},
     )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

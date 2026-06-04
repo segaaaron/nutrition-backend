@@ -24,12 +24,6 @@ description = "Stripe restricted/secret key"
 regex = '''(?:sk|rk)_live_[0-9a-zA-Z]{24,}'''
 keywords = ["sk_live_", "rk_live_"]
 
-[[rules]]
-id = "sentry-dsn"
-description = "Sentry DSN with credentials"
-regex = '''https://[0-9a-f]{32}@[a-zA-Z0-9.-]+\.ingest\.sentry\.io/[0-9]+'''
-keywords = ["@sentry.io"]
-
 [allowlist]
 description = "Allow test/example fixtures"
 paths = [

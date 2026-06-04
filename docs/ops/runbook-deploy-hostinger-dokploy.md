@@ -54,7 +54,6 @@ Open `http://<vps-ip>:3000`, create admin account.
 | `MERCADOPAGO_ACCESS_TOKEN` | `APP_USR-…` | prod token |
 | `GOOGLE_OAUTH_CLIENT_ID` | `…apps.googleusercontent.com` | |
 | `APPLE_OAUTH_*` | (set 3 vars) | |
-| `SENTRY_DSN` | `https://…@sentry.io/…` | |
 | `R2_KEY` / `R2_SECRET` | (R2 backup creds) | used by backup cron |
 | `SLACK_WEBHOOK_URL` | `https://hooks.slack.com/…` | ops alerts |
 | `CORS_ALLOWED_ORIGINS` | `https://app.nova-nutrition.com` | |
@@ -118,6 +117,6 @@ curl -X POST https://api.nova-nutrition.com/auth/register \
 - [ ] `/healthz` 200
 - [ ] `/readyz` all checks "ok"
 - [ ] Grafana dashboard "NOVA core" green
-- [ ] Sentry receiving events from API
+- [ ] Local ErrorTracker capturing events (`GET /admin/errors/recent` returns ring data)
 - [ ] First test user can register + log meal + see streak
 - [ ] Stripe webhook endpoint test event = 200

@@ -133,10 +133,10 @@ class SqlGroceryRepository:
             text(
                 f"""
             UPDATE grocery_items SET {", ".join(sets)} WHERE id = :id
-        """
+        """  # noqa: S608 — `sets` from literal SET clauses only; values bound
             ),
             params,
-        )  # noqa: S608
+        )
         r = (
             (
                 await self.s.execute(

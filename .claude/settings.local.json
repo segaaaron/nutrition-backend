@@ -79,7 +79,17 @@
       "Bash(kill -9 49587)",
       "Bash(pkill -f \"mutmut run\")",
       "Bash(awk -F: '{print $3}')",
-      "Bash(awk '{print $2}')"
+      "Bash(awk '{print $2}')",
+      "Bash(grep -vE \"^total|^d.*\\\\.\\($|\\\\.$\\)|^-rw.*\\(README|CHANGELOG|LICENSE|Makefile|pyproject|alembic\\\\.ini|docker|requirements|CLAUDE\\\\.md|SECURITY|\\\\.env\\\\.example|\\\\.dockerignore|\\\\.editorconfig|\\\\.gitignore|\\\\.git$\\)\")",
+      "Read(//Users/miguelangelsaraviabelmonte/.claude/plugins/**)",
+      "Read(//Users/miguelangelsaraviabelmonte/.claude/plugins/cache/**)",
+      "Read(//Users/miguelangelsaraviabelmonte/.claude/**)",
+      "Bash(claude mcp *)",
+      "Bash(.venv/bin/pip uninstall *)",
+      "Bash(awk '-Fimport ' '{print $NF}')",
+      "Bash(awk '{print $1}')",
+      "Bash(.venv/bin/pip list *)",
+      "Bash(/Users/miguelangelsaraviabelmonte/dev-backend/Nova-nutrition-backend/.venv/bin/pip list *)"
     ]
   },
   "model": "claude-opus-4-7"

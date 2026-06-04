@@ -31,3 +31,6 @@ data/meals/liquid_batch_*.json
 
 # Git history rewrite backup folders (created by git-filter-repo)
 .git.backup-*
+
+# Claude Code worktree shadow copies (Sprint internal, not for git)
+.claude/worktrees/

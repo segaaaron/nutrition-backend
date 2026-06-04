@@ -13,14 +13,14 @@ import json
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, File, Form, Query, UploadFile, status
+from fastapi import APIRouter, File, Form, Query, Response, UploadFile, status
 from pydantic import BaseModel
 from sqlalchemy import text
 
 from app.core.errors import NotFoundError
 from app.identity.presentation.dependencies import CurrentUserDep, SessionDep
 from app.imaging.domain.contracts import CompressionProfile
-from app.imaging.infrastructure.compressor import VipsImageCompressor
+from app.imaging.infrastructure.vips_compressor import VipsImageCompressor
 
 router = APIRouter(tags=["progress"])
 
@@ -106,7 +106,7 @@ async def list_progress_photos(
           FROM progress_photos
          WHERE {where}
          ORDER BY taken_at DESC, id DESC LIMIT :limit
-    """
+    """  # noqa: S608 — `where` from literal fragments only; values bound
                 ),
                 params,
             )
@@ -143,7 +143,7 @@ async def delete_progress_photo(
     photo_id: UUID,
     current_user: CurrentUserDep,
     session: SessionDep,
-) -> None:
+) -> Response:
     # BOLA OK: SELECT ... WHERE id = :id AND user_id = :uid — raises NotFoundError if mismatch.
     r = (
         await session.execute(
@@ -167,6 +167,7 @@ async def delete_progress_photo(
         {"uid": str(current_user), "tid": str(photo_id)},
     )
     await session.execute(text("DELETE FROM progress_photos WHERE id = :id"), {"id": str(photo_id)})
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/progress")

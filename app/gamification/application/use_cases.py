@@ -128,7 +128,7 @@ async def trigger_celebration(
             json.dumps({"code": code, "at": evt.at.isoformat()}),
         )
         await redis.expire(CELEBRATION_QUEUE_KEY.format(user_id=user_id), 24 * 3600)
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001,S110 — celebration queue is best-effort
         pass
 
 

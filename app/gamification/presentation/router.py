@@ -75,16 +75,32 @@ async def get_leaderboard(
     period: str = Query(default="week"),
     limit: int = Query(default=20, ge=1, le=100),
 ) -> dict:
-    # Feature flag gate
+    # Feature flag gate. ADR-0026 — two stages: the master flag
+    # (`leaderboard_enabled`) controls the endpoint as a whole; the
+    # sub-flag (`leaderboard_l1_caps_enabled`) confirms the L1 anti-cheat
+    # caps have completed the 7-gate rollout. Master ON + sub-flag OFF
+    # surfaces explicit `reason` so the client can render an empty state.
     from sqlalchemy import text
 
-    flag = (
+    rows = (
         await session.execute(
-            text("SELECT enabled FROM feature_flags WHERE key = 'leaderboard_enabled'")
+            text(
+                """
+                SELECT key, enabled FROM feature_flags
+                 WHERE key IN ('leaderboard_enabled', 'leaderboard_l1_caps_enabled')
+                """
+            )
         )
-    ).scalar()
-    if not flag:
+    ).all()
+    flags = {k: bool(e) for k, e in rows}
+    if not flags.get("leaderboard_enabled"):
         return {"enabled": False, "rows": []}
+    if not flags.get("leaderboard_l1_caps_enabled"):
+        return {
+            "enabled": False,
+            "rows": [],
+            "reason": "l1_caps_pending_validation",
+        }
     uc = GetLeaderboard(redis=get_redis())
     return {"enabled": True, "rows": await uc(country=country, period=period, limit=limit)}
 

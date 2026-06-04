@@ -73,6 +73,44 @@ async def test_stale_timestamp_rejected(gw):
         )
 
 
+async def test_missing_signature_header_rejected(gw: MercadoPagoGateway) -> None:
+    with pytest.raises(UpstreamError, match="mercadopago_webhook_invalid:missing_signature"):
+        await gw.verify_webhook(payload=b"{}", signature="", request_id="r")
+
+
+@pytest.mark.parametrize(
+    "signature",
+    [
+        "garbage",  # no '=' at all
+        "ts=123",  # missing v1
+        "v1=deadbeef",  # missing ts
+        "foo=bar,baz=qux",  # neither ts nor v1
+    ],
+)
+async def test_malformed_signature_rejected(gw: MercadoPagoGateway, signature: str) -> None:
+    with pytest.raises(UpstreamError, match="mercadopago_webhook_invalid:malformed_signature"):
+        await gw.verify_webhook(payload=b"{}", signature=signature, request_id="r")
+
+
+async def test_bad_ts_non_numeric_rejected(gw: MercadoPagoGateway) -> None:
+    with pytest.raises(UpstreamError, match="mercadopago_webhook_invalid:bad_ts"):
+        await gw.verify_webhook(
+            payload=b"{}",
+            signature="ts=notanumber,v1=deadbeef",
+            request_id="r",
+        )
+
+
+async def test_bad_payload_non_json_rejected(gw: MercadoPagoGateway) -> None:
+    ts = str(int(time.time()))
+    with pytest.raises(UpstreamError, match="mercadopago_webhook_invalid:bad_payload"):
+        await gw.verify_webhook(
+            payload=b"not-json-at-all",
+            signature=f"ts={ts},v1=deadbeef",
+            request_id="r",
+        )
+
+
 async def test_missing_secret_rejects_all(monkeypatch):
     monkeypatch.setenv("MERCADOPAGO_WEBHOOK_SECRET", "")
     from app.core.config import get_settings

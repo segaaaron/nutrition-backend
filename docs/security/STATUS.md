@@ -27,10 +27,10 @@
 | **Polyglot uploads** (PHP/SVG/EXE as .jpg) | Magic-byte sniff verifies declared MIME | `app/imaging/domain/mime_sniff.py` |
 | **Data poisoning tracking** | Physiological bounds + delta guard | `app/tracking/domain/anomaly.py` |
 | **Function-level auth** | `require_role(Role.X)` dependency | `app/identity/domain/roles.py` |
-| **Secret leak in commits** | gitleaks CI on every PR + push | `.gitleaks.toml` + `.github/workflows/security.yml` |
-| **Vulnerable deps** | pip-audit + dependabot weekly bumps | `.github/dependabot.yml` |
-| **Container CVEs** | trivy fs + config scan | `.github/workflows/security.yml` |
-| **Code-level vulns** | bandit + semgrep SAST | Same |
+| **Secret leak in commits** | GitHub native Secret scanning + Push Protection (free private repos) | GitHub Settings → Code security |
+| **Vulnerable deps** | GitHub native Dependabot security advisories (24h SLA) — no `.github/dependabot.yml` config | GitHub Settings → Code security |
+| **Container CVEs** | GitHub native advisories (Python) + manual Dockerfile review one-shot pre-deploy | GitHub Settings + `docker/Dockerfile` |
+| **Code-level vulns** | ruff S-rules (flake8-bandit S101..S701) + GitHub Code Scanning default setup (CodeQL native) | `pyproject.toml` (ruff) + GitHub Settings |
 | **pgvector tenancy leak** | Regression test fails if new vector model unclassified | `tests/unit/test_pgvector_tenancy_audit.py` |
 | **Production error visibility** | Local ErrorTracker — ring + JSONL + admin endpoint + Prom counter | `app/core/error_tracker.py` |
 | **Audit trail** | structlog JSON to stdout + JSONL file | `app/core/logging.py` + ErrorTracker file layer |
@@ -85,7 +85,7 @@ FastAPI routers
 | Hostinger KVM 2 | Existing plan | included |
 | Cloudflare | Free tier | $0 |
 | GitHub Actions | Free tier | $0 (2k min/mo private) |
-| ~~Sentry~~ | Removed, replaced by local ErrorTracker | $0 |
+| Local ErrorTracker (ring buffer + JSONL) | Self-hosted, no SaaS | $0 |
 | Firebase Crashlytics | Mobile-only, free tier | $0 |
 | **Net new cost from security work** | — | **$0/mo** |
 
@@ -108,7 +108,7 @@ FastAPI routers
 
 **Pre-S0 hardening (same branch):**
 - PyJWT migration (jose CVE surface eliminated) — `074dd74`
-- ~~Sentry activated~~ removed, replaced by ErrorTracker — `8a82d63`
+- ErrorTracker local activated (ring buffer + JSONL) — `8a82d63`
 - MercadoPago HMAC-SHA256 strict — `f7fe5f6`
 - Idempotency DB fallback — `e28476e`
 - Coach guardrails expanded (GLP-1 drugs + offtopic + injection) — `ac6c9e0`
@@ -120,7 +120,7 @@ FastAPI routers
 
 | ID | Item | OWASP/ISO | Commit |
 |----|------|-----------|--------|
-| S1-1 | CI security scans batch (bandit + semgrep + gitleaks + pip-audit + trivy + dependabot) | A.14.2 + A.9.2 + A.12.6 | `e619434` |
+| S1-1 | Security stack (ruff S-rules + GitHub native Dependabot security advisories + GitHub native secret scanning + GitHub Code Scanning); custom `security.yml` workflow + `dependabot.yml` removed as native-redundant | A.14.2 + A.9.2 + A.12.6 | `e619434` |
 | S1-2 | RBAC matrix (Role enum + `require_role()`) | API5, ASVS V4 | `2143573` |
 | S1-3 | MIME sniff verification vision uploads | ASVS V12 | `3aa58de` |
 | S1-4 | Anomaly guard tracking weight | API4 | `398a04d` |
@@ -144,8 +144,8 @@ FastAPI routers
 | pgcrypto field-level encryption (conditions, allergens) | 8h | First B2B customer OR regulator inquiry |
 | MFA TOTP (delete account + payment method) | 6h | First fraud incident OR 1k paying users |
 | OWASP ZAP baseline in CI | 4h | API surface stable (>30 endpoints maturing) |
-| SOPS + age secrets | 6h | Team ≥2 members |
-| Loki + Promtail self-hosted SIEM | 4h | Dokploy logs insufficient OR self-host preferred |
+| SOPS + age secrets | 6h | **DEFERRED** — Team ≥2 members |
+| Loki + Promtail self-hosted SIEM | 4h | **DEFERRED** — >1M log lines/day OR local ErrorTracker insufficient |
 | ROPA — Record of Processing | 6h | GDPR DSAR received OR EU large-scale processing |
 | DPIA-lite | 4h | Same trigger as ROPA |
 | App attestation (Apple App Attest / Play Integrity) | 6h | Mobile app published to stores |
@@ -170,7 +170,7 @@ FastAPI routers
 |------|--------|
 | **Pen-test externo** (~$1.5k) | Paid SaaS — declined per owner policy. Re-evaluate at $5k MRR + funding. |
 | **Backup off-site B2/Hetzner** ($1-5/mo) | Paid — declined. Hostinger weekly snapshot covers MVP. Re-evaluate at 100+ paying users. |
-| **Sentry SaaS** | Paid (5k free tier risk of paywall at scale). Replaced by local ErrorTracker. Mobile crashes go to Firebase Crashlytics. |
+| **Any third-party error-tracking SaaS** | Owner ruled out (cost + data residency). Backend uses local ErrorTracker (ring buffer + JSONL). Mobile crashes go to Firebase Crashlytics. |
 | **Cloudflare Turnstile signup** | Deferred until CF domain configured. |
 
 ---
@@ -187,7 +187,7 @@ FastAPI routers
 | Net new monthly cost | $0 |
 | Net new RAM footprint | <5 MB |
 | Paid SaaS dependencies | 0 |
-| Lines removed (dead deps) | ~370 (OpenTelemetry + Sentry + snack script) |
+| Lines removed (dead deps) | ~370 (OpenTelemetry + third-party error-tracking SDK + snack script) |
 
 ---
 
@@ -197,7 +197,7 @@ FastAPI routers
 |---------|---------------|-------------|-----------|
 | `python-jose` | `pyjwt[crypto]` | $0 | CVE surface eliminated |
 | OpenTelemetry stack (5 pkgs) | Prometheus existing | -15MB pip | Tracing deferred until needed |
-| Sentry SDK + SaaS | ErrorTracker local | $0 | No external dashboard, JSON via curl |
+| Third-party error-tracking SDK + SaaS | ErrorTracker local (ring buffer + JSONL) | $0 | No external dashboard, JSON via curl |
 | `python-magic` system dep | Hardcoded magic bytes | $0 | No libmagic install required |
 
 ---

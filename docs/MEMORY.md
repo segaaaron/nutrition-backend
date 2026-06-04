@@ -39,7 +39,7 @@ The next concrete moves are: (1) bring the Docker stack up locally, run migratio
 | Payments | Stripe + Mercado Pago | Stripe US/CA/EU/UK; MP LatAm; gateway router by country |
 | Push | Web Push (VAPID) + FCM (Android first; iOS deferred) | |
 | Deploy | Docker Compose via Dokploy | cloud-agnostic; portable to any KVM |
-| Observability | /healthz + /readyz + Prometheus counters + (optional Sentry + Grafana Cloud) | |
+| Observability | /healthz + /readyz + Prometheus counters + local ErrorTracker (ring buffer + JSONL) | |
 
 ## Infrastructure
 

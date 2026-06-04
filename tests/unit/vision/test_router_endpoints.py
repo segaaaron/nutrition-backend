@@ -24,20 +24,16 @@ from __future__ import annotations
 import sys
 import types
 
-# --- pyvips / pillow_heif stubs ------------------------------------------- #
+# --- pyvips stub ---------------------------------------------------------- #
 # The vision router imports ``app.imaging.infrastructure.vips_compressor``
 # at module load, which requires the native ``libvips`` library. CI dev
 # laptops don't always have it installed, and this is a router-only unit
-# test — the compressor is patched away per test. Inject minimal stubs so
+# test — the compressor is patched away per test. Inject a minimal stub so
 # the import chain resolves.
 if "pyvips" not in sys.modules:
     _pyvips_stub = types.ModuleType("pyvips")
     _pyvips_stub.Image = type("Image", (), {})  # type: ignore[attr-defined]
     sys.modules["pyvips"] = _pyvips_stub
-if "pillow_heif" not in sys.modules:
-    _heif_stub = types.ModuleType("pillow_heif")
-    _heif_stub.register_heif_opener = lambda: None  # type: ignore[attr-defined]
-    sys.modules["pillow_heif"] = _heif_stub
 
 from datetime import UTC, datetime  # noqa: E402
 from typing import Any  # noqa: E402

@@ -5,7 +5,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Vision worker needs libvips + libheif for pyvips/pillow-heif at runtime.
+# Vision worker needs libvips + libheif for pyvips at runtime.
+# libheif1 is a transitive dep of libvips42 on slim, kept explicit so
+# `apt remove libvips42` cannot accidentally orphan HEIC decode support.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libvips42 \
     libheif1 \

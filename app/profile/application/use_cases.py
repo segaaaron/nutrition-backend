@@ -3,16 +3,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
 from uuid import UUID
 
 from app.core.config import get_settings
-from app.core.errors import BusinessRuleViolation, NotFoundError
+from app.core.db import session_scope
+from app.core.errors import BusinessRuleViolation, LockedError, NotFoundError
 from app.core.event_bus import EventBus
 from app.profile.domain.entities import UserProfile
 from app.profile.domain.events import BiometricsChanged, OnboardingCompleted
 from app.profile.domain.region_mapper import country_to_locale, country_to_region
+
+_REGION_LOCK_DAYS = 30
 
 
 def _now() -> datetime:
@@ -100,11 +103,65 @@ class UpdateProfile:
         if profile is None:
             raise NotFoundError("profile_not_found")
         biometrics_before = {f: getattr(profile, f) for f in _BIOMETRIC_FIELDS}
+        region_before = profile.region
         for k, v in patch.items():
             if hasattr(profile, k):
                 setattr(profile, k, v)
         if profile.country:
             profile.region = country_to_region(profile.country)
+        region_after = profile.region
+
+        # ADR-0026 L1 — region pinning. A 30-day lock on region changes
+        # closes the small-country leaderboard spoofing vector. Audit
+        # row is the source of truth (not profile.updated_at, which
+        # bumps on any field change).
+        region_changed = (
+            region_after is not None and region_after != region_before
+        )
+        if region_changed:
+            from sqlalchemy import text as _sql_text
+
+            async with session_scope() as audit_session:
+                last_change = (
+                    await audit_session.execute(
+                        _sql_text(
+                            """
+                            SELECT changed_at FROM profile_region_change_audit
+                             WHERE user_id = :uid
+                             ORDER BY changed_at DESC LIMIT 1
+                            """
+                        ),
+                        {"uid": str(user_id)},
+                    )
+                ).scalar()
+                if last_change is not None:
+                    elapsed = _now() - last_change
+                    lock_window = timedelta(days=_REGION_LOCK_DAYS)
+                    if elapsed < lock_window:
+                        retry_after_s = int(
+                            (lock_window - elapsed).total_seconds()
+                        )
+                        raise LockedError(
+                            "region_change_locked",
+                            retry_after=retry_after_s,
+                            lock_days=_REGION_LOCK_DAYS,
+                        )
+                await audit_session.execute(
+                    _sql_text(
+                        """
+                        INSERT INTO profile_region_change_audit
+                            (user_id, old_region, new_region, changed_at)
+                        VALUES (:uid, :old, :new, :ts)
+                        """
+                    ),
+                    {
+                        "uid": str(user_id),
+                        "old": region_before,
+                        "new": region_after,
+                        "ts": _now(),
+                    },
+                )
+
         biometrics_after = {f: getattr(profile, f) for f in _BIOMETRIC_FIELDS}
         _enforce_mvp_segment_gate(profile)
         profile.updated_at = _now()

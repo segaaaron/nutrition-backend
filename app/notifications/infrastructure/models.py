@@ -21,6 +21,8 @@ class PushTokenModel(Base):
     )
     platform: Mapped[str] = mapped_column(String(16))
     token: Mapped[str] = mapped_column(Text, unique=True)
+    # endpoint/p256dh/auth: dead Web Push columns, preserved until next migration
+    # cycle drops them. NOVA is mobile-only (FCM); see 2026-06-04 session log.
     endpoint: Mapped[str | None] = mapped_column(Text, nullable=True)
     p256dh: Mapped[str | None] = mapped_column(Text, nullable=True)
     auth: Mapped[str | None] = mapped_column(Text, nullable=True)

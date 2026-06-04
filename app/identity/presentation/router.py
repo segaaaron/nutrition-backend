@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Path, Request, status
+from fastapi import APIRouter, Depends, Path, Request, Response, status
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
@@ -131,9 +131,10 @@ async def logout(
     body: LogoutRequest,
     session: SessionDep,
     authorization: Annotated[str | None, Depends(_optional_bearer)],
-) -> None:
+) -> Response:
     uc: Logout = make_logout(session)
     await uc(refresh_plain=body.refresh_token, access_token=authorization)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/auth/otp/send", status_code=status.HTTP_202_ACCEPTED)

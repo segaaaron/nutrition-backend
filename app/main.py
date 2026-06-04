@@ -8,8 +8,10 @@ exception handlers, health checks and metrics.
 from __future__ import annotations
 
 import uuid
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -47,7 +49,11 @@ from app.voice.presentation.router import router as voice_router
 
 
 class RequestIdMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):  # type: ignore[override]
+    async def dispatch(
+        self,
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
         rid = request.headers.get("x-request-id") or str(uuid.uuid4())
         request.state.request_id = rid
         response = await call_next(request)
@@ -58,14 +64,22 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
 def create_app() -> FastAPI:
     settings = get_settings()
     configure_logging(settings.log_level)
-    # Sentry — no-op if SENTRY_DSN is unset (dev/test). PII strip enforced
-    # inside ``init_sentry`` (see app/core/observability.py).
-    from app.core.observability import init_sentry
-
-    init_sentry("api")
     log = get_logger("app.main")
 
     is_prod = settings.env == "prod"
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        # Startup
+        log.info("app.startup", env=settings.env, version=settings.app_version)
+        try:
+            yield
+        finally:
+            # Shutdown — preserve original order: engine dispose → redis close → log
+            await dispose_engine()
+            await close_redis()
+            log.info("app.shutdown")
+
     # OWASP API9 — disable interactive docs + raw OpenAPI in production.
     app = FastAPI(
         title="NOVA Nutrition API",
@@ -73,6 +87,7 @@ def create_app() -> FastAPI:
         docs_url=None if is_prod else "/docs",
         redoc_url=None if is_prod else "/redoc",
         openapi_url=None if is_prod else "/openapi.json",
+        lifespan=lifespan,
     )
 
     # CORS — explicit origins only. allow_headers narrowed (was '*').
@@ -188,7 +203,7 @@ def create_app() -> FastAPI:
     async def admin_recent_errors(limit: int = 100) -> JSONResponse:
         """Admin self-inspection of last N unhandled errors (in-memory ring).
 
-        Replaces Sentry dashboard for MVP. Survives restart? No — ring is
+        Local-only error dashboard for MVP. Survives restart? No — ring is
         in-memory. Persistent log is at NOVA_ERROR_LOG_PATH (default
         /var/log/nova/errors.jsonl, rotated externally e.g. logrotate).
         """
@@ -204,16 +219,6 @@ def create_app() -> FastAPI:
     async def admin_clear_errors() -> JSONResponse:
         cleared = clear_ring()
         return JSONResponse(content={"cleared": cleared})
-
-    @app.on_event("startup")
-    async def _startup() -> None:
-        log.info("app.startup", env=settings.env, version=settings.app_version)
-
-    @app.on_event("shutdown")
-    async def _shutdown() -> None:
-        await dispose_engine()
-        await close_redis()
-        log.info("app.shutdown")
 
     return app
 

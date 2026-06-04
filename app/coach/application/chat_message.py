@@ -209,10 +209,10 @@ class ChatMessage:
              WHERE embedding IS NOT NULL
              ORDER BY embedding <=> '{vec_lit}'::vector
              LIMIT 1
-        """
+        """  # noqa: S608 — vec_lit is float-only literal; pgvector requires inline form
                 )
             )
-        ).first()  # noqa: S608
+        ).first()
         if not row or row[1] is None or float(row[1]) > FAQ_DISTANCE_MAX:
             return None
         translations = row[0] or {}

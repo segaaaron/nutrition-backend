@@ -120,8 +120,8 @@ class SqlFastingRepository:
             SELECT id, user_id, method_h, start_ts, end_ts, duration_s, target_s, achieved
               FROM fasting_sessions WHERE {where}
              ORDER BY start_ts DESC, id DESC LIMIT :limit
-        """
-        )  # noqa: S608
+        """  # noqa: S608 — `where` from literal clauses only; values bound
+        )
         rows = (await self.s.execute(sql, params)).mappings().all()
         nxt = None
         if len(rows) > limit:

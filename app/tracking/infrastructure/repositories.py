@@ -6,6 +6,7 @@ chunk scans.
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from uuid import UUID
 
 from sqlalchemy import text
@@ -65,10 +66,8 @@ class SqlWeightLogRepository:
     async def latest(
         self,
         user_id: UUID,
-    ) -> tuple[datetime, Decimal] | None:  # type: ignore[name-defined]
+    ) -> tuple[datetime, Decimal] | None:
         """Returns (time, weight_kg) of most recent log, or None."""
-        from decimal import Decimal
-
         sql = text(
             """
             SELECT time, weight_kg FROM weight_logs
@@ -106,7 +105,7 @@ class SqlWeightLogRepository:
             rows = list(res.all())
             if rows:
                 return [(r[0], float(r[1])) for r in rows]
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001,S110 — aggregate table optional; fallback below
             pass
         # Fallback raw scan (small dataset / pre-aggregate compute).
         sql2 = text(

@@ -52,6 +52,27 @@ MEAL_TIMES: frozenset[str] = frozenset({"breakfast", "lunch", "dinner", "snack"}
 
 REGIONS: frozenset[str] = frozenset({"us", "ca", "eu", "uk", "latam"})
 
+# Canonical goals enum — single source of truth is `scripts/seed_recipes.py`
+# (VALID_GOALS, line ~60). Keep aligned. Owner ruling (CLAUDE.md GR#3):
+# enum stays at 5 tokens; no additions without explicit approval.
+CANONICAL_GOALS: frozenset[str] = frozenset(
+    {"weight_loss", "maintain", "muscle_gain", "weight_gain", "health"}
+)
+
+# Canonical activity-levels enum — single source of truth is
+# `app/shared/domain/vocabularies.py::ACTIVITY_LEVELS_5`. Imported (not
+# duplicated) to keep the audit gate honest. Owner ruling (CLAUDE.md GR#3):
+# enum stays at 5 tokens; no additions without explicit approval.
+try:
+    from app.shared.domain.vocabularies import ACTIVITY_LEVELS_5 as _ACTIVITY_LEVELS_5
+except ImportError:  # pragma: no cover — script may run without app on PYTHONPATH
+    _PARENT = Path(__file__).resolve().parent.parent
+    if str(_PARENT) not in sys.path:
+        sys.path.insert(0, str(_PARENT))
+    from app.shared.domain.vocabularies import ACTIVITY_LEVELS_5 as _ACTIVITY_LEVELS_5
+
+CANONICAL_ACTIVITY_LEVELS: frozenset[str] = frozenset(_ACTIVITY_LEVELS_5)
+
 PLACEHOLDER_IMAGE_URL = "https://storage.googleapis.com/tu-proyecto/placeholder.webp"
 ALLOWED_IMAGE_HOSTS = frozenset({"storage.googleapis.com", "cdn.nova-nutrition.com"})
 
@@ -154,14 +175,37 @@ ALLERGEN_SYNONYMS: dict[str, str] = {
 
 
 # --- Ingredient → allergen lexicon (≥ 50 mappings, multi-locale words) ---
+# NOTE: ambiguous tokens like "leche" / "milk" / "suero" are handled by
+# `_collect_expected_allergens` with a phrase-aware pass that suppresses
+# plant-milk false positives (leche de almendra/coco/soja/...) and detects
+# dairy-derived ingredients via multi-word phrases (whey, caseina, etc.).
 INGREDIENT_ALLERGEN_LEXICON: dict[str, str] = {
-    # dairy (es+en+pt)
-    "leche": "dairy", "lacteo": "dairy", "queso": "dairy", "yogur": "dairy",
-    "yogurt": "dairy", "mantequilla": "dairy", "crema": "dairy",
+    # dairy (es+en+pt) — UNAMBIGUOUS single tokens only.
+    # "leche" / "milk" / "suero" are intentionally NOT here; handled phrase-aware.
+    "lacteo": "dairy", "lactea": "dairy", "lactosuero": "dairy",
+    "queso": "dairy", "yogur": "dairy", "yogurt": "dairy",
+    "mantequilla": "dairy", "crema": "dairy", "nata": "dairy",
     "requeson": "dairy", "ricotta": "dairy", "mozzarella": "dairy",
-    "parmesano": "dairy", "cheddar": "dairy", "feta": "dairy", "suero": "dairy",
-    "milk": "dairy", "cheese": "dairy", "butter": "dairy", "cream": "dairy",
+    "parmesano": "dairy", "cheddar": "dairy", "feta": "dairy",
+    "whey": "dairy", "caseina": "dairy", "caseinato": "dairy",
+    "cheese": "dairy", "butter": "dairy", "cream": "dairy",
     "kefir": "dairy", "ghee": "dairy", "leite": "dairy", "queijo": "dairy",
+    "casein": "dairy", "buttermilk": "dairy",
+    # Cheese & cultured-dairy varieties (single-token, unambiguous)
+    "cottage": "dairy", "skyr": "dairy", "quark": "dairy", "labneh": "dairy",
+    "halloumi": "dairy", "paneer": "dairy", "emmental": "dairy",
+    "gouda": "dairy", "brie": "dairy", "camembert": "dairy",
+    "mascarpone": "dairy", "manchego": "dairy", "gruyere": "dairy",
+    "provolone": "dairy", "burrata": "dairy", "stracciatella": "dairy",
+    "pecorino": "dairy", "parmigiano": "dairy", "raclette": "dairy",
+    # Dairy-based prepared items (pesto = parmigiano + pecorino;
+    # holandesa = butter+yolk; huancaina = queso fresco; bechamel = milk+butter;
+    # naan = traditional dough uses milk/yogurt/ghee)
+    # NOTE: "pesto" alone is dairy by default (classic Genovese has
+    # parmigiano+pecorino). Vegan pesto is filtered phrase-aware below.
+    "pesto": "dairy", "holandesa": "dairy", "huancaina": "dairy",
+    "bechamel": "dairy", "naan": "dairy", "tzatziki": "dairy",
+    "raita": "dairy", "lassi": "dairy", "creme": "dairy",
     # gluten
     "trigo": "gluten", "harina": "gluten", "pan": "gluten", "pasta": "gluten",
     "fideo": "gluten", "tallarin": "gluten", "espagueti": "gluten",
@@ -376,13 +420,88 @@ def gate_4_conditions(records: list[dict[str, Any]]) -> list[GateResult]:
     return out
 
 
+# Plant qualifiers that, when following "leche"/"milk", indicate plant milk
+# (NOT dairy). Accents stripped because `normalise()` removes them.
+_PLANT_MILK_QUALIFIERS: frozenset[str] = frozenset({
+    "almendra", "almendras", "coco", "soja", "soya", "avena", "arroz",
+    "anacardo", "anacardos", "nuez", "nueces", "caju", "sesamo", "canamo",
+    "guisante", "guisantes", "chicharo", "chicharos", "alpiste", "quinoa",
+    "tigernut", "tigernuts", "almond", "coconut", "soy", "oat", "rice",
+    "cashew", "hemp", "pea", "macadamia", "avellana",
+})
+
+# Phrase patterns (after normalisation) → dairy. Match whole-word.
+# "suero de leche" / "suero lacteo" / "leche en polvo" / "leche evaporada" /
+# "leche condensada" / "proteina whey" / "milk powder" all imply dairy.
+_DAIRY_PHRASE_RE = re.compile(
+    r"\b("
+    r"suero\s+de\s+leche|suero\s+lacteo|proteina\s+de\s+suero|"
+    r"leche\s+en\s+polvo|leche\s+evaporada|leche\s+condensada|"
+    r"milk\s+powder|powdered\s+milk|whey\s+protein|protein\s+whey"
+    r")\b"
+)
+
+# Standalone "leche" / "milk" detector with negative lookahead: only fires
+# when NOT followed by a plant qualifier (optionally via "de"/"of").
+_PLANT_GROUP = r"(?:" + r"|".join(sorted(_PLANT_MILK_QUALIFIERS)) + r")"
+_DAIRY_LECHE_RE = re.compile(
+    r"\bleche(?!\s+(?:de\s+)?" + _PLANT_GROUP + r")\b"
+)
+_DAIRY_MILK_RE = re.compile(
+    # Suppress dairy when "milk" is preceded by a plant qualifier
+    # (e.g. "oat milk", "almond milk") OR followed by "of <plant>".
+    r"(?<!almond\s)(?<!coconut\s)(?<!soy\s)(?<!soya\s)(?<!oat\s)"
+    r"(?<!rice\s)(?<!cashew\s)(?<!hemp\s)(?<!pea\s)(?<!hazelnut\s)"
+    r"(?<!macadamia\s)(?<!tigernut\s)"
+    r"\bmilk(?!\s+(?:of\s+)?" + _PLANT_GROUP + r")\b"
+)
+
+
+# Vegan markers that, when co-occurring in the SAME ingredient string with a
+# dairy-by-default item (pesto, mayonesa, "queso vegano", etc.), should
+# suppress the dairy hit for that line.
+_VEGAN_MARKERS: frozenset[str] = frozenset({"vegano", "vegana", "vegan"})
+
+# Tokens that imply dairy by default but are commonly produced in vegan
+# variants too. When a vegan marker appears in the same ingredient, drop
+# the dairy attribution from these tokens.
+_DAIRY_VEGAN_SUPPRESSIBLE: frozenset[str] = frozenset({
+    "pesto", "queso", "yogur", "yogurt", "mantequilla", "crema", "creme",
+    "nata", "ricotta", "mozzarella", "cheese", "butter", "cream",
+})
+
+
 def _collect_expected_allergens(ingredients: list[str]) -> set[str]:
     expected: set[str] = set()
     for raw in ingredients:
         norm = normalise(raw)
-        for token in norm.split():
-            if token in INGREDIENT_ALLERGEN_LEXICON:
-                expected.add(INGREDIENT_ALLERGEN_LEXICON[token])
+        tokens = norm.split()
+        token_set = set(tokens)
+        is_vegan_line = bool(token_set & _VEGAN_MARKERS)
+
+        # Phrase-aware dairy detection (must run BEFORE single-token loop,
+        # because the plant-milk guard suppresses the bare "leche"/"milk"
+        # tokens that would otherwise leak false positives).
+        if _DAIRY_PHRASE_RE.search(norm):
+            expected.add("dairy")
+        if _DAIRY_LECHE_RE.search(norm):
+            expected.add("dairy")
+        if _DAIRY_MILK_RE.search(norm):
+            expected.add("dairy")
+
+        for token in tokens:
+            mapped = INGREDIENT_ALLERGEN_LEXICON.get(token)
+            if mapped is None:
+                continue
+            # Vegan override: suppress dairy attribution for tokens whose
+            # vegan variant is plausibly dairy-free.
+            if (
+                mapped == "dairy"
+                and is_vegan_line
+                and token in _DAIRY_VEGAN_SUPPRESSIBLE
+            ):
+                continue
+            expected.add(mapped)
     return expected
 
 
@@ -487,6 +606,46 @@ def gate_8_image_urls(records: list[dict[str, Any]]) -> list[GateResult]:
     return out
 
 
+def gate_9_goal_vocab(records: list[dict[str, Any]]) -> list[GateResult]:
+    """Validate `targetGoals[]` against the 5-token canonical enum.
+
+    Mirrors gate_4 (condition_vocab) pattern. Source of truth =
+    `scripts/seed_recipes.py:VALID_GOALS`. Non-canonical tokens are a hard
+    fail. Owner-ruled scope (CLAUDE.md GR#3): enum is fixed at 5 tokens.
+    """
+    out: list[GateResult] = []
+    for rec in records:
+        rid = rec.get("id") or "<unknown>"
+        goals = get_field(rec, "matchingCriteria", "targetGoals", default=[]) or []
+        for g in goals:
+            if g not in CANONICAL_GOALS:
+                out.append(GateResult(9, "goal_vocab", "fail", rid,
+                                      f"goal '{g}' not in canonical 5-token enum",
+                                      {"value": g}))
+    return out
+
+
+def gate_10_activity_vocab(records: list[dict[str, Any]]) -> list[GateResult]:
+    """Validate `suitableForActivity[]` against the 5-token canonical enum.
+
+    Mirrors gate_9 (goal_vocab) pattern. Source of truth =
+    `app/shared/domain/vocabularies.py::ACTIVITY_LEVELS_5`. Non-canonical
+    tokens are a hard fail. Owner-ruled scope (CLAUDE.md GR#3): enum is
+    fixed at 5 tokens.
+    """
+    out: list[GateResult] = []
+    for rec in records:
+        rid = rec.get("id") or "<unknown>"
+        levels = get_field(rec, "matchingCriteria",
+                           "suitableForActivity", default=[]) or []
+        for lvl in levels:
+            if lvl not in CANONICAL_ACTIVITY_LEVELS:
+                out.append(GateResult(10, "activity_vocab", "fail", rid,
+                                      f"activity '{lvl}' not in canonical 5-token enum",
+                                      {"value": lvl}))
+    return out
+
+
 GATES = [
     ("json_schema", gate_1_schema),
     ("macro_consistency", gate_2_macros),
@@ -496,6 +655,8 @@ GATES = [
     ("duplicate_detection", gate_6_duplicates),
     ("outlier_kcal", gate_7_outliers),
     ("image_url", gate_8_image_urls),
+    ("goal_vocab", gate_9_goal_vocab),
+    ("activity_vocab", gate_10_activity_vocab),
 ]
 
 
@@ -644,6 +805,10 @@ def main(argv: list[str] | None = None) -> int:
         "MACRO_TOLERANCE": MACRO_TOLERANCE,
         "allergen_enum_size": len(ALLERGEN_ENUM),
         "canonical_conditions_size": len(CANONICAL_CONDITIONS),
+        "canonical_goals_size": len(CANONICAL_GOALS),
+        "canonical_goals": sorted(CANONICAL_GOALS),
+        "canonical_activity_levels_size": len(CANONICAL_ACTIVITY_LEVELS),
+        "canonical_activity_levels": sorted(CANONICAL_ACTIVITY_LEVELS),
         "meal_times": sorted(MEAL_TIMES),
         "regions": sorted(REGIONS),
     }

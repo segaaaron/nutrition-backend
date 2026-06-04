@@ -38,7 +38,7 @@ Dependency direction: presentation → application → domain ← infrastructure
 - **`core/`** — config (pydantic-settings), structured logging, error mapping, DB engine, Redis client, in-process event bus, dependency injection, security (JWT issue/verify), circuit breaker (for OpenAI / Stripe / MP), cost cap (per user/org per day), metrics (Prometheus counters).
 - **`shared/`** — value objects shared across contexts (Money, Locale, Region, Mass, Energy, MacroSplit) + unit conversions.
 - **`imaging/`** — pyvips compressor + EXIF stripper.
-- **`notifications/`** — Web Push (VAPID) dispatcher + FCM scaffold + send orchestrator.
+- **`notifications/`** — FCM dispatcher (iOS/Android) + send orchestrator. Web Push removed 2026-06-04 (no PWA scope).
 
 ## Data Layer
 
@@ -53,7 +53,6 @@ Dependency direction: presentation → application → domain ← infrastructure
 - **Stripe** — US / CA / EU / UK payments.
 - **Mercado Pago** — LatAm (card, pix, oxxo).
 - **Cloudflare** — CDN + DDoS (frontend layer).
-- **Sentry** — optional, opt-in.
 - **Grafana Cloud** — optional, opt-in.
 
 ## Key Patterns

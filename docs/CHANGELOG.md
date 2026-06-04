@@ -20,7 +20,6 @@ Owner will assign commit hashes at squash time. Entries follow Keep-a-Changelog 
 - Makefile + `scripts/db_change.py` guided dev workflow.
 - Migration 0011 partial index on `vision_jobs(image_sha256)` for cache lookup performance.
 - Mutmut closures: surviving mutants in recalibration, plan ranking, macro tolerance addressed.
-- Sentry wired in `app/core/config.py` / startup, structured tags per bounded context.
 - Prompt sanitiser with input delimiters in coach + nutrition agent prompts.
 - Advisory PostgreSQL lock around recalibration concurrency path.
 - Idempotency-Key honoured on `/plan/create` and `/logs/food/text` endpoints.

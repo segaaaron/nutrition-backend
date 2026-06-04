@@ -5,10 +5,13 @@ rate-limit binders.
 from __future__ import annotations
 
 import json
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import UTC, datetime, timedelta
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated, Any
 from uuid import UUID
+
+if TYPE_CHECKING:
+    from app.identity.domain.roles import Role
 
 from fastapi import Depends, Header, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -110,7 +113,7 @@ async def require_admin(
     return user_id
 
 
-def require_role(min_role: Role):  # type: ignore[name-defined]
+def require_role(min_role: Role) -> Callable[..., Awaitable[UUID]]:
     """RBAC dependency factory — endpoint authorises iff JWT claim role >= min_role.
 
     Usage:
@@ -145,7 +148,7 @@ def require_role(min_role: Role):  # type: ignore[name-defined]
 CurrentUserDep = Annotated[UUID, Depends(get_current_user)]
 
 
-async def db_lookup_idempotent(session: AsyncSession, rkey: str) -> dict | None:
+async def db_lookup_idempotent(session: AsyncSession, rkey: str) -> dict[str, Any] | None:
     """Check Postgres for a cached idempotency response (Redis fallback)."""
     row = (
         await session.execute(
@@ -166,7 +169,7 @@ async def idempotency_key(
     request: Request,
     session: SessionDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
-    user_id: CurrentUserDep | None = None,  # type: ignore[assignment]
+    user_id: CurrentUserDep | None = None,
 ) -> tuple[str, str] | None:
     """Returns (redis_key, cached_response_json) if replay; otherwise (key, "").
 
@@ -192,10 +195,10 @@ async def idempotency_key(
 
 async def remember_idempotent(
     rkey: str,
-    body: dict,
+    body: dict[str, Any],
     *,
     session: AsyncSession,
-    redis=None,
+    redis: Any = None,
 ) -> None:
     """Dual-write idempotency response to Redis and Postgres."""
     r = redis or get_redis()
@@ -266,10 +269,15 @@ def make_oauth(session: SessionDep, provider: str) -> OAuthLogin:
 
 
 def make_send_otp(session: SessionDep) -> SendOtp:
+    # Lazy import to avoid pulling httpx into the identity package import
+    # graph when callers only need the use-case shape (tests, type-check).
+    from app.core.di import get_email_sender
+
     return SendOtp(
         users=SqlUserRepository(session),
         otps=SqlOtpRepository(session),
         hasher=get_hasher(),
+        email_sender=get_email_sender(),
     )
 
 

@@ -86,7 +86,7 @@ integration: ## Run integration suite (testcontainers/Docker required). See docs
 
 # -- Perf baselines (k6 harness) -----------------------------------------------
 
-.PHONY: perf-baseline
+.PHONY: perf-baseline load-smoke load-steady load-spike
 
 perf-baseline: ## Run k6 baseline against local stack and emit JSON. See docs/perf/BASELINES.md.
 	@command -v k6 >/dev/null 2>&1 || { echo "ERROR: install k6 (https://k6.io) for perf baseline"; exit 1; }
@@ -94,6 +94,21 @@ perf-baseline: ## Run k6 baseline against local stack and emit JSON. See docs/pe
 	BASE_URL=$${BASE_URL:-http://localhost:8000} \
 		k6 run --summary-export=tests/load/results/baseline_$$(date +%Y%m%d_%H%M%S).json \
 		tests/load/k6_baseline.js
+
+load-smoke: ## k6 smoke (5 RPS / 30s). See tests/load/README.md
+	@command -v k6 >/dev/null 2>&1 || { echo "ERROR: install k6 (https://k6.io)"; exit 1; }
+	k6 run -e BASE_URL=$${BASE_URL:-http://localhost:8000} -e TOKEN=$${TOKEN:-} \
+		tests/load/k6_baseline_smoke.js
+
+load-steady: ## k6 steady (100 RPS / 10 min). See tests/load/README.md
+	@command -v k6 >/dev/null 2>&1 || { echo "ERROR: install k6 (https://k6.io)"; exit 1; }
+	k6 run -e BASE_URL=$${BASE_URL:-http://localhost:8000} -e TOKEN=$${TOKEN:-} \
+		tests/load/k6_steady_100rps_10m.js
+
+load-spike: ## k6 spike (0→500 RPS / 30s). See tests/load/README.md
+	@command -v k6 >/dev/null 2>&1 || { echo "ERROR: install k6 (https://k6.io)"; exit 1; }
+	k6 run -e BASE_URL=$${BASE_URL:-http://localhost:8000} -e TOKEN=$${TOKEN:-} \
+		tests/load/k6_spike_500rps_30s.js
 
 # -- Catalog -------------------------------------------------------------------
 

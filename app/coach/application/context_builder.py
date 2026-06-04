@@ -148,10 +148,10 @@ async def build_context(
                  WHERE embedding IS NOT NULL
                  ORDER BY embedding <=> '{vec_lit}'::vector
                  LIMIT 5
-            """
+            """  # noqa: S608 — vec_lit is float-only literal; pgvector requires inline form
                     )
                 )
-            ).all()  # noqa: S608
+            ).all()
             safe_rows: list[dict] = []
             for r in rrows:
                 name = _safe(r[0], max_len=_RECIPE_NAME_MAX, field="recipe.name_en")

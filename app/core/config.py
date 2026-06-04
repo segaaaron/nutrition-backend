@@ -127,13 +127,6 @@ class Settings(BaseSettings):
     # --- Observability ---
     # Local error tracker writes rotated JSONL to this path. Override per env.
     nova_error_log_path: str = "/var/log/nova/errors.jsonl"
-    # Sentry — empty DSN = SDK not initialised (no-op). Conservative sample
-    # rates: traces=0.1 keeps perf overhead < 2%, profiles=0.0 disabled
-    # until DSN volume budget is known. PII strip enforced in before_send.
-    sentry_dsn: str = ""
-    sentry_traces_sample_rate: float = 0.1
-    sentry_profiles_sample_rate: float = 0.0
-    sentry_environment: str = ""  # falls back to `env` when empty
     # --- i18n ---
     supported_locales: str = "en,es,pt,fr,de"
     default_locale: Literal["en", "es", "pt", "fr", "de"] = "en"
@@ -146,6 +139,14 @@ class Settings(BaseSettings):
     stripe_webhook_secret: str = ""
     mercadopago_access_token: str = ""
     mercadopago_webhook_secret: str = ""
+
+    # --- Email (Resend — https://resend.com/) ---
+    # Master kill-switch. When False, all email sends become no-ops (logged
+    # but never dispatched). Default OFF for closed-beta safety.
+    email_enabled: bool = False
+    # Resend REST API key. Empty = no-op (NullEmailSender). Required when
+    # email_enabled=true (validated in factory — fail-loud at startup).
+    resend_api_key: str = ""
 
     # --- CORS ---
     cors_allowed_origins: str = "https://app.nova-nutrition.com"

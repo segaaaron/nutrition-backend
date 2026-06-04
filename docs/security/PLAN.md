@@ -14,9 +14,9 @@
 | AuthN/AuthZ | Strong (JWT RS256, Argon2, OAuth, OTP) | + key rotation, + RBAC matrix |
 | Transport | Strong (TLS via Traefik+LE, CF edge) | + HSTS preload, + cert pinning N/A |
 | Data at rest | Weak (host-managed) | + pgcrypto field-level for PHI, + encrypted backups |
-| Secrets | Weak (env vars Dokploy) | + SOPS+age (free) or Infisical self-hosted |
-| Logging/SIEM | Partial (Sentry + structlog stdout) | + Loki/Promtail self-hosted on same VPS |
-| AppSec CI | Absent | + bandit + pip-audit + gitleaks + trivy + semgrep |
+| Secrets | Dokploy env vars (current) — rotation manual per CVE alert | 90-day rotation policy (DEFERRED until team ≥2) |
+| Logging/SIEM | structlog stdout + local ErrorTracker (ring buffer + JSONL) (sufficient for closed-beta) | Loki/Promtail DEFERRED (>1M log lines/day trigger) |
+| AppSec CI | Active | ruff S-rules (lint) + GitHub native (Secret scanning, Push Protection, Code Scanning CodeQL, Dependabot security advisories) — no custom security.yml, no custom dependabot.yml |
 | IR / DR | Absent | + runbook + PITR test quarterly |
 | Compliance docs | Partial | + ROPA, DPIA-lite, privacy policy, VDP |
 
@@ -35,7 +35,7 @@
 | API5 | Broken Function Level Auth | ⚠️ partial | Admin endpoints (none yet) + future `/admin/*` | Define RBAC enum `{user, premium, support, admin}` in `app/identity/domain/`; dep injector check | P1 |
 | API6 | Unrestricted Access to Sensitive Business Flows | ❌ absent | Mass account creation (signup), referral abuse, free-tier OpenAI drain | Cloudflare Turnstile on signup + OTP; per-IP signup cap (5/day) | **P0** |
 | API7 | SSRF | ⚠️ partial | Vision URL upload, recipe import-by-URL (future) | Block RFC1918/169.254/metadata; allowlist domains; `httpx` with explicit `trust_env=False` + custom transport | P1 |
-| API8 | Security Misconfiguration | ⚠️ partial | CORS wildcard risk, Traefik headers, Sentry env leak | Lock CORS to `nova-nutrition.app` + mobile schemes; add `Strict-Transport-Security`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, CSP `default-src 'none'` for API | **P0** |
+| API8 | Security Misconfiguration | ⚠️ partial | CORS wildcard risk, Traefik headers, env leak | Lock CORS to `nova-nutrition.app` + mobile schemes; add `Strict-Transport-Security`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, CSP `default-src 'none'` for API | **P0** |
 | API9 | Improper Inventory Management | ⚠️ partial | `/docs` and `/openapi.json` exposure in prod | Gate behind `settings.ENV != "production"` or basic-auth; publish versioned OpenAPI to private repo | P1 |
 | API10 | Unsafe Consumption of APIs | ✅ strong | OpenAI, Stripe, MP — all wrapped in circuit breakers | Add response schema validation (already partial); pin SDK versions; verify TLS pinning N/A (CA bundle ok) | P2 |
 
@@ -51,14 +51,14 @@
 | V4 | Access Control | Partial | No RBAC matrix, no ABAC for plan/billing | S1 — RBAC doc + dep |
 | V5 | Validation/Encoding | Good | Pydantic strict mode not enforced | `extra='forbid'` audit (S0) |
 | V6 | Stored Crypto | Weak | No field-level encryption for health conditions | S2 — pgcrypto `pgp_sym_encrypt` on `profile.conditions[]` |
-| V7 | Error Handling | Good | Stack traces masked via Sentry; check generic error in `app/core/errors.py` | Verify (S0, 1h) |
+| V7 | Error Handling | Good | Stack traces masked via local ErrorTracker scrubber; check generic error in `app/core/errors.py` | Verify (S0, 1h) |
 | V8 | Data Protection | Partial | No data classification, no retention policy code | S1 — classification matrix + cron purge job |
 | V9 | Communications | Good | HSTS not preloaded | Submit hstspreload.org (S0, 30m) |
-| V10 | Malicious Code | N/A | — | gitleaks + trivy CI |
+| V10 | Malicious Code | N/A | — | GitHub native secret scanning + native Dependabot security advisories |
 | V11 | Business Logic | Partial | Idempotency ✅, but no abuse detection on goals/weight (10kg/day spike) | S2 — anomaly guard in `tracking` |
 | V12 | Files/Resources | Partial | EXIF strip ✅; missing MIME sniff verification | `python-magic` check (S1, 2h) |
 | V13 | API/Web Services | Good | OpenAPI in prod | API9 fix |
-| V14 | Config | Weak | Secrets in Dokploy env, no rotation policy | S1 — SOPS+age repo + 90-day rotation calendar |
+| V14 | Config | Partial | Secrets in Dokploy env, manual rotation | Dokploy env vars + manual rotation policy (90-day rotation calendar DEFERRED until team ≥2) |
 
 ---
 
@@ -69,18 +69,18 @@
 | Annex | Control | NOVA action | Effort | Skip? |
 |---|---|---|---|---|
 | A.5.1 | Information security policy | 1-page `SECURITY.md` + this doc | 2h | No |
-| A.5.7 | Threat intelligence | Subscribe CVE feeds (GH dependabot) | 1h | No |
+| A.5.7 | Threat intelligence | Subscribe CVE feeds (GitHub native security advisories) | 1h | No |
 | A.5.23 | Cloud services security | Hostinger DPA + CF DPA on file | 1h | No |
 | A.5.30 | ICT readiness for BC | DR runbook (RTO 4h / RPO 1h) | 4h | No |
 | A.8.10 | Information deletion | Erasure ADR-0005 ✅ | — | Done |
-| A.8.11 | Data masking | Sentry scrubber ✅; add log scrubber middleware | 2h | No |
+| A.8.11 | Data masking | Local ErrorTracker scrubber ✅; add log scrubber middleware | 2h | No |
 | A.8.12 | DLP | Overkill MVP | — | **Skip** |
-| A.8.24 | Crypto | pgcrypto + SOPS plan | S2 | No |
+| A.8.24 | Crypto | pgcrypto (deferred) | S2 | No |
 | A.8.28 | Secure coding | SAST in CI (S1) | 3h | No |
 | A.9 (legacy) | Access control | RBAC matrix doc | 3h | No |
 | A.10 (legacy) | Cryptography | Key mgmt policy (1pg) | 2h | No |
-| A.12.4 | Logging/monitoring | Loki+Promtail self-hosted | 6h | No |
-| A.12.6 | Vulnerability mgmt | pip-audit weekly CI + dependabot | 2h | No |
+| A.12.4 | Logging/monitoring | structlog stdout + local ErrorTracker (Loki DEFERRED until >1M log lines/day) | — | No |
+| A.12.6 | Vulnerability mgmt | GitHub native Dependabot security advisories 24h SLA (no yml config) | — | Done |
 | A.14.2 | Secure dev lifecycle | This plan + ADRs cover it | — | Done |
 | A.16 | Incident management | Runbook + on-call rota (solo-dev: phone alerts) | 4h | No |
 | A.18.1 | Legal compliance | ROPA + privacy policy | 8h | No |
@@ -101,7 +101,7 @@
 | Data residency | **Yes** (choose region) | Hostinger DC location |
 | Encryption at rest | **Yes** (pgcrypto app-level) | Hostinger disk (verify) |
 | PII access logs | **Yes** (audit log table S1) | — |
-| Sub-processor list | **Yes** (publish: OpenAI, Stripe, MP, Sentry, CF, Hostinger) | — |
+| Sub-processor list | **Yes** (publish: OpenAI, Stripe, MP, CF, Hostinger) | — |
 
 **LatAm + EU residency:** Hostinger EU DC (Lithuania) covers GDPR. For LGPD strict reading, BR users' data ideally in BR — defer until >5k BR users (cost: USD 50/mo extra VPS BR). Document in privacy policy.
 
@@ -183,12 +183,12 @@
 ### Sprint S1 — Month 1 (~30h)
 | Item | Effort | Risk | Covers |
 |---|---|---|---|
-| SAST CI: bandit + semgrep + pip-audit + gitleaks + trivy | 4h | Unknown CVEs ship | A.8.28, A.12.6 |
-| Secrets vault: SOPS+age in repo (free) | 4h | Env leak | A.8.24, V14 |
+| SAST stack: ruff S-rules (lint) + GitHub native (Secret scan + Push Protection + Code Scanning CodeQL + Dependabot security advisories) | — (active, native-only) | Unknown CVEs ship | A.8.28, A.12.6 |
+| Secrets vault: SOPS+age in repo (free) — **DEFERRED** (team ≥2 trigger) | 4h | Env leak | A.8.24, V14 |
 | JWT jti denylist + key rotation (kid) | 3h | Stolen token replay | V3 |
 | RBAC enum + matrix doc | 3h | Future admin abuse | API5, V4 |
 | Audit log table (`auth_events`, `billing_events`, `profile_changes`) | 4h | No forensics | A.12.4, R (STRIDE) |
-| Loki + Promtail self-hosted (same VPS, ~200MB RAM) | 6h | Blind in incident | A.12.4 |
+| Loki + Promtail self-hosted (same VPS, ~200MB RAM) — **DEFERRED** (>1M log lines/day trigger) | 6h | Blind in incident | A.12.4 |
 | ROPA + DPIA-lite + privacy policy v2 + ToS | 6h | Regulatory fine | A.18, GDPR/LGPD |
 | MIME sniff + file size hard cap | 2h | RCE via upload | V12 |
 | SSRF guards on URL ingestion | 2h | Metadata exfil | API7 |
@@ -225,18 +225,18 @@
 
 | Service | Free option | Paid alt | Picked |
 |---|---|---|---|
-| Secrets vault | SOPS+age in git | Infisical Cloud USD 0-18/mo, HashiCorp Vault | **SOPS+age** (free, fits solo) |
-| SIEM/logs | Loki+Promtail self-hosted | Better Stack USD 24/mo, Datadog USD 100+ | **Loki self-hosted** (200MB RAM cost on VPS) |
+| Secrets vault | SOPS+age in git | Infisical Cloud USD 0-18/mo, HashiCorp Vault | **Dokploy env vars** (current) — SOPS+age DEFERRED (team ≥2) |
+| SIEM/logs | Loki+Promtail self-hosted | Better Stack USD 24/mo, Datadog USD 100+ | **structlog stdout + local ErrorTracker (ring buffer + JSONL)** — Loki DEFERRED (>1M log lines/day) |
 | WAF | Cloudflare free tier | CF Pro USD 25/mo | **CF free** S0-S2, upgrade if attacked |
-| SAST | bandit+semgrep OSS+GHA | Snyk USD 25/dev/mo | **OSS** |
-| Dep scan | pip-audit + dependabot | Snyk | **OSS** |
-| Secret scan | gitleaks | GitGuardian USD 0 indie | **gitleaks** |
-| Container scan | trivy | Snyk Container | **trivy** |
+| SAST | ruff S-rules + CodeQL (GH native) | — | **OSS** (bandit+semgrep dropped — overlap with ruff S) |
+| Dep scan | GitHub native Dependabot security advisories (no yml config) | — | **GitHub native advisories only** (pip-audit + custom dependabot.yml dropped — duplicate) |
+| Secret scan | GitHub native Secret scanning + Push Protection | GitGuardian USD 0 indie | **GitHub native** (gitleaks dropped — duplicate) |
+| Container scan | manual Dockerfile review one-shot | trivy / Snyk Container | **Manual review** (trivy dropped — 1 Dockerfile, low ROI pre-launch) |
 | Uptime/alerting | UptimeRobot free | Better Stack | **UptimeRobot** |
 | Backup offsite | Hostinger weekly snapshot (incluido plan) | B2/Hetzner Storage Box | **Hostinger weekly MVP** — upgrade off-site cuando >100 paid users |
 | Pen-test | — | Cobalt USD 1.5-5k | Defer to month 3 |
 
-**Total new monthly cost:** USD 0/mo (Hostinger weekly incluido en plan, off-site backup diferido). VPS RAM impact: ~250MB (Loki + Promtail). Sits inside 8GB budget.
+**Total new monthly cost:** USD 0/mo (Hostinger weekly incluido en plan, off-site backup diferido). VPS RAM impact: ~5MB (structlog + local ErrorTracker only — Loki/Promtail deferred). Sits inside 8GB budget.
 
 **Backup strategy MVP:**
 - Único respaldo: Hostinger weekly snapshot (incluido en plan)
@@ -249,25 +249,26 @@
 
 ## 9. CI/CD Tooling
 
-```yaml
-# .github/workflows/security.yml (sketch)
-jobs:
-  sast:
-    - bandit -r app/ -ll
-    - semgrep --config=p/owasp-top-ten --config=p/python
-  deps:
-    - pip-audit --strict
-    - dependabot (native GH)
-  secrets:
-    - gitleaks detect --no-banner
-  container:
-    - trivy image nova-backend:${{ sha }} --severity HIGH,CRITICAL --exit-code 1
-  dast:
-    - schemathesis run (already)
-    - zap-baseline.py -t https://staging.nova
+**Current stack (native-only, no custom security workflow):**
+
+```
+SAST     → ruff S-rules (in lint workflow, S101..S701 flake8-bandit)
+         → GitHub Code Scanning default setup (CodeQL, free private repos)
+Deps     → GitHub native Dependabot security advisories (24h SLA, no yml config)
+Secrets  → GitHub native Secret scanning + Push Protection (free private repos)
+Container→ Manual Dockerfile review one-shot pre-deploy (no trivy job)
+DAST     → schemathesis (contract tests). zap-baseline deferred to staging phase.
 ```
 
-Gate on: HIGH/CRITICAL CVE blocks merge. MEDIUM warns. License scan via `pip-licenses` advisory only.
+**Rationale for removing custom `.github/workflows/security.yml` and `.github/dependabot.yml`:** every job (gitleaks, trivy fs, trivy config) had a native GitHub equivalent free for private repos as of 2024. Maintaining custom workflows was pure overhead — extra CI minutes, extra config drift surface, zero unique value. CodeQL via default setup runs automatically without yml. Push Protection blocks secrets pre-push (gitleaks only catches post-push). GitHub native dependency security advisories cover CVEs better than pip-audit/trivy fs, with zero yml maintenance.
+
+**Owner toggles required in GitHub repo Settings → Code security:**
+- Secret scanning: ON
+- Push Protection: ON
+- Code Scanning (CodeQL default setup): ON
+- Dependency security advisories (GitHub native): ON
+- Dependency security updates (GitHub native): ON
+- Dependency review: ON
 
 ---
 
@@ -294,8 +295,8 @@ Gate on: HIGH/CRITICAL CVE blocks merge. MEDIUM warns. License scan via `pip-lic
 ## Trade-offs & Honest Calls
 
 - **No ISO 27001 cert.** Solo dev, pre-launch. Spirit-of-controls + audit-ready posture is the right level. Revisit at Series A or B2B enterprise deal.
-- **No HashiCorp Vault.** SOPS+age in git covers solo-dev secret mgmt without ops burden. Migrate when team ≥3.
-- **No dedicated SIEM.** Loki on same VPS is acceptable until >1M log lines/day. Migrate when traffic justifies.
+- **No HashiCorp Vault.** Dokploy env vars + manual 90-day rotation policy (rotation calendar deferred until team ≥2). SOPS+age deferred too — migrate when team ≥3.
+- **No dedicated SIEM.** Local ErrorTracker (ring buffer + JSONL) + journalctl sufficient for closed-beta. Loki/Promtail migration deferred until >1M log lines/day.
 - **No formal DPO.** Self-designate under GDPR Art.37 (allowed for SMEs without "large-scale" processing — health data is borderline; if EU users >10k, hire fractional DPO ~EUR 200/mo).
 - **Single VPS = single point of failure.** Accepted MVP risk. DR via Hostinger weekly snapshot (RPO 7d). Off-site backup (B2/Hetzner) diferido hasta >100 paid users. Multi-AZ at >USD 5k MRR.
 - **Pen-test deferred to month 3.** Pre-launch budget tight. Run OWASP ZAP baseline self-scan as compensating control.

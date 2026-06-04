@@ -131,7 +131,7 @@ Chronological log of every load-bearing decision the product owner (Miguel) made
 - **Rationale:** unguarded leaderboards get gamed instantly; not worth shipping broken.
 
 ### Decision 26 — Observability MVP
-- **Chosen:** `/healthz` + `/readyz` + Prometheus counters; Sentry + Grafana Cloud optional opt-in.
+- **Chosen:** `/healthz` + `/readyz` + Prometheus counters + local ErrorTracker (ring buffer + JSONL). No external SaaS observability.
 - **Rationale:** zero-cost baseline; paid telemetry only if a real incident demands it.
 
 ### Decision 27 — Worker (Arq vs Celery)

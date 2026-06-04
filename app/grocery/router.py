@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Query, status
+from fastapi import APIRouter, Query, Response, status
 from pydantic import BaseModel, ConfigDict
 
-from app.grocery.domain import GroceryCategory
+from app.grocery.domain import GroceryCategory, GroceryList
 from app.grocery.repository import SqlGroceryRepository
 from app.grocery.use_cases import (
     AddManualItem,
@@ -37,7 +38,7 @@ class GroceryListOut(BaseModel):
     items: list[GroceryItemOut]
 
 
-def _to_out(gl) -> GroceryListOut:
+def _to_out(gl: GroceryList) -> GroceryListOut:
     return GroceryListOut(
         id=gl.id,
         plan_id=gl.plan_id,
@@ -178,7 +179,7 @@ async def delete_item(
     item_id: UUID,
     current_user: CurrentUserDep,
     session: SessionDep,
-) -> None:
+) -> Response:
     # BOLA: verify grocery item belongs to current_user via grocery_lists.user_id.
     from sqlalchemy import text as _text
 
@@ -202,6 +203,7 @@ async def delete_item(
         raise Forbidden(detail="not_owner")
     uc = DeleteItem(repo=SqlGroceryRepository(session))
     await uc(item_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/grocery-lists/{list_id}/share")
@@ -210,7 +212,7 @@ async def share_list(
     current_user: CurrentUserDep,
     session: SessionDep,
     ttl_hours: int = Query(default=168, ge=1, le=720),
-) -> dict:
+) -> dict[str, Any]:
     # BOLA OK: ensure_owner() in grocery/use_cases.py raises Forbidden if list not owned.
     await ensure_owner(session, list_id=list_id, user_id=current_user)
     uc = ShareList(repo=SqlGroceryRepository(session))
