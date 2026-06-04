@@ -523,6 +523,35 @@ Owner reversal of the pyvips drop earlier today. Reasoning: pyvips (libvips bind
 
 ---
 
+### Session 2026-06-04 — Domain switch: nova-nutrition.com → ms-tech-stack.cloud
+
+Owner confirmed production domain = `ms-tech-stack.cloud` (not nova-nutrition.com). Changes:
+- `_FROM_EMAIL` hardcoded in `app/notifications/infrastructure/resend_sender.py:38` updated (plus DNS comment line 37)
+- `app/core/config.py` `cors_allowed_origins` default updated
+- `app/core/errors.py` `PROBLEM_TYPE_BASE` URN base updated
+- `app/core/problem_details.py` docstring URL example updated
+- `app/billing/router.py` Stripe `success_url`/`cancel_url` defaults updated
+- `docker-compose.yml` + `docker-compose.mvp.yml` Traefik `Host()` labels updated (plus comment in main compose)
+- `.env.example` `CORS_ALLOWED_ORIGINS` default updated
+- `scripts/audit_catalog.py` `ALLOWED_IMAGE_HOSTS` CDN host updated (no live catalog records reference it yet)
+- `tests/unit/test_resend_sender.py` FROM assertion updated
+- Active docs updated: `README.md`, `SECURITY.md`, `docs/PROJECT_STATE.md`, `docs/security/VDP.md`, `docs/mobile/ONBOARDING_API_CONTRACT.md`, `docs/ops/DOKPLOY_DEPLOY.md`, `docs/ops/runbook-deploy-hostinger-dokploy.md`, `tests/load/README.md`
+- Preserved historical refs in `docs/handoff/*`, `docs/superpowers/specs/*`, and prior session-log entries above (per CLAUDE.md hygiene)
+- Internal identifiers (`APP_NAME=nova-nutrition-backend`, `JWT_ISSUER=nova-nutrition`, `OTEL_SERVICE_NAME=nova-nutrition-backend`) preserved — they are app identifiers, not public hostnames
+
+Verification:
+- Baseline: 884 pass / 3 pre-existing fails (vision detail tests, unrelated)
+- Post-change: 884 pass / 3 pre-existing fails (same suite, zero regressions from domain switch)
+- `grep nova-nutrition.com` in code + tests + docker + config + active docs → 0 hits
+
+Owner manual TODO:
+- Verify `ms-tech-stack.cloud` in Resend dashboard (SPF + DKIM records)
+- Confirm Dokploy Domain config matches (done per screenshot)
+- Update Stripe + MercadoPago webhook URLs in their respective dashboards to `api.ms-tech-stack.cloud/webhooks/*`
+- Rotate any production secret previously tied to `nova-nutrition.com` if applicable
+
+---
+
 ## 🔔 Active reminders for next assistant
 
 ### Sprint S0-residual security backlog (frozen)

@@ -4,7 +4,7 @@
 // graceful degradation, and clean recovery to baseline.
 //
 // Usage:
-//   k6 run -e BASE_URL=https://staging.api.nova-nutrition.com \
+//   k6 run -e BASE_URL=https://staging.api.ms-tech-stack.cloud \
 //     -e TOKEN=<bearer> tests/load/k6_spike_500rps_30s.js
 //
 // Stages: ramp 0→500 in 10s → sustain 500 RPS 30s → ramp down 10s.

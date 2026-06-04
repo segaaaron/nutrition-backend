@@ -2,7 +2,7 @@
 //
 // Usage:
 //   k6 run \
-//     -e BASE_URL=https://api.nova-nutrition.com \
+//     -e BASE_URL=https://api.ms-tech-stack.cloud \
 //     -e TOKEN=<bearer> \
 //     tests/load/k6_baseline.js
 //

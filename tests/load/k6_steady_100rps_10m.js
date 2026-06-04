@@ -4,7 +4,7 @@
 // Validates p95/error budget under realistic traffic mix.
 //
 // Usage:
-//   k6 run -e BASE_URL=https://staging.api.nova-nutrition.com \
+//   k6 run -e BASE_URL=https://staging.api.ms-tech-stack.cloud \
 //     -e TOKEN=<bearer> tests/load/k6_steady_100rps_10m.js
 //
 // Mix (weighted random per iteration):
