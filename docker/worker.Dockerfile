@@ -47,6 +47,7 @@ WORKDIR /app
 COPY app ./app
 COPY worker ./worker
 COPY pyproject.toml uv.lock* ./
+COPY README.md ./
 
 RUN pip install --no-cache-dir --no-deps .
 

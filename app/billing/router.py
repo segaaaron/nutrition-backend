@@ -25,8 +25,8 @@ class CheckoutBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     plan: Plan = Plan.PREMIUM
-    success_url: str = "https://app.nova-nutrition.com/billing/success"
-    cancel_url: str = "https://app.nova-nutrition.com/billing/cancel"
+    success_url: str = "https://app.ms-tech-stack.cloud/billing/success"
+    cancel_url: str = "https://app.ms-tech-stack.cloud/billing/cancel"
 
 
 @router.post("/billing/checkout", status_code=status.HTTP_200_OK)

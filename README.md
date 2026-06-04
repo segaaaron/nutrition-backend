@@ -39,7 +39,7 @@ uv run pytest --cov=app --cov-report=term-missing
 Load testing (manual, not in CI):
 
 ```bash
-k6 run -e BASE_URL=https://api.nova-nutrition.com -e TOKEN=… \
+k6 run -e BASE_URL=https://api.ms-tech-stack.cloud -e TOKEN=… \
        tests/load/k6_baseline.js
 ```
 

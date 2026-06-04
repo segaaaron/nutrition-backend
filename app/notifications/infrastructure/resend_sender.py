@@ -34,8 +34,8 @@ _BACKOFF_BASE_S: Final[float] = 0.5
 _RETRYABLE_STATUSES: Final[frozenset[int]] = frozenset({408, 429, 500, 502, 503, 504})
 # NOVA brand sender. Invariant across dev/staging/prod — domain ownership
 # does not change per environment, so this lives in code, not env config.
-# DNS (SPF + DKIM) for nova-nutrition.com must be configured in Resend.
-_FROM_EMAIL: Final[str] = "no-reply@nova-nutrition.com"
+# DNS (SPF + DKIM) for ms-tech-stack.cloud must be configured in Resend.
+_FROM_EMAIL: Final[str] = "no-reply@ms-tech-stack.cloud"
 
 
 def _hash_recipient(addr: str) -> str:

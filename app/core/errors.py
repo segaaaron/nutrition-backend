@@ -10,7 +10,7 @@ from typing import Any
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-PROBLEM_TYPE_BASE = "https://nova-nutrition.com/errors/"
+PROBLEM_TYPE_BASE = "https://ms-tech-stack.cloud/errors/"
 
 
 class DomainError(Exception):

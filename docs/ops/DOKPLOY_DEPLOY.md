@@ -105,7 +105,7 @@ MVP_BLOCKED_CONDITIONS=diabetes_t1
 MVP_BLOCKED_REGIONS=us
 
 # CORS
-CORS_ALLOWED_ORIGINS=https://app.nova-nutrition.com,https://staging.nova-nutrition.com
+CORS_ALLOWED_ORIGINS=https://app.ms-tech-stack.cloud,https://staging.ms-tech-stack.cloud
 
 # Webhooks (Stripe / MercadoPago — set when billing live)
 STRIPE_API_KEY=
@@ -118,7 +118,7 @@ NOVA_ERROR_LOG_PATH=/var/log/nova/errors.jsonl
 ```
 
 ### 3.4 Domain + TLS
-- Dokploy → Domains → Add → `api.nova-nutrition.com`
+- Dokploy → Domains → Add → `api.ms-tech-stack.cloud`
 - Auto-issue Let's Encrypt cert via Traefik (Dokploy default)
 
 ### 3.5 Trigger first deploy
@@ -216,7 +216,7 @@ docker exec -it nova-api-1 python -m scripts.compute_embeddings --max-usd 0.15 -
 
 ```bash
 # Health check
-curl https://api.nova-nutrition.com/healthz
+curl https://api.ms-tech-stack.cloud/healthz
 
 # Expected: {"status": "ok"}
 

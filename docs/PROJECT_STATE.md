@@ -155,10 +155,10 @@ Post session 2026-06-04 (owner-only actions, AI cannot perform per GR#0):
 
 1. Commit current working tree (50+ files, multi sub-sessions: catalog cleanup, MP HMAC, ADR-0026 L1, Resend, Sentry purge, lifespan migration, etc.)
 2. Rotate Resend API key (any key shared in prior chat history is now compromised)
-3. Verify Resend domain `nova-nutrition.com` (DNS SPF/DKIM/DMARC records) — required for `no-reply@nova-nutrition.com` outbound
+3. Verify Resend domain `ms-tech-stack.cloud` (DNS SPF/DKIM/DMARC records) — required for `no-reply@ms-tech-stack.cloud` outbound
 4. GitHub Settings toggles: secret scanning, push protection, Dependabot alerts (native — `dependabot.yml` removed)
 5. Dokploy `.env` update + redeploy → entrypoint auto-applies migrations 0011 + 0013
-6. Register `nova-nutrition.com` domain (Cloudflare/Namecheap) + point DNS to Hostinger KVM 2
+6. Register `ms-tech-stack.cloud` domain (Cloudflare/Namecheap) + point DNS to Hostinger KVM 2
 7. App Store Connect record (future — required to flip FCM iOS path)
 
 ## Known Blockers

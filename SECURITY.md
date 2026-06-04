@@ -14,7 +14,7 @@ active development pre-launch; pinned versions are not maintained.
 
 **Please do NOT open public GitHub issues for security vulnerabilities.**
 
-Email: **security@nova-nutrition.com** (PGP key available on request).
+Email: **security@ms-tech-stack.cloud** (PGP key available on request).
 
 Include:
 - Affected endpoint or component
@@ -35,7 +35,7 @@ Include:
 ### Scope
 
 In-scope:
-- `*.nova-nutrition.com` API endpoints
+- `*.ms-tech-stack.cloud` API endpoints
 - Authentication / authorization flows
 - Payment webhook integrity (Stripe, MercadoPago)
 - Data exposure (PII, health data, billing)

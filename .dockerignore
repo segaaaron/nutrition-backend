@@ -19,6 +19,16 @@ reports
 !README.md
 .DS_Store
 node_modules
+*.sqlite
+*.log
 
 # Defensive — exclude any .git.backup-* folders (created during history rewrites)
 .git.backup-*
+
+# --- Whitelist files hatch (PEP 517 build backend) needs at build time ---
+# hatchling requires pyproject.toml + README.md (declared by `readme = "README.md"`
+# in [project]) + the packaged sources (`packages = ["app", "worker"]`) + uv.lock
+# for reproducible `uv export`. These MUST NOT be excluded by any rule above.
+!pyproject.toml
+!uv.lock
+!README.md

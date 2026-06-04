@@ -74,7 +74,7 @@ except ImportError:  # pragma: no cover — script may run without app on PYTHON
 CANONICAL_ACTIVITY_LEVELS: frozenset[str] = frozenset(_ACTIVITY_LEVELS_5)
 
 PLACEHOLDER_IMAGE_URL = "https://storage.googleapis.com/tu-proyecto/placeholder.webp"
-ALLOWED_IMAGE_HOSTS = frozenset({"storage.googleapis.com", "cdn.nova-nutrition.com"})
+ALLOWED_IMAGE_HOSTS = frozenset({"storage.googleapis.com", "cdn.ms-tech-stack.cloud"})
 
 # --- Condition synonym table (≥ 30 mappings) ---
 # Maps upstream LLM-emitted / round-2 ES tokens → canonical EN ids.

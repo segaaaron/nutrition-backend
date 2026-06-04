@@ -2,7 +2,7 @@
 
 This module layers a stricter, spec-aligned problem mapping on top of the
 generic `app/core/errors.py` translator (which uses
-`https://nova-nutrition.com/errors/<slug>` URLs).
+`https://ms-tech-stack.cloud/errors/<slug>` URLs).
 
 The mobile contract (docs/mobile/ONBOARDING_API_CONTRACT.md §5, PLAN §3)
 mandates URNs of the form ``urn:nova:problem:<context>:<rule>``.

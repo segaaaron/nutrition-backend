@@ -323,7 +323,7 @@ Content-Type: application/problem+json
   "status": 422,
   "detail": "allergen_unmapped_requires_review",
   "instance": "/v1/profile/me/onboarding",
-  "support_url": "https://nova-nutrition.com/support/allergen-review"
+  "support_url": "https://ms-tech-stack.cloud/support/allergen-review"
 }
 ```
 

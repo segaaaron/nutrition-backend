@@ -56,7 +56,7 @@ k6 run -e BASE_URL=http://localhost:8000 -e TOKEN=$TOKEN \
 ## Run against staging (when it exists)
 
 ```bash
-export BASE_URL=https://staging.api.nova-nutrition.com
+export BASE_URL=https://staging.api.ms-tech-stack.cloud
 export TOKEN=$(scripts/mint_load_test_jwt.py --user load-test-001)
 k6 run -e BASE_URL=$BASE_URL -e TOKEN=$TOKEN \
   --summary-export=tests/load/results/staging_$(date +%Y%m%d_%H%M%S).json \

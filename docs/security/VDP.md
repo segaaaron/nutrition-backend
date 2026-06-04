@@ -10,7 +10,7 @@ security researchers can report vulnerabilities safely and what to expect from u
 ## Scope
 
 ### In-scope assets
-- `*.nova-nutrition.com` (production API + future web)
+- `*.ms-tech-stack.cloud` (production API + future web)
 - Mobile app binaries (iOS, Android — when published)
 - Webhook endpoints (`/webhooks/stripe`, `/webhooks/mercadopago`)
 - Public GitHub repositories under the `nova-nutrition` org
@@ -38,7 +38,7 @@ You MUST NOT:
 
 ## Reporting
 
-**Channel:** `security@nova-nutrition.com`
+**Channel:** `security@ms-tech-stack.cloud`
 **PGP:** Available on request
 
 ### Required information

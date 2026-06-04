@@ -149,7 +149,7 @@ class Settings(BaseSettings):
     resend_api_key: str = ""
 
     # --- CORS ---
-    cors_allowed_origins: str = "https://app.nova-nutrition.com"
+    cors_allowed_origins: str = "https://app.ms-tech-stack.cloud"
     ip_rate_limit_per_minute: int = 600
 
     # --- MVP segment gate ---

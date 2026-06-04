@@ -7,11 +7,16 @@
 #   * NO worker (Arq) container — no background jobs needed until vision /
 #     coach / recalibration features have real traffic. Add later via
 #     docker-compose.full.yml when scale demands it.
-#   * shared_preload_libraries=timescaledb DISABLED — TimescaleDB only needed
-#     once tracking time-series volume grows (~10k+ users). Vanilla pgvector
-#     image works fine for MVP catalog + plan_versions.
 #   * Connection pool TIGHT — 20 max_connections vs typical 75. Sufficient
 #     for <100 concurrent users.
+#
+# NOTE on db image:
+#   Uses the SAME custom db.Dockerfile as docker-compose.yml so the 6
+#   required extensions (timescaledb, vector, pgcrypto, pg_trgm, unaccent,
+#   citext) are bootstrapped via /docker-entrypoint-initdb.d/init.sql.
+#   shared_preload_libraries=timescaledb is enabled to keep parity with the
+#   full config — Timescale costs ~50 MB RSS idle which fits in the 1.2 GB
+#   container budget.
 #
 # UPGRADE PATH:
 #   When RAM headroom appears (other projects retire or VPS upgrade), switch
@@ -28,26 +33,83 @@
 #        docker exec -it $(docker ps -qf name=api) python -m scripts.compute_embeddings --max-usd 1.00
 #   4. Embedding backfill costs ~$0.40 and takes ~30 min (one-time).
 
+networks:
+  # External network created by Dokploy installer; Traefik also lives here.
+  dokploy-network:
+    external: true
+  # Private backplane for db/redis. Not reachable by Traefik.
+  nova-internal:
+    driver: bridge
+
 services:
   api:
     build:
       context: .
       dockerfile: docker/api.Dockerfile
-    env_file: .env
     environment:
+      ENV: ${ENV}
+      LOG_LEVEL: ${LOG_LEVEL}
+      APP_NAME: ${APP_NAME}
+      APP_VERSION: ${APP_VERSION}
+      DATABASE_URL: ${DATABASE_URL}
+      DB_POOL_SIZE: ${DB_POOL_SIZE}
+      DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW}
+      DB_POOL_RECYCLE_SECONDS: ${DB_POOL_RECYCLE_SECONDS}
+      REDIS_URL: ${REDIS_URL}
+      JWT_PRIVATE_KEY_PATH: ${JWT_PRIVATE_KEY_PATH:-/secrets/jwt.pem}
+      JWT_PUBLIC_KEY_PATH: ${JWT_PUBLIC_KEY_PATH:-/secrets/jwt.pub}
+      JWT_ACCESS_TTL_SECONDS: ${JWT_ACCESS_TTL_SECONDS}
+      JWT_REFRESH_TTL_SECONDS: ${JWT_REFRESH_TTL_SECONDS}
+      JWT_ISSUER: ${JWT_ISSUER}
+      JWT_AUDIENCE: ${JWT_AUDIENCE}
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID}
+      APPLE_OAUTH_CLIENT_ID: ${APPLE_OAUTH_CLIENT_ID}
+      APPLE_OAUTH_TEAM_ID: ${APPLE_OAUTH_TEAM_ID}
+      APPLE_OAUTH_KEY_ID: ${APPLE_OAUTH_KEY_ID}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_VISION_MODEL: ${OPENAI_VISION_MODEL}
+      OPENAI_CHAT_MODEL: ${OPENAI_CHAT_MODEL}
+      OPENAI_EMBED_MODEL: ${OPENAI_EMBED_MODEL}
+      OPENAI_EMBED_DIM: ${OPENAI_EMBED_DIM}
+      COST_CAP_USD_PER_USER_PER_DAY: ${COST_CAP_USD_PER_USER_PER_DAY}
+      COST_CAP_USD_PER_ORG_PER_DAY: ${COST_CAP_USD_PER_ORG_PER_DAY}
+      COST_CAP_ALARM_PCT: ${COST_CAP_ALARM_PCT}
+      RATE_LIMIT_AUTH_PER_MIN: ${RATE_LIMIT_AUTH_PER_MIN}
+      RATE_LIMIT_AI_PER_MIN: ${RATE_LIMIT_AI_PER_MIN}
+      RATE_LIMIT_API_PER_MIN: ${RATE_LIMIT_API_PER_MIN}
       WEB_CONCURRENCY: "1"
+      WEB_MAX_CONCURRENT_REQUESTS: ${WEB_MAX_CONCURRENT_REQUESTS}
+      EMAIL_ENABLED: ${EMAIL_ENABLED}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      SUPPORTED_LOCALES: ${SUPPORTED_LOCALES}
+      DEFAULT_LOCALE: ${DEFAULT_LOCALE}
+      DEFAULT_REGION: ${DEFAULT_REGION}
+      MVP_BLOCKED_CONDITIONS: ${MVP_BLOCKED_CONDITIONS:-diabetes_t1}
+      MVP_BLOCKED_REGIONS: ${MVP_BLOCKED_REGIONS:-us}
+      STRIPE_API_KEY: ${STRIPE_API_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      MERCADOPAGO_ACCESS_TOKEN: ${MERCADOPAGO_ACCESS_TOKEN}
+      MERCADOPAGO_WEBHOOK_SECRET: ${MERCADOPAGO_WEBHOOK_SECRET}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME}
     volumes:
       # JWT keys mounted from host (Dokploy bind mount).
       # Owner places keys on VPS at /var/dokploy/secrets/nova/jwt.{pem,pub}.
-      - /var/dokploy/secrets/nova/jwt.pem:/jwt.pem:ro
-      - /var/dokploy/secrets/nova/jwt.pub:/jwt.pub:ro
+      # Container-side path matches JWT_*_KEY_PATH defaults (/secrets/jwt.*).
+      - /var/dokploy/secrets/nova/jwt.pem:/secrets/jwt.pem:ro
+      - /var/dokploy/secrets/nova/jwt.pub:/secrets/jwt.pub:ro
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
-    ports:
-      - "8000:8000"
+    # No host port publish: Traefik reaches api:8000 via dokploy-network.
+    expose:
+      - "8000"
+    networks:
+      - dokploy-network
+      - nova-internal
     # Migrations applied automatically by docker/entrypoint.sh (ENTRYPOINT
     # in api.Dockerfile) BEFORE the uvicorn CMD runs. Idempotent.
     command:
@@ -58,11 +120,8 @@ services:
       - "--workers=1"
       - "--limit-concurrency=100"
       - "--timeout-keep-alive=30"
-    deploy:
-      resources:
-        limits:
-          memory: 600M
-          cpus: "1.0"
+    mem_limit: 600m
+    cpus: 1.0
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/healthz"]
@@ -70,13 +129,26 @@ services:
       timeout: 10s
       start_period: 30s  # allow time for alembic upgrade on first start
       retries: 3
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=dokploy-network
+      - traefik.http.routers.nova-api.rule=Host(`api.ms-tech-stack.cloud`)
+      - traefik.http.routers.nova-api.entrypoints=websecure
+      - traefik.http.routers.nova-api.tls=true
+      - traefik.http.routers.nova-api.tls.certresolver=letsencrypt
+      - traefik.http.services.nova-api.loadbalancer.server.port=8000
 
   db:
-    image: pgvector/pgvector:pg16
+    # Custom image bootstraps the 6 required extensions via init.sql.
+    # MUST NOT be replaced by vanilla pgvector — Alembic assumes timescaledb,
+    # pgcrypto, pg_trgm, unaccent, citext all exist.
+    build:
+      context: ./docker
+      dockerfile: db.Dockerfile
     environment:
-      POSTGRES_USER: nova
+      POSTGRES_USER: ${POSTGRES_USER:-nova}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-novapass}
-      POSTGRES_DB: nova
+      POSTGRES_DB: ${POSTGRES_DB:-nova}
     # Tuned for ~1.2 GB container limit.
     # shared_buffers 25% of container limit.
     # effective_cache_size assumes some host OS cache help.
@@ -90,17 +162,17 @@ services:
       -c random_page_cost=1.1
       -c wal_buffers=4MB
       -c log_min_duration_statement=1000
+      -c shared_preload_libraries=timescaledb
     volumes:
       - pgdata:/var/lib/postgresql/data
     shm_size: 256m
-    deploy:
-      resources:
-        limits:
-          memory: 1200M
-          cpus: "1.0"
+    networks:
+      - nova-internal
+    mem_limit: 1200m
+    cpus: 1.0
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U nova -d nova"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nova} -d ${POSTGRES_DB:-nova}"]
       interval: 10s
       timeout: 5s
       start_period: 30s
@@ -116,11 +188,10 @@ services:
       --appendonly no
     volumes:
       - redisdata:/data
-    deploy:
-      resources:
-        limits:
-          memory: 200M
-          cpus: "0.3"
+    networks:
+      - nova-internal
+    mem_limit: 200m
+    cpus: 0.3
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]

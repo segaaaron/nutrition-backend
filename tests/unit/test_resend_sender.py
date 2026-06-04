@@ -49,7 +49,7 @@ async def test_send_success_200() -> None:
     assert captured["url"] == "https://api.resend.com/emails"
     assert captured["auth"] == "Bearer re_test_key"
     assert captured["idem"] == "job-1"
-    assert captured["body"]["from"] == "no-reply@nova-nutrition.com"
+    assert captured["body"]["from"] == "no-reply@ms-tech-stack.cloud"
     assert captured["body"]["to"] == ["user@example.com"]
 
 
