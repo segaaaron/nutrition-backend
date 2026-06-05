@@ -10,6 +10,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -28,13 +29,21 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
 
     # --- Database ---
-    database_url: str = "postgresql+asyncpg://nova:novapass@db:5432/nova"
+    # REQUIRED — no default. A silent fallback masked a Dokploy env-propagation
+    # bug in prod (container booted with hardcoded `nova:novapass@db:5432/nova`
+    # while the managed DB expected `postgres@…`). Pydantic now fails loud at
+    # boot if DATABASE_URL is missing or wrong driver.
+    database_url: str
     db_pool_size: int = 15
     db_max_overflow: int = 10
     db_pool_recycle_seconds: int = 3600
 
     # --- Redis ---
-    redis_url: str = "redis://redis:6379/0"
+    # REQUIRED — no fallback default. Same rationale as DATABASE_URL: a silent
+    # `redis://redis:6379/0` default masked Dokploy env-propagation failures
+    # (container booted talking to a non-existent `redis` hostname). Fail loud
+    # at boot via validator instead.
+    redis_url: str
     redis_max_connections: int = 50
     redis_socket_keepalive: bool = True
 
@@ -139,6 +148,11 @@ class Settings(BaseSettings):
     stripe_webhook_secret: str = ""
     mercadopago_access_token: str = ""
     mercadopago_webhook_secret: str = ""
+    # REQUIRED — Stripe redirect URLs post-checkout / on-cancel. Previously
+    # hardcoded in `app/billing/router.py` body schema; moved to Settings on
+    # 2026-06-04 so deploys can swap mobile deep links vs web URLs per env.
+    billing_success_url: str
+    billing_cancel_url: str
 
     # --- Email (Resend — https://resend.com/) ---
     # Master kill-switch. When False, all email sends become no-ops (logged
@@ -149,7 +163,9 @@ class Settings(BaseSettings):
     resend_api_key: str = ""
 
     # --- CORS ---
-    cors_allowed_origins: str = "https://app.ms-tech-stack.cloud"
+    # Default = "" (deny-all). Owner MUST set explicitly per env (Dokploy panel
+    # or .env). Hardcoded hostname removed 2026-06-04 — fail-closed posture.
+    cors_allowed_origins: str = ""
     ip_rate_limit_per_minute: int = 600
 
     # --- MVP segment gate ---
@@ -167,6 +183,69 @@ class Settings(BaseSettings):
     #     a nutrition tracker; user must use specialised tooling.
     mvp_blocked_conditions: str = "diabetes_t1"
     mvp_blocked_regions: str = "us"
+
+    @field_validator("database_url")
+    @classmethod
+    def _validate_database_url(cls, v: str) -> str:
+        """Fail loud on missing or wrong-driver DATABASE_URL.
+
+        The hardcoded default removed on 2026-06-04 caused a silent fallback
+        in prod when the Dokploy panel env var failed to propagate to the
+        container. The app booted with `nova:novapass@db:5432/nova` and then
+        died at first query with `password authentication failed for user
+        "nova"`. With this validator the error surfaces at boot instead.
+        """
+        if not v:
+            raise ValueError(
+                "DATABASE_URL env var is REQUIRED — no fallback default. "
+                "Set it in the Dokploy panel (or .env for local dev)."
+            )
+        if not v.startswith("postgresql+asyncpg://"):
+            scheme = v.split("://", 1)[0] if "://" in v else "<no-scheme>"
+            raise ValueError(
+                f"DATABASE_URL must use the asyncpg driver "
+                f"('postgresql+asyncpg://…'); got scheme '{scheme}://'."
+            )
+        return v
+
+    @field_validator("redis_url")
+    @classmethod
+    def _validate_redis_url(cls, v: str) -> str:
+        """Fail loud on missing or wrong-scheme REDIS_URL.
+
+        Hardcoded `redis://redis:6379/0` default removed on 2026-06-04 — same
+        rationale as DATABASE_URL: silent fallback hid Dokploy env propagation
+        failures (boot succeeded against a phantom `redis` hostname, every
+        Redis call then 500'd at runtime).
+        """
+        if not v:
+            raise ValueError(
+                "REDIS_URL env var is REQUIRED — no fallback default. "
+                "Set it in the Dokploy panel (or .env for local dev)."
+            )
+        if not (v.startswith("redis://") or v.startswith("rediss://")):
+            scheme = v.split("://", 1)[0] if "://" in v else "<no-scheme>"
+            raise ValueError(
+                f"REDIS_URL must use redis:// or rediss:// scheme; "
+                f"got '{scheme}://'."
+            )
+        return v
+
+    @field_validator("billing_success_url", "billing_cancel_url")
+    @classmethod
+    def _validate_billing_url(cls, v: str) -> str:
+        """Fail loud on missing or non-HTTPS Stripe redirect URLs."""
+        if not v:
+            raise ValueError(
+                "BILLING_SUCCESS_URL / BILLING_CANCEL_URL env vars are "
+                "REQUIRED — no fallback default. Set them in the Dokploy "
+                "panel (or .env for local dev)."
+            )
+        if not v.startswith("https://"):
+            raise ValueError(
+                f"Billing redirect URLs must use https://; got '{v[:40]}…'."
+            )
+        return v
 
     @property
     def mvp_blocked_conditions_set(self) -> frozenset[str]:

@@ -261,6 +261,29 @@ REJECT all of: pills, capsules, powders in containers, supplements, vitamins, pl
 
 ## 🔔 Session decisions log
 
+### Session 2026-06-04 — Pillow movido a runtime deps
+
+Critical fix: Pillow estaba en [dev] solamente, pero vision `_detect_detail_level` fallback lo usa en runtime. En prod Docker sin Pillow → fallback fail → cost 9x.
+
+Movido a runtime dependencies. Dev tests preserve uso. Runtime container ahora tiene Pillow disponible para fallback.
+
+### Session 2026-06-04 — Config fail-loud — remove dummy DATABASE_URL default
+
+Bug: `app/core/config.py:31` `database_url` had hardcoded default `postgresql+asyncpg://nova:novapass@db:5432/nova`. When the Dokploy panel `DATABASE_URL` env var failed to propagate to the container, Pydantic Settings silently used this dummy and the app booted, then died at first query with `password authentication failed for user "nova"` (managed DB expects `postgres@…`). Silent fallback masked a deploy-pipeline bug.
+
+Fix: removed default → field is now required. Added `@field_validator` on `database_url` that rejects empty values and any driver other than `postgresql+asyncpg://`. Pydantic ValidationError is raised at `get_settings()` time, i.e. on app boot, so the failure is loud and immediate.
+
+Files touched:
+- `app/core/config.py` — removed default, added `field_validator` (mypy-strict clean).
+- `.env.example` — added REQUIRED comment on DATABASE_URL.
+- `tests/conftest.py` — `os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://test:test@localhost:5432/test")` at import time so unit tests that call `get_settings()` keep working.
+
+Audit of other vars (kept untouched, justified):
+- `redis_url`, `jwt_*_path`, `openai_api_key`, `stripe_*`, `resend_api_key`, OAuth ids — empty/local-style defaults are intentional feature gates (feature OFF when unset). They do NOT silently authenticate against the wrong external service the way `database_url` did.
+- Surgical change per CLAUDE.md "cirugía mínima" directive.
+
+Owner manual next step: redeploy and verify Dokploy panel `DATABASE_URL` actually propagates. If propagation is still broken, the container will now fail at boot with a clear ValidationError instead of running with wrong credentials.
+
 ### Session 2026-06-04 — Stripe + MercadoPago SDKs replaced with httpx raw
 
 Team API expert consensus: SDKs sync-in-async = event loop block.
@@ -549,6 +572,57 @@ Owner manual TODO:
 - Confirm Dokploy Domain config matches (done per screenshot)
 - Update Stripe + MercadoPago webhook URLs in their respective dashboards to `api.ms-tech-stack.cloud/webhooks/*`
 - Rotate any production secret previously tied to `nova-nutrition.com` if applicable
+
+### Session 2026-06-04 — Hardcoded defaults purge (continuación)
+
+Per broader audit, eliminados 3 hardcoded defaults adicionales (Category B):
+- `redis_url`: removed fallback `redis://redis:6379/0`, ahora REQUIRED + validator (scheme redis:// | rediss://)
+- `cors_allowed_origins`: default `""` (deny-all) en lugar de hostname hardcoded
+- Billing success/cancel URLs: movidos a `Settings.billing_success_url` / `billing_cancel_url` env-driven (REQUIRED + https:// validator); `CheckoutBody` schema ahora opcional con fallback a settings
+
+Files modified:
+- `app/core/config.py` (redis_url required, validators added, billing_*_url fields, cors default "")
+- `app/billing/router.py` (CheckoutBody optional + handler reads settings)
+- `.env.example` (REDIS_URL/CORS/BILLING_*_URL comments + defaults)
+- `tests/conftest.py` (env setdefault for REDIS_URL + BILLING_*_URL so unit tests don't break)
+
+Verify:
+- Unit suite: 884 pass / 3 pre-existing fails (vision detail tests, idénticos al baseline pre-change) → zero regresiones
+- Happy path Settings load: `OK redis://localhost '' https://x.com/s`
+- Fail-loud on missing REDIS_URL: `ValidationError - redis_url Field required` (boot blocks)
+
+Cero hardcoded credentials/URLs sensible-defaults restantes en config. App ahora fail-loud si Dokploy env vars no propagan (mismo modelo que DATABASE_URL).
+
+---
+
+### Session 2026-06-04 — alembic.ini hardcoded URL purge
+
+Bug: `alembic.ini` line 4 had `sqlalchemy.url = postgresql+asyncpg://nova:novapass@db:5432/nova` hardcoded. `migrations/env.py` never overrode it, so any boot path that didn't pre-set `-x sqlalchemy.url=...` (Docker entrypoint included) silently fell through to the hardcoded URL, producing `password authentication failed for user "nova"` in prod when DB creds rotated.
+
+Fix:
+1. Emptied `alembic.ini:4` (`sqlalchemy.url =`) with comment pointing to env.py.
+2. `migrations/env.py` now imports `app.core.config.get_settings` and calls `config.set_main_option("sqlalchemy.url", get_settings().database_url)` right after `fileConfig`. Alembic always reads `DATABASE_URL` from env via Settings (single source of truth).
+
+Audit of other config files for hardcoded creds (`*.ini/cfg/toml/yaml/yml/sh/env*`):
+- `.env.example:11` — `DATABASE_URL=postgresql+asyncpg://nova:novapass@db:5432/nova` (intended template, leave as-is).
+- `scripts/restore.sh:5-6` — only inside a usage docstring comment.
+- `docker-compose*.yml` — only `/var/lib/postgresql/data` volume mount strings; no creds.
+- No other ini/cfg/toml hits.
+
+Verification:
+- `alembic.ini` URL now `''` (confirmed via `Config.get_main_option`).
+- `ScriptDirectory.from_config` loads cleanly with `DATABASE_URL` from env; head = `0013_leaderboard_anti_cheat`.
+- `pytest tests/unit/` = 884 passed, 3 pre-existing vision cascade failures (unrelated).
+
+---
+
+### Session 2026-06-04 — Vision detail regression fix
+
+Fix `_detect_detail_level` in `app/vision/infrastructure/openai_vision.py`. Root cause: pyvips lib not installed in dev env (macOS), so the bare-except branch always returned `"high"` for every image, defeating the low/high threshold. In prod (Docker) pyvips IS installed so no observable regression yet, but tests were red and any pyvips load failure in prod would have silently 9x'd vision cost when `VISION_CASCADE_ENABLED` flips on (ADR-0004 cost cap).
+
+Fix: added Pillow fallback between pyvips and the final `"high"` safety net. Pillow is already a dev/test dep and present in prod image. Final `"high"` reserved for genuinely undecodable bytes (test `test_unknown_bytes_defaults_high` still green).
+
+Result: 3 red tests (`test_small_image_picks_low`, `test_one_short_side_picks_low`, `test_small_image_uses_low_detail`) now pass. Full unit suite 887/887 green. ruff + mypy --strict clean. `VISION_CASCADE_ENABLED` can be flipped on safely once golden-set calibration lands.
 
 ---
 

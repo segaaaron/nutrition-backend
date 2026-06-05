@@ -15,6 +15,7 @@ from app.billing.use_cases import (
     HandleWebhook,
     StartTrial,
 )
+from app.core.config import get_settings
 from app.core.event_bus import get_event_bus
 from app.identity.presentation.dependencies import CurrentUserDep, SessionDep
 
@@ -25,8 +26,10 @@ class CheckoutBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     plan: Plan = Plan.PREMIUM
-    success_url: str = "https://app.ms-tech-stack.cloud/billing/success"
-    cancel_url: str = "https://app.ms-tech-stack.cloud/billing/cancel"
+    # Optional client overrides; falls back to Settings.billing_*_url when
+    # omitted. Hardcoded hostname defaults removed 2026-06-04 (env-driven).
+    success_url: str | None = None
+    cancel_url: str | None = None
 
 
 @router.post("/billing/checkout", status_code=status.HTTP_200_OK)
@@ -35,12 +38,15 @@ async def checkout(
     current_user: CurrentUserDep,
     session: SessionDep,
 ) -> dict:
+    settings = get_settings()
+    success_url = body.success_url or settings.billing_success_url
+    cancel_url = body.cancel_url or settings.billing_cancel_url
     uc = CreateCheckout(session=session)
     return await uc(
         user_id=current_user,
         plan=body.plan,
-        success_url=body.success_url,
-        cancel_url=body.cancel_url,
+        success_url=success_url,
+        cancel_url=cancel_url,
     )
 
 

@@ -24,6 +24,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
+import io
 import json
 from dataclasses import dataclass
 from decimal import Decimal
@@ -174,17 +175,32 @@ def _get_client() -> AsyncOpenAI:
 
 
 def _detect_detail_level(image_bytes: bytes, threshold_px: int) -> DetailLevel:
-    """Auto-pick OpenAI `detail` param using pyvips.
+    """Auto-pick OpenAI `detail` param.
 
-    pyvips is the runtime image dep (see app/imaging). Failure to decode
-    (e.g. unknown header) is treated as "high" — conservative for accuracy.
+    Primary: pyvips (fast, runtime dep — see app/imaging).
+    Fallback: Pillow (always available; required so dev envs without
+    libvips installed still pick correct detail and don't regress to
+    "high" on every call — that would 9x vision cost when cascade
+    is enabled, ADR-0004).
+    Final fallback (both fail / undecodable bytes): "high" — conservative
+    for accuracy.
     """
+    w: int | None = None
+    h: int | None = None
     try:
         import pyvips  # local import: avoid cold-start cost on import
 
         img = pyvips.Image.new_from_buffer(image_bytes, "", access="sequential")
         w, h = img.width, img.height
     except Exception:  # noqa: BLE001
+        try:
+            from PIL import Image as _PILImage
+
+            with _PILImage.open(io.BytesIO(image_bytes)) as _pim:
+                w, h = _pim.size
+        except Exception:  # noqa: BLE001
+            return "high"
+    if w is None or h is None:
         return "high"
     if w < threshold_px or h < threshold_px:
         return "low"

@@ -12,7 +12,25 @@ Integration gating (D4, Sprint 3):
 
 from __future__ import annotations
 
+import os
+
 import pytest
+
+# Inject required env vars BEFORE any `app.core.config` import. Since
+# DATABASE_URL is now a required Settings field with a fail-loud validator
+# (no fallback default), every test that constructs Settings() needs it set.
+# Tests that care about the specific value (e.g. integration suites using
+# testcontainers) override it explicitly via monkeypatch / fixtures.
+os.environ.setdefault(
+    "DATABASE_URL",
+    "postgresql+asyncpg://test:test@localhost:5432/test",
+)
+# Same fail-loud requirement now applies to REDIS_URL and the billing redirect
+# URLs (hardcoded defaults removed 2026-06-04). Tests that exercise the real
+# settings construction need these set; specific suites override as needed.
+os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
+os.environ.setdefault("BILLING_SUCCESS_URL", "https://test.example/success")
+os.environ.setdefault("BILLING_CANCEL_URL", "https://test.example/cancel")
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:

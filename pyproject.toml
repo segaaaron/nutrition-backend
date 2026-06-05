@@ -38,6 +38,13 @@ dependencies = [
     # Debian-slim + brew). Trade-off: one system dep (libvips42 + libheif1)
     # vs two Python deps (Pillow + pillow-heif). See vips_compressor.py.
     "pyvips>=2.2,<3",
+    # Pillow is runtime-required: vision `_detect_detail_level` uses PIL as
+    # a fallback decoder to read image dimensions when pyvips cannot (e.g.
+    # in-process test envs, or when libvips lacks a format plugin). Without
+    # Pillow in prod, the fallback raises and detail_level defaults to
+    # "high" → ~9x OpenAI Vision token cost. Also used by dev test fixtures
+    # to synthesise PNG/JPEG. See app/vision/infrastructure/openai_vision.py.
+    "pillow>=12,<13",
     # ai
     "openai>=1.50,<2",
     "tiktoken>=0.8,<0.9",
@@ -57,9 +64,6 @@ dev = [
     "fakeredis>=2.26,<3",
     "ruff>=0.7,<0.8",
     "mypy>=1.13,<2",
-    # Pillow is dev-only: used by tests to synthesise PNG/JPEG test images.
-    # Runtime image pipeline is pyvips. Do NOT promote to runtime deps.
-    "pillow>=12,<13",
 ]
 
 [build-system]
