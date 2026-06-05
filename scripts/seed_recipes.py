@@ -221,10 +221,13 @@ async def main() -> int:
                     "prep_min": prep_min,
                     "instructions_en": instructions,
                     "instructions_translations": instructions_translations,
-                    "regions": "{" + ",".join(regions) + "}",
-                    "target_goals": "{" + ",".join(target_goals) + "}",
-                    "recommended": "{" + ",".join(recommended) + "}",
-                    "contraindicated": "{" + ",".join(contraindicated) + "}",
+                    # asyncpg requires Python list for array params, NOT string
+                    # literals like '{latam}'. psycopg2 was lenient, asyncpg is
+                    # strict. Server-side CAST(... AS enum[]) handles the type.
+                    "regions": list(regions),
+                    "target_goals": list(target_goals),
+                    "recommended": list(recommended),
+                    "contraindicated": list(contraindicated),
                     "source_batch": source_batch,
                     "source_catalog": source_batch,
                 }
