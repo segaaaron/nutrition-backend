@@ -742,6 +742,16 @@ Decisions:
 
 ---
 
+### Session 2026-06-04 — Alembic version_num truncation (round 3 — FINAL)
+
+Diagnóstico: `version_table_pk_type=String(255)` NO honorado por alembic 1.14.1 → default VARCHAR(32). Conditional ALTER IF EXISTS skipped en fresh DB después transactional rollback.
+
+Fix: `CREATE TABLE IF NOT EXISTS alembic_version` con VARCHAR(255) explícito en preflight + ALTER seguridad. Both idempotent.
+
+Garantía: tabla siempre VARCHAR(255) regardless de fresh/existing DB o alembic config bugs.
+
+---
+
 ## 🔔 Active reminders for next assistant
 
 ### Sprint S0-residual security backlog (frozen)

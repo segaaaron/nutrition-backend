@@ -35,14 +35,14 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
+_CREATE_ALEMBIC_VERSION_WIDE = (
+    "CREATE TABLE IF NOT EXISTS alembic_version ("
+    "version_num VARCHAR(255) NOT NULL, "
+    "CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)"
+    ");"
+)
 _ALTER_ALEMBIC_VERSION_WIDTH = (
-    "DO $$ BEGIN "
-    "IF EXISTS (SELECT 1 FROM information_schema.tables "
-    "WHERE table_name = 'alembic_version') THEN "
-    "ALTER TABLE alembic_version "
-    "ALTER COLUMN version_num TYPE VARCHAR(255); "
-    "END IF; "
-    "END $$;"
+    "ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(255);"
 )
 
 
@@ -58,14 +58,20 @@ def do_run_migrations(connection: Connection) -> None:
 
 
 def _preflight_widen_alembic_version(connection: Connection) -> None:
-    """Widen alembic_version.version_num to VARCHAR(255) in its own committed tx.
+    """Ensure alembic_version table exists with VARCHAR(255) version_num column.
+
+    Two-step guard (both idempotent):
+    1. CREATE TABLE IF NOT EXISTS with VARCHAR(255) -> fresh DBs (including those
+       left tableless after a transactional rollback) get the correct type
+       immediately, sidestepping alembic 1.14.1 ignoring `version_table_pk_type`.
+    2. ALTER COLUMN to VARCHAR(255) -> pre-existing DBs created with the default
+       VARCHAR(32) get widened.
 
     MUST commit before Alembic opens its own transaction and runs
-    `UPDATE alembic_version SET version_num=...`. If we piggy-back on the same
-    connection-scoped transaction that Alembic later uses, the ALTER is not yet
-    visible to the UPDATE and the existing VARCHAR(32) column still rejects long
-    revision IDs. Hence: separate connection, explicit commit, then close.
+    `UPDATE alembic_version SET version_num=...`; otherwise the change is not
+    yet visible and long revision IDs are rejected.
     """
+    connection.execute(text(_CREATE_ALEMBIC_VERSION_WIDE))
     connection.execute(text(_ALTER_ALEMBIC_VERSION_WIDTH))
     connection.commit()
 
