@@ -626,6 +626,20 @@ Result: 3 red tests (`test_small_image_picks_low`, `test_one_short_side_picks_lo
 
 ---
 
+### Session 2026-06-04 — Compose env substitution bug fix
+
+Bug: `docker-compose.yml` + `docker-compose.mvp.yml` declared dozens of `${VAR}` substitutions with NO `:-default` fallback. When the Dokploy panel didn't set the var, compose injected an empty string `""` into the container env. Pydantic Settings then failed `int_parsing` / `float_parsing` / `bool_parsing` / `Literal` validation for fields like `DB_POOL_SIZE`, `COST_CAP_ALARM_PCT`, `EMAIL_ENABLED`, `DEFAULT_LOCALE` etc. → container CrashLoopBackOff at boot.
+
+Fix: removed every `${VAR}` line where the field has a safe code default AND is non-`str`-typed (or has a non-empty `str` default we don't want overridden by `""`). Pydantic Settings, when no env var is present at all, uses the code default — only when the var is set to `""` does it try to parse `""` and explode. Removing the line restores correct behaviour.
+
+Vars removed from BOTH compose files (api + worker + mvp): `LOG_LEVEL`, `APP_NAME`, `APP_VERSION`, `DB_POOL_SIZE`, `DB_MAX_OVERFLOW`, `DB_POOL_RECYCLE_SECONDS`, `JWT_ACCESS_TTL_SECONDS`, `JWT_REFRESH_TTL_SECONDS`, `JWT_ISSUER`, `JWT_AUDIENCE`, `OPENAI_VISION_MODEL`, `OPENAI_CHAT_MODEL`, `OPENAI_EMBED_MODEL`, `OPENAI_EMBED_DIM`, `COST_CAP_USD_PER_USER_PER_DAY`, `COST_CAP_USD_PER_ORG_PER_DAY`, `COST_CAP_ALARM_PCT`, `RATE_LIMIT_AUTH_PER_MIN`, `RATE_LIMIT_AI_PER_MIN`, `RATE_LIMIT_API_PER_MIN`, `WEB_MAX_CONCURRENT_REQUESTS`, `EMAIL_ENABLED`, `SUPPORTED_LOCALES`, `DEFAULT_LOCALE`, `DEFAULT_REGION`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`, `ARQ_JOB_TIMEOUT_SECONDS`, `ARQ_KEEP_RESULT_SECONDS`, `ARQ_MAX_QUEUE_DEPTH`.
+
+Vars KEPT (required runtime, panel-required, or already have `:-fallback`): `ENV`, `DATABASE_URL`, `REDIS_URL`, `JWT_PRIVATE_KEY_PATH`, `JWT_PUBLIC_KEY_PATH`, `MVP_BLOCKED_CONDITIONS`, `MVP_BLOCKED_REGIONS`, OAuth ids, OpenAI/Resend/Stripe/MercadoPago keys, `CORS_ALLOWED_ORIGINS`, `BILLING_SUCCESS_URL`, `BILLING_CANCEL_URL`, `WEB_CONCURRENCY` / `ARQ_MAX_JOBS` (hardcoded per profile).
+
+Latent crash also fixed: `BILLING_SUCCESS_URL` / `BILLING_CANCEL_URL` were REQUIRED by `config.py` validators but absent from BOTH compose files. Added explicitly to api + mvp api environments. Without this, prod boots would have died at first `Settings()` instantiation regardless of Dokploy panel state.
+
+---
+
 ## 🔔 Active reminders for next assistant
 
 ### Sprint S0-residual security backlog (frozen)

@@ -27,53 +27,41 @@ services:
     build:
       context: .
       dockerfile: docker/api.Dockerfile
+    # Env-var pass-through policy (2026-06-04 fix):
+    #   Only declare vars that are REQUIRED at runtime or that the Dokploy
+    #   panel MUST be able to override. Optional knobs with safe defaults in
+    #   app/core/config.py are NOT listed here — declaring `${VAR}` without a
+    #   `:-fallback` injects empty strings when the panel doesn't set the var,
+    #   which breaks Pydantic Settings parsing for int/float/bool/Literal
+    #   fields (ValidationError: int_parsing for `""`). Letting Pydantic see
+    #   "no env var present" makes it use the code default instead.
     environment:
+      # REQUIRED (validators fail-loud on missing / empty in config.py)
       ENV: ${ENV}
-      LOG_LEVEL: ${LOG_LEVEL}
-      APP_NAME: ${APP_NAME}
-      APP_VERSION: ${APP_VERSION}
       DATABASE_URL: ${DATABASE_URL}
-      DB_POOL_SIZE: ${DB_POOL_SIZE}
-      DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW}
-      DB_POOL_RECYCLE_SECONDS: ${DB_POOL_RECYCLE_SECONDS}
       REDIS_URL: ${REDIS_URL}
+      BILLING_SUCCESS_URL: ${BILLING_SUCCESS_URL}
+      BILLING_CANCEL_URL: ${BILLING_CANCEL_URL}
+      # OPTIONAL with non-empty fallback (safe — never resolves to "")
       JWT_PRIVATE_KEY_PATH: ${JWT_PRIVATE_KEY_PATH:-/secrets/jwt.pem}
       JWT_PUBLIC_KEY_PATH: ${JWT_PUBLIC_KEY_PATH:-/secrets/jwt.pub}
-      JWT_ACCESS_TTL_SECONDS: ${JWT_ACCESS_TTL_SECONDS}
-      JWT_REFRESH_TTL_SECONDS: ${JWT_REFRESH_TTL_SECONDS}
-      JWT_ISSUER: ${JWT_ISSUER}
-      JWT_AUDIENCE: ${JWT_AUDIENCE}
+      MVP_BLOCKED_CONDITIONS: ${MVP_BLOCKED_CONDITIONS:-diabetes_t1}
+      MVP_BLOCKED_REGIONS: ${MVP_BLOCKED_REGIONS:-us}
+      # Secrets / panel-managed strings (empty "" is an acceptable Pydantic
+      # value here — field type is `str` with default "").
       GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID}
       APPLE_OAUTH_CLIENT_ID: ${APPLE_OAUTH_CLIENT_ID}
       APPLE_OAUTH_TEAM_ID: ${APPLE_OAUTH_TEAM_ID}
       APPLE_OAUTH_KEY_ID: ${APPLE_OAUTH_KEY_ID}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OPENAI_VISION_MODEL: ${OPENAI_VISION_MODEL}
-      OPENAI_CHAT_MODEL: ${OPENAI_CHAT_MODEL}
-      OPENAI_EMBED_MODEL: ${OPENAI_EMBED_MODEL}
-      OPENAI_EMBED_DIM: ${OPENAI_EMBED_DIM}
-      COST_CAP_USD_PER_USER_PER_DAY: ${COST_CAP_USD_PER_USER_PER_DAY}
-      COST_CAP_USD_PER_ORG_PER_DAY: ${COST_CAP_USD_PER_ORG_PER_DAY}
-      COST_CAP_ALARM_PCT: ${COST_CAP_ALARM_PCT}
-      RATE_LIMIT_AUTH_PER_MIN: ${RATE_LIMIT_AUTH_PER_MIN}
-      RATE_LIMIT_AI_PER_MIN: ${RATE_LIMIT_AI_PER_MIN}
-      RATE_LIMIT_API_PER_MIN: ${RATE_LIMIT_API_PER_MIN}
-      WEB_CONCURRENCY: "2"
-      WEB_MAX_CONCURRENT_REQUESTS: ${WEB_MAX_CONCURRENT_REQUESTS}
-      EMAIL_ENABLED: ${EMAIL_ENABLED}
       RESEND_API_KEY: ${RESEND_API_KEY}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
-      SUPPORTED_LOCALES: ${SUPPORTED_LOCALES}
-      DEFAULT_LOCALE: ${DEFAULT_LOCALE}
-      DEFAULT_REGION: ${DEFAULT_REGION}
-      MVP_BLOCKED_CONDITIONS: ${MVP_BLOCKED_CONDITIONS:-diabetes_t1}
-      MVP_BLOCKED_REGIONS: ${MVP_BLOCKED_REGIONS:-us}
       STRIPE_API_KEY: ${STRIPE_API_KEY}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
       MERCADOPAGO_ACCESS_TOKEN: ${MERCADOPAGO_ACCESS_TOKEN}
       MERCADOPAGO_WEBHOOK_SECRET: ${MERCADOPAGO_WEBHOOK_SECRET}
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
-      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME}
+      # Hardcoded uvicorn sizing for this VPS profile (overrides code default).
+      WEB_CONCURRENCY: "2"
     volumes:
       # JWT key files mounted from host (Dokploy bind mount).
       # Owner places keys at /var/dokploy/secrets/nova/jwt.{pem,pub} on VPS.
@@ -124,30 +112,19 @@ services:
     build:
       context: .
       dockerfile: docker/worker.Dockerfile
+    # See env-var pass-through policy comment on `api.environment` above.
     environment:
+      # REQUIRED
       ENV: ${ENV}
-      LOG_LEVEL: ${LOG_LEVEL}
       DATABASE_URL: ${DATABASE_URL}
-      DB_POOL_SIZE: ${DB_POOL_SIZE}
-      DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW}
-      DB_POOL_RECYCLE_SECONDS: ${DB_POOL_RECYCLE_SECONDS}
       REDIS_URL: ${REDIS_URL}
+      BILLING_SUCCESS_URL: ${BILLING_SUCCESS_URL}
+      BILLING_CANCEL_URL: ${BILLING_CANCEL_URL}
+      # Secrets / panel-managed strings
       OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OPENAI_VISION_MODEL: ${OPENAI_VISION_MODEL}
-      OPENAI_CHAT_MODEL: ${OPENAI_CHAT_MODEL}
-      OPENAI_EMBED_MODEL: ${OPENAI_EMBED_MODEL}
-      OPENAI_EMBED_DIM: ${OPENAI_EMBED_DIM}
-      COST_CAP_USD_PER_USER_PER_DAY: ${COST_CAP_USD_PER_USER_PER_DAY}
-      COST_CAP_USD_PER_ORG_PER_DAY: ${COST_CAP_USD_PER_ORG_PER_DAY}
-      COST_CAP_ALARM_PCT: ${COST_CAP_ALARM_PCT}
-      EMAIL_ENABLED: ${EMAIL_ENABLED}
       RESEND_API_KEY: ${RESEND_API_KEY}
+      # Hardcoded worker sizing for this VPS profile.
       ARQ_MAX_JOBS: "2"
-      ARQ_JOB_TIMEOUT_SECONDS: ${ARQ_JOB_TIMEOUT_SECONDS}
-      ARQ_KEEP_RESULT_SECONDS: ${ARQ_KEEP_RESULT_SECONDS}
-      ARQ_MAX_QUEUE_DEPTH: ${ARQ_MAX_QUEUE_DEPTH}
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
-      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME}
     depends_on:
       db:
         condition: service_healthy
