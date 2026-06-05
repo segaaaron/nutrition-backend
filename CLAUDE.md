@@ -707,6 +707,32 @@ Tests: `887/887` unit pass (6.34s). Integration migration tests require Docker (
 
 ---
 
+### Session 2026-06-04 — alembic_version VARCHAR fix
+
+Bug: revision ID `0010_user_profile_onboarding_extensions` (38 chars) exceeds default VARCHAR(32) of `alembic_version` table. Migrations failed `UPDATE alembic_version SET version_num=...` with `StringDataRightTruncationError`.
+
+Fix: `migrations/env.py` `do_run_migrations` now executes idempotent `ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(255)` before each migration run (guarded by `information_schema.tables EXISTS` check for first-run safety). Also passes `version_table_pk_type=String(255)` to `context.configure` (Alembic 1.14.1 supports this) so fresh DBs create the table at VARCHAR(255) from the start. Accommodates descriptive revision IDs up to 255 chars. Backward-compatible — existing rows untouched.
+
+Files: `migrations/env.py` (3 lines added to imports, 18 lines expanded in `do_run_migrations`).
+
+---
+
+### Session 2026-06-04 — CI Postgres image swap pgvector → timescaledb-ha
+
+CI integration job usaba `pgvector/pgvector:pg16` que NO incluye TimescaleDB. Migration 0001 hace `CREATE EXTENSION timescaledb` + `create_hypertable` → silently failing o skipping en CI → migration bugs no caught antes prod.
+
+Fix Opción 1 (owner pre-authorized): swap a `timescale/timescaledb-ha:pg16` (incluye timescaledb + pgvector pre-instalados). Migrations corren contra image idéntica a prod. CI ahora catch asyncpg-incompat patterns antes merge.
+
+Alembic step `alembic upgrade head` ya presente en job (línea 88-89), no requirió añadir.
+
+Único hit `pgvector/pgvector` en repo era el de tests.yml — no hay otros compose files afectados.
+
+Trade-off: image más grande ~1GB pull (~30s CI extra). Aceptable vs detección preventiva de migration bugs.
+
+Files: `.github/workflows/tests.yml` (1 línea).
+
+---
+
 ## 🔔 Active reminders for next assistant
 
 ### Sprint S0-residual security backlog (frozen)

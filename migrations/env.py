@@ -5,7 +5,7 @@ import asyncio
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import pool
+from sqlalchemy import String, pool, text
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
@@ -36,7 +36,26 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    # Pre-flight: extend alembic_version.version_num to accommodate long IDs.
+    # Default VARCHAR(32) too small for descriptive migration names like
+    # '0010_user_profile_onboarding_extensions' (38 chars). Idempotent.
+    connection.execute(
+        text(
+            "DO $$ BEGIN "
+            "IF EXISTS (SELECT 1 FROM information_schema.tables "
+            "WHERE table_name = 'alembic_version') THEN "
+            "ALTER TABLE alembic_version "
+            "ALTER COLUMN version_num TYPE VARCHAR(255); "
+            "END IF; "
+            "END $$;"
+        )
+    )
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        # Fresh DBs: create alembic_version with VARCHAR(255) from the start.
+        version_table_pk_type=String(255),
+    )
     with context.begin_transaction():
         context.run_migrations()
 
