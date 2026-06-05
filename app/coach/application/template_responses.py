@@ -1,13 +1,25 @@
 """Camino 1 — deterministic template responses (zero LLM cost, 40% traffic target).
 
-Each handler takes a `(user_id, session, locale)` triple and returns a string
-ready to render. None ⇒ template can't compute (fall through to Camino 3).
+Each handler takes a ``(user_id, session, locale)`` triple and returns a string
+ready to render. ``None`` ⇒ template can't compute (fall through to Camino 3).
+
+Locale-aware messages live in ``MESSAGES_ES`` / ``MESSAGES_EN`` module-level
+dicts (pattern: ``app/plan/domain/water_view.py:_MESSAGES``). Adding a new
+locale = add a row in :data:`MESSAGES_REGISTRY`, no code branches.
+
+Hot-path: ``MESSAGES_REGISTRY[locale][key]`` is an O(1) dict lookup, no DB.
+Per plan D9, the Translator (DB-backed) is reserved for closed vocabularies
+(allergens, conditions, goals) — NOT for these template strings.
+
+Tone contract: every message complies with ``docs/product/COACH_TONE.md`` —
+positive framing, forward-action, no punitive language.
 """
 
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from datetime import UTC, date
+from typing import Final
 from uuid import UUID
 
 from sqlalchemy import text
@@ -15,8 +27,101 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.coach.domain.value_objects import Intent
 
+# Direct submodule import — avoid the ``app.shared.i18n`` package facade
+# which pulls in FastAPI-only ``fastapi_dep`` (and via identity, this very
+# application module) creating an import cycle.
+from app.shared.i18n.locale_resolver import Locale
 
-async def view_today_plan(user_id: UUID, session: AsyncSession, locale: str) -> str | None:
+# ---------------------------------------------------------------------------
+# Locale-aware message catalogue
+# ---------------------------------------------------------------------------
+#
+# Keys are stable identifiers consumed by render helpers below. Both dicts
+# MUST have the SAME key set (enforced by
+# ``tests/unit/coach/test_template_parity.py``). To add a locale, copy the
+# whole dict and translate each value; no code change beyond
+# :data:`MESSAGES_REGISTRY`.
+
+MESSAGES_ES: Final[dict[str, str]] = {
+    # view_today_plan
+    "today_plan_header": "Tu plan de hoy:\n",
+    "today_plan_line": "- {meal_time}: {name} ({kcal} kcal)",
+    # next_meal
+    "next_meal": "Tu próxima comida: {meal_time} → {name} ({kcal} kcal)",
+    # streak_status
+    "streak_empty": "Aún no tienes racha activa. ¡Empieza hoy! 🌱",
+    "streak_header": "Rachas:\n",
+    "streak_line": "{kind}: {value} días",
+    # water_progress
+    "water_goal_hit": "¡Meta cumplida! {total} ml de {goal} ml ({pct}%). 💪",
+    "water_in_progress": (
+        "Vas {total} ml de {goal} ml ({pct}%), buen ritmo. "
+        "Te faltan {remaining} ml para cerrar el día."
+    ),
+    "water_no_goal": "{total} ml hoy.",
+    # protein_remaining
+    "protein_remaining": "Te quedan ~{remaining} g de proteína hoy ({consumed}/{goal}).",
+    # mark_water
+    "water_logged": "Registré 250 ml de agua. ¡Sigue así! 💪",
+    # placeholder for missing meal name
+    "meal_name_unknown": "—",
+}
+
+MESSAGES_EN: Final[dict[str, str]] = {
+    # view_today_plan
+    "today_plan_header": "Today's plan:\n",
+    "today_plan_line": "- {meal_time}: {name} ({kcal} kcal)",
+    # next_meal
+    "next_meal": "Next meal: {meal_time} → {name} ({kcal} kcal)",
+    # streak_status
+    "streak_empty": "No active streak yet. Start today! 🌱",
+    "streak_header": "Streaks:\n",
+    "streak_line": "{kind}: {value} days",
+    # water_progress
+    "water_goal_hit": "Goal hit! {total} ml of {goal} ml ({pct}%). 💪",
+    "water_in_progress": (
+        "You're at {total} ml of {goal} ml ({pct}%), nice pace. "
+        "{remaining} ml to close out the day."
+    ),
+    "water_no_goal": "{total} ml today.",
+    # protein_remaining
+    "protein_remaining": "~{remaining} g of protein remaining ({consumed}/{goal}).",
+    # mark_water
+    "water_logged": "Logged 250 ml of water. Keep it up! 💪",
+    # placeholder for missing meal name
+    "meal_name_unknown": "—",
+}
+
+MESSAGES_REGISTRY: Final[dict[Locale, dict[str, str]]] = {
+    "es": MESSAGES_ES,
+    "en": MESSAGES_EN,
+}
+
+
+def _render(locale: Locale, key: str, /, **kwargs: object) -> str:
+    """Lookup + format a localized message.
+
+    Args:
+        locale: One of :data:`app.shared.i18n.SUPPORTED_LOCALES`.
+        key: Message key present in every registry dict (parity-tested).
+        **kwargs: Substitution values for ``str.format``.
+
+    Returns:
+        Rendered message string.
+    """
+    # Defensive fallback to ES if the caller smuggled an unsupported locale
+    # past the type checker (e.g. via ``cast``). Keeps the contract that
+    # this function never raises ``KeyError`` on locale.
+    catalogue = MESSAGES_REGISTRY.get(locale) or MESSAGES_ES
+    return catalogue[key].format(**kwargs)
+
+
+# ---------------------------------------------------------------------------
+# Template handlers
+# ---------------------------------------------------------------------------
+
+
+async def view_today_plan(user_id: UUID, session: AsyncSession, locale: Locale) -> str | None:
     rows = (
         await session.execute(
             text(
@@ -35,11 +140,15 @@ async def view_today_plan(user_id: UUID, session: AsyncSession, locale: str) -> 
     ).all()
     if not rows:
         return None
-    lines = [f"- {r[0]}: {r[1] or '—'} ({r[2]} kcal)" for r in rows]
-    return ("Tu plan de hoy:\n" if locale == "es" else "Today's plan:\n") + "\n".join(lines)
+    unknown = _render(locale, "meal_name_unknown")
+    lines = [
+        _render(locale, "today_plan_line", meal_time=r[0], name=(r[1] or unknown), kcal=r[2])
+        for r in rows
+    ]
+    return _render(locale, "today_plan_header") + "\n".join(lines)
 
 
-async def next_meal(user_id: UUID, session: AsyncSession, locale: str) -> str | None:
+async def next_meal(user_id: UUID, session: AsyncSession, locale: Locale) -> str | None:
     row = (
         await session.execute(
             text(
@@ -60,15 +169,18 @@ async def next_meal(user_id: UUID, session: AsyncSession, locale: str) -> str | 
     ).first()
     if not row:
         return None
-    return (
-        f"Tu próxima comida: {row[0]} → {row[1] or '—'} ({row[2]} kcal)"
-        if locale == "es"
-        else f"Next meal: {row[0]} → {row[1] or '—'} ({row[2]} kcal)"
+    unknown = _render(locale, "meal_name_unknown")
+    return _render(
+        locale,
+        "next_meal",
+        meal_time=row[0],
+        name=(row[1] or unknown),
+        kcal=row[2],
     )
 
 
-async def streak_status(user_id: UUID, session: AsyncSession, locale: str) -> str | None:
-    row = (
+async def streak_status(user_id: UUID, session: AsyncSession, locale: Locale) -> str | None:
+    rows = (
         await session.execute(
             text(
                 """
@@ -78,17 +190,13 @@ async def streak_status(user_id: UUID, session: AsyncSession, locale: str) -> st
             {"uid": str(user_id)},
         )
     ).all()
-    if not row:
-        return (
-            "Aún no tienes racha activa. ¡Empieza hoy!"
-            if locale == "es"
-            else "No active streak yet."
-        )
-    parts = [f"{r[0]}: {r[1]} días" if locale == "es" else f"{r[0]}: {r[1]} days" for r in row]
-    return ("Rachas:\n" if locale == "es" else "Streaks:\n") + "\n".join(parts)
+    if not rows:
+        return _render(locale, "streak_empty")
+    parts = [_render(locale, "streak_line", kind=r[0], value=r[1]) for r in rows]
+    return _render(locale, "streak_header") + "\n".join(parts)
 
 
-async def water_progress(user_id: UUID, session: AsyncSession, locale: str) -> str | None:
+async def water_progress(user_id: UUID, session: AsyncSession, locale: Locale) -> str | None:
     from datetime import datetime
 
     today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -122,22 +230,19 @@ async def water_progress(user_id: UUID, session: AsyncSession, locale: str) -> s
         remaining = max(0, int(goal) - int(total))
         # Coach tone — positive framing, never punitive. See docs/product/COACH_TONE.md.
         if pct >= 100:
-            return (
-                f"¡Meta cumplida! {total} ml de {goal} ml ({pct}%). 💪"
-                if locale == "es"
-                else f"Goal hit! {total} ml of {goal} ml ({pct}%). 💪"
-            )
-        return (
-            f"Vas {total} ml de {goal} ml ({pct}%), buen ritmo. "
-            f"Te faltan {remaining} ml para cerrar el día."
-            if locale == "es"
-            else f"You're at {total} ml of {goal} ml ({pct}%), nice pace. "
-            f"{remaining} ml to close out the day."
+            return _render(locale, "water_goal_hit", total=total, goal=goal, pct=pct)
+        return _render(
+            locale,
+            "water_in_progress",
+            total=total,
+            goal=goal,
+            pct=pct,
+            remaining=remaining,
         )
-    return f"{total} ml hoy." if locale == "es" else f"{total} ml today."
+    return _render(locale, "water_no_goal", total=total)
 
 
-async def protein_remaining(user_id: UUID, session: AsyncSession, locale: str) -> str | None:
+async def protein_remaining(user_id: UUID, session: AsyncSession, locale: Locale) -> str | None:
     goal = (
         await session.execute(
             text(
@@ -166,14 +271,16 @@ async def protein_remaining(user_id: UUID, session: AsyncSession, locale: str) -
         or 0
     )
     remaining = max(0, int(goal) - int(consumed))
-    return (
-        f"Te quedan ~{remaining} g de proteína hoy ({consumed}/{goal})."
-        if locale == "es"
-        else f"~{remaining} g of protein remaining ({consumed}/{goal})."
+    return _render(
+        locale,
+        "protein_remaining",
+        remaining=remaining,
+        consumed=consumed,
+        goal=goal,
     )
 
 
-async def mark_water(user_id: UUID, session: AsyncSession, locale: str) -> str | None:
+async def mark_water(user_id: UUID, session: AsyncSession, locale: Locale) -> str | None:
     # Imperative template — registers default 250ml.
     await session.execute(
         text(
@@ -183,10 +290,10 @@ async def mark_water(user_id: UUID, session: AsyncSession, locale: str) -> str |
         ),
         {"uid": str(user_id)},
     )
-    return "Registré 250 ml de agua. ¡Sigue así!" if locale == "es" else "Logged 250 ml of water."
+    return _render(locale, "water_logged")
 
 
-TEMPLATES: dict[Intent, Callable[[UUID, AsyncSession, str], Awaitable[str | None]]] = {
+TEMPLATES: Final[dict[Intent, Callable[[UUID, AsyncSession, Locale], Awaitable[str | None]]]] = {
     Intent.VIEW_TODAY_PLAN: view_today_plan,
     Intent.NEXT_MEAL: next_meal,
     Intent.STREAK_STATUS: streak_status,

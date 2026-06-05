@@ -29,6 +29,7 @@ from app.coach.infrastructure.repositories import SqlConversationRepository
 from app.core.event_bus import EventBus
 from app.core.logging import get_logger
 from app.recipes.infrastructure.openai_embedder import OpenAIEmbedder
+from app.shared.i18n.locale_resolver import Locale
 
 log = get_logger("coach.chat")
 
@@ -44,26 +45,48 @@ COACH_MEDICAL_REFUSE = Counter(
 
 FAQ_DISTANCE_MAX = 0.25
 
+# Refuse templates — COACH_TONE.md compliance (medical + off-topic must
+# refuse "con calidez", never dry/clinical). INJECTION stays terse on purpose
+# (security signal, deliberate dryness — see OWASP LLM01).
 MEDICAL_TEMPLATE_ES = (
-    "Para esa duda médica consulta a tu médico. Yo solo puedo ayudarte con " "nutrición y el plan."
+    "Eso lo charlamos mejor con tu nutricionista o médico — yo te ayudo "
+    "con tu plan diario y macros, ¿seguimos por ahí?"
 )
 MEDICAL_TEMPLATE_EN = (
-    "For that medical question please consult your doctor. I can only help "
-    "with nutrition and your plan."
+    "That's better discussed with your nutritionist or doctor — I'm here "
+    "to help with your daily plan and macros, want to keep going there?"
 )
 
 OFFTOPIC_TEMPLATE_ES = (
-    "Solo puedo ayudarte con nutrición, recetas y tu plan. Pregúntame algo "
-    "sobre tu alimentación."
+    "Eso escapa lo que sé hacer bien — me especializo en tu plan y "
+    "nutrición, ¿algo de eso te ayudo?"
 )
 OFFTOPIC_TEMPLATE_EN = (
-    "I can only help with nutrition, recipes, and your plan. Ask me anything " "about your diet."
+    "That's outside what I do well — I specialize in your plan and "
+    "nutrition, anything there I can help with?"
 )
 
 INJECTION_TEMPLATE_ES = "No puedo seguir esa instrucción. ¿En qué de tu nutrición o plan te ayudo?"
 INJECTION_TEMPLATE_EN = (
     "I can't follow that instruction. How can I help with your nutrition or plan?"
 )
+
+# Language-instruction suffix appended to SYSTEM_PROMPT per request locale.
+# Kept ultra-short (~3 tokens) to honor cost ceiling. Bilingual instruction
+# is intentional — the LLM follows both, KISS.
+_LANGUAGE_SUFFIX: dict[Locale, str] = {
+    "es": " Responde en español.",
+    "en": " Respond in English.",
+}
+
+
+def system_prompt_for(locale: Locale) -> str:
+    """Return :data:`SYSTEM_PROMPT` with the locale instruction appended.
+
+    The base prompt is locale-neutral (mixed ES/EN content is fine — modern
+    LLMs follow both). Only the *output language* directive is locale-aware.
+    """
+    return SYSTEM_PROMPT + _LANGUAGE_SUFFIX[locale]
 
 
 SYSTEM_PROMPT = (
@@ -108,7 +131,7 @@ class ChatMessage:
         user_id: UUID,
         conv_id: UUID | None,
         user_message: str,
-        locale: str = "es",
+        locale: Locale = "es",
     ) -> AsyncIterator[str]:
         conv = await self.conv_repo.get_or_create(user_id, conv_id)
         await self.conv_repo.append_message(
@@ -192,7 +215,7 @@ class ChatMessage:
         )
         chunks: list[str] = []
         async for delta in self.coach.stream(
-            system_prompt=SYSTEM_PROMPT,
+            system_prompt=system_prompt_for(locale),
             context=ctx,
             user_message=user_message,
             user_id=user_id,
@@ -202,7 +225,7 @@ class ChatMessage:
         full = "".join(chunks)
         await self._persist_assistant(conv.id, full, camino="mini")
 
-    async def _try_faq(self, user_message: str, locale: str) -> str | None:
+    async def _try_faq(self, user_message: str, locale: Locale) -> str | None:
         try:
             emb = await self.embedder.embed(user_message[:200])
         except Exception:  # noqa: BLE001

@@ -43,6 +43,7 @@ from app.core.event_bus import get_event_bus
 from app.core.redis import get_redis
 from app.identity.presentation.dependencies import CurrentUserDep, SessionDep, assert_owns
 from app.recipes.infrastructure.openai_embedder import OpenAIEmbedder
+from app.shared.i18n.fastapi_dep import LocaleDep
 
 router = APIRouter(prefix="/coach", tags=["coach"])
 
@@ -79,6 +80,7 @@ async def sse_ticket(
 async def chat(
     body: ChatRequest,
     session: SessionDep,
+    locale: LocaleDep,
     ticket: Annotated[str | None, Query()] = None,
 ) -> StreamingResponse:
     # Ticket-only auth for this endpoint (browser EventSource can't send Bearer).
@@ -107,11 +109,14 @@ async def chat(
 
     async def _gen() -> AsyncIterator[bytes]:
         try:
+            # Locale resolution: Accept-Language header (via LocaleDep) is the
+            # canonical source. ``body.locale`` is DEPRECATED (kept for one
+            # release cycle for backward compat); the header always wins.
             async for chunk in chat_uc.stream(
                 user_id=user_id,
                 conv_id=conv_id,
                 user_message=body.message,
-                locale=body.locale,
+                locale=locale,
             ):
                 # Format as SSE data event.
                 payload = chunk.replace("\n", " ")

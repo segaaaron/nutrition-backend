@@ -72,6 +72,40 @@ def create_app() -> FastAPI:
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         # Startup
         log.info("app.startup", env=settings.env, version=settings.app_version)
+        # Phase 4 i18n: bind a lifespan-scoped Translator on `app.state`.
+        # Exception handlers in `core/errors.py` + `core/problem_details.py`
+        # read this attribute lazily and fall back to EN when absent (so unit
+        # tests building bare FastAPI apps stay green).
+        from app.core.db import get_sessionmaker
+        from app.shared.i18n import Translator
+
+        _sessionmaker = get_sessionmaker()
+        _redis_client = get_redis()
+
+        class _RequestScopedTranslator:
+            """Per-call Translator opening a short DB session.
+
+            Stateless wrapper around the canonical :class:`Translator` so we
+            don't tie a long-lived session to the FastAPI app instance.
+            Lookups hit Redis first (TTL=3600s) so steady-state DB reads
+            approach zero (≤1 per (scope,key,locale) per hour).
+            """
+
+            __slots__ = ()
+
+            async def translate(
+                self,
+                scope: str,
+                key: str,
+                locale: str,
+                /,
+                **kwargs: object,
+            ) -> str:
+                async with _sessionmaker() as session:
+                    t = Translator(session, _redis_client)
+                    return await t.translate(scope, key, locale, **kwargs)  # type: ignore[arg-type]
+
+        _app.state.translator = _RequestScopedTranslator()
         try:
             yield
         finally:

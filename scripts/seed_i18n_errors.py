@@ -1,0 +1,380 @@
+"""seed_i18n_errors.py — populate ``i18n_translations`` for RFC 7807 errors.
+
+Phase 4 of docs/handoff/2026-06-05-i18n-runtime-locale-propagation-plan.md.
+
+Idempotent UPSERT (``ON CONFLICT (scope, key, locale) DO UPDATE``). Safe to
+run on every container boot — wired into ``docker/entrypoint.sh`` after
+``alembic upgrade head``.
+
+Rows seeded:
+
+* scope ``"error"``  — every domain / business-rule error key, both
+  ``<key>.title`` and ``<key>.detail`` entries, locales ``{es, en}``.
+* scope ``"validation"`` — the most common pydantic ``type`` codes
+  (``missing``, ``string_too_short``, ``int_parsing``, etc.).
+
+Run:
+
+    python -m scripts.seed_i18n_errors
+"""
+
+from __future__ import annotations
+
+import asyncio
+import sys
+from typing import Final
+
+from sqlalchemy import text
+
+from app.core.db import session_scope
+from app.shared.i18n import Locale
+
+# ---------------------------------------------------------------------------
+# Error key inventory — must stay in sync with:
+#   * app/core/errors.py        — DomainError subclasses (type_slug)
+#   * app/core/problem_details.py — _PLAN_RULE_TITLES + _classify_business_rule
+#
+# Schema: key -> { "title": {locale: str}, "detail": {locale: str} | None }
+# When "detail" is None we ship the canonical EN raw detail (caller-provided).
+# ---------------------------------------------------------------------------
+
+_ErrorEntry = dict[str, dict[Locale, str] | None]
+
+ERROR_MESSAGES: Final[dict[str, _ErrorEntry]] = {
+    # --- Generic DomainError subclasses (handled by core/errors.py) ---
+    "validation": {
+        "title": {"es": "Error de validación", "en": "Validation failed"},
+        "detail": {
+            "es": "Uno o más campos no superaron la validación.",
+            "en": "One or more fields failed validation.",
+        },
+    },
+    "not_found": {
+        "title": {"es": "Recurso no encontrado", "en": "Resource not found"},
+        "detail": None,
+    },
+    "conflict": {
+        "title": {"es": "Conflicto de recurso", "en": "Resource conflict"},
+        "detail": None,
+    },
+    "gone": {
+        "title": {"es": "Recurso eliminado", "en": "Resource gone"},
+        "detail": None,
+    },
+    "locked": {
+        "title": {"es": "Recurso bloqueado", "en": "Resource locked"},
+        "detail": None,
+    },
+    "business_rule": {
+        "title": {
+            "es": "Violación de regla de negocio",
+            "en": "Business rule violation",
+        },
+        "detail": None,
+    },
+    "illegal_transition": {
+        "title": {
+            "es": "Transición de estado no permitida",
+            "en": "Illegal state transition",
+        },
+        "detail": None,
+    },
+    "rate_limited": {
+        "title": {"es": "Límite de peticiones excedido", "en": "Rate limit exceeded"},
+        "detail": {
+            "es": "Has superado el límite de solicitudes. Intenta más tarde.",
+            "en": "You have exceeded the request limit. Try again later.",
+        },
+    },
+    "cost_cap_exceeded": {
+        "title": {"es": "Límite de costo alcanzado", "en": "Cost cap exceeded"},
+        "detail": {
+            "es": "Se alcanzó el tope de costo. Intenta más tarde.",
+            "en": "Cost cap reached. Try again later.",
+        },
+    },
+    "auth": {
+        "title": {"es": "Error de autenticación", "en": "Authentication error"},
+        "detail": None,
+    },
+    "unauthenticated": {
+        "title": {"es": "Autenticación requerida", "en": "Authentication required"},
+        "detail": {
+            "es": "Token faltante o inválido.",
+            "en": "Missing or invalid token.",
+        },
+    },
+    "auth_ticket_invalid": {
+        "title": {"es": "Ticket de autenticación inválido", "en": "Auth ticket invalid"},
+        "detail": None,
+    },
+    "forbidden": {
+        "title": {"es": "Acceso denegado", "en": "Forbidden"},
+        "detail": {
+            "es": "No tienes permiso para acceder a este recurso.",
+            "en": "You do not have permission to access this resource.",
+        },
+    },
+    "upstream": {
+        "title": {"es": "Error de servicio externo", "en": "Upstream error"},
+        "detail": {
+            "es": "Un servicio externo respondió con error.",
+            "en": "An upstream service returned an error.",
+        },
+    },
+    "exif_leak": {
+        "title": {
+            "es": "Error de verificación EXIF",
+            "en": "EXIF strip verification failed",
+        },
+        "detail": None,
+    },
+    "internal": {
+        "title": {"es": "Error interno", "en": "Internal error"},
+        "detail": None,
+    },
+    # --- BusinessRuleViolation classified rules (problem_details.py) ---
+    "segment_unsupported_mvp": {
+        "title": {
+            "es": "Segmento de usuario no soportado en MVP",
+            "en": "User segment not supported in MVP",
+        },
+        "detail": None,
+    },
+    "profile_missing": {
+        "title": {
+            "es": "Falta un campo obligatorio del perfil",
+            "en": "Required profile field missing",
+        },
+        "detail": None,
+    },
+    "allergen_unmapped_requires_review": {
+        "title": {
+            "es": "Alérgeno no mapeado — requiere revisión especializada",
+            "en": "Allergen unmapped — specialist review required",
+        },
+        "detail": None,
+    },
+    "trimester_required_for_pregnancy": {
+        "title": {
+            "es": "Se requiere el trimestre para embarazo",
+            "en": "Trimester required for pregnancy",
+        },
+        "detail": None,
+    },
+    "breastfeeding_status_required_for_lactation": {
+        "title": {
+            "es": "Se requiere el estado de lactancia",
+            "en": "Breastfeeding status required for lactation",
+        },
+        "detail": None,
+    },
+    "height_required": {
+        "title": {"es": "Se requiere la altura", "en": "Height required"},
+        "detail": None,
+    },
+    "onboarding_incomplete": {
+        "title": {"es": "Onboarding incompleto", "en": "Onboarding incomplete"},
+        "detail": {
+            "es": "Completa tu perfil antes de continuar.",
+            "en": "Complete your profile before continuing.",
+        },
+    },
+    "pediatric_outside_mvp_scope": {
+        "title": {
+            "es": "Usuarios pediátricos fuera del alcance del MVP",
+            "en": "Pediatric users outside MVP scope",
+        },
+        "detail": None,
+    },
+    "geriatric_requires_specialist_review": {
+        "title": {
+            "es": "Usuarios geriátricos requieren revisión especializada",
+            "en": "Geriatric users require specialist review",
+        },
+        "detail": None,
+    },
+}
+
+# Pydantic v2 error `type` -> human messages.
+# Keys MUST match pydantic's internal error type strings exactly (no
+# transformation). See https://docs.pydantic.dev/latest/errors/validation_errors/.
+VALIDATION_MESSAGES: Final[dict[str, dict[Locale, str]]] = {
+    "missing": {
+        "es": "Este campo es obligatorio.",
+        "en": "This field is required.",
+    },
+    "string_too_short": {
+        "es": "El texto es demasiado corto.",
+        "en": "The string is too short.",
+    },
+    "string_too_long": {
+        "es": "El texto es demasiado largo.",
+        "en": "The string is too long.",
+    },
+    "string_pattern_mismatch": {
+        "es": "El formato del texto no es válido.",
+        "en": "String does not match the required pattern.",
+    },
+    "value_error": {
+        "es": "Valor inválido.",
+        "en": "Invalid value.",
+    },
+    "int_parsing": {
+        "es": "Debe ser un número entero válido.",
+        "en": "Must be a valid integer.",
+    },
+    "int_type": {
+        "es": "Debe ser un número entero.",
+        "en": "Must be an integer.",
+    },
+    "float_parsing": {
+        "es": "Debe ser un número decimal válido.",
+        "en": "Must be a valid number.",
+    },
+    "decimal_parsing": {
+        "es": "Debe ser un valor decimal válido.",
+        "en": "Must be a valid decimal.",
+    },
+    "bool_parsing": {
+        "es": "Debe ser un valor booleano.",
+        "en": "Must be a boolean value.",
+    },
+    "bool_type": {
+        "es": "Debe ser un valor booleano.",
+        "en": "Must be a boolean value.",
+    },
+    "uuid_parsing": {
+        "es": "Debe ser un UUID válido.",
+        "en": "Must be a valid UUID.",
+    },
+    "datetime_parsing": {
+        "es": "Debe ser una fecha/hora válida.",
+        "en": "Must be a valid datetime.",
+    },
+    "date_parsing": {
+        "es": "Debe ser una fecha válida.",
+        "en": "Must be a valid date.",
+    },
+    "enum": {
+        "es": "Valor no permitido para este campo.",
+        "en": "Value not allowed for this field.",
+    },
+    "greater_than": {
+        "es": "El valor es demasiado pequeño.",
+        "en": "Value is too small.",
+    },
+    "greater_than_equal": {
+        "es": "El valor es demasiado pequeño.",
+        "en": "Value is too small.",
+    },
+    "less_than": {
+        "es": "El valor es demasiado grande.",
+        "en": "Value is too large.",
+    },
+    "less_than_equal": {
+        "es": "El valor es demasiado grande.",
+        "en": "Value is too large.",
+    },
+    "extra_forbidden": {
+        "es": "Campo no permitido.",
+        "en": "Extra field not permitted.",
+    },
+    "json_invalid": {
+        "es": "JSON inválido.",
+        "en": "Invalid JSON.",
+    },
+    "model_type": {
+        "es": "Tipo de objeto inválido.",
+        "en": "Invalid object type.",
+    },
+    "list_type": {
+        "es": "Debe ser una lista.",
+        "en": "Must be a list.",
+    },
+    "dict_type": {
+        "es": "Debe ser un objeto.",
+        "en": "Must be an object.",
+    },
+    "email": {
+        "es": "Email inválido.",
+        "en": "Invalid email address.",
+    },
+}
+
+
+_UPSERT_SQL = text(
+    """
+    INSERT INTO i18n_translations (scope, key, locale, value)
+    VALUES (:scope, :key, :locale, :value)
+    ON CONFLICT (scope, key, locale)
+    DO UPDATE SET value = EXCLUDED.value, updated_at = now()
+    """
+)
+
+
+def _expand_error_rows() -> list[dict[str, str]]:
+    """Flatten ERROR_MESSAGES into individual ``i18n_translations`` rows.
+
+    Each error key contributes 2 keys (``.title`` + ``.detail``) × 2 locales
+    when ``detail`` is populated, else 1 key × 2 locales.
+    """
+    rows: list[dict[str, str]] = []
+    for i18n_key, entry in ERROR_MESSAGES.items():
+        title_map = entry["title"]
+        assert title_map is not None, f"missing title for {i18n_key}"
+        for locale, value in title_map.items():
+            rows.append(
+                {
+                    "scope": "error",
+                    "key": f"{i18n_key}.title",
+                    "locale": locale,
+                    "value": value,
+                }
+            )
+        detail_map = entry["detail"]
+        if detail_map is not None:
+            for locale, value in detail_map.items():
+                rows.append(
+                    {
+                        "scope": "error",
+                        "key": f"{i18n_key}.detail",
+                        "locale": locale,
+                        "value": value,
+                    }
+                )
+    return rows
+
+
+def _expand_validation_rows() -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for ptype, locales in VALIDATION_MESSAGES.items():
+        for locale, value in locales.items():
+            rows.append(
+                {
+                    "scope": "validation",
+                    "key": ptype,
+                    "locale": locale,
+                    "value": value,
+                }
+            )
+    return rows
+
+
+async def seed() -> int:
+    """UPSERT all error + validation rows. Returns total row count."""
+    rows = _expand_error_rows() + _expand_validation_rows()
+    async with session_scope() as session:
+        for row in rows:
+            await session.execute(_UPSERT_SQL, row)
+    return len(rows)
+
+
+def main() -> int:
+    count = asyncio.run(seed())
+    print(f"[seed_i18n_errors] upserted {count} rows")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

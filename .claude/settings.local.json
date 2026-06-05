@@ -96,7 +96,10 @@
       "Bash(.venv/bin/mypy /tmp/base_repo.py --strict)",
       "Bash(.venv/bin/mypy app/plan app/nutrition app/profile app/coach --strict)",
       "Bash(.venv/bin/mypy app/plan/domain app/plan/application app/nutrition/application app/profile/infrastructure app/coach/application --strict)",
-      "Bash(grep *)"
+      "Bash(grep *)",
+      "Bash(uv run *)",
+      "Bash(pytest tests/ --tb=line -q)",
+      "Bash(awk '{print $6, $7, $8, $9}')"
     ]
   },
   "model": "claude-opus-4-7"

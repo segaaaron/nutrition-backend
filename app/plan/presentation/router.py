@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Mapping
 from typing import Annotated
 
 from fastapi import APIRouter, Header, Path, Request, Response, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ConflictError
@@ -46,17 +48,20 @@ from app.plan.presentation.schemas import (
     WaterSlotResponse,
     WaterTargetResponse,
 )
+from app.recipes.infrastructure.models import RecipeModel
+from app.shared.i18n import Locale, LocaleDep
 
 log = get_logger("plan.router")
 router = APIRouter(tags=["plan"])
 
 
-async def _hydrate_water_view(plan: Plan, session: AsyncSession) -> None:
+async def _hydrate_water_view(plan: Plan, session: AsyncSession, locale: Locale) -> None:
     """Attach `water_view` to a Plan read from storage.
 
     The plan persistence layer does not store the hydration schedule
     (storage truth lives in `nutritional_goals.water_ml`). At read time
-    we fetch the current target + locale and build the view on the fly.
+    we fetch the current target and build the view on the fly using the
+    *request-time* locale (Phase 2 wiring — see plan T2.1 / D1 priority).
     No-op if the view is already populated (e.g. fresh `CreatePlan` output).
     """
     if plan.water_view is not None:
@@ -66,14 +71,84 @@ async def _hydrate_water_view(plan: Plan, session: AsyncSession) -> None:
     water_ml = targets.get("water_ml")
     if water_ml is None or int(water_ml) <= 0:
         return
-    profile = await user_ctx.get_user_profile_snapshot(plan.user_id)
     plan.water_view = build_water_view(
         total_ml=int(water_ml),
-        locale=str(profile.get("locale") or "es"),
+        locale=locale,
     )
 
 
-def _to_resp(p: Plan) -> PlanResponse:
+async def _load_recipe_translations(
+    plan: Plan,
+    session: AsyncSession,
+) -> dict[uuid.UUID, tuple[str, dict[str, str], str | None, dict[str, str]]]:
+    """Single batched fetch of (name_en, name_translations, description_en,
+    description_translations) for every distinct recipe_id in ``plan``.
+
+    Returning the raw EN canonical + translation maps lets the caller pick
+    the locale at projection time (D8 — reuse existing entity helpers; no
+    duplication of localization logic).
+    """
+    recipe_ids: set[uuid.UUID] = {
+        m.recipe_id
+        for d in plan.days
+        for m in d.meals
+        if m.recipe_id is not None
+    }
+    if not recipe_ids:
+        return {}
+    stmt = select(
+        RecipeModel.id,
+        RecipeModel.name_en,
+        RecipeModel.name_translations,
+        RecipeModel.description_en,
+        RecipeModel.description_translations,
+    ).where(RecipeModel.id.in_(recipe_ids))
+    rows = (await session.execute(stmt)).all()
+    return {
+        row[0]: (
+            row[1],
+            dict(row[2] or {}),
+            row[3],
+            dict(row[4] or {}),
+        )
+        for row in rows
+    }
+
+
+def _localize_name(
+    rid: uuid.UUID | None,
+    translations: Mapping[uuid.UUID, tuple[str, Mapping[str, str], str | None, Mapping[str, str]]],
+    locale: Locale,
+) -> str | None:
+    if rid is None:
+        return None
+    entry = translations.get(rid)
+    if entry is None:
+        return None
+    name_en, name_map, _desc_en, _desc_map = entry
+    return name_map.get(locale) or name_en
+
+
+def _localize_description(
+    rid: uuid.UUID | None,
+    translations: Mapping[uuid.UUID, tuple[str, Mapping[str, str], str | None, Mapping[str, str]]],
+    locale: Locale,
+) -> str | None:
+    if rid is None:
+        return None
+    entry = translations.get(rid)
+    if entry is None:
+        return None
+    _name_en, _name_map, desc_en, desc_map = entry
+    return desc_map.get(locale) or desc_en
+
+
+def _to_resp(
+    p: Plan,
+    translations: Mapping[uuid.UUID, tuple[str, Mapping[str, str], str | None, Mapping[str, str]]] | None = None,
+    locale: Locale = "es",
+) -> PlanResponse:
+    tr = translations or {}
     water_target = (
         WaterTargetResponse(
             total_ml=p.water_view.total_ml,
@@ -111,7 +186,9 @@ def _to_resp(p: Plan) -> PlanResponse:
                     PlanMealResponse(
                         id=m.id,
                         meal_time=m.meal_time,
-                        recipe_id=m.recipe_id,  # type: ignore[arg-type]
+                        recipe_id=m.recipe_id,
+                        name_localized=_localize_name(m.recipe_id, tr, locale),
+                        description_localized=_localize_description(m.recipe_id, tr, locale),
                         kcal=m.kcal,
                         protein_g=m.protein_g,
                         carbs_g=m.carbs_g,
@@ -138,6 +215,7 @@ async def create_plan(
     current_user: CurrentUserDep,
     request: Request,
     response: Response,
+    locale: LocaleDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> Response:
     """Enqueues `generate_plan_task`. ``Idempotency-Key`` (UUIDv4) is REQUIRED.
@@ -175,6 +253,7 @@ async def create_plan(
             plan_type=body.type,
             preferences=body.preferences,
             seed=body.seed,
+            locale=locale,
             _job_id=f"plan:{current_user}:{key}",
         )
     finally:
@@ -201,13 +280,17 @@ async def create_plan(
 
 
 @router.get("/plans/active", response_model=PlanResponse)
-async def get_active_plan(current_user: CurrentUserDep, session: SessionDep) -> PlanResponse:
+async def get_active_plan(
+    current_user: CurrentUserDep,
+    session: SessionDep,
+    locale: LocaleDep,
+) -> PlanResponse:
     cache = ActivePlanCache(get_redis())
     uc = GetActivePlan(plans=SqlPlanRepository(session), cache=cache)
     plan = await uc(user_id=current_user)
-    await _hydrate_water_view(plan, session)
-    payload = _to_resp(plan)
-    return payload
+    await _hydrate_water_view(plan, session, locale)
+    translations = await _load_recipe_translations(plan, session)
+    return _to_resp(plan, translations=translations, locale=locale)
 
 
 @router.post("/plans/{plan_id}/advance", response_model=PlanResponse)
@@ -216,13 +299,15 @@ async def advance_plan(
     body: AdvanceRequest,
     current_user: CurrentUserDep,
     session: SessionDep,
+    locale: LocaleDep,
 ) -> PlanResponse:
     await assert_owns(session, table="plans", resource_id=plan_id, user_id=current_user)
     cache = ActivePlanCache(get_redis())
     uc = AdvancePlan(plans=SqlPlanRepository(session), cache=cache, bus=get_event_bus())
     plan = await uc(plan_id=plan_id, event=body.event)
-    await _hydrate_water_view(plan, session)
-    return _to_resp(plan)
+    await _hydrate_water_view(plan, session, locale)
+    translations = await _load_recipe_translations(plan, session)
+    return _to_resp(plan, translations=translations, locale=locale)
 
 
 @router.patch(
@@ -249,6 +334,7 @@ async def swap_meal(
     body: SwapMealRequest,
     current_user: CurrentUserDep,
     session: SessionDep,
+    locale: LocaleDep,  # noqa: ARG001 — reserved for future localized swap reasons (Phase 4 errors)
 ) -> SwapMealResponse:
     await assert_owns(session, table="plans", resource_id=plan_id, user_id=current_user)
     cache = ActivePlanCache(get_redis())

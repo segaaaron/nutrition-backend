@@ -12,6 +12,7 @@ from uuid import UUID
 
 if TYPE_CHECKING:
     from app.identity.domain.roles import Role
+    from app.shared.i18n.locale_resolver import Locale
 
 from fastapi import Depends, Header, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -268,7 +269,11 @@ def make_oauth(session: SessionDep, provider: str) -> OAuthLogin:
     )
 
 
-def make_send_otp(session: SessionDep) -> SendOtp:
+def make_send_otp(
+    session: SessionDep,
+    *,
+    locale: Locale | None = None,
+) -> SendOtp:
     # Lazy import to avoid pulling httpx into the identity package import
     # graph when callers only need the use-case shape (tests, type-check).
     from app.core.di import get_email_sender
@@ -278,6 +283,7 @@ def make_send_otp(session: SessionDep) -> SendOtp:
         otps=SqlOtpRepository(session),
         hasher=get_hasher(),
         email_sender=get_email_sender(),
+        locale=locale,
     )
 
 

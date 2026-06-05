@@ -24,6 +24,12 @@ class SseTicketResponse(BaseModel):
 class ChatRequest(_Strict):
     conv_id: UUID | None = None
     message: str
+    # DEPRECATED — locale is now resolved server-side from the
+    # ``Accept-Language`` header (Phase 3 of the i18n runtime propagation
+    # plan). Field kept for one release cycle to avoid breaking older mobile
+    # clients; the value is IGNORED by the server. New clients SHOULD send
+    # ``Accept-Language`` instead. Field will be removed once telemetry
+    # confirms no client relies on it.
     locale: str = "es"
 
 

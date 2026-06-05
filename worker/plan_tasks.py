@@ -37,6 +37,7 @@ async def generate_plan_task(
     plan_type: str,
     preferences: list[str] | None = None,
     seed: int | None = None,
+    locale: str | None = None,
 ) -> dict[str, Any]:
     uid = UUID(user_id)
     async with session_scope() as session:
@@ -54,9 +55,13 @@ async def generate_plan_task(
             layer1=layer1, layer2=layer2, layer3=layer3, layer4=layer4,
             user_ctx=user_ctx, bus=get_event_bus(),
         )
+        # Locale is validated at the API boundary (LocaleDep). The worker
+        # forwards it verbatim; CreatePlan tolerates `None` and falls back
+        # to profile.locale or "es" (D1 priority).
         plan = await uc(
             user_id=uid, plan_type=plan_type,  # type: ignore[arg-type]
             seed=seed, preferences=preferences,
+            locale=locale,  # type: ignore[arg-type]
         )
         log.info("worker.plan.generated", plan_id=str(plan.id))
         return {"plan_id": str(plan.id)}

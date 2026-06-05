@@ -36,6 +36,7 @@ from app.plan.domain.events import PlanCreated
 from app.plan.domain.value_objects import PLAN_TYPE_TO_DAYS, PlanType
 from app.plan.domain.water_view import build_water_view
 from app.plan.infrastructure.repositories import SqlPlanRepository
+from app.shared.i18n.locale_resolver import Locale
 
 log = get_logger("plan.create")
 
@@ -71,6 +72,7 @@ class CreatePlan:
         plan_type: PlanType,
         seed: int | None = None,
         preferences: list[str] | None = None,
+        locale: Locale | None = None,
     ) -> Plan:
         total_days = PLAN_TYPE_TO_DAYS[plan_type]
         seed = seed if seed is not None else secrets.randbits(63)
@@ -197,10 +199,17 @@ class CreatePlan:
         # `calculate_water_target`). Single source of truth; never
         # recomputed here.
         water_ml = targets.get("water_ml")
+        # Locale precedence (D1): explicit request locale > profile.locale > "es".
+        # The use case is invoked from (1) the API task enqueuer, which resolves
+        # locale from `Accept-Language`/profile via `LocaleDep`, and (2) the Arq
+        # worker, which forwards the request-time locale through the job
+        # payload. Profile fallback covers legacy callers that have not yet
+        # been threaded through Phase 2 wiring.
+        effective_locale: str = locale or str(profile.get("locale") or "es")
         water_view = (
             build_water_view(
                 total_ml=int(water_ml),
-                locale=str(profile.get("locale") or "es"),
+                locale=effective_locale,
             )
             if water_ml is not None and int(water_ml) > 0
             else None

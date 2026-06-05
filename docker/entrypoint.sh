@@ -31,6 +31,19 @@ else
 
     log "Current DB revision:"
     python -m alembic current || log "WARN: could not read current revision"
+
+    # Phase 4 i18n — seed error/validation translations. Idempotent UPSERT,
+    # safe on every boot. Override with SKIP_I18N_ERROR_SEED=1.
+    if [[ "${SKIP_I18N_ERROR_SEED:-0}" == "1" ]]; then
+        log "WARN: SKIP_I18N_ERROR_SEED=1, skipping i18n error seed"
+    else
+        log "Seeding i18n error translations..."
+        if python -m scripts.seed_i18n_errors; then
+            log "i18n error translations seeded"
+        else
+            log "WARN: seed_i18n_errors failed (non-fatal, errors will fall back to EN)"
+        fi
+    fi
 fi
 
 # Sprint 3 D3 — catalogue boot guard.

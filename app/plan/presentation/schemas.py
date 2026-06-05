@@ -34,6 +34,8 @@ class PlanMealResponse(_Strict):
     id: UUID
     meal_time: MealTime
     recipe_id: UUID | None
+    name_localized: str | None = None
+    description_localized: str | None = None
     kcal: int | None
     protein_g: int | None
     carbs_g: int | None

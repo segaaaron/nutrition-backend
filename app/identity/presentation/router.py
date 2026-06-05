@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Path, Request, Response, status
+from fastapi import APIRouter, Depends, Header, Path, Request, Response, status
+from sqlalchemy import select
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
@@ -20,6 +21,8 @@ from app.identity.application.use_cases import (
     SendOtp,
     VerifyOtp,
 )
+from app.identity.domain.value_objects import Email
+from app.identity.infrastructure.models import UserModel
 from app.identity.infrastructure.rate_limit import rate_limit
 from app.identity.presentation.dependencies import (
     CurrentUserDep,
@@ -48,6 +51,8 @@ from app.identity.presentation.schemas import (
     TokenPairResponse,
     VerifyOtpRequest,
 )
+from app.profile.infrastructure.models import UserProfileModel
+from app.shared.i18n import Locale, resolve_email_locale
 
 log = get_logger("identity.router")
 router = APIRouter(tags=["auth"])
@@ -137,17 +142,59 @@ async def logout(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+async def _resolve_otp_email_locale(
+    session: SessionDep,
+    *,
+    email: str,
+    accept_language: str | None,
+) -> Locale:
+    """Resolve email locale for OTP dispatch per D5.
+
+    Rule (D5, see ``app.shared.i18n.resolve_email_locale``):
+
+    1. ``profile.locale`` if the user exists AND has a profile row.
+    2. First supported tag in ``Accept-Language``.
+    3. ``"es"`` default (D4).
+
+    Implementation note: we issue ONE focused ``SELECT locale FROM
+    user_profiles WHERE user_id = (SELECT id FROM users WHERE email = ?)``
+    style two-step. Cost = at most 2 lightweight indexed lookups. Anon
+    signup paths skip both queries entirely once we discover the user is
+    missing. No N+1, no cross-context coupling beyond two read-only joins.
+    """
+    profile_locale: str | None = None
+    normalized = Email(email).normalized
+    user_id_row = await session.execute(
+        select(UserModel.id).where(UserModel.email == normalized)
+    )
+    user_id = user_id_row.scalar_one_or_none()
+    if user_id is not None:
+        loc_row = await session.execute(
+            select(UserProfileModel.locale).where(
+                UserProfileModel.user_id == user_id
+            )
+        )
+        profile_locale = loc_row.scalar_one_or_none()
+    return resolve_email_locale(profile_locale, accept_language)
+
+
 @router.post("/auth/otp/send", status_code=status.HTTP_202_ACCEPTED)
 async def otp_send(
     body: SendOtpRequest,
     session: SessionDep,
+    accept_language: Annotated[
+        str | None, Header(alias="Accept-Language")
+    ] = None,
 ) -> dict:
     await rate_limit(
         scope="auth",
         identifier=f"otp:{body.email}",
         limit_per_min=get_settings().rate_limit_auth_per_min,
     )
-    uc: SendOtp = make_send_otp(session)
+    locale = await _resolve_otp_email_locale(
+        session, email=body.email, accept_language=accept_language
+    )
+    uc: SendOtp = make_send_otp(session, locale=locale)
     code = await uc(email=body.email, purpose=body.purpose)
     # Dev mode echoes the code so QA can test without an email worker.
     if get_settings().env == "dev":

@@ -42,6 +42,7 @@ from app.identity.domain.ports import (
 )
 from app.identity.domain.value_objects import Email
 from app.shared.domain.email_sender import EmailSender
+from app.shared.i18n.locale_resolver import Locale
 
 OTP_TTL = timedelta(minutes=10)
 OTP_MAX_ATTEMPTS = 5
@@ -311,8 +312,12 @@ class SendOtp:
     # do with it (dev echo, queue an Arq job, etc.). Keeps backward compat
     # with existing tests and routers.
     email_sender: EmailSender | None = None
-    # Optional locale hint (es/pt/en). Defaults to es inside the renderer.
-    locale: str | None = None
+    # Locale for outbound email. Resolved by the presentation layer via
+    # ``resolve_email_locale(profile_locale, accept_language)`` (D5) and
+    # injected by ``make_send_otp``. ``None`` → renderer falls back to ``es``
+    # (D4). The use case stays framework-agnostic: no Accept-Language
+    # parsing here, no profile-context coupling.
+    locale: Locale | None = None
 
     async def __call__(self, *, email: str, purpose: OtpPurpose) -> str:
         """Generate + persist an OTP, optionally dispatch via email.
@@ -359,7 +364,10 @@ class SendOtp:
 
             ttl_minutes = max(1, int(OTP_TTL.total_seconds() // 60))
             rendered = render_otp_email(
-                code=code, ttl_minutes=ttl_minutes, locale=self.locale
+                code=code,
+                ttl_minutes=ttl_minutes,
+                purpose=purpose,
+                locale=self.locale,
             )
             await self.email_sender.send(
                 to=Email(email).normalized,

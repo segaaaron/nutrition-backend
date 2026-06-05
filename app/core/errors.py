@@ -61,6 +61,31 @@ class BusinessRuleViolation(DomainError):
     type_slug = "business-rule"
     title = "Business rule violation"
 
+    def __init__(
+        self,
+        detail: str | None = None,
+        *,
+        i18n_key: str | None = None,
+        **extra: Any,
+    ) -> None:
+        """Domain rule violation, raised from application/domain layer.
+
+        Args:
+            detail: Canonical EN snake_case rule identifier (e.g.
+                ``"onboarding_incomplete"``, ``"segment_unsupported_mvp:..."``).
+                Stays as the machine-readable signal for mobile clients.
+            i18n_key: Optional explicit translation key. When omitted we
+                derive it from ``detail`` by taking the prefix before the
+                first ``":"`` (so ``"segment_unsupported_mvp:pediatric"``
+                still maps to the ``segment_unsupported_mvp`` translation
+                entry). Canonical EN snake_case.
+            **extra: Structured context (segment, field, etc.) merged into
+                the RFC 7807 body.
+        """
+        super().__init__(detail, **extra)
+        derived = (detail or self.title).split(":", 1)[0] if detail else "business_rule"
+        self.i18n_key: str = i18n_key or derived
+
 
 class IllegalTransition(ConflictError):
     type_slug = "illegal-transition"
@@ -130,8 +155,44 @@ def problem_for(exc: DomainError) -> dict[str, Any]:
 
 
 def register_exception_handlers(app: FastAPI) -> None:
+    # Local imports to keep this module framework-light and avoid a
+    # cycle with `app.shared.i18n` (which imports nothing from core).
+    from app.shared.i18n import TranslatorProtocol, resolve_locale
+
+    async def _maybe_translate(
+        request: Request,
+        i18n_key: str,
+        en_title: str,
+        en_detail: str | None,
+    ) -> tuple[str, str | None]:
+        """Translate ``(title, detail)`` via ``app.state.translator``.
+
+        Header-only locale resolution (no DB profile lookup on error path —
+        KISS, matches the contract documented in
+        ``app/core/problem_details.py``).
+        """
+        translator: TranslatorProtocol | None = getattr(
+            request.app.state, "translator", None
+        )
+        if translator is None:
+            return en_title, en_detail
+        locale = resolve_locale(
+            request.headers.get("accept-language"), profile_locale=None
+        )
+        title_key = f"{i18n_key}.title"
+        title = await translator.translate("error", title_key, locale)
+        if title == title_key:
+            title = en_title
+        detail = en_detail
+        if en_detail is not None:
+            detail_key = f"{i18n_key}.detail"
+            translated = await translator.translate("error", detail_key, locale)
+            if translated != detail_key:
+                detail = translated
+        return title, detail
+
     @app.exception_handler(DomainError)
-    async def _domain_handler(request: Request, exc: DomainError) -> JSONResponse:  # noqa: ARG001
+    async def _domain_handler(request: Request, exc: DomainError) -> JSONResponse:
         headers: dict[str, str] | None = None
         # RFC 6585 §4 / RFC 7231 §7.1.3: Retry-After on 429/503 when
         # the domain layer signalled a bounded retry window.
@@ -139,9 +200,19 @@ def register_exception_handlers(app: FastAPI) -> None:
             ra = exc.extra.get("retry_after") or exc.extra.get("retry_after_s")
             if ra is not None:
                 headers = {"Retry-After": str(int(ra))}
+        # i18n_key = type_slug with dashes -> underscores (canonical EN
+        # snake_case, matches seed_i18n_errors.py).
+        i18n_key = exc.type_slug.replace("-", "_")
+        title, detail = await _maybe_translate(
+            request, i18n_key, exc.title, exc.detail
+        )
+        body = problem_for(exc)
+        body["title"] = title
+        if detail is not None:
+            body["detail"] = detail
         return JSONResponse(
             status_code=exc.http_status,
-            content=problem_for(exc),
+            content=body,
             media_type="application/problem+json",
             headers=headers,
         )
