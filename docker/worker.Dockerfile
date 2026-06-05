@@ -50,7 +50,7 @@ COPY pyproject.toml uv.lock* ./
 COPY README.md ./
 
 RUN pip install --no-cache-dir --no-deps . \
-    && pip install --no-cache-dir 'pydantic[email]>=2.9,<3' 'email-validator>=2.2,<3'
+    && pip install --no-cache-dir 'pydantic[email]>=2.9,<3' 'email-validator>=2.2,<3' 'python-multipart>=0.0.12,<0.1'
 
 USER 1000:1000
 
