@@ -17,9 +17,9 @@ dependencies = [
     "alembic>=1.14,<1.15",
     "pgvector>=0.3.6,<0.4",
     # schemas / config
-    "pydantic>=2.9,<3",
+    "pydantic[email]>=2.9,<3",
     "pydantic-settings>=2.6,<3",
-    "email-validator>=2.2,<3",
+    "email-validator>=2.2,<3",  # explicit + transitive via pydantic[email]
     # workers + cache
     "arq>=0.26,<0.27",
     "redis>=5.2,<6",

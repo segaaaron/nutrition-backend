@@ -54,7 +54,8 @@ COPY pyproject.toml uv.lock* ./
 COPY README.md ./
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh \
-    && pip install --no-cache-dir --no-deps .
+    && pip install --no-cache-dir --no-deps . \
+    && pip install --no-cache-dir 'pydantic[email]>=2.9,<3' 'email-validator>=2.2,<3'
 
 USER 1000:1000
 

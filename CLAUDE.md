@@ -261,6 +261,23 @@ REJECT all of: pills, capsules, powders in containers, supplements, vitamins, pl
 
 ## 🔔 Session decisions log
 
+### Session 2026-06-04 — Migration 0011 + 0012 autocommit_block fix
+
+Bug: migrations 0011 & 0012 used `bind.execution_options(isolation_level="AUTOCOMMIT")`
+directly after a manual `COMMIT`. SQLAlchemy 2.0 strict rejects altering isolation
+on a connection that has already autobegun a Transaction → `InvalidRequestError`
+on `alembic upgrade head` at container boot.
+
+Fix: replaced custom `_run_concurrently` helper with Alembic's official
+`op.get_context().autocommit_block()` context manager. Commits the outer
+migration tx, runs the DDL in AUTOCOMMIT, restarts a clean tx. Idempotent
+and transaction-safe under SQLAlchemy 2.0 + Alembic >=1.13.
+
+Files: `migrations/versions/0011_vision_jobs_sha_idx.py`,
+`migrations/versions/0012_nutritional_goals_active_unique.py`.
+Audit grep confirmed no other migrations carry the broken pattern.
+Tests: 887/887 unit pass. AST parse clean.
+
 ### Session 2026-06-04 — Ruff CI relax baseline
 
 Bug: CI ruff strict bloquea 102 baseline pre-existing PLR0913 + E501 findings. Style debt no security crítico.
@@ -453,6 +470,26 @@ Files touched (15):
 - Tests: `tests/integration/vision/conftest.py`, `tests/migrations/test_0011_cycle.py`, `tests/security/test_audit_immutability.py`, `tests/unit/profile/test_onboarding_schema.py`, `tests/plan/property/test_inputs_hash.py`, `tests/unit/coach/test_prompt_injection_fuzz.py`, `tests/unit/test_pgvector_tenancy_audit.py`, `tests/unit/test_schemas_extra_forbid.py`, `tests/eval/test_vision_pipeline_eval.py` (auto-fix), `worker/coach_tasks.py` (auto-fix), several recipes/nutrition test files (UP038 auto-fix).
 
 Ready for owner commit.
+
+---
+
+### Session 2026-06-04 — email-validator runtime fix
+
+Bug: container Dokploy no tenía `email_validator` pese estar en pyproject. Build cache o `uv export` sync issue causaba ImportError en runtime al validar `EmailStr`.
+
+Fix triple defense:
+- `pyproject.toml`: `pydantic[email]` extra + `email-validator` explicit (transitive + explicit)
+- `docker/api.Dockerfile` + `docker/worker.Dockerfile`: explicit `pip install 'pydantic[email]' 'email-validator'` belt-and-suspenders después de `pip install --no-deps .`
+- `uv.lock`: regeneración pendiente (owner manual, bash permission denied)
+
+Garantía: `email_validator` siempre disponible runtime aunque uv.lock se desync.
+
+Owner action requerido:
+1. `uv lock` para regenerar lock
+2. Rebuild Docker SIN cache: `docker compose build --no-cache api worker`
+3. Redeploy Dokploy
+
+Tests: 887/887 unit pass post-fix.
 
 ---
 
