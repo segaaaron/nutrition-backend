@@ -733,6 +733,15 @@ Files: `.github/workflows/tests.yml` (1 línea).
 
 ---
 
+### Session 2026-06-04 — Alembic version_num truncation (round 2)
+
+Decisions:
+1. **Root cause** of recurring `StringDataRightTruncationError` on `UPDATE alembic_version SET version_num='0010_...'`: previous fix executed `ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(255)` INSIDE the same connection-scoped transaction that Alembic later reuses for its UPDATE. ALTER not yet committed/visible → UPDATE hits stale VARCHAR(32). `version_table_pk_type=String(255)` only governs CREATE TABLE on fresh DB, irrelevant when table already exists.
+2. **Fix:** `migrations/env.py` — extracted `_preflight_widen_alembic_version` running on a SEPARATE connection with explicit `.commit()` BEFORE Alembic opens its migration connection. Idempotent (DO block guarded by `information_schema.tables` exists check; widening to same type is a no-op).
+3. **Hotfix recommendation to owner:** run manual one-time `ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(255);` via Dokploy → nova-app-db → Open Terminal → psql, to unblock immediately without waiting for redeploy cycle.
+
+---
+
 ## 🔔 Active reminders for next assistant
 
 ### Sprint S0-residual security backlog (frozen)

@@ -35,21 +35,18 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
+_ALTER_ALEMBIC_VERSION_WIDTH = (
+    "DO $$ BEGIN "
+    "IF EXISTS (SELECT 1 FROM information_schema.tables "
+    "WHERE table_name = 'alembic_version') THEN "
+    "ALTER TABLE alembic_version "
+    "ALTER COLUMN version_num TYPE VARCHAR(255); "
+    "END IF; "
+    "END $$;"
+)
+
+
 def do_run_migrations(connection: Connection) -> None:
-    # Pre-flight: extend alembic_version.version_num to accommodate long IDs.
-    # Default VARCHAR(32) too small for descriptive migration names like
-    # '0010_user_profile_onboarding_extensions' (38 chars). Idempotent.
-    connection.execute(
-        text(
-            "DO $$ BEGIN "
-            "IF EXISTS (SELECT 1 FROM information_schema.tables "
-            "WHERE table_name = 'alembic_version') THEN "
-            "ALTER TABLE alembic_version "
-            "ALTER COLUMN version_num TYPE VARCHAR(255); "
-            "END IF; "
-            "END $$;"
-        )
-    )
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
@@ -60,12 +57,31 @@ def do_run_migrations(connection: Connection) -> None:
         context.run_migrations()
 
 
+def _preflight_widen_alembic_version(connection: Connection) -> None:
+    """Widen alembic_version.version_num to VARCHAR(255) in its own committed tx.
+
+    MUST commit before Alembic opens its own transaction and runs
+    `UPDATE alembic_version SET version_num=...`. If we piggy-back on the same
+    connection-scoped transaction that Alembic later uses, the ALTER is not yet
+    visible to the UPDATE and the existing VARCHAR(32) column still rejects long
+    revision IDs. Hence: separate connection, explicit commit, then close.
+    """
+    connection.execute(text(_ALTER_ALEMBIC_VERSION_WIDTH))
+    connection.commit()
+
+
 async def run_async_migrations() -> None:
     connectable = async_engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
+    # Pre-flight in a dedicated, committed transaction. Idempotent: the DO block
+    # is a no-op when the table does not yet exist (fresh DB) and a cheap
+    # ALTER-to-same-type when already widened.
+    async with connectable.connect() as preflight_conn:
+        await preflight_conn.run_sync(_preflight_widen_alembic_version)
+
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
     await connectable.dispose()
