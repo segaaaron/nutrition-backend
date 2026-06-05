@@ -60,37 +60,29 @@ branch_labels = None
 depends_on = None
 
 
-def _run_concurrently(sql: str) -> None:
-    """Run a DDL statement outside the implicit Alembic transaction.
-
-    `CREATE INDEX CONCURRENTLY` is forbidden inside a transaction block.
-    Commit the open Alembic tx, then switch the bound connection to
-    AUTOCOMMIT for the DDL call.
-    """
-    from sqlalchemy import text
-
-    bind = op.get_bind()
-    bind.execute(text("COMMIT"))
-    with bind.execution_options(isolation_level="AUTOCOMMIT"):
-        bind.execute(text(sql))
-
-
 def upgrade() -> None:
     # Idempotent re-assertion. The canonical index was created in 0001 as
     # `one_current_goals`; we keep the same name so this is a no-op on
     # any database that has been through migration 0001 cleanly.
-    _run_concurrently(
-        """
-        CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS one_current_goals
-        ON nutritional_goals (user_id)
-        WHERE valid_to IS NULL
-        """
-    )
+    #
+    # `op.get_context().autocommit_block()` is the SQLAlchemy 2.0 + Alembic
+    # safe way to run `CREATE INDEX CONCURRENTLY` — manually toggling
+    # `isolation_level="AUTOCOMMIT"` on a bound connection raises
+    # `InvalidRequestError` because the tx is already autobegun.
+    with op.get_context().autocommit_block():
+        op.execute(
+            """
+            CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS one_current_goals
+            ON nutritional_goals (user_id)
+            WHERE valid_to IS NULL
+            """
+        )
 
 
 def downgrade() -> None:
     # Intentionally drops the invariant. Only safe in local rollback —
     # in production, prefer point-in-time recovery over downgrade.
-    _run_concurrently(
-        "DROP INDEX CONCURRENTLY IF EXISTS one_current_goals"
-    )
+    with op.get_context().autocommit_block():
+        op.execute(
+            "DROP INDEX CONCURRENTLY IF EXISTS one_current_goals"
+        )
