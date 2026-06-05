@@ -29,11 +29,11 @@ def _normalize(obj: Any) -> Any:
         return str(obj)
     if isinstance(obj, UUID):
         return str(obj)
-    if isinstance(obj, (set, frozenset)):
+    if isinstance(obj, set | frozenset):
         return sorted(_normalize(x) for x in obj)
     if isinstance(obj, dict):
         return {k: _normalize(v) for k, v in obj.items()}
-    if isinstance(obj, (list, tuple)):
+    if isinstance(obj, list | tuple):
         return [_normalize(x) for x in obj]
     return obj
 

@@ -59,7 +59,7 @@ def _resolve_and_check(host: str) -> None:
         infos = socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)
     except socket.gaierror as e:
         raise SSRFBlocked(f"dns_failed:{host}") from e
-    for family, _stype, _proto, _cn, sockaddr in infos:
+    for _family, _stype, _proto, _cn, sockaddr in infos:
         addr = sockaddr[0]
         if _ip_is_blocked(addr):
             raise SSRFBlocked(f"private_ip:{host}={addr}")

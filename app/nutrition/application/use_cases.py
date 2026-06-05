@@ -23,12 +23,6 @@ from app.nutrition.domain.hydration import compute_water_ml
 from app.nutrition.domain.kcal_range import to_range
 from app.nutrition.domain.macro_partitioning import compute_macros
 from app.nutrition.domain.mifflin_st_jeor import compute_bmr
-from app.plan.domain.bmr_safety import (
-    KcalTargetBelowSafetyFloor,
-    apply_lactation_adjustment,
-    apply_trimester_adjustment,
-    enforce_bmr_safety_floor,
-)
 from app.nutrition.domain.recalibration import (
     COOLDOWN_DAYS,
     RecalibrationInput,
@@ -38,6 +32,12 @@ from app.nutrition.domain.recalibration import (
 )
 from app.nutrition.domain.state_machine import NutritionalGoals
 from app.nutrition.domain.tdee import compute_tdee
+from app.plan.domain.bmr_safety import (
+    KcalTargetBelowSafetyFloor,
+    apply_lactation_adjustment,
+    apply_trimester_adjustment,
+    enforce_bmr_safety_floor,
+)
 
 _log = get_logger("nutrition.use_cases")
 

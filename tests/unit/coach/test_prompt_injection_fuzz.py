@@ -171,8 +171,8 @@ def test_property_output_either_safe_or_raises(s: str) -> None:
 ZWSP = "\u200b"  # zero-width space
 ZWNJ = "‌"  # zero-width non-joiner
 ZWJ = "‍"  # zero-width joiner
-RLO = "‮"  # right-to-left override
-LRO = "‭"  # left-to-right override
+RLO = "‮"  # right-to-left override  # noqa: PLE2502 — intentional Unicode smuggling test corpus
+LRO = "‭"  # left-to-right override  # noqa: PLE2502 — intentional Unicode smuggling test corpus
 BOM = "﻿"  # byte-order mark
 NBSP = " "  # non-breaking space
 

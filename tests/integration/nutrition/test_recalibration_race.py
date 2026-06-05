@@ -272,7 +272,7 @@ async def test_parallel_recalibrations_one_winner():
         timeout=5.0,
     )
 
-    assert all(isinstance(r, (RecalibrationResult, RecalibrationSkipped)) for r in results)
+    assert all(isinstance(r, RecalibrationResult | RecalibrationSkipped) for r in results)
     assert repo.current is not None
 
     # Exactly one winner: at most one INSERT lands. The other call either

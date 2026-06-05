@@ -76,6 +76,8 @@ jobs:
       DATABASE_URL: postgresql+asyncpg://nova:novapass@localhost:5432/nova_test
       REDIS_URL: redis://localhost:6379/0
       ENV: dev
+      BILLING_SUCCESS_URL: https://test.example.com/billing/success
+      BILLING_CANCEL_URL: https://test.example.com/billing/cancel
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

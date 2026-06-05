@@ -48,7 +48,7 @@ def _all_model_classes() -> Iterable[type]:
     for mod_info in pkgutil.walk_packages(app.__path__, prefix="app."):
         try:
             mod = importlib.import_module(mod_info.name)
-        except Exception:
+        except Exception:  # noqa: BLE001, S112 — best-effort discovery walk; skip unimportable modules
             continue
         for _, obj in inspect.getmembers(mod):
             if (
@@ -72,7 +72,7 @@ def test_every_vector_table_is_classified():
     for cls in _all_model_classes():
         try:
             table = cls.__table__
-        except Exception:
+        except Exception:  # noqa: BLE001, S112 — best-effort; skip classes without __table__
             continue
         cols = list(table.columns)
         if not _has_vector_column(cols):

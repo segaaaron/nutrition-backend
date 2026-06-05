@@ -59,7 +59,7 @@ def test_skip_athlete_bulk():
         )
     )
     # delta ratio near 1.0 because intake > tdee → expected gain matches actual
-    assert isinstance(r, (RecalibrationSkipped, RecalibrationResult))
+    assert isinstance(r, RecalibrationSkipped | RecalibrationResult)
 
 
 def test_winsorise_clips_extremes_at_p5_p95():
@@ -242,7 +242,7 @@ def test_d6_normal_intake_no_floor_raise():
     """D6 — corrected intake well above 0.5×BMR → no raise."""
     # _baseline already passes (2500 kcal, BMR ~1750 → far above 875 floor).
     r = recalibrate(_baseline())
-    assert isinstance(r, (RecalibrationResult, RecalibrationSkipped))
+    assert isinstance(r, RecalibrationResult | RecalibrationSkipped)
 
 
 @_PROP_SETTINGS

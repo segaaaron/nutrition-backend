@@ -18,7 +18,7 @@ _breaker = CircuitBreaker(name="openai_embedder", fail_threshold=3, recovery_tim
 
 
 def _get_client() -> AsyncOpenAI:
-    global _client
+    global _client  # noqa: PLW0603 — lazy module-level singleton, intentional
     if _client is None:
         _client = AsyncOpenAI(api_key=get_settings().openai_api_key or "sk-test")
     return _client

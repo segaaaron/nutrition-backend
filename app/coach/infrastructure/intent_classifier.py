@@ -112,7 +112,7 @@ SCHEMA: dict[str, Any] = {
 
 
 def _get_client() -> AsyncOpenAI:
-    global _client
+    global _client  # noqa: PLW0603 — lazy module-level singleton, intentional
     if _client is None:
         _client = AsyncOpenAI(api_key=get_settings().openai_api_key or "sk-test", timeout=10.0)
     return _client

@@ -154,7 +154,7 @@ def test_0011_upgrade_downgrade_upgrade_cycle_against_postgres() -> None:
     with PostgresContainer(
         image="pgvector/pgvector:pg16",
         username="nova",
-        password="nova",
+        password="nova",  # noqa: S106 — ephemeral testcontainer, torn down per test
         dbname="nova_test",
     ) as pg:
         sync_url = pg.get_connection_url().replace("postgresql+psycopg2://", "postgresql://")

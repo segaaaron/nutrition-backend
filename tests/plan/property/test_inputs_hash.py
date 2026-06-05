@@ -98,7 +98,7 @@ def test_inputs_hash_key_order_invariant(
     """Rebuild payload dict with shuffled key insertion order — hash unchanged
     because compute_inputs_hash uses sort_keys=True."""
     items = list(payload.items())
-    rng = random.Random(seed)
+    rng = random.Random(seed)  # noqa: S311 — property-test PRNG, not crypto
     rng.shuffle(items)
     shuffled: dict[str, Any] = dict(items)
     assert compute_inputs_hash(payload) == compute_inputs_hash(shuffled)
@@ -117,7 +117,7 @@ def test_inputs_hash_key_order_invariant(
 def test_inputs_hash_set_order_invariant(items: list[str], seed: int) -> None:
     """frozenset built from forward-ordered vs shuffled iterable produces same
     hash (canonicalisation sorts before serialising)."""
-    rng = random.Random(seed)
+    rng = random.Random(seed)  # noqa: S311 — property-test PRNG, not crypto
     shuffled = list(items)
     rng.shuffle(shuffled)
     a = compute_inputs_hash({"conds": frozenset(items)})
@@ -199,7 +199,7 @@ def test_inputs_hash_all_ascii_output(payload: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _random_payload(rng: random.Random, depth: int = 0) -> Any:
+def _random_payload(rng: random.Random, depth: int = 0) -> Any:  # noqa: PLR0911 — type-dispatch generator; one return per canonical type
     """Deterministic random payload generator covering all canonical types."""
     choice = rng.randint(0, 8) if depth < 3 else rng.randint(0, 4)
     if choice == 0:
@@ -238,7 +238,7 @@ def test_inputs_hash_collision_smoke() -> None:
     Theoretical collision prob ~ N^2 / 2^257; at N=1e4 this is ~5e-70.
     A failure indicates a canonicalisation bug, not bad luck.
     """
-    rng = random.Random(42)
+    rng = random.Random(42)  # noqa: S311 — deterministic collision-smoke RNG, not crypto
     hashes: set[str] = set()
     for i in range(10_000):
         payload = {

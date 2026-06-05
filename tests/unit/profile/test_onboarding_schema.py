@@ -202,7 +202,7 @@ def test_unknown_allergen_refuses() -> None:
 def test_extra_field_refuses() -> None:
     """Strict mode — mobile cannot smuggle unknown fields."""
     with pytest.raises(ValidationError):
-        OnboardingRequest(**_base_payload(secret_field="hax"))  # type: ignore[arg-type]
+        OnboardingRequest(**_base_payload(secret_field="hax"))  # type: ignore[arg-type]  # noqa: S106 — `secret_field` is a test-only kwarg name asserting strict-mode rejection, not a credential
 
 
 def test_other_condition_freetext_persists_does_not_refuse() -> None:

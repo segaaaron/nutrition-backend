@@ -52,14 +52,14 @@ _hasher_singleton: Argon2PasswordHasher | None = None
 
 
 def get_jwt() -> JwtSigner:
-    global _jwt_singleton
+    global _jwt_singleton  # noqa: PLW0603 — lazy module-level singleton, intentional
     if _jwt_singleton is None:
         _jwt_singleton = JwtSigner()
     return _jwt_singleton
 
 
 def get_hasher() -> Argon2PasswordHasher:
-    global _hasher_singleton
+    global _hasher_singleton  # noqa: PLW0603 — lazy module-level singleton, intentional
     if _hasher_singleton is None:
         _hasher_singleton = Argon2PasswordHasher()
     return _hasher_singleton

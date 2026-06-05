@@ -30,7 +30,7 @@ def _all_models():
     for mod_info in pkgutil.walk_packages(app.__path__, prefix="app."):
         try:
             mod = importlib.import_module(mod_info.name)
-        except Exception:
+        except Exception:  # noqa: BLE001, S112 — best-effort discovery walk; skip unimportable modules
             continue
         for name, obj in inspect.getmembers(mod):
             key = (mod_info.name, name)

@@ -49,7 +49,7 @@ def pg_container() -> Iterator[Any]:
     container = PostgresContainer(
         image="pgvector/pgvector:pg16",
         username="nova",
-        password="nova",
+        password="nova",  # noqa: S106 — ephemeral testcontainer, torn down post-module
         dbname="nova_test",
     )
     container.start()

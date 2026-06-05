@@ -40,7 +40,7 @@ _bus: EventBus | None = None
 
 
 def get_event_bus() -> EventBus:
-    global _bus
+    global _bus  # noqa: PLW0603 — lazy module-level singleton, intentional
     if _bus is None:
         _bus = EventBus()
     return _bus

@@ -19,7 +19,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -173,7 +173,7 @@ def _evaluate(entry: dict[str, Any]) -> EvalResult:
 
 def _write_report(results: list[EvalResult]) -> Path:
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
-    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     path = REPORT_DIR / f"vision_eval_{ts}.json"
     total = len(results)
     passed = sum(1 for r in results if r.passed)

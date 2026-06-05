@@ -82,8 +82,8 @@ def _grep_app(*patterns: str) -> list[str]:
     matches: list[str] = []
     for pattern in patterns:
         # -F = fixed string, -I = skip binary, -n = line numbers, -r = recursive
-        proc = subprocess.run(
-            ["grep", "-rInF", "--include=*.py", pattern, str(APP_DIR)],
+        proc = subprocess.run(  # noqa: S603 — `grep` audit guard; inputs are literal strings owned by this test
+            ["grep", "-rInF", "--include=*.py", pattern, str(APP_DIR)],  # noqa: S607 — PATH-resolved `grep` is fine in CI/dev
             capture_output=True,
             text=True,
             check=False,
@@ -123,8 +123,8 @@ def test_audit_log_inserts_use_parameterised_sql() -> None:
     """
     # Find every INSERT INTO audit_log site, ensure the same line/block uses
     # SQLAlchemy text() bind parameter syntax (`:name`) and not f-string subs.
-    proc = subprocess.run(
-        ["grep", "-rInE", "--include=*.py", r"INSERT INTO audit_log", str(APP_DIR)],
+    proc = subprocess.run(  # noqa: S603 — `grep` audit guard; inputs are literal regexes owned by this test
+        ["grep", "-rInE", "--include=*.py", r"INSERT INTO audit_log", str(APP_DIR)],  # noqa: S607 — PATH-resolved `grep` is fine in CI/dev
         capture_output=True,
         text=True,
         check=False,
@@ -144,7 +144,7 @@ def test_audit_log_inserts_use_parameterised_sql() -> None:
         path_str, _lineno, _line = hit.split(":", 2)
         file_src = Path(path_str).read_text(encoding="utf-8")
         assert bind_re.search(file_src), (
-            f"{path_str}: audit_log INSERT site has no VALUES (...) bind "
+            f"{path_str}: audit_log INSERT site has no VALUES (...) bind "  # noqa: S608 — pytest assertion message text, not SQL
             "parameters. User-controlled fields MUST be bound."
         )
         assert not fstring_re.search(
@@ -180,7 +180,7 @@ def test_postgres_rejects_update_and_delete_on_audit_log_for_app_role() -> None:
     with PostgresContainer(
         image="pgvector/pgvector:pg16",
         username="postgres",
-        password="postgres",
+        password="postgres",  # noqa: S106 — ephemeral testcontainer admin creds
         dbname="nova_test",
     ) as pg:
         admin_url = pg.get_connection_url().replace("postgresql+psycopg2://", "postgresql://")

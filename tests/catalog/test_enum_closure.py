@@ -113,15 +113,15 @@ def test_macro_consistency_within_5_percent(catalog: list[dict[str, Any]]) -> No
             continue
         kcal = np.get("calories")
         macros = np.get("macros")
-        if not isinstance(kcal, (int, float)) or not isinstance(macros, dict):
+        if not isinstance(kcal, int | float) or not isinstance(macros, dict):
             continue
         p = macros.get("proteinG") or 0
         c = macros.get("carbsG") or 0
         f = macros.get("fatG") or 0
         if (
-            not isinstance(p, (int, float))
-            or not isinstance(c, (int, float))
-            or not isinstance(f, (int, float))
+            not isinstance(p, int | float)
+            or not isinstance(c, int | float)
+            or not isinstance(f, int | float)
         ):
             continue
         derived = 4 * p + 4 * c + 9 * f

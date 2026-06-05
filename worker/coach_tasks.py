@@ -14,7 +14,7 @@ within the target hour. Cheap query — no per-user job in the queue.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import text
@@ -38,7 +38,7 @@ LOCALE_OFFSETS = {"es": -5, "pt": -3, "en": -5, "fr": 1, "de": 1}
 
 
 async def _users_for_local_hour(session, target_hour: int) -> list[str]:
-    now_utc = datetime.now(timezone.utc)
+    now_utc = datetime.now(UTC)
     rows = (await session.execute(text("""
         SELECT user_id::text, locale FROM user_profiles WHERE onboarding_completed = true
     """))).all()
@@ -83,7 +83,7 @@ async def coach_proactive_alert_cron(ctx: dict[str, Any]) -> dict[str, int]:
 
 
 async def coach_weekly_review_cron(ctx: dict[str, Any]) -> dict[str, int]:
-    now_utc = datetime.now(timezone.utc)
+    now_utc = datetime.now(UTC)
     if now_utc.weekday() != 6:  # Sunday
         return {"skipped": 1}
     async with session_scope() as session:

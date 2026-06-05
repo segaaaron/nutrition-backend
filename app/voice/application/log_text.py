@@ -94,9 +94,12 @@ class LogFoodText:
                     # only cast to int at the storage boundary.
                     factor = Decimal(str(it.quantity_g)) / Decimal("100")
 
-                    def _scale(v: object) -> int:
+                    # Bind `factor` as default arg to silence B023 (loop closure):
+                    # the call site is synchronous within the iteration, but ruff
+                    # cannot prove that; explicit binding is correctness-safe.
+                    def _scale(v: object, _f: Decimal = factor) -> int:
                         return int(
-                            (Decimal(str(v)) * factor).quantize(
+                            (Decimal(str(v)) * _f).quantize(
                                 Decimal("1"),
                                 rounding=ROUND_HALF_EVEN,
                             )

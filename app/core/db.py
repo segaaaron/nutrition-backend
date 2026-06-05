@@ -20,7 +20,7 @@ _sessionmaker: async_sessionmaker[AsyncSession] | None = None
 
 
 def get_engine() -> AsyncEngine:
-    global _engine
+    global _engine  # noqa: PLW0603 — lazy module-level singleton, intentional
     if _engine is None:
         s = get_settings()
         _engine = create_async_engine(
@@ -35,7 +35,7 @@ def get_engine() -> AsyncEngine:
 
 
 def get_sessionmaker() -> async_sessionmaker[AsyncSession]:
-    global _sessionmaker
+    global _sessionmaker  # noqa: PLW0603 — lazy module-level singleton, intentional
     if _sessionmaker is None:
         _sessionmaker = async_sessionmaker(
             bind=get_engine(),
@@ -58,7 +58,7 @@ async def session_scope() -> AsyncIterator[AsyncSession]:
 
 
 async def dispose_engine() -> None:
-    global _engine, _sessionmaker
+    global _engine, _sessionmaker  # noqa: PLW0603 — shutdown teardown of lazy singleton
     if _engine is not None:
         await _engine.dispose()
         _engine = None

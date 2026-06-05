@@ -875,8 +875,8 @@ def upgrade() -> None:
             {
                 "code": r["code"],
                 "name": r["name"],
-                "aset": "{" + ",".join(r["allergen_set"]) + "}",
-                "countries": "{" + ",".join(r["countries"]) + "}",
+                "aset": list(r["allergen_set"]),
+                "countries": list(r["countries"]),
                 "loc": r["default_locale"],
             },
         )

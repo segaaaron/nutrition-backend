@@ -60,7 +60,7 @@ _SCHEMA: dict[str, Any] = {
 
 
 def _get_client() -> AsyncOpenAI:
-    global _client
+    global _client  # noqa: PLW0603 — lazy module-level singleton, intentional
     if _client is None:
         _client = AsyncOpenAI(api_key=get_settings().openai_api_key or "sk-test")
     return _client
@@ -188,7 +188,7 @@ class CoherencePass:
                 allowed = {str(x) for x in alternatives.get((day, meal_time), [])}
                 if new_id in allowed:
                     out_swaps.append(swap)
-            except Exception:  # noqa: BLE001
+            except Exception:  # noqa: BLE001, S112 — defensive: skip malformed swap entries from LLM
                 continue
         return {
             "ok": bool(raw.get("ok", True)),

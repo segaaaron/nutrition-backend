@@ -133,7 +133,7 @@ def test_min_weight_points_boundary_exact_7_proceeds() -> None:
     )
     # Must not raise InsufficientDataForRecalc (MAD keeps all 7).
     r = recalibrate(inp)
-    assert isinstance(r, (RecalibrationResult, RecalibrationSkipped))
+    assert isinstance(r, RecalibrationResult | RecalibrationSkipped)
 
 
 def test_min_weight_points_boundary_below_7_skips_insufficient() -> None:
@@ -726,7 +726,7 @@ def test_avg_deficit_max_floor_at_zero() -> None:
     r = recalibrate(inp)
     # Just verify result exists (mutant 186 would pull tdee down by ~3*28/14
     # = 6 kcal — measurable but small; we accept result-vs-skip identity).
-    assert isinstance(r, (RecalibrationResult, RecalibrationSkipped))
+    assert isinstance(r, RecalibrationResult | RecalibrationSkipped)
 
 
 @_S

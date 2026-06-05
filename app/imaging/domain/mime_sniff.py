@@ -27,7 +27,7 @@ ALLOWED_MIME_TYPES: frozenset[str] = frozenset(
 )
 
 
-def sniff_mime(raw: bytes) -> str | None:
+def sniff_mime(raw: bytes) -> str | None:  # noqa: PLR0911 — magic-byte dispatcher; one return per supported MIME, splitting hurts readability
     """Return canonical MIME type from magic bytes, or None if unrecognised."""
     if len(raw) < 12:
         return None

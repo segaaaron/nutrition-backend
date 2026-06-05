@@ -13,7 +13,8 @@ from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
-from hypothesis import HealthCheck, given, settings, strategies as st
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
 
 from app.nutrition.application.use_cases import ComputeInitialGoals
 from app.nutrition.domain.errors import BmrSafetyFloorViolated
