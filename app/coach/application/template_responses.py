@@ -119,10 +119,20 @@ async def water_progress(user_id: UUID, session: AsyncSession, locale: str) -> s
     ).scalar()
     if goal:
         pct = int(100 * total / max(1, goal))
+        remaining = max(0, int(goal) - int(total))
+        # Coach tone — positive framing, never punitive. See docs/product/COACH_TONE.md.
+        if pct >= 100:
+            return (
+                f"¡Meta cumplida! {total} ml de {goal} ml ({pct}%). 💪"
+                if locale == "es"
+                else f"Goal hit! {total} ml of {goal} ml ({pct}%). 💪"
+            )
         return (
-            f"Llevas {total} ml de {goal} ml ({pct}%)."
+            f"Vas {total} ml de {goal} ml ({pct}%), buen ritmo. "
+            f"Te faltan {remaining} ml para cerrar el día."
             if locale == "es"
-            else f"You've drunk {total} ml of {goal} ml ({pct}%)."
+            else f"You're at {total} ml of {goal} ml ({pct}%), nice pace. "
+            f"{remaining} ml to close out the day."
         )
     return f"{total} ml hoy." if locale == "es" else f"{total} ml today."
 

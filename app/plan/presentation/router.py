@@ -6,6 +6,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Header, Path, Request, Response, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ConflictError
 from app.core.event_bus import get_event_bus
@@ -28,6 +29,7 @@ from app.plan.application.use_cases import (
     SwapMeal,
 )
 from app.plan.domain.entities import Plan
+from app.plan.domain.water_view import build_water_view
 from app.plan.infrastructure.cache import ActivePlanCache
 from app.plan.infrastructure.repositories import SqlPlanRepository
 from app.plan.infrastructure.taste_fetcher import SqlEmbeddingFetcher
@@ -41,13 +43,51 @@ from app.plan.presentation.schemas import (
     PlanResponse,
     SwapMealRequest,
     SwapMealResponse,
+    WaterSlotResponse,
+    WaterTargetResponse,
 )
 
 log = get_logger("plan.router")
 router = APIRouter(tags=["plan"])
 
 
+async def _hydrate_water_view(plan: Plan, session: AsyncSession) -> None:
+    """Attach `water_view` to a Plan read from storage.
+
+    The plan persistence layer does not store the hydration schedule
+    (storage truth lives in `nutritional_goals.water_ml`). At read time
+    we fetch the current target + locale and build the view on the fly.
+    No-op if the view is already populated (e.g. fresh `CreatePlan` output).
+    """
+    if plan.water_view is not None:
+        return
+    user_ctx = SqlUserContext(session)
+    targets = await user_ctx.get_user_targets(plan.user_id)
+    water_ml = targets.get("water_ml")
+    if water_ml is None or int(water_ml) <= 0:
+        return
+    profile = await user_ctx.get_user_profile_snapshot(plan.user_id)
+    plan.water_view = build_water_view(
+        total_ml=int(water_ml),
+        locale=str(profile.get("locale") or "es"),
+    )
+
+
 def _to_resp(p: Plan) -> PlanResponse:
+    water_target = (
+        WaterTargetResponse(
+            total_ml=p.water_view.total_ml,
+            glass_ml=p.water_view.glass_ml,
+            n_glasses=p.water_view.n_glasses,
+            schedule=[
+                WaterSlotResponse(time=s.time, ml=s.ml, label=s.label)
+                for s in p.water_view.schedule
+            ],
+            message=p.water_view.message,
+        )
+        if p.water_view is not None
+        else None
+    )
     return PlanResponse(
         id=p.id,
         user_id=p.user_id,
@@ -84,6 +124,7 @@ def _to_resp(p: Plan) -> PlanResponse:
             )
             for d in p.days
         ],
+        water_target=water_target,
     )
 
 
@@ -164,6 +205,7 @@ async def get_active_plan(current_user: CurrentUserDep, session: SessionDep) -> 
     cache = ActivePlanCache(get_redis())
     uc = GetActivePlan(plans=SqlPlanRepository(session), cache=cache)
     plan = await uc(user_id=current_user)
+    await _hydrate_water_view(plan, session)
     payload = _to_resp(plan)
     return payload
 
@@ -179,6 +221,7 @@ async def advance_plan(
     cache = ActivePlanCache(get_redis())
     uc = AdvancePlan(plans=SqlPlanRepository(session), cache=cache, bus=get_event_bus())
     plan = await uc(plan_id=plan_id, event=body.event)
+    await _hydrate_water_view(plan, session)
     return _to_resp(plan)
 
 

@@ -34,6 +34,7 @@ from app.plan.application.layer4_coherence import Layer4Coherence
 from app.plan.domain.entities import Plan, PlanDay, PlanMeal
 from app.plan.domain.events import PlanCreated
 from app.plan.domain.value_objects import PLAN_TYPE_TO_DAYS, PlanType
+from app.plan.domain.water_view import build_water_view
 from app.plan.infrastructure.repositories import SqlPlanRepository
 
 log = get_logger("plan.create")
@@ -191,6 +192,20 @@ class CreatePlan:
             log.warning("plan.layer4_failed", error=str(exc))
         _layer_hist.labels(layer="4").observe(time.perf_counter() - t0)
 
+        # Daily hydration view — sourced from `nutritional_goals.water_ml`
+        # (already produced by the nutrition use case via
+        # `calculate_water_target`). Single source of truth; never
+        # recomputed here.
+        water_ml = targets.get("water_ml")
+        water_view = (
+            build_water_view(
+                total_ml=int(water_ml),
+                locale=str(profile.get("locale") or "es"),
+            )
+            if water_ml is not None and int(water_ml) > 0
+            else None
+        )
+
         plan = Plan(
             id=plan_id,
             user_id=user_id,
@@ -205,6 +220,7 @@ class CreatePlan:
             version=0,
             created_at=now,
             days=days,
+            water_view=water_view,
         )
         await self.plans.save(plan)
         await self.plans.save_seed(plan_id, seed)

@@ -789,6 +789,90 @@ Garantía: tabla siempre VARCHAR(255) regardless de fresh/existing DB o alembic 
 
 ---
 
+### Session 2026-06-04 — Embedding backfill deferred + Layer 3 graceful fallback
+
+Owner decision: skip one-time $6.65 OpenAI catalogue embedding backfill. `scripts/compute_embeddings.py` deleted. `recipes.embedding` + `foods.embedding` columns stay NULL until/unless owner re-enables.
+
+Code already degrades silently:
+- `cosine([], [])` → `0.0` (no exception, `app/plan/application/taste_profile.py:72-81`)
+- `WHERE embedding IS NOT NULL` guards in coach RAG (`context_builder.py:148`), vision fallback (`food_matcher.py:108`), recipes semantic search → NULL rows excluded
+- pgvector HNSW indexes remain valid (no NULL entries indexed)
+
+Added: Layer 3 ranking re-weight (`app/plan/application/layer3_ranking.py`). When `taste_vector` is empty (cold-start user OR catalogue embeddings absent), the 0.40 taste weight is redistributed to `cultural_fit` (0.40) + `prep_time_fit` (0.40). Score envelope stays 1.0; ranking remains meaningful instead of collapsing to a 60%-signal random-ish order. With taste vector populated, behaviour is unchanged (0.40/0.20/0.20/0.10/0.10).
+
+Docs updated: `README.md` (scripts list line), `docs/ops/DOKPLOY_DEPLOY.md` (§5 replaced with deferred notice + post-deploy cookbook entry removed), `docs/ops/runbook-deploy-hostinger-dokploy.md` (seed step comment).
+
+Tests: 887/887 unit pass (no regression). Historical doc refs preserved per CLAUDE.md hygiene.
+
+Strategy context — owner approved stack for next sprint (NOT implemented yet, decision only):
+1. `plan_cache(profile_hash, iso_week, algo_version, plan_json)` — ~40% hit rate projected at 1k users
+2. Hash-deterministic Layer 4 picker + Redis `user:{id}:last14d` blacklist (no LLM in plan-gen hot path)
+3. Coach event-driven LLM (recalibration / onboarding / plateau only; FAQ via rapidfuzz template matcher)
+4. Opt-in `POST /v1/plan/{id}/explain` AI explainer, free tier quota 1/week, premium unlimited (~$1.20/mo at 10% adoption / 1k users)
+
+Projected cost at 1k users: ~$28/mo total (vs ~$180/mo without stack). Implementation deferred until owner triggers — requires ADR-0027, migration, ~10h dev.
+
+---
+
+### Session 2026-06-04 — Coach tone spec (encouraging + optimistic mandate)
+
+Owner directive: ALL user-facing LLM output (coach chat, plan coherence narratives, future AI insight cards, weekly summaries, onboarding, refusals) MUST be encouraging, optimistic, never judgmental. User must always feel more capable after reading, never less. Setbacks reframed as data for plan adjustment, never as user errors.
+
+Created `docs/product/COACH_TONE.md` — authoritative tone spec. Hard rules:
+- Forbidden vocabulary: "fallaste", "te excediste", "mal", "incorrecto", "debes", "tenés que", "arruinaste", "decepcionante", "peligroso" (when referring to user conduct).
+- Every message MUST acknowledge an achievement or effort before any adjustment suggestion.
+- "Nosotros" framing (diseñamos, ajustamos, notamos).
+- Max 2 emojis per message.
+- Refusals (medical/off-scope) warm, never clinical/dry.
+- Brevity caps: chat 4 lines, insight card 3 lines, weekly summary 6 bullets, onboarding 5 lines.
+
+Updated existing LLM system prompts to enforce tone:
+- `app/coach/application/chat_message.py:SYSTEM_PROMPT` — added tone clause + forbidden vocabulary + warm refusal template + reference to spec.
+- `app/plan/infrastructure/openai_coherence_client.py` — Layer 4 system prompt now mandates encouraging `why_paragraph` (the user-facing field), explicit forbidden words list, "we" framing.
+
+Future LLM endpoints (AI insight cards Fase 3, weekly summaries Fase 4, onboarding welcome) MUST reference `docs/product/COACH_TONE.md` in their system prompts. Code review checklist enforced manually until automated test (`tests/unit/coach/test_tone_compliance.py` with regex over checked-in prompt templates) is added.
+
+Tests: 887/887 unit pass (no regression — prompts are strings, not behaviour).
+
+---
+
+### Session 2026-06-05 — Hydration algorithm + wiring + QA review
+
+Owner directive: implement deterministic hydration target algorithm with zero errors + exact calculation. Delivered hybrid formula (Decimal-precise weight × 35 + kcal_boost + modifiers + safety caps + medical override) with full cross-context wiring to `CreatePlan` pipeline and API response.
+
+**Files created:**
+- `app/plan/domain/water_calculator.py` — pure function `calculate_water_target` (Decimal arithmetic, safety caps 1500/4000, CKD/HF override → 1500)
+- `app/plan/domain/water_schedule.py` — `build_water_schedule` 8 anchored slots (07:00 wake → 23:00 sleep), sum byte-exact, wake joint-max
+- `app/plan/domain/water_view.py` — `WaterView` VO with locale messages (es/pt/en/fr/de), COACH_TONE.md compliant
+- `tests/unit/plan/test_water_calculator.py` — 16 tests + hypothesis property-based (max_examples=500) covering caps, monotonicity, CKD override, determinism
+- `tests/unit/plan/test_water_schedule.py` — 8 tests, schedule invariants
+- `tests/unit/plan/test_water_view.py` — 12 tests, locale messages
+- `tests/unit/nutrition/test_use_cases_water_v2.py` — 9 tests including hypothesis CKD invariant across full input cross-product
+
+**Files modified (wiring):**
+- `app/profile/infrastructure/repositories.py` — `_from_model` fix latent bug (was dropping `trimester`, `is_exclusively_breastfeeding`, `bodyfat_pct`, `dietary_pattern`)
+- `app/nutrition/infrastructure/repositories.py` — `biometrics()` returns `region`, `pregnant`, `lactating`
+- `app/nutrition/application/use_cases.py` — added `_compute_water_target_ml` helper; replaced legacy `compute_water_ml` calls in both `_build_goals` AND `RecalibrateGoals`
+- `app/plan/domain/entities.py` — `Plan.water_view: WaterView | None = None` (backward compat)
+- `app/plan/application/create_plan.py` — populates `plan.water_view` from `targets["water_ml"]` + profile locale
+- `app/plan/presentation/schemas.py` — `WaterSlotResponse`, `WaterTargetResponse`, `PlanResponse.water_target`
+- `app/plan/presentation/router.py` — `_hydrate_water_view` helper applied at GET /active and POST /advance
+- `app/coach/application/template_responses.py` — `water_progress` template tone-compliant; doc path fix `docs/coach/` → `docs/product/COACH_TONE.md`; emoji parity ES/EN (💪 on both `goal_hit` branches)
+
+**Profile expansion:** Option II chosen — derive `pregnant = (trimester is not None)`, `lactating = bool(is_exclusively_breastfeeding)`. No migration needed (columns existed since migration 0010).
+
+**QA review (nova-qa-elite):** verdict **GO-WITH-CAVEATS** → all 3 caveats now resolved.
+- 932/932 unit tests pass (911 baseline + 21 new). Zero regression.
+- `ruff check`: All checks passed.
+- `mypy --strict` on new modules: clean. Pre-existing baseline errors unchanged (zero new errors introduced).
+- Smoke validation 6 owner-relevant profiles byte-exact.
+
+**API exposure decision (privacy):** `WaterTarget.capped_by_medical` and `capped_by_safety` are EXPLICITLY NOT exposed in `WaterTargetResponse` schema. Reason: signalling either flag at API surface would leak medical condition status (CKD/HF) to the frontend, violating GDPR data minimisation + GR#3 "no medical info beyond what user provided". Future endpoints/responses MUST follow this pattern — flags are domain-internal for audit/log only. If owner ever needs to expose them, requires explicit ADR + privacy impact review.
+
+**Pending owner manual:** commit (GR#0).
+
+---
+
 ## 🔔 Active reminders for next assistant
 
 ### Sprint S0-residual security backlog (frozen)

@@ -170,45 +170,16 @@ If other projects are noisy during seed → run seed during low-traffic hour.
 
 ---
 
-## 5. Embedding backfill (one-time, ~30 min, ~$0.40 OpenAI cost)
+## 5. Embedding backfill — DEFERRED (session 2026-06-04)
 
-```bash
-ssh hostinger-vps
+**Status: NOT EXECUTED.** Owner decision: skip catalog-wide embedding backfill (`compute_embeddings.py`) to avoid one-time $6.65 OpenAI cost. Script deleted.
 
-# Confirm OPENAI_API_KEY set in env
-docker exec -it nova-api-1 sh -c 'echo "${OPENAI_API_KEY:0:10}..."'
-# Should print: sk-proj-...
+Impact: `recipes.embedding` + `foods.embedding` columns remain NULL. Code degrades gracefully:
+- `cosine([], [])` returns `0.0` (no exception)
+- `WHERE embedding IS NOT NULL` guards in coach/vision/search exclude NULL rows
+- Layer 3 ranking re-weights when taste vector empty (cultural/prep absorb the 40% weight)
 
-# Run backfill (hard cost cap $1.00)
-docker exec -it nova-api-1 python -m scripts.compute_embeddings \
-  --only recipes \
-  --max-usd 1.00
-
-# Expected output:
-# Embedding recipes 1-100 ($0.001) ...
-# ...
-# Embedding recipes 33901-34000 ($0.396) ...
-# Total: 34093 recipes, $0.398 spent.
-
-# Verify
-docker exec -it nova-db-1 psql -U nova -d nova -c "
-  SELECT COUNT(*) AS total,
-         COUNT(embedding) AS with_embedding
-  FROM recipes;
-"
-# Expected: total=34093, with_embedding=34093
-```
-
-**RAM peak during embedding: ~4.2 GB NOVA + 4 GB other = 8.2 GB.** *Tight* on 8 GB VPS — run during low-traffic hour.
-
-If OOM risk → split into 4 chunks:
-```bash
-# Process in quartiles
-docker exec -it nova-api-1 python -m scripts.compute_embeddings --max-usd 0.15 --limit 8500
-sleep 60
-docker exec -it nova-api-1 python -m scripts.compute_embeddings --max-usd 0.15 --limit 8500
-# ... repeat
-```
+Re-enable later: if catalog semantic features prove necessary, owner re-creates the script from git history or compute embeddings incrementally on first user access. Until then: features run on trigram + keyword match only.
 
 ---
 
@@ -359,9 +330,6 @@ git push origin main
 
 # Seed catalog (first time)
 docker exec -it nova-api-1 python -m scripts.seed_recipes
-
-# Embedding backfill (first time, when ready)
-docker exec -it nova-api-1 python -m scripts.compute_embeddings --max-usd 1.00
 
 # Migrations only (rare, manual)
 docker exec -it nova-api-1 alembic upgrade head

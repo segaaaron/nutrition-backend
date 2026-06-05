@@ -19,7 +19,6 @@ from app.core.errors import BusinessRuleViolation, NotFoundError
 from app.core.event_bus import EventBus
 from app.core.logging import get_logger
 from app.nutrition.domain.errors import BmrSafetyFloorViolated
-from app.nutrition.domain.hydration import compute_water_ml
 from app.nutrition.domain.kcal_range import to_range
 from app.nutrition.domain.macro_partitioning import compute_macros
 from app.nutrition.domain.mifflin_st_jeor import compute_bmr
@@ -38,6 +37,7 @@ from app.plan.domain.bmr_safety import (
     apply_trimester_adjustment,
     enforce_bmr_safety_floor,
 )
+from app.plan.domain.water_calculator import calculate_water_target
 
 _log = get_logger("nutrition.use_cases")
 
@@ -161,6 +161,52 @@ def _adjust_and_enforce_floor(
     return int(target)
 
 
+_DEFAULT_WEIGHT_KG_FALLBACK: Decimal = Decimal("70")
+
+
+def _compute_water_target_ml(
+    *,
+    weight_kg: Decimal | None,
+    kcal_daily: int,
+    activity_level: str,
+    goal: str,
+    conditions: frozenset[str],
+    region: str | None,
+    pregnant: bool,
+    lactating: bool,
+) -> int:
+    """Compute daily water target in ml via the NOVA hybrid algorithm.
+
+    Single integration seam: nutrition use cases delegate to
+    :func:`app.plan.domain.water_calculator.calculate_water_target` and persist
+    only the resulting ``total_ml`` to ``nutritional_goals.water_ml`` —
+    keeping the storage shape backward-compatible while upgrading the formula.
+
+    Edge case: an absent ``weight_kg`` (should not happen in production because
+    `_build_goals` validates it upstream, but `RecalibrateGoals` reads bio
+    asynchronously and the row could be transiently empty) falls back to 70 kg
+    with a warning rather than crashing the calibration run.
+    """
+    if weight_kg is None or weight_kg <= 0:
+        _log.warning(
+            "water_target_weight_kg_fallback",
+            fallback_kg=str(_DEFAULT_WEIGHT_KG_FALLBACK),
+        )
+        weight_kg = _DEFAULT_WEIGHT_KG_FALLBACK
+    target = calculate_water_target(
+        weight_kg=weight_kg,
+        kcal_daily=kcal_daily,
+        activity=activity_level,
+        region=region or "",
+        month=_now().month,
+        goal=goal,
+        conditions=conditions,
+        pregnant=pregnant,
+        lactating=lactating,
+    )
+    return target.total_ml
+
+
 def _build_goals(
     *,
     user_id: UUID,
@@ -173,6 +219,9 @@ def _build_goals(
     reason: str,
     conditions: frozenset[str] = frozenset(),
     trimester: str | None = None,
+    region: str | None = None,
+    pregnant: bool = False,
+    lactating: bool = False,
 ) -> NutritionalGoals:
     af = _ACTIVITY_FACTOR[activity_level]
     bmr = compute_bmr(sex=sex, weight_kg=weight_kg, height_cm=height_cm, age=age)  # type: ignore[arg-type]
@@ -190,11 +239,17 @@ def _build_goals(
     _bmr_safety_warn(user_id=user_id, kcal_target=kcal_target, bmr=bmr)
     macros = compute_macros(kcal_target=kcal_target, weight_kg=weight_kg, goal=goal)  # type: ignore[arg-type]
     krange = to_range(kcal_target)
-    # D1 — feed `conditions` so CKD/CHF caps activate (defense-in-depth).
-    water = compute_water_ml(
+    # NOVA hydration v2 — `calculate_water_target` honours kcal load, climate,
+    # pregnancy / lactation, and the CKD/CHF medical override (≤1500 ml).
+    water = _compute_water_target_ml(
         weight_kg=weight_kg,
-        activity_factor=af,
+        kcal_daily=kcal_target,
+        activity_level=activity_level,
+        goal=goal,
         conditions=conditions,
+        region=region,
+        pregnant=pregnant,
+        lactating=lactating,
     )
     return NutritionalGoals.new(
         user_id=user_id,
@@ -236,6 +291,9 @@ class ComputeInitialGoals:
             reason="onboarding",
             conditions=frozenset(bio.get("conditions") or ()),
             trimester=bio.get("trimester"),
+            region=bio.get("region"),
+            pregnant=bool(bio.get("pregnant")),
+            lactating=bool(bio.get("lactating")),
         )
         return await self.goals_repo.expire_current_and_insert(user_id, goals)
 
@@ -314,11 +372,17 @@ class RecalibrateGoals:
             kcal_target=kcal_target, weight_kg=bio["weight_kg"], goal=bio["goal"]
         )
         krange = to_range(kcal_target)
-        # D1 — conditions threaded so CKD/CHF still cap fluids post-recalibration.
-        water = compute_water_ml(
+        # NOVA hydration v2 — `calculate_water_target` honours kcal load,
+        # climate, pregnancy/lactation and the CKD/CHF medical override.
+        water = _compute_water_target_ml(
             weight_kg=bio["weight_kg"],
-            activity_factor=af,
+            kcal_daily=kcal_target,
+            activity_level=bio["activity_level"],
+            goal=bio["goal"],
             conditions=frozenset(bio.get("conditions") or ()),
+            region=bio.get("region"),
+            pregnant=bool(bio.get("pregnant")),
+            lactating=bool(bio.get("lactating")),
         )
 
         new_goals = NutritionalGoals.new(

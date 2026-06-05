@@ -157,7 +157,7 @@ Anything left blank renders the corresponding feature inert.
    docker exec -it nova-api python -m scripts.seed_foods
    docker exec -it nova-api python -m scripts.seed_recipes
    docker exec -it nova-api python -m scripts.seed_i18n
-   docker exec -it nova-api python -m scripts.compute_embeddings
+   # compute_embeddings DEFERRED — see DOKPLOY_DEPLOY.md §5
    ```
 
 ## 8 — Smoke tests post-deploy

@@ -80,7 +80,7 @@ app/<context>/{domain,application,infrastructure,presentation}/
 worker/main.py        Arq tasks
 migrations/versions/  Alembic (0001 init → 0006 billing)
 scripts/              audit_catalog, seed_foods, seed_recipes,
-                      compute_embeddings, seed_i18n, backup.sh, restore.sh
+                      seed_i18n, backup.sh, restore.sh
 docker/               api.Dockerfile, worker.Dockerfile, db.Dockerfile, init.sql
 docs/adr/             ADRs (0001 vocabulary, 0007 i18n, 0008 multi-region, …)
 docs/ops/             backup + deploy runbooks

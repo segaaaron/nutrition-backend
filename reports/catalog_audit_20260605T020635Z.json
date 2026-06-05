@@ -1,0 +1,96 @@
+{
+  "catalog_path": "data/meals/nova_meals_catalog.cleaned.curated.json",
+  "catalog_sha256": "da14e0bacc4ebbe1bea7d022d73c71f2fa23a74d262388ccb862eaaa676f6379",
+  "started_at": "2026-06-05T02:06:34.002628+00:00",
+  "finished_at": "2026-06-05T02:06:35.077082+00:00",
+  "total_records": 34072,
+  "gates_summary": {
+    "json_schema": {
+      "info": 0,
+      "warn": 0,
+      "fail": 0
+    },
+    "macro_consistency": {
+      "info": 0,
+      "warn": 0,
+      "fail": 0
+    },
+    "allergen_taxonomy": {
+      "info": 0,
+      "warn": 0,
+      "fail": 0
+    },
+    "condition_vocab": {
+      "info": 0,
+      "warn": 0,
+      "fail": 0
+    },
+    "allergen_completeness": {
+      "info": 0,
+      "warn": 0,
+      "fail": 0
+    },
+    "duplicate_detection": {
+      "info": 0,
+      "warn": 0,
+      "fail": 0
+    },
+    "outlier_kcal": {
+      "info": 0,
+      "warn": 0,
+      "fail": 0
+    },
+    "image_url": {
+      "info": 0,
+      "warn": 0,
+      "fail": 0
+    },
+    "goal_vocab": {
+      "info": 0,
+      "warn": 0,
+      "fail": 0
+    },
+    "activity_vocab": {
+      "info": 0,
+      "warn": 0,
+      "fail": 0
+    }
+  },
+  "results": [],
+  "passed": true,
+  "fix_counts": {},
+  "constants": {
+    "MACRO_TOLERANCE": 0.02,
+    "allergen_enum_size": 14,
+    "canonical_conditions_size": 25,
+    "canonical_goals_size": 5,
+    "canonical_goals": [
+      "health",
+      "maintain",
+      "muscle_gain",
+      "weight_gain",
+      "weight_loss"
+    ],
+    "canonical_activity_levels_size": 5,
+    "canonical_activity_levels": [
+      "extra_active",
+      "lightly_active",
+      "moderately_active",
+      "sedentary",
+      "very_active"
+    ],
+    "meal_times": [
+      "breakfast",
+      "dinner",
+      "lunch",
+      "snack"
+    ],
+    "regions": [
+      "ca",
+      "eu",
+      "latam",
+      "uk",
+      "us"
+    ]
+  }
+}

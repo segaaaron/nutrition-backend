@@ -50,6 +50,26 @@ class PlanDayResponse(_Strict):
     meals: list[PlanMealResponse]
 
 
+class WaterSlotResponse(_Strict):
+    time: str
+    ml: int
+    label: str
+
+
+class WaterTargetResponse(_Strict):
+    """Daily hydration view (8 chronological slots + coach message).
+
+    ``total_ml`` mirrors the persisted ``nutritional_goals.water_ml`` —
+    schedule ml values sum to ``total_ml`` exactly.
+    """
+
+    total_ml: int
+    glass_ml: int
+    n_glasses: int
+    schedule: list[WaterSlotResponse]
+    message: str
+
+
 class PlanResponse(_Strict):
     id: UUID
     user_id: UUID
@@ -64,6 +84,7 @@ class PlanResponse(_Strict):
     version: int
     created_at: datetime
     days: list[PlanDayResponse]
+    water_target: WaterTargetResponse | None = None
 
 
 class AdvanceRequest(_Strict):

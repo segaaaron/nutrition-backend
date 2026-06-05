@@ -1,15 +1,19 @@
-"""Seed `recipes` from `data/meals/nova_meals_catalog.cleaned.json` (schema v2 snake_case).
+"""Seed `recipes` from `data/meals/nova_meals_catalog.json` (schema v3 camelCase).
 
-Catalog schema v2 (post-2026-06-01 migration):
-  - All keys snake_case English (ES preserved in name/description/ingredients values)
-  - Fields: id, name, description, image_url,
-            nutrition_profile.{calories, macros{protein_g/carbs_g/fat_g/fiber_g/sugar_g/sat_fat_g/sodium_mg}, micronutrients{...}},
-            matching_criteria.{target_goals, suitable_for_activity, recommended_for_conditions,
-                               contraindicated_conditions, allergens, regions, dietary_pattern,
-                               cuisine_region, meal_format, pregnancy_safe},
-            execution.{meal_time, prep_time_minutes, cook_time_minutes, image_url, ingredients,
-                       instructions, servings, source_catalog},
-            audit.{schema_version, macro_consistency_pct, ...}
+Catalog schema v3 (post-2026-06-04 34k curation, audit 10/10 0/0/0):
+  - Top-level keys camelCase English (ES preserved in name/description/ingredients values)
+  - Fields: id, name, description,
+            nutritionProfile.{calories, macros{proteinG/carbsG/fatG}},
+            matchingCriteria.{targetGoals, suitableForActivity, recommendedForConditions,
+                              contraindicatedConditions, allergens, regions},
+            execution.{mealTime, prepTimeMinutes, firebaseImageUrl, ingredients,
+                       instructions, source_catalog}
+
+Legacy v2 snake_case is no longer supported — the cleaned.json source was
+replaced by the audited camelCase catalog on 2026-06-04. Fields no longer
+present in v3 (fiber_g, sugar_g, sat_fat_g, sodium_mg, micronutrients,
+pregnancy_safe, dietary_pattern, cuisine_region, meal_format, cook_time)
+are inserted as 0 / NULL to preserve DB compatibility.
 
 UPSERT key: `name_en` (the master recipe name as displayed). Re-runs replace
 recipe_components + recipe_allergens for matched recipes.
@@ -49,7 +53,7 @@ from app.core.logging import configure_logging, get_logger
 log = get_logger("scripts.seed_recipes")
 
 ROOT = Path(__file__).resolve().parent.parent
-CATALOG_PATH = ROOT / "data" / "meals" / "nova_meals_catalog.cleaned.json"
+CATALOG_PATH = ROOT / "data" / "meals" / "nova_meals_catalog.json"
 
 VALID_ALLERGENS: frozenset[str] = frozenset({
     "dairy", "gluten", "tree_nuts", "peanuts", "shellfish", "fish", "egg",
@@ -119,11 +123,11 @@ async def main() -> int:
         # Validate parseability + enum membership, do not write.
         for rec in raw:
             try:
-                mc = rec.get("matching_criteria") or {}
+                mc = rec.get("matchingCriteria") or {}
                 _filter_enum(mc.get("regions") or [], VALID_REGIONS)
                 _filter_enum(mc.get("allergens") or [], VALID_ALLERGENS)
-                _filter_enum(mc.get("target_goals") or [], VALID_GOALS)
-                meal_time = (rec.get("execution") or {}).get("meal_time")
+                _filter_enum(mc.get("targetGoals") or [], VALID_GOALS)
+                meal_time = (rec.get("execution") or {}).get("mealTime")
                 if meal_time and meal_time not in VALID_MEAL_TIMES:
                     errors += 1
             except Exception:  # noqa: BLE001
@@ -143,13 +147,13 @@ async def main() -> int:
                     name = f"{name} v{seen_names[name]}"
 
                 desc = (rec.get("description") or "").strip()
-                image_url = rec.get("image_url")
+                image_url = rec.get("execution", {}).get("firebaseImageUrl")
 
-                nut = rec.get("nutrition_profile") or {}
+                nut = rec.get("nutritionProfile") or {}
                 macros = nut.get("macros") or {}
-                micros = nut.get("micronutrients") or {}
+                micros: dict[str, Any] = {}  # v3 schema dropped micronutrients
 
-                mc = rec.get("matching_criteria") or {}
+                mc = rec.get("matchingCriteria") or {}
                 exe = rec.get("execution") or {}
 
                 ingredients: list[str] = exe.get("ingredients") or []
@@ -158,17 +162,17 @@ async def main() -> int:
 
                 regions = _filter_enum(mc.get("regions") or [], VALID_REGIONS) or ["latam"]
                 allergens = _filter_enum(mc.get("allergens") or [], VALID_ALLERGENS)
-                target_goals = _filter_enum(mc.get("target_goals") or [], VALID_GOALS)
-                recommended = list(mc.get("recommended_for_conditions") or [])
-                contraindicated = list(mc.get("contraindicated_conditions") or [])
+                target_goals = _filter_enum(mc.get("targetGoals") or [], VALID_GOALS)
+                recommended = list(mc.get("recommendedForConditions") or [])
+                contraindicated = list(mc.get("contraindicatedConditions") or [])
 
-                meal_time = exe.get("meal_time")
+                meal_time = exe.get("mealTime")
                 if meal_time not in VALID_MEAL_TIMES:
                     meal_time = None
-                prep_min = exe.get("prep_time_minutes")
+                prep_min = exe.get("prepTimeMinutes")
                 source_batch = exe.get("source_catalog") or rec.get("source_catalog")
 
-                # v2 schema additions (migration 0008+0010)
+                # v3 schema dropped pregnancy_safe — default False
                 pregnancy_safe = bool(mc.get("pregnancy_safe", False))
                 # Note: dietary_pattern, cuisine_region, meal_format live as
                 # JSONB or tags in DB if user adds columns; for now stored in
@@ -195,13 +199,13 @@ async def main() -> int:
                     "description_translations": description_translations,
                     "image_url": image_url,
                     "kcal": nut.get("calories"),
-                    "protein_g": macros.get("protein_g"),
-                    "carbs_g": macros.get("carbs_g"),
-                    "fat_g": macros.get("fat_g"),
-                    "fiber_g": macros.get("fiber_g") or 0,
-                    "sugar_g": macros.get("sugar_g") or 0,
-                    "sat_fat_g": macros.get("sat_fat_g") or 0,
-                    "sodium_mg": macros.get("sodium_mg") or 0,
+                    "protein_g": macros.get("proteinG") or macros.get("protein_g"),
+                    "carbs_g": macros.get("carbsG") or macros.get("carbs_g"),
+                    "fat_g": macros.get("fatG") or macros.get("fat_g"),
+                    "fiber_g": 0,
+                    "sugar_g": 0,
+                    "sat_fat_g": 0,
+                    "sodium_mg": 0,
                     # Micronutrients (migration 0008 columns; NULL OK)
                     "gi": micros.get("gi"),
                     "gl": micros.get("gl"),

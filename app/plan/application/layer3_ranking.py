@@ -72,18 +72,32 @@ class Layer3Ranking:
 
         novelty_counts = novelty_counts or {}
         adherence_rates = adherence_rates or {}
+        # When the taste vector is empty (cold-start user OR catalogue embeddings
+        # not backfilled — see DOKPLOY_DEPLOY.md §5), the 0.40 taste weight is
+        # redistributed proportionally onto cultural_fit + prep_time_fit so the
+        # composite score keeps the same 1.0 envelope and ranking stays
+        # meaningful instead of collapsing to a 60%-signal random-ish order.
+        taste_active = bool(self.taste_vector)
+        w_taste, w_cult, w_prep = (
+            (0.40, 0.20, 0.20) if taste_active else (0.0, 0.40, 0.40)
+        )
         scored: list[tuple[UUID, float]] = []
         for r in rows:
             rid: UUID = r["id"]
             emb = r["embedding"]
-            # pgvector returns a list-like; coerce defensively.
             emb_list = list(emb) if emb is not None else []
-            s_taste = cosine(self.taste_vector, emb_list)
+            s_taste = cosine(self.taste_vector, emb_list) if taste_active else 0.0
             s_cult = cultural_fit(country, list(r["regions"] or []))
             s_prep = prep_time_fit(prep_pref, r["prep_min"])
             s_nov = novelty(novelty_counts.get(rid, 0))
             s_adh = adherence(adherence_rates.get(rid))
-            total = 0.40 * s_taste + 0.20 * s_cult + 0.20 * s_prep + 0.10 * s_nov + 0.10 * s_adh
+            total = (
+                w_taste * s_taste
+                + w_cult * s_cult
+                + w_prep * s_prep
+                + 0.10 * s_nov
+                + 0.10 * s_adh
+            )
             scored.append((rid, total))
         scored.sort(key=lambda x: x[1], reverse=True)
         return scored

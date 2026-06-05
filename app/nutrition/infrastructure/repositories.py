@@ -129,6 +129,12 @@ class SqlProfileReader:
             "conditions": frozenset(p.medical_conditions or ()),
             # H1.4 — feed trimester into pregnancy kcal surplus (IOM DRI 2002).
             "trimester": p.trimester,
+            # NOVA hydration v2 — extra signals for `calculate_water_target`.
+            # region drives the LatAm hot-season climate modifier (Oct-Mar).
+            # pregnant / lactating drive +300 / +700 ml bumps respectively.
+            "region": p.region,
+            "pregnant": p.trimester is not None,
+            "lactating": bool(p.is_exclusively_breastfeeding),
         }
 
 

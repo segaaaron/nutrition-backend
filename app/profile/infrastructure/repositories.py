@@ -20,12 +20,16 @@ def _from_model(m: UserProfileModel) -> UserProfile:
         units=m.units,
         weight_kg=m.weight_kg,
         height_cm=m.height_cm,  # type: ignore[arg-type]
+        bodyfat_pct=m.bodyfat_pct,
         goal=m.goal,
         activity_level=m.activity_level,  # type: ignore[arg-type]
+        dietary_pattern=m.dietary_pattern,  # type: ignore[arg-type]
         medical_conditions=list(m.medical_conditions or []),
         other_condition=m.other_condition,
         allergies=list(m.allergies or []),
         other_allergy=m.other_allergy,
+        trimester=m.trimester,  # type: ignore[arg-type]
+        is_exclusively_breastfeeding=m.is_exclusively_breastfeeding,
         country=m.country,
         region=m.region,
         locale=m.locale,

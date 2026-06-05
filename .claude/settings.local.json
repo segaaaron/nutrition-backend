@@ -89,7 +89,13 @@
       "Bash(awk '-Fimport ' '{print $NF}')",
       "Bash(awk '{print $1}')",
       "Bash(.venv/bin/pip list *)",
-      "Bash(/Users/miguelangelsaraviabelmonte/dev-backend/Nova-nutrition-backend/.venv/bin/pip list *)"
+      "Bash(/Users/miguelangelsaraviabelmonte/dev-backend/Nova-nutrition-backend/.venv/bin/pip list *)",
+      "Bash(.venv/bin/mypy app/plan/domain/water_calculator.py app/plan/domain/water_schedule.py --strict)",
+      "Bash(.venv/bin/mypy app/plan app/nutrition app/profile --strict)",
+      "Bash(.venv/bin/mypy app/profile --strict)",
+      "Bash(.venv/bin/mypy /tmp/base_repo.py --strict)",
+      "Bash(.venv/bin/mypy app/plan app/nutrition app/profile app/coach --strict)",
+      "Bash(.venv/bin/mypy app/plan/domain app/plan/application app/nutrition/application app/profile/infrastructure app/coach/application --strict)"
     ]
   },
   "model": "claude-opus-4-7"

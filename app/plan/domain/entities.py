@@ -7,6 +7,7 @@ from datetime import date, datetime
 from uuid import UUID
 
 from app.plan.domain.value_objects import MealTime, PlanStatus, PlanType
+from app.plan.domain.water_view import WaterView
 
 
 @dataclass(slots=True)
@@ -50,6 +51,9 @@ class Plan:
     version: int
     created_at: datetime
     days: list[PlanDay] = field(default_factory=list)
+    # Daily hydration view — computed from `nutritional_goals.water_ml`
+    # (single source of truth). Non-persisted: assembled at create/read time.
+    water_view: WaterView | None = None
 
     def find_meal(self, meal_id: UUID) -> PlanMeal | None:
         for d in self.days:
