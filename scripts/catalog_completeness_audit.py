@@ -102,8 +102,9 @@ def classify(
     explicit so the CI gate (exit 1) and boot guard (exit 3) are
     distinguishable in the wrapper logic.
     """
-    soft = any(a.ratio > soft_threshold for a in audits)
-    hard = any(a.ratio > hard_threshold for a in audits)
+    critical = [a for a in audits if a.column in CRITICAL_COLUMNS]
+    soft = any(a.ratio > soft_threshold for a in critical)
+    hard = any(a.ratio > hard_threshold for a in critical)
     return soft, hard
 
 

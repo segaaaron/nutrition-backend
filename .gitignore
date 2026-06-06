@@ -34,3 +34,8 @@ data/meals/liquid_batch_*.json
 
 # Claude Code worktree shadow copies (Sprint internal, not for git)
 .claude/worktrees/
+
+# Local ETL state + intermediate outputs (regenerable, not for git)
+.cache/
+data/meals/recipe_pexels_mapping.json
+scripts/sql/
