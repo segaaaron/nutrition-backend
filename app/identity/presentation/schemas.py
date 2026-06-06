@@ -53,6 +53,10 @@ class TokenPairResponse(_Strict):
     refresh_token: str
     token_type: Literal["bearer"] = "bearer"
     user_id: UUID
+    # Rollback symmetry (QA R2): field has a default, so a backend rollback
+    # to a version without the column read keeps the response valid for new
+    # iOS clients (Swift `decodeIfPresent ?? false`). Old iOS clients tolerate
+    # the extra field per Codable default behaviour. Both directions safe.
     onboarding_completed: bool = False
 
 

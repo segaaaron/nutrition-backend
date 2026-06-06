@@ -22,6 +22,9 @@ from app.core.errors import (
     Unauthenticated,
 )
 from app.core.event_bus import EventBus
+from app.core.logging import get_logger
+
+_log = get_logger(__name__)
 from app.identity.domain.entities import OtpCode, OtpPurpose, RefreshToken, User
 from app.identity.domain.events import (
     OtpLocked,
@@ -166,6 +169,15 @@ async def _issue_token_pair(
             RefreshTokenIssued(user_id=user.id, token_id=token.id, family_id=family, at=now),
         ]
     )
+    # Observability (QA finding F-O1 / R1): enables ops to debug iOS reports
+    # of "wrong onboarding flag" by correlating with the user_profiles
+    # transition timestamp. PII-safe — only the user_id + method + flag.
+    _log.info(
+        "identity.token_issued",
+        user_id=str(user.id),
+        method=method,
+        onboarding_completed=onboarding_completed,
+    )
     return TokenPair(
         access=access,
         refresh=refresh_plain,
@@ -213,6 +225,11 @@ class RefreshTokens:
         user = await self.users.get_by_id(rec.user_id)
         if user is None or user.is_deleted:
             raise Unauthenticated("user_gone")
+        # Cross-table read (QA R3): adds `user_profiles` to the session's
+        # working set alongside the pre-existing `users` lookup above. No
+        # NEW lock surface — `users` was already in the session and the
+        # NOVA migration policy (CLAUDE.md "reversible + zero-downtime")
+        # forbids ACCESS EXCLUSIVE locks on either table.
         onboarding_completed = await self.users.get_onboarding_completed(user.id)
         return await _issue_token_pair(
             user,
