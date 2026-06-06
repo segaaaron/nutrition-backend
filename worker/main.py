@@ -17,7 +17,23 @@ from arq import cron
 from arq.connections import RedisSettings
 
 from app.core.config import get_settings
-from worker.anomaly_score_task import anomaly_score_task
+
+# Pre-register every ORM model with ``Base.metadata`` so cross-table
+# ForeignKey strings (e.g. plan_meals.recipe_id → recipes.id) resolve
+# regardless of which use case the worker dispatches first. Without this
+# the first generate_plan_task fails with NoReferencedTableError because
+# only the plan models are imported transitively.
+import app.coach.infrastructure.models  # noqa: F401,E402
+import app.identity.infrastructure.models  # noqa: F401,E402
+import app.notifications.infrastructure.models  # noqa: F401,E402
+import app.nutrition.infrastructure.models  # noqa: F401,E402
+import app.plan.infrastructure.models  # noqa: F401,E402
+import app.profile.infrastructure.models  # noqa: F401,E402
+import app.recipes.infrastructure.models  # noqa: F401,E402
+import app.tracking.infrastructure.models  # noqa: F401,E402
+import app.vision.infrastructure.models  # noqa: F401,E402
+
+from worker.anomaly_score_task import anomaly_score_task  # noqa: E402
 from worker.coach_tasks import (
     cleanup_expired_otp_lockouts_cron,
     cleanup_expired_sse_tickets_cron,
