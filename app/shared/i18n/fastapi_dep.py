@@ -15,6 +15,7 @@ errors silently (translation is best-effort — must never break a request).
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from typing import Annotated
 from uuid import UUID
 
@@ -24,8 +25,21 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.identity.presentation.dependencies import SessionDep, get_jwt
+from app.core.db import get_sessionmaker
 from app.shared.i18n.locale_resolver import Locale, resolve_locale
+
+
+async def _get_session_i18n() -> AsyncIterator[AsyncSession]:
+    """Private session dep. Duplicated from identity to avoid a circular
+    import (identity.dependencies imports identity.use_cases which imports
+    this package). Read-only locale lookup; no commit needed.
+    """
+    sm = get_sessionmaker()
+    async with sm() as session:
+        yield session
+
+
+_SessionDep = Annotated[AsyncSession, Depends(_get_session_i18n)]
 
 _log = structlog.get_logger(__name__)
 
@@ -48,6 +62,9 @@ async def _current_user_optional(
     """
     if creds is None or creds.scheme.lower() != "bearer":
         return None
+    # Lazy import to avoid identity → i18n → identity circular import at boot.
+    from app.identity.presentation.dependencies import get_jwt
+
     try:
         claims = await get_jwt().verify_access(creds.credentials)
     except Exception:  # noqa: BLE001 — best-effort, never break a request
@@ -80,7 +97,7 @@ async def _lookup_profile_locale(
 
 
 async def get_locale(
-    session: SessionDep,
+    session: _SessionDep,
     accept_language: Annotated[str | None, Header()] = None,
     user_id: Annotated[UUID | None, Depends(_current_user_optional)] = None,
 ) -> Locale:
