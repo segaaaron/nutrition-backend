@@ -229,11 +229,24 @@ async def _main() -> int:
         hard_threshold=args.fail_hard_threshold,
     )
 
-    if args.json:
-        out = _format_json(audits, args.threshold)
+    # Boot guard happy-path noise reduction: a clean boot prints dozens of
+    # lines of JSON per container start. Emit a single-line summary when the
+    # guard passes and only spill the full diagnostic when something breaches.
+    # Manual runs (no `--boot-guard`) always print the full report.
+    quiet_success = args.boot_guard and not hard_breached
+    if quiet_success:
+        critical = [a for a in audits if a.column in CRITICAL_COLUMNS]
+        worst = max((a.ratio for a in critical), default=Decimal("0"))
+        print(
+            f"catalog_audit ok cols={len(critical)} max_null_ratio={worst} "
+            f"hard_threshold={args.fail_hard_threshold}"
+        )
     else:
-        out = _format_table(audits, args.threshold)
-    print(out)
+        if args.json:
+            out = _format_json(audits, args.threshold)
+        else:
+            out = _format_table(audits, args.threshold)
+        print(out)
 
     if args.boot_guard:
         # Boot guard mode: only block on catastrophic breach.
