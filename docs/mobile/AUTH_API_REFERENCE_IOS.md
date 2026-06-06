@@ -830,3 +830,93 @@ struct TokenPairResponse: Codable {
 | 4 | `AuthUser.id` tipo | UUID | Swift `UUID` nativo. Eliminar `String` ID handling. | NO |
 
 Cero blockers iOS día 1. Cero T9 migration. Cero UI deshabilitar. Cero mismatch tipo.
+
+---
+
+## Onboarding payload (ADR-0028, 2026-06-05)
+
+Single-CTA flow ("Crear mi plan con NOVA →") = **2 sequential calls**:
+
+1. `POST /me/onboarding` — persist biometrics + goal + conditions + allergies + region.
+2. `POST /plans` — enqueue plan generation (Arq).
+
+### Wire shape — `POST /me/onboarding`
+
+Body matches `OnboardingRequest` (`app/profile/presentation/schemas.py`). Strict mode (`extra=forbid`).
+
+```json
+{
+  "name": "Miguel Saravia",
+  "age": 30,
+  "sex": "male",
+  "units": "metric",
+  "weight_kg": "72.0",
+  "height_m": "1.75",
+  "goal": "weight_loss",
+  "activity_level": "moderately_active",
+  "medical_conditions": ["hypertension"],
+  "allergies": ["dairy"],
+  "theme": "light"
+}
+```
+
+### Field rules
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `name` | `string?` | optional | Display only. PII — never logged. |
+| `age` | `int` 18–80 | **required** | <18 / >80 refused (BusinessRuleViolation). |
+| `sex` | `"male" \| "female"` | **required** | Sex at birth — Mifflin BMR input. |
+| `units` | `"metric" \| "imperial"` | optional (default `metric`) | Display only. SI stored server-side. |
+| `weight_kg` | `Decimal` 30–250 | **required** | Always SI. Convert lb → kg on iOS. |
+| `height_cm` OR `height_m` | `Decimal` | **exactly one required** | `height_cm` wins if both sent. |
+| `bodyfat_pct` | `Decimal?` 3–60 | optional | Enables Cunningham BMR for athletes. |
+| `goal` | enum 5 values | **required** | `weight_loss \| maintain \| muscle_gain \| weight_gain \| health`. |
+| `activity_level` | enum 5 values | **required** | `sedentary \| lightly_active \| moderately_active \| very_active \| extra_active`. |
+| `dietary_pattern` | `"omnivore" \| "pescatarian" \| "vegetarian" \| "vegan"` | **optional (NEW, ADR-0028)** | Defaults to `omnivore` on the server with a warning log. **iOS MVP does NOT ask this.** Vegan users must `PATCH /me` to correct. iOS SHOULD add a screen post-MVP. |
+| `medical_conditions` | `string[]` ≤6 | optional | Closed enum: `diabetes_t2 \| hypertension \| celiac \| dyslipidemia \| hypothyroidism \| lactation \| pregnancy`. UI chip "Colesterol alto" → `dyslipidemia`. UI chip "Celiaquía" → BOTH `celiac` here AND `gluten` in allergies. |
+| `other_condition` | `string?` ≤200 | optional | Free text. Stored as PII. NOT routed to Layer-1 filter. |
+| `allergies` | `string[]` ≤7 | optional | Closed enum: `dairy \| gluten \| tree_nuts \| shellfish \| egg \| soy`. |
+| `other_allergy` | `string?` ≤200 | optional | **Non-empty value REFUSES plan generation** — server returns 422 `urn:nova:problem:plan:allergen-unmapped-requires-review`. |
+| `trimester` | `"first" \| "second" \| "third"` | required iff `pregnancy` in conditions | iOS MVP does not ask. |
+| `is_exclusively_breastfeeding` | `bool` | required iff `lactation` in conditions | iOS MVP does not ask. |
+| `country` | ISO-3166-1 alpha-2 | optional | If null, backend derives locale via `Accept-Language` header. |
+| `locale` | `"en" \| "es" \| "pt" \| "fr" \| "de"` | optional | Server falls back to country → header. |
+| `theme` | `"light" \| "dark"` | default `light` | Display only. |
+
+### `onboarding_completed` semantics (ADR-0028)
+
+The `ProfileResponse.onboarding_completed` flag is **False** until the
+user's FIRST plan is generated successfully. The transition happens
+server-side when the Arq worker publishes `PlanCreated` after a
+successful `POST /plans`:
+
+```
+POST /me/onboarding   → 201, onboarding_completed = false
+POST /plans           → 202 { job_id }
+(worker generates plan) → onboarding_completed flips to true
+GET  /me              → onboarding_completed = true
+```
+
+If `POST /plans` fails (cost-cap, validation, segment refusal), the flag
+**stays false** and the user is correctly routed back through onboarding.
+
+### Error contract
+
+| HTTP | URN | When |
+|------|-----|------|
+| 422 | `urn:nova:problem:plan:allergen-unmapped-requires-review` | `other_allergy` non-empty. |
+| 422 | validation | Missing required field, out-of-range numeric, unknown enum. |
+| 423 | `urn:nova:problem:profile:region-change-locked` | Changing country/region within 30-day lock window (ADR-0026). |
+| 422 | `segment_unsupported_mvp:conditions:diabetes_t1` | Blocked condition or region. |
+
+### Idempotency
+
+`POST /me/onboarding` is **upsert-by-user_id** — safe to retry. The
+second call rewrites identical state and re-publishes
+`OnboardingCompleted` + `BiometricsChanged` events (consumers are
+idempotent).
+
+`POST /plans` requires `Idempotency-Key` header (see
+`docs/mobile/PLAN_API_CONTRACT.md`).
+

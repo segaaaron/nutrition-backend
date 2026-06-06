@@ -177,11 +177,15 @@ def test_height_m_outside_1_20_2_40_refuses(height_m: str) -> None:
         OnboardingRequest(**_base_payload(height_m=height_m))  # type: ignore[arg-type]
 
 
-def test_missing_dietary_pattern_refuses() -> None:
+def test_missing_dietary_pattern_accepted_default_omnivore_applied_use_case() -> None:
+    """ADR-0028 D1 — `dietary_pattern` is now optional. The schema must
+    accept absence; defaulting to `omnivore` happens server-side in
+    `CompleteOnboarding` with a structured warning log. iOS MVP form
+    does not ask this field."""
     payload = _base_payload()
     del payload["dietary_pattern"]
-    with pytest.raises(ValidationError):
-        OnboardingRequest(**payload)  # type: ignore[arg-type]
+    body = OnboardingRequest(**payload)  # type: ignore[arg-type]
+    assert body.dietary_pattern is None
 
 
 def test_unknown_dietary_pattern_refuses() -> None:

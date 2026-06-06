@@ -11,11 +11,14 @@ from app.core.config import get_settings
 from app.core.db import session_scope
 from app.core.errors import BusinessRuleViolation, LockedError, NotFoundError
 from app.core.event_bus import EventBus
+from app.core.logging import get_logger
 from app.profile.domain.entities import UserProfile
 from app.profile.domain.events import BiometricsChanged, OnboardingCompleted
 from app.profile.domain.region_mapper import country_to_locale, country_to_region
 
 _REGION_LOCK_DAYS = 30
+
+_log = get_logger("profile.use_cases")
 
 
 def _now() -> datetime:
@@ -65,6 +68,16 @@ class CompleteOnboarding:
         for k, v in payload.items():
             if hasattr(profile, k):
                 setattr(profile, k, v)
+        # D1 (ADR-0028): iOS MVP onboarding does not ask dietary_pattern.
+        # Default to omnivore + emit structured warning. PII-safe: only
+        # user_id + goal are logged.
+        if profile.dietary_pattern is None:
+            profile.dietary_pattern = "omnivore"
+            _log.warning(
+                "dietary_pattern_defaulted_to_omnivore",
+                user_id=str(user_id),
+                goal=profile.goal,
+            )
         if profile.country:
             profile.region = country_to_region(profile.country)
             if not payload.get("locale"):
@@ -72,7 +85,12 @@ class CompleteOnboarding:
         if not profile.is_complete_enough_for_targets:
             raise BusinessRuleViolation("onboarding_incomplete")
         _enforce_mvp_segment_gate(profile)
-        profile.onboarding_completed = True
+        # D5 (ADR-0028): flag flip moved to PlanCreated event handler.
+        # Preserve the existing value so a user re-running onboarding
+        # after a plan was generated does NOT regress to False.
+        # (No explicit assignment: profile.onboarding_completed retains
+        # its prior value — False on first call, True if PlanCreated
+        # has already fired.)
         profile.updated_at = _now()
         await self.profiles.upsert(profile)
         await self.bus.publish_many(

@@ -122,10 +122,19 @@ class OnboardingRequest(_Strict):
     # Goals
     goal: Goal = Field(json_schema_extra={"example": "weight_loss"})
     activity_level: ActivityLevel = Field(json_schema_extra={"example": "moderately_active"})
-    dietary_pattern: DietaryPattern = Field(
+    dietary_pattern: DietaryPattern | None = Field(
+        default=None,
         json_schema_extra={
             "example": "omnivore",
-            "description": "Mandatory. Catalog filter; without it vegans risk meat exposure.",
+            "description": (
+                "Optional. iOS MVP onboarding does NOT ask this field; backend "
+                "defaults to 'omnivore' when omitted and emits a structured "
+                "warning log ('dietary_pattern_defaulted_to_omnivore'). "
+                "RISK: vegan users who silently default to omnivore will receive "
+                "meat-containing recipes until they call PATCH /me. iOS clients "
+                "SHOULD add a dietary-pattern screen post-MVP. Per decision D1 "
+                "(ADR-0028)."
+            ),
         },
     )
 

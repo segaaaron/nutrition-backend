@@ -99,7 +99,10 @@
       "Bash(grep *)",
       "Bash(uv run *)",
       "Bash(pytest tests/ --tb=line -q)",
-      "Bash(awk '{print $6, $7, $8, $9}')"
+      "Bash(awk '{print $6, $7, $8, $9}')",
+      "Bash(.venv/bin/mypy app/profile/application/event_handlers.py app/profile/application/use_cases.py app/profile/presentation/schemas.py)",
+      "Bash(.venv/bin/mypy app/profile/application/event_handlers.py app/profile/application/use_cases.py app/profile/presentation/schemas.py app/main.py worker/main.py)",
+      "Bash(pytest tests/ -x --tb=short -q)"
     ]
   },
   "model": "claude-opus-4-7"

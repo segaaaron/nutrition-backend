@@ -175,11 +175,15 @@ def create_app() -> FastAPI:
 
     # --- Domain event subscriptions ---
     from app.coach.application.event_handlers import register as register_coach_handlers
+    from app.core.db import get_sessionmaker as _profile_sessionmaker
     from app.core.event_bus import get_event_bus
     from app.gamification.application.event_handlers import (
         register as register_gamification_handlers,
     )
     from app.nutrition.event_handlers import register as register_nutrition_handlers
+    from app.profile.application.event_handlers import (
+        register as register_profile_handlers,
+    )
     from app.tracking.event_handlers import register as register_tracking_handlers
 
     bus = get_event_bus()
@@ -187,6 +191,9 @@ def create_app() -> FastAPI:
     register_coach_handlers(bus)
     register_gamification_handlers(bus)
     register_tracking_handlers(bus)
+    # ADR-0028 — onboarding_completed flag flips on PlanCreated. MUST also
+    # be registered in worker/main.py since plan generation runs there.
+    register_profile_handlers(bus, _profile_sessionmaker())
 
     @app.get("/healthz", tags=["ops"])
     async def healthz() -> dict[str, str]:

@@ -68,6 +68,16 @@ CRON_JOBS: list[Any] = [
 
 async def on_startup(ctx: dict[str, Any]) -> None:
     ctx["settings"] = _settings
+    # ADR-0028 — register profile-side PlanCreated subscriber inside the
+    # worker process. EventBus is an in-process singleton so the API's
+    # registration does NOT cover plan generation jobs that run here.
+    from app.core.db import get_sessionmaker
+    from app.core.event_bus import get_event_bus
+    from app.profile.application.event_handlers import (
+        register as register_profile_handlers,
+    )
+
+    register_profile_handlers(get_event_bus(), get_sessionmaker())
 
 
 async def on_shutdown(ctx: dict[str, Any]) -> None:  # noqa: ARG001
