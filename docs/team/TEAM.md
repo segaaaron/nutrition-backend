@@ -32,20 +32,19 @@ Prohibido:
 
 ---
 
-## Equipo agentes (10)
+## Equipo agentes (9)
 
 | # | Agente | Color | Rol principal |
 |---|--------|-------|---------------|
-| 1 | `nova-backend-architect` | 🔵 blue | Arquitectura general backend + biochem |
-| 2 | `nova-nutrition-backend-architect` | 🔵 blue | Arquitectura específica nutrición + Clean Arch/DDD |
-| 3 | `nova-qa-elite` | 🟢 green | QA holístico + algorithm correctness audit |
-| 4 | `nova-clinical-nutrition-generator` | ⚪ — | Generador batch recetas validadas |
-| 5 | `nova-api-expert` | 🔷 cyan | REST/HTTP/OpenAPI/SSE contract design |
-| 6 | `nova-python-expert` | 🟡 yellow | Py3.12 idioms + async correctness + Decimal precision |
-| 7 | `nova-design-patterns-expert` | 🟣 purple | Clean Arch + GoF + DDD + SOLID enforcement |
-| 8 | `nova-best-practices-advisor` | 🟠 orange | Refactor pragmático + commit hygiene + dev quality |
-| 9 | `nova-elite-test-engineer` | 🔴 red | Property-based + mutation + contract testing |
-| 10 | `nova-nutrition-algorithms-expert` | 🟪 magenta | **Math engine + Plan generator basado en data cliente** |
+| 1 | `nova-backend-architect` | 🔵 blue | Arquitectura backend + Clean Arch/DDD + polyglot persistence + nutrition domain |
+| 2 | `nova-qa-elite` | 🟢 green | QA holístico + algorithm correctness audit |
+| 3 | `nova-clinical-nutrition-generator` | ⚪ — | Generador batch recetas validadas |
+| 4 | `nova-api-expert` | 🔷 cyan | REST/HTTP/OpenAPI/SSE contract design |
+| 5 | `nova-python-expert` | 🟡 yellow | Py3.12 idioms + async correctness + Decimal precision |
+| 6 | `nova-design-patterns-expert` | 🟣 purple | Clean Arch + GoF + DDD + SOLID enforcement |
+| 7 | `nova-best-practices-advisor` | 🟠 orange | Refactor pragmático + commit hygiene + dev quality |
+| 8 | `nova-elite-test-engineer` | 🔴 red | Property-based + mutation + contract testing |
+| 9 | `nova-nutrition-algorithms-expert` | 🟪 magenta | **Math engine + Plan generator basado en data cliente** |
 
 ---
 
@@ -55,7 +54,7 @@ Prohibido:
 
 | Tarea | Agente principal | Agente apoyo |
 |-------|-----------------|--------------|
-| Nuevo bounded context | nova-nutrition-backend-architect | nova-design-patterns-expert |
+| Nuevo bounded context | nova-backend-architect | nova-design-patterns-expert |
 | Nuevo endpoint REST | nova-api-expert | nova-elite-test-engineer |
 | Cálculo BMR/TDEE/macros | nova-nutrition-algorithms-expert | nova-qa-elite |
 | Generar plan personalizado | nova-nutrition-algorithms-expert | nova-clinical-nutrition-generator |
@@ -78,14 +77,14 @@ Prohibido:
 | Context | Owner agente | Soporte |
 |---------|-------------|---------|
 | **identity** (auth, JWT, OAuth, OTP) | nova-api-expert | nova-python-expert |
-| **profile** (UserProfile, allergens, conditions) | nova-nutrition-backend-architect | nova-nutrition-algorithms-expert |
+| **profile** (UserProfile, allergens, conditions) | nova-backend-architect | nova-nutrition-algorithms-expert |
 | **nutrition** (Mifflin, TDEE, recalibración) | **nova-nutrition-algorithms-expert** | nova-qa-elite |
-| **recipes** (catálogo, hybrid search, pgvector) | nova-nutrition-backend-architect | nova-clinical-nutrition-generator |
+| **recipes** (catálogo, hybrid search, pgvector) | nova-backend-architect | nova-clinical-nutrition-generator |
 | **plan** (4-layer pipeline L1→L4) | **nova-nutrition-algorithms-expert** | nova-design-patterns-expert |
 | **vision** (OpenAI gpt-4o photo→food) | nova-qa-elite | nova-api-expert |
 | **voice** (Whisper STT) | nova-api-expert | nova-python-expert |
 | **coach** (4-camino router, SSE) | nova-api-expert | nova-qa-elite |
-| **tracking** (food_log, weight, Timescale) | nova-nutrition-backend-architect | nova-elite-test-engineer |
+| **tracking** (food_log, weight, Timescale) | nova-backend-architect | nova-elite-test-engineer |
 | **grocery** (lista compra) | nova-design-patterns-expert | nova-best-practices-advisor |
 | **gamification** (streaks, achievements) | nova-best-practices-advisor | — |
 | **billing** (Stripe, MercadoPago) | nova-api-expert | nova-qa-elite |
@@ -101,7 +100,7 @@ Prohibido:
    └── nova-best-practices-advisor (YAGNI check)
 
 2. Diseño arquitectura
-   └── nova-nutrition-backend-architect
+   └── nova-backend-architect
        └── nova-design-patterns-expert (patrón fit)
 
 3. Diseño contrato API
@@ -160,7 +159,7 @@ Prohibido:
 | Agente | NO debe hacer |
 |--------|---------------|
 | nova-backend-architect | Implementación detallada Python; cálculos nutricionales específicos |
-| nova-nutrition-backend-architect | Math research-grade; recetas concretas |
+| nova-backend-architect | Math research-grade; recetas concretas |
 | nova-qa-elite | Implementar features; diseñar arquitectura |
 | nova-clinical-nutrition-generator | Arquitectura; algoritmos optimización |
 | nova-api-expert | Algoritmos nutricionales; ML/optimización |

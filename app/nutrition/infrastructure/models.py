@@ -6,11 +6,24 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String
+from sqlalchemy import DateTime, ForeignKey, Integer, Numeric
+from sqlalchemy.dialects.postgresql import ENUM as PG_ENUM
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.identity.infrastructure.models import Base
+
+# Native Postgres enum — see other ORM models for the
+# `create_type=False` rationale (asyncpg DatatypeMismatchError otherwise).
+_GOAL_REASON_ENUM = PG_ENUM(
+    "onboarding",
+    "weight_change",
+    "goal_change",
+    "plateau",
+    "manual",
+    name="goal_reason_enum",
+    create_type=False,
+)
 
 
 class NutritionalGoalsModel(Base):
@@ -28,7 +41,7 @@ class NutritionalGoalsModel(Base):
     bmr: Mapped[int] = mapped_column(Integer)
     tdee: Mapped[int] = mapped_column(Integer)
     activity_factor: Mapped[Decimal] = mapped_column(Numeric(4, 3))
-    reason: Mapped[str] = mapped_column(String(24))
+    reason: Mapped[str] = mapped_column(_GOAL_REASON_ENUM)
     valid_from: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     valid_to: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

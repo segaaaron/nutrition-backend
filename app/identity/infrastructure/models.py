@@ -14,8 +14,13 @@ from sqlalchemy import (
     Text,
 )
 from sqlalchemy.dialects.postgresql import CITEXT
+from sqlalchemy.dialects.postgresql import ENUM as PG_ENUM
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+_OTP_PURPOSE_ENUM = PG_ENUM(
+    "register", "reset", "login", name="otp_purpose_enum", create_type=False
+)
 
 
 class Base(DeclarativeBase):
@@ -63,7 +68,7 @@ class OtpCodeModel(Base):
         PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE")
     )
     code_hash: Mapped[str] = mapped_column(Text, nullable=False)
-    purpose: Mapped[str] = mapped_column(String(16), nullable=False)
+    purpose: Mapped[str] = mapped_column(_OTP_PURPOSE_ENUM, nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     attempts: Mapped[int] = mapped_column(Integer, default=0)
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

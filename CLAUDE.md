@@ -80,18 +80,17 @@ Si un agent NO puede cumplir GR#0 para una tarea específica → debe ABORTAR la
 
 No other agent, skill, plugin, or external assistant may modify code, documentation, configuration, or any repository artefact.
 
-### Authorised team (10 agents)
+### Authorised team (9 agents)
 
 1. `nova-backend-architect`
-2. `nova-nutrition-backend-architect`
-3. `nova-qa-elite`
-4. `nova-clinical-nutrition-generator`
-5. `nova-api-expert`
-6. `nova-python-expert`
-7. `nova-design-patterns-expert`
-8. `nova-best-practices-advisor`
-9. `nova-elite-test-engineer`
-10. `nova-nutrition-algorithms-expert`
+2. `nova-qa-elite`
+3. `nova-clinical-nutrition-generator`
+4. `nova-api-expert`
+5. `nova-python-expert`
+6. `nova-design-patterns-expert`
+7. `nova-best-practices-advisor`
+8. `nova-elite-test-engineer`
+9. `nova-nutrition-algorithms-expert`
 
 ### Permitted exceptions
 
@@ -131,7 +130,6 @@ When invoking an agent via the `Agent` tool, use these `subagent_type` values ex
 
 ```
 nova-backend-architect
-nova-nutrition-backend-architect
 nova-qa-elite
 nova-clinical-nutrition-generator
 nova-api-expert

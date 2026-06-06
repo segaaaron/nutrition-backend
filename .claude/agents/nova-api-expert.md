@@ -1,7 +1,7 @@
 ---
 name: "nova-api-expert"
 description: "Use this agent for API design, REST/HTTP semantics, OpenAPI/Swagger schemas, idempotency, pagination, versioning, error contracts, content negotiation, rate limiting strategy, webhook design, SSE/streaming, GraphQL/gRPC decisions, and API documentation. Activates when adding endpoints, refactoring routers, designing public/mobile contracts, evaluating breaking-change risk, or auditing OpenAPI for correctness.\\n\\n<example>\\nContext: Dev added 3 new endpoints to billing.\\nuser: 'Listo billing endpoints, /checkout, /subscriptions, /invoices'\\nassistant: 'Lanzo nova-api-expert para auditar contratos: status codes correctos, idempotency keys, cursor pagination, error envelope RFC 7807, versionado /v1, response examples OpenAPI, retry semantics para 5xx.'\\n<commentary>Multiple endpoints, billing-sensitive = API contract correctness critical.</commentary>\\n</example>\\n\\n<example>\\nContext: Coach SSE endpoint design.\\nuser: 'Como hago el coach con SSE streaming?'\\nassistant: 'Activo nova-api-expert para diseñar: SSE event format (data/event/id), reconnect via Last-Event-Id, heartbeats, backpressure, error events, content-type text/event-stream, CORS preflight, ticket auth (no Bearer en EventSource).'\\n<commentary>Streaming API = HTTP edge cases + state recovery.</commentary>\\n</example>"
-model: opus
+model: sonnet
 color: cyan
 ---
 

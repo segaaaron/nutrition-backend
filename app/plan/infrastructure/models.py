@@ -22,10 +22,23 @@ from sqlalchemy import (
     Text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, BIGINT
+from sqlalchemy.dialects.postgresql import ENUM as PG_ENUM
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.identity.infrastructure.models import Base
+
+# Native Postgres enums (created by migration 0001). `create_type=False`
+# prevents SQLAlchemy from issuing CREATE TYPE and forces asyncpg to bind
+# values to the column's enum type instead of VARCHAR (otherwise INSERT
+# raises DatatypeMismatchError).
+_PLAN_TYPE_ENUM = PG_ENUM("day", "week", "month", name="plan_type_enum", create_type=False)
+_PLAN_STATUS_ENUM = PG_ENUM(
+    "active", "completed", "cancelled", name="plan_status_enum", create_type=False
+)
+_MEAL_TIME_ENUM = PG_ENUM(
+    "breakfast", "lunch", "dinner", "snack", name="meal_time_enum", create_type=False
+)
 
 
 class PlanModel(Base):
@@ -34,10 +47,10 @@ class PlanModel(Base):
     user_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE")
     )
-    type: Mapped[str] = mapped_column(String(8))
+    type: Mapped[str] = mapped_column(_PLAN_TYPE_ENUM)
     total_days: Mapped[int] = mapped_column(Integer)
     current_day: Mapped[int] = mapped_column(Integer, default=1)
-    status: Mapped[str] = mapped_column(String(16), default="active")
+    status: Mapped[str] = mapped_column(_PLAN_STATUS_ENUM, default="active")
     goal: Mapped[str | None] = mapped_column(Text, nullable=True)
     meals_per_day: Mapped[int] = mapped_column(Integer)
     preferences: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
@@ -77,7 +90,7 @@ class PlanMealModel(Base):
     plan_day_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("plan_days.id", ondelete="CASCADE")
     )
-    meal_time: Mapped[str] = mapped_column(String(16))
+    meal_time: Mapped[str] = mapped_column(_MEAL_TIME_ENUM)
     recipe_id: Mapped[UUID | None] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("recipes.id", ondelete="RESTRICT"), nullable=True
     )
