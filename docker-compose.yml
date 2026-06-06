@@ -131,6 +131,12 @@ services:
       redis:
         condition: service_healthy
     networks:
+      # dokploy-network required to reach the Dokploy-managed Postgres
+      # (mstechllc-novaappdb-fh5s05) which is the DATABASE_URL target in prod.
+      # Without it the worker resolves to the local compose-managed db, which
+      # is NOT the database the api writes to → all arq jobs fail with
+      # `socket.gaierror: Temporary failure in name resolution`.
+      - dokploy-network
       - nova-internal
     command: ["arq", "worker.main.WorkerSettings"]
     mem_limit: 1500m

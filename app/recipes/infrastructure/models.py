@@ -90,6 +90,7 @@ class RecipeModel(Base):
 
     components: Mapped[list[RecipeComponentModel]] = relationship(
         "RecipeComponentModel",
+        foreign_keys="RecipeComponentModel.recipe_id",
         cascade="all, delete-orphan",
         order_by="RecipeComponentModel.position",
         lazy="select",
