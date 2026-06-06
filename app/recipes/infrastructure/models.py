@@ -24,10 +24,45 @@ from sqlalchemy import (
     Text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, CHAR, JSONB
+from sqlalchemy.dialects.postgresql import ENUM as PG_ENUM
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.identity.infrastructure.models import Base
+
+# Native Postgres enums (migration 0001). `create_type=False` prevents
+# duplicate CREATE TYPE on metadata.create_all and tells asyncpg to bind
+# values as enum (not VARCHAR), avoiding DatatypeMismatchError on INSERT.
+_MEAL_TIME_ENUM = PG_ENUM(
+    "breakfast", "lunch", "dinner", "snack", name="meal_time_enum", create_type=False
+)
+_GOAL_ENUM = PG_ENUM(
+    "weight_loss",
+    "maintain",
+    "muscle_gain",
+    "weight_gain",
+    "health",
+    name="goal_enum",
+    create_type=False,
+)
+_ALLERGEN_ENUM = PG_ENUM(
+    "dairy",
+    "gluten",
+    "tree_nuts",
+    "peanuts",
+    "shellfish",
+    "fish",
+    "egg",
+    "soy",
+    "sesame",
+    "celery",
+    "mustard",
+    "lupin",
+    "sulphites",
+    "molluscs",
+    name="allergen_enum",
+    create_type=False,
+)
 
 
 class FoodModel(Base):
@@ -73,7 +108,7 @@ class RecipeModel(Base):
     sodium_mg: Mapped[int] = mapped_column(Integer, default=0)
     sat_fat_g: Mapped[int] = mapped_column(Integer, default=0)
     tags: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
-    meal_time: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    meal_time: Mapped[str | None] = mapped_column(_MEAL_TIME_ENUM, nullable=True)
     prep_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
     instructions_en: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
     instructions_translations: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
@@ -81,10 +116,10 @@ class RecipeModel(Base):
     source_batch: Mapped[str | None] = mapped_column(Text, nullable=True)
     source_catalog: Mapped[str | None] = mapped_column(Text, nullable=True)
     regions: Mapped[list[str]] = mapped_column(ARRAY(CHAR(5)), default=list)
-    allergens: Mapped[list[str]] = mapped_column(ARRAY(String(24)), default=list)
+    allergens: Mapped[list[str]] = mapped_column(ARRAY(_ALLERGEN_ENUM), default=list)
     recommended_conditions: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
     contraindicated_conditions: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
-    target_goals: Mapped[list[str]] = mapped_column(ARRAY(String(16)), default=list)
+    target_goals: Mapped[list[str]] = mapped_column(ARRAY(_GOAL_ENUM), default=list)
     embedding: Mapped[list[float] | None] = mapped_column(Vector(1536), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 

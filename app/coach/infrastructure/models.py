@@ -7,10 +7,17 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import CHAR
+from sqlalchemy.dialects.postgresql import ENUM as PG_ENUM
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.identity.infrastructure.models import Base
+
+# Native Postgres enum (migration 0001). See other models for the
+# `create_type=False` rationale.
+_COACH_ROLE_ENUM = PG_ENUM(
+    "user", "assistant", "system", name="coach_role_enum", create_type=False
+)
 
 
 class ConversationModel(Base):
@@ -30,7 +37,7 @@ class MessageModel(Base):
     conv_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("coach_conversations.id", ondelete="CASCADE")
     )
-    role: Mapped[str] = mapped_column(String(16))
+    role: Mapped[str] = mapped_column(_COACH_ROLE_ENUM)
     content: Mapped[str] = mapped_column(Text)
     tokens_in: Mapped[int | None] = mapped_column(Integer, nullable=True)
     tokens_out: Mapped[int | None] = mapped_column(Integer, nullable=True)

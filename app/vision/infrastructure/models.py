@@ -13,11 +13,28 @@ from uuid import UUID, uuid4
 # pgvector lacks py.typed marker, runtime works.
 from pgvector.sqlalchemy import Vector  # type: ignore[import-untyped]
 from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy.dialects.postgresql import ENUM as PG_ENUM
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.identity.infrastructure.models import Base
+
+# Native Postgres enums — meal_time_enum (migration 0001) +
+# vision_job_status_enum (migration 0002). `create_type=False` mandatory
+# to avoid asyncpg DatatypeMismatchError on INSERT.
+_MEAL_TIME_ENUM = PG_ENUM(
+    "breakfast", "lunch", "dinner", "snack", name="meal_time_enum", create_type=False
+)
+_VISION_JOB_STATUS_ENUM = PG_ENUM(
+    "queued",
+    "running",
+    "completed",
+    "failed",
+    "cancelled",
+    name="vision_job_status_enum",
+    create_type=False,
+)
 
 
 class VisionJobModel(Base):
@@ -26,8 +43,8 @@ class VisionJobModel(Base):
     user_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE")
     )
-    meal_time: Mapped[str] = mapped_column(String(16))
-    status: Mapped[str] = mapped_column(String(16), default="queued")
+    meal_time: Mapped[str] = mapped_column(_MEAL_TIME_ENUM)
+    status: Mapped[str] = mapped_column(_VISION_JOB_STATUS_ENUM, default="queued")
     image_sha256: Mapped[str] = mapped_column(Text)
     image_bytes: Mapped[int] = mapped_column(Integer)
     idempotency_key: Mapped[str | None] = mapped_column(Text, nullable=True)
