@@ -18,6 +18,16 @@ class UserRepository(Protocol):
     async def schedule_deletion(self, user_id: UUID, scheduled_for: datetime) -> None: ...
     async def cancel_deletion(self, user_id: UUID) -> None: ...
     async def hard_delete(self, user_id: UUID) -> None: ...
+    async def get_onboarding_completed(self, user_id: UUID) -> bool:
+        """Read the user's onboarding-completed status.
+
+        Lives on ``user_profiles.onboarding_completed`` (profile bounded
+        context). Identity reads it at token-issue time so the iOS client
+        can route post-login without a second ``GET /me`` round-trip.
+
+        Returns ``False`` if the user has no profile row yet (just-registered).
+        """
+        ...
 
 
 class RefreshTokenRepository(Protocol):

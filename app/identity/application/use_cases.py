@@ -60,6 +60,7 @@ class TokenPair:
     access: str
     refresh: str
     user_id: UUID
+    onboarding_completed: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -103,6 +104,7 @@ class RegisterUser:
             self.jwt,
             self.bus,
             method="password",
+            onboarding_completed=False,  # brand-new user; profile row not created yet
         )
 
 
@@ -121,12 +123,14 @@ class LoginUser:
             raise Unauthenticated("invalid_credentials")
         if not self.hasher.verify(password, user.password_hash):
             raise Unauthenticated("invalid_credentials")
+        onboarding_completed = await self.users.get_onboarding_completed(user.id)
         return await _issue_token_pair(
             user,
             self.refresh_tokens,
             self.jwt,
             self.bus,
             method="password",
+            onboarding_completed=onboarding_completed,
         )
 
 
@@ -139,6 +143,7 @@ async def _issue_token_pair(
     method: str,
     family_id: UUID | None = None,
     parent_id: UUID | None = None,
+    onboarding_completed: bool = False,
 ) -> TokenPair:
     now = _now()
     access = jwt.sign_access(user_id=user.id, role=user.role)
@@ -161,7 +166,12 @@ async def _issue_token_pair(
             RefreshTokenIssued(user_id=user.id, token_id=token.id, family_id=family, at=now),
         ]
     )
-    return TokenPair(access=access, refresh=refresh_plain, user_id=user.id)
+    return TokenPair(
+        access=access,
+        refresh=refresh_plain,
+        user_id=user.id,
+        onboarding_completed=onboarding_completed,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -203,6 +213,7 @@ class RefreshTokens:
         user = await self.users.get_by_id(rec.user_id)
         if user is None or user.is_deleted:
             raise Unauthenticated("user_gone")
+        onboarding_completed = await self.users.get_onboarding_completed(user.id)
         return await _issue_token_pair(
             user,
             self.refresh_tokens,
@@ -211,6 +222,7 @@ class RefreshTokens:
             method="refresh",
             family_id=rec.family_id,
             parent_id=rec.id,
+            onboarding_completed=onboarding_completed,
         )
 
 
@@ -283,12 +295,14 @@ class OAuthLogin:
             user.email_verified = user.email_verified or email_verified
             await self.users.update(user)
 
+        onboarding_completed = await self.users.get_onboarding_completed(user.id)
         return await _issue_token_pair(
             user,
             self.refresh_tokens,
             self.jwt,
             self.bus,
             method=f"oauth_{self.provider}",
+            onboarding_completed=onboarding_completed,
         )
 
 
@@ -418,12 +432,14 @@ class VerifyOtp:
         if purpose == "register":
             user.email_verified = True
             await self.users.update(user)
+        onboarding_completed = await self.users.get_onboarding_completed(user.id)
         return await _issue_token_pair(
             user,
             self.refresh_tokens,
             self.jwt,
             self.bus,
             method="otp",
+            onboarding_completed=onboarding_completed,
         )
 
 

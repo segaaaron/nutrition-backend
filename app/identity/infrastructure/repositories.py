@@ -125,6 +125,22 @@ class SqlUserRepository:
         # All owned tables cascade. audit_log uses SET NULL (preserves trace).
         await self.s.execute(text("DELETE FROM users WHERE id = :id"), {"id": user_id})
 
+    async def get_onboarding_completed(self, user_id: UUID) -> bool:
+        # Cross-context read of `user_profiles.onboarding_completed`. Plain
+        # text() (no ORM import of UserProfileModel) keeps identity from
+        # taking a hard dependency on profile's SQLAlchemy mappers.
+        # COALESCE → False when the profile row does not exist yet.
+        row = (
+            await self.s.execute(
+                text(
+                    "SELECT COALESCE(onboarding_completed, FALSE) "
+                    "FROM user_profiles WHERE user_id = :uid"
+                ),
+                {"uid": str(user_id)},
+            )
+        ).first()
+        return bool(row[0]) if row is not None else False
+
 
 class SqlRefreshTokenRepository:
     def __init__(self, session: AsyncSession) -> None:

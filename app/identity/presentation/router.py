@@ -71,6 +71,7 @@ def _token_resp(pair) -> TokenPairResponse:
         access_token=pair.access,
         refresh_token=pair.refresh,
         user_id=pair.user_id,
+        onboarding_completed=pair.onboarding_completed,
     )
 
 

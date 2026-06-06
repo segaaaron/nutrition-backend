@@ -53,6 +53,7 @@ class TokenPairResponse(_Strict):
     refresh_token: str
     token_type: Literal["bearer"] = "bearer"
     user_id: UUID
+    onboarding_completed: bool = False
 
 
 class DeletionScheduledResponse(_Strict):
