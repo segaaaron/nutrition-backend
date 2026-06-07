@@ -82,20 +82,30 @@ def cosine(a: list[float], b: list[float]) -> float:
 
 
 def cultural_fit(user_country: str | None, recipe_regions: list[str]) -> float:
-    """1.0 if country in regions, 0.5 if any region overlap, else 0.0.
+    """Strict cultural separation (owner directive 2026-06-07).
 
-    The "country in regions" check works because catalog regions are 5-char
-    short codes (us/ca/eu/uk/latam) and `recipes.regions` denormalises the
-    user's home region after onboarding (spec §6).
+    Catalogue now tags recipes with ISO country codes (``MX``, ``PE``,
+    ``BO``, …) when the name carries an explicit cultural marker
+    (taco → MX, ceviche → PE, etc.) and ``world`` for culturally
+    universal recipes (grain bowls, grilled proteins, salads). The
+    coarse ``latam`` bucket was dropped. Tag string is capped at 5
+    chars to fit ``recipes.regions char(5)[]``.
+
+    Scoring:
+        - 1.0 if the user's country is in ``regions`` (exact match)
+        - 0.7 if the recipe is ``world`` (universal)
+        - 0.0 otherwise. Layer 1 hard-filters foreign country tags so
+          this branch should be unreachable; kept as defence-in-depth.
     """
-    if not user_country:
-        return 0.5
-    if not recipe_regions:
-        return 0.0
-    cc = user_country.lower()
-    if cc in recipe_regions:
+    if not user_country or not recipe_regions:
+        return 0.7  # fall back to world score when info missing
+    cc = user_country.upper().strip()
+    normalised = [r.strip().upper() for r in recipe_regions]
+    if cc in normalised:
         return 1.0
-    return 0.5 if recipe_regions else 0.0
+    if "WORLD" in normalised:
+        return 0.7
+    return 0.0
 
 
 def prep_time_fit(user_pref_min: int | None, recipe_prep_min: int | None) -> float:

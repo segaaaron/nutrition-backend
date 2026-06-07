@@ -115,6 +115,18 @@ class Unauthenticated(AuthError):
     title = "Authentication required"
 
 
+class InvalidCredentials(AuthError):
+    """Login / OTP-verify: email+password (or OTP code) did not match.
+
+    Distinct from :class:`Unauthenticated` so the iOS client can render a
+    contextual message ("Email o contraseña incorrectos") instead of the
+    generic "Sesión expirada" copy that suits a missing/expired token.
+    """
+
+    type_slug = "invalid-credentials"
+    title = "Invalid credentials"
+
+
 class AuthTicketInvalid(AuthError):
     type_slug = "auth-ticket-invalid"
     title = "Auth ticket invalid"
@@ -200,9 +212,34 @@ def register_exception_handlers(app: FastAPI) -> None:
             ra = exc.extra.get("retry_after") or exc.extra.get("retry_after_s")
             if ra is not None:
                 headers = {"Retry-After": str(int(ra))}
-        # i18n_key = type_slug with dashes -> underscores (canonical EN
-        # snake_case, matches seed_i18n_errors.py).
-        i18n_key = exc.type_slug.replace("-", "_")
+        # Two-tier i18n lookup (option B, 2026-06-07):
+        # 1. Detail-specific key (e.g. "password_too_short") — when the
+        #    raised exception carries a detail string that the catalogue
+        #    knows, use that translation. This keeps the generic
+        #    `business_rule`/`conflict`/`not_found` parents while letting
+        #    iOS render user-facing copy without a client-side switch.
+        # 2. Class-level key (type_slug → underscores) — fallback for any
+        #    raise whose detail string is not in the catalogue.
+        class_key = exc.type_slug.replace("-", "_")
+        detail_key = exc.detail if isinstance(exc.detail, str) else ""
+        # Detail-specific lookup only applies when the raw detail is a
+        # snake_case slug (the convention the catalogue uses). Anything
+        # else (free text, error chains "x:y:z") falls through.
+        i18n_key = class_key
+        if detail_key and all(c.isalnum() or c == "_" for c in detail_key):
+            translator: TranslatorProtocol | None = getattr(
+                request.app.state, "translator", None
+            )
+            if translator is not None:
+                locale = resolve_locale(
+                    request.headers.get("accept-language"),
+                    profile_locale=None,
+                )
+                title_probe = await translator.translate(
+                    "error", f"{detail_key}.title", locale
+                )
+                if title_probe != f"{detail_key}.title":
+                    i18n_key = detail_key
         title, detail = await _maybe_translate(
             request, i18n_key, exc.title, exc.detail
         )

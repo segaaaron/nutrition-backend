@@ -104,6 +104,13 @@ ERROR_MESSAGES: Final[dict[str, _ErrorEntry]] = {
             "en": "Missing or invalid token.",
         },
     },
+    "invalid_credentials": {
+        "title": {"es": "Credenciales inválidas", "en": "Invalid credentials"},
+        "detail": {
+            "es": "Email o contraseña incorrectos.",
+            "en": "Incorrect email or password.",
+        },
+    },
     "auth_ticket_invalid": {
         "title": {"es": "Ticket de autenticación inválido", "en": "Auth ticket invalid"},
         "detail": None,
@@ -193,6 +200,38 @@ ERROR_MESSAGES: Final[dict[str, _ErrorEntry]] = {
             "en": "Geriatric users require specialist review",
         },
         "detail": None,
+    },
+    # --- iOS user-facing detail messages (option B, 2026-06-07) ---
+    # The error handler does a detail-specific i18n lookup first; if the
+    # raised detail string matches a key here, the localised title + detail
+    # below override the generic class message. iOS renders detail verbatim.
+    "email_already_registered": {
+        "title": {"es": "Cuenta ya registrada", "en": "Account already registered"},
+        "detail": {
+            "es": "Ya existe una cuenta con este email. Inicia sesión o usa otro email.",
+            "en": "An account already exists with this email. Sign in or use a different email.",
+        },
+    },
+    "password_too_short": {
+        "title": {"es": "Contraseña muy corta", "en": "Password too short"},
+        "detail": {
+            "es": "La contraseña debe tener al menos 8 caracteres.",
+            "en": "Password must be at least 8 characters long.",
+        },
+    },
+    "account_deleted": {
+        "title": {"es": "Cuenta eliminada", "en": "Account deleted"},
+        "detail": {
+            "es": "Esta cuenta fue eliminada. Crea una nueva o contacta soporte.",
+            "en": "This account was deleted. Create a new one or contact support.",
+        },
+    },
+    "no_active_plan": {
+        "title": {"es": "Plan en preparación", "en": "Plan preparing"},
+        "detail": {
+            "es": "Tu plan se está generando. Inténtalo de nuevo en unos segundos.",
+            "en": "Your plan is being generated. Try again in a few seconds.",
+        },
     },
 }
 

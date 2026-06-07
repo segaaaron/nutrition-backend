@@ -60,17 +60,27 @@ class Layer1Eligibility:
         if prof is None:
             return []
 
-        region = prof.get("region") or "us"
+        country = (prof.get("country") or "").upper().strip()
         allergies: list[str] = prof.get("allergies") or []
         conditions: list[str] = prof.get("conditions") or []
         weight_kg: Decimal | None = prof.get("weight_kg")
+
+        # Strict cultural separation (owner directive 2026-06-07):
+        # admit recipes tagged ``world`` (culturally universal — bowls,
+        # grilled proteins, salads, etc.) PLUS recipes tagged with the
+        # user's own ISO country code. NEVER mix Mexican, Peruvian, etc.
+        # cuisines for a Bolivian user. Empty country falls back to world.
+        # Tag string is capped at 5 chars to fit recipes.regions char(5)[].
+        allowed_tags: list[str] = ["world"]
+        if country:
+            allowed_tags.append(country)
 
         where: list[str] = [
             "r.regions && CAST(:regions AS char(5)[])",
             "r.meal_time = :meal_time",
         ]
         params: dict[str, object] = {
-            "regions": [region],
+            "regions": allowed_tags,
             "meal_time": meal_time,
         }
 

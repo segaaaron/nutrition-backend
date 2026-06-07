@@ -17,6 +17,7 @@ from app.core.errors import (
     ConflictError,
     Forbidden,
     GoneError,
+    InvalidCredentials,
     LockedError,
     NotFoundError,
     Unauthenticated,
@@ -123,9 +124,9 @@ class LoginUser:
         e = Email(email).normalized
         user = await self.users.get_by_email(e)
         if user is None or user.password_hash is None or user.is_deleted:
-            raise Unauthenticated("invalid_credentials")
+            raise InvalidCredentials("invalid_credentials")
         if not self.hasher.verify(password, user.password_hash):
-            raise Unauthenticated("invalid_credentials")
+            raise InvalidCredentials("invalid_credentials")
         onboarding_completed = await self.users.get_onboarding_completed(user.id)
         return await _issue_token_pair(
             user,
@@ -444,7 +445,7 @@ class VerifyOtp:
                     )
                 )
                 raise LockedError("otp_locked")
-            raise Unauthenticated("otp_invalid")
+            raise InvalidCredentials("otp_invalid")
         await self.otps.consume(otp.id)
         if purpose == "register":
             user.email_verified = True

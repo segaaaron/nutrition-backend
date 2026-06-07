@@ -22,6 +22,7 @@ class SqlEligibilityProfileReader:
         if p is None:
             return None
         return {
+            "country": p.country,
             "region": p.region or "us",
             "allergies": list(p.allergies or []),
             "conditions": list(p.medical_conditions or []),

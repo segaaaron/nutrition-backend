@@ -123,7 +123,8 @@
       "Bash(expect *)",
       "Bash(awk '/@router\\\\.\\(post|get|patch|delete|put\\)/{cap=1; line=$0; next} cap && /^\\\\s*\"/{gsub\\(/[ \\\\t\"]/, \"\", $0\\); print line \" \" $0; cap=0; next} cap{cap=0}' app/vision/presentation/router.py app/voice/presentation/router.py)",
       "Bash(awk '/^---/{c++; next} c==1' .claude/agents/nova-backend-architect.md)",
-      "Bash(awk '/^---/{c++; next} c==1' .claude/agents/nova-nutrition-backend-architect.md)"
+      "Bash(awk '/^---/{c++; next} c==1' .claude/agents/nova-nutrition-backend-architect.md)",
+      "Bash(kill 46163)"
     ]
   },
   "model": "claude-opus-4-7"
