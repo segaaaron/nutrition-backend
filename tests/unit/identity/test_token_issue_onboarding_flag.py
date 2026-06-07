@@ -210,7 +210,7 @@ async def test_register_user_returns_flag_false_and_skips_profile_lookup() -> No
         jwt=_FakeJwt(),
         bus=_bus(),
     )
-    pair = await uc(email="new@example.com", password="correctsecret")
+    pair = await uc(email="new@example.com", password="correctsecret")  # noqa: S106 — test fixture
 
     assert pair.onboarding_completed is False
     # The contract: register skips the profile lookup. If this assertion
@@ -229,7 +229,7 @@ async def test_login_user_returns_flag_true_when_profile_completed() -> None:
         jwt=_FakeJwt(),
         bus=_bus(),
     )
-    pair = await uc(email=user.email, password="correctsecret")
+    pair = await uc(email=user.email, password="correctsecret")  # noqa: S106 — test fixture
 
     assert pair.onboarding_completed is True
     assert repo.onboarding_call_count == 1
@@ -248,7 +248,7 @@ async def test_login_user_returns_flag_false_when_profile_missing() -> None:
         jwt=_FakeJwt(),
         bus=_bus(),
     )
-    pair = await uc(email=user.email, password="correctsecret")
+    pair = await uc(email=user.email, password="correctsecret")  # noqa: S106 — test fixture
 
     assert pair.onboarding_completed is False
     assert repo.onboarding_call_count == 1

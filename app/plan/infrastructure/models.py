@@ -18,7 +18,6 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     Numeric,
-    String,
     Text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, BIGINT

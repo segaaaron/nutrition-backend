@@ -10,7 +10,6 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
-    String,
     Text,
 )
 from sqlalchemy.dialects.postgresql import CITEXT

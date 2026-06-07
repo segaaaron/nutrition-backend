@@ -24,8 +24,6 @@ from app.core.errors import (
 )
 from app.core.event_bus import EventBus
 from app.core.logging import get_logger
-
-_log = get_logger(__name__)
 from app.identity.domain.entities import OtpCode, OtpPurpose, RefreshToken, User
 from app.identity.domain.events import (
     OtpLocked,
@@ -47,6 +45,8 @@ from app.identity.domain.ports import (
 from app.identity.domain.value_objects import Email
 from app.shared.domain.email_sender import EmailSender
 from app.shared.i18n.locale_resolver import Locale
+
+_log = get_logger(__name__)
 
 OTP_TTL = timedelta(minutes=10)
 OTP_MAX_ATTEMPTS = 5
