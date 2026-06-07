@@ -95,6 +95,12 @@ async def get_current_user(
     user = await SqlUserRepository(session).get_by_id(user_id)
     if user is None or user.is_deleted:
         raise Unauthenticated("user_gone")
+    # QA F1: every protected endpoint requires a verified email. Tokens
+    # issued at /auth/register are valid bearer tokens but the user has
+    # not proven email ownership yet. Reject until OTP verify flips
+    # the flag (VerifyOtp does this for purpose='register').
+    if not user.email_verified:
+        raise Unauthenticated("email_not_verified")
     return user_id
 
 
@@ -222,12 +228,22 @@ async def remember_idempotent(
 
 
 def make_register(session: SessionDep) -> RegisterUser:
+    # Lazy import keeps email infra (httpx + Resend client) out of the
+    # identity module import graph until first use.
+    from app.core.di import get_email_sender
+
     return RegisterUser(
         users=SqlUserRepository(session),
         refresh_tokens=SqlRefreshTokenRepository(session),
         hasher=get_hasher(),
         jwt=get_jwt(),
         bus=get_event_bus(),
+        send_otp=SendOtp(
+            users=SqlUserRepository(session),
+            otps=SqlOtpRepository(session),
+            hasher=get_hasher(),
+            email_sender=get_email_sender(),
+        ),
     )
 
 

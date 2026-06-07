@@ -178,14 +178,21 @@ def _bus() -> EventBus:
     return EventBus()
 
 
-def _user(*, with_password: bool = True, oauth: tuple[str, str] | None = None) -> User:
+def _user(
+    *,
+    with_password: bool = True,
+    oauth: tuple[str, str] | None = None,
+    email_verified: bool = True,
+) -> User:
+    # Default ``email_verified=True`` so Login tests don't have to opt-in:
+    # the unverified branch is exercised explicitly by the dedicated test.
     return User(
         id=uuid4(),
         email="miguel@example.com",
-        password_hash="argon$:correctsecret" if with_password else None,
+        password_hash="argon$:correctsecret" if with_password else None,  # noqa: S106 — test fixture
         oauth_provider=oauth[0] if oauth else None,
         oauth_subject=oauth[1] if oauth else None,
-        email_verified=False,
+        email_verified=email_verified,
         role="user",
         created_at=datetime.now(UTC),
     )

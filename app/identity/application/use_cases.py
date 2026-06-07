@@ -79,6 +79,12 @@ class RegisterUser:
     hasher: PasswordHasher
     jwt: JwtSigner
     bus: EventBus
+    # Optional ``SendOtp`` use case wired by ``make_register``. When set, the
+    # register flow auto-dispatches a ``purpose='register'`` OTP to the user
+    # email so the client can verify ownership without needing a separate
+    # ``POST /auth/otp/send`` call. Email failure does NOT roll back user
+    # creation — the user can request a resend via ``/auth/otp/send``.
+    send_otp: SendOtp | None = None
 
     async def __call__(self, *, email: str, password: str) -> TokenPair:
         e = Email(email).normalized
@@ -101,6 +107,21 @@ class RegisterUser:
         )
         await self.users.add(user)
         await self.bus.publish(UserRegistered(user_id=user.id, email=e, at=now))
+
+        # Auto-send verification OTP. Best-effort: any failure (Resend down,
+        # rate limit, etc.) is swallowed — the user can request a resend via
+        # ``POST /auth/otp/send``. Logging the failure makes it observable.
+        if self.send_otp is not None:
+            try:
+                await self.send_otp(email=e, purpose="register")
+            except Exception:  # noqa: BLE001 — non-fatal, OTP is resendable
+                # QA F3: full stacktrace via _log.exception so ops can
+                # diagnose Resend integration breakage (API key invalid,
+                # rate-limit, DNS, etc.). User can request resend via
+                # POST /auth/otp/send — register itself remains successful.
+                _log.exception(
+                    "register.otp_dispatch_failed", user_id=str(user.id)
+                )
 
         return await _issue_token_pair(
             user,
@@ -126,6 +147,14 @@ class LoginUser:
         if user is None or user.password_hash is None or user.is_deleted:
             raise InvalidCredentials("invalid_credentials")
         if not self.hasher.verify(password, user.password_hash):
+            raise InvalidCredentials("invalid_credentials")
+        if not user.email_verified:
+            # QA F2: do NOT distinguish "wrong password" from "unverified" at
+            # the login surface — that combo confirms BOTH "email exists" AND
+            # "password correct" which is a credential-stuffing oracle. Same
+            # error code; observability via structured log only. iOS surfaces
+            # a "Resend code" CTA on every invalid_credentials.
+            _log.info("login.blocked_unverified", user_id=str(user.id))
             raise InvalidCredentials("invalid_credentials")
         onboarding_completed = await self.users.get_onboarding_completed(user.id)
         return await _issue_token_pair(
@@ -226,6 +255,12 @@ class RefreshTokens:
         user = await self.users.get_by_id(rec.user_id)
         if user is None or user.is_deleted:
             raise Unauthenticated("user_gone")
+        # QA F7: uniform email-verification gate. Refresh tokens issued
+        # at register before OTP verify must NOT extend a session for an
+        # unverified user — otherwise the bearer can rotate indefinitely
+        # despite get_current_user blocking the access path.
+        if not user.email_verified:
+            raise Unauthenticated("email_not_verified")
         # Cross-table read (QA R3): adds `user_profiles` to the session's
         # working set alongside the pre-existing `users` lookup above. No
         # NEW lock surface — `users` was already in the session and the

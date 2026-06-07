@@ -111,6 +111,13 @@ ERROR_MESSAGES: Final[dict[str, _ErrorEntry]] = {
             "en": "Incorrect email or password.",
         },
     },
+    "email_not_verified": {
+        "title": {"es": "Email no verificado", "en": "Email not verified"},
+        "detail": {
+            "es": "Confirma tu email con el código que te enviamos antes de iniciar sesión.",
+            "en": "Confirm your email with the code we sent before signing in.",
+        },
+    },
     "auth_ticket_invalid": {
         "title": {"es": "Ticket de autenticación inválido", "en": "Auth ticket invalid"},
         "detail": None,
