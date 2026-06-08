@@ -47,6 +47,7 @@ services:
       JWT_PUBLIC_KEY_PATH: ${JWT_PUBLIC_KEY_PATH:-/secrets/jwt.pub}
       MVP_BLOCKED_CONDITIONS: ${MVP_BLOCKED_CONDITIONS:-diabetes_t1}
       MVP_BLOCKED_REGIONS: ${MVP_BLOCKED_REGIONS:-us}
+      EMAIL_ENABLED: ${EMAIL_ENABLED}
       # Secrets / panel-managed strings (empty "" is an acceptable Pydantic
       # value here — field type is `str` with default "").
       GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID}
@@ -122,6 +123,7 @@ services:
       BILLING_CANCEL_URL: ${BILLING_CANCEL_URL}
       # Secrets / panel-managed strings
       OPENAI_API_KEY: ${OPENAI_API_KEY}
+      EMAIL_ENABLED: ${EMAIL_ENABLED}
       RESEND_API_KEY: ${RESEND_API_KEY}
       # Hardcoded worker sizing for this VPS profile.
       ARQ_MAX_JOBS: "2"

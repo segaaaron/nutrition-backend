@@ -66,6 +66,7 @@ services:
       JWT_PUBLIC_KEY_PATH: ${JWT_PUBLIC_KEY_PATH:-/secrets/jwt.pub}
       MVP_BLOCKED_CONDITIONS: ${MVP_BLOCKED_CONDITIONS:-diabetes_t1}
       MVP_BLOCKED_REGIONS: ${MVP_BLOCKED_REGIONS:-us}
+      EMAIL_ENABLED: ${EMAIL_ENABLED}
       # Secrets / panel-managed strings (empty "" is acceptable — Pydantic
       # field type is `str` with default "").
       GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID}
