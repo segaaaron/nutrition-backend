@@ -23,7 +23,7 @@ dependencies = [
     "arq>=0.26,<0.27",
     "redis>=5.2,<6",
     # logging
-    "structlog>=24.4,<25",
+    "structlog>=24.4,<27",
     # security
     "pyjwt[crypto]>=2.10,<3",
     "argon2-cffi>=23.1,<24",
