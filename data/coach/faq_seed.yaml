@@ -1,0 +1,248 @@
+# NOVA Coach FAQ seed — Camino 2 (RAG over pgvector).
+#
+# Schema mirrors `coach_faq` table (app/vision/infrastructure/models.py::CoachFaqModel):
+#   - question_en : canonical English question used to compute embedding(1536).
+#   - intent      : informational tag (NOT routed). Free string.
+#   - answers     : { es, en } translations stored as `answer_translations` JSONB.
+#                   _try_faq() picks the locale or falls back to `en`.
+#
+# Distance threshold at runtime: cosine distance < FAQ_DISTANCE_MAX (0.25)
+# (see app/coach/application/chat_message.py). Beyond that the request falls
+# through to Camino 3 (gpt-4o-mini streaming).
+#
+# Tone constraints (see COACH_TONE.md & SYSTEM_PROMPT):
+#   - encouraging, optimistic, never judgmental
+#   - never prescribe medication or diagnose
+#   - never use: 'fallaste', 'mal', 'debes', 'arruinaste'
+#   - max 2 emojis per response
+#
+# When in doubt, prefer a SHORT answer (≤180 chars) — long FAQ answers feel
+# robotic. The LLM camino handles long-form explanations.
+
+- question_en: "How much protein per kilogram of body weight should I eat?"
+  intent: macros
+  answers:
+    en: "General guidance: 1.6–2.2 g/kg if you train regularly, 1.2–1.6 g/kg otherwise. Your active plan already accounts for this — check your daily protein target in the home screen."
+    es: "Guía general: 1.6–2.2 g/kg si entrenas regularmente, 1.2–1.6 g/kg si no. Tu plan activo ya lo tiene en cuenta — revisa tu meta diaria de proteína en la pantalla principal."
+
+- question_en: "What is glycemic index?"
+  intent: education
+  answers:
+    en: "It ranks how fast a carb raises blood sugar (0–100). Lower = steadier energy. We already prefer low/medium-GI options in your plan."
+    es: "Es un ranking de qué tan rápido un carbohidrato sube el azúcar (0–100). Más bajo = energía más estable. Tu plan ya prioriza opciones de IG bajo/medio."
+
+- question_en: "What is glycemic load?"
+  intent: education
+  answers:
+    en: "GL = GI × carbs / 100. It accounts for portion size. We use GL (not just GI) when filtering recipes for diabetes."
+    es: "CG = IG × carbs / 100. Considera el tamaño de la porción. Usamos CG (no solo IG) al filtrar recetas para diabetes."
+
+- question_en: "What is a calorie deficit?"
+  intent: weight_loss
+  answers:
+    en: "Eating fewer calories than you burn. A 300–500 kcal/day deficit is sustainable. Bigger deficits stall metabolism — we don't recommend them."
+    es: "Comer menos calorías de las que gastas. Un déficit de 300–500 kcal/día es sostenible. Déficits mayores frenan el metabolismo — no los recomendamos."
+
+- question_en: "How fast should I lose weight?"
+  intent: weight_loss
+  answers:
+    en: "0.5–1% of body weight per week is the sweet spot — fast enough to see progress, slow enough to keep muscle. We design plans around that range."
+    es: "0.5–1% de tu peso por semana es el punto ideal — suficiente para ver progreso, lento para conservar músculo. Tus planes apuntan a ese rango."
+
+- question_en: "Why am I not losing weight?"
+  intent: plateau
+  answers:
+    en: "Plateaus are normal — metabolism adapts. We watch your 14-day trend and recalibrate your plan automatically when needed. Keep logging and we'll spot it."
+    es: "Las mesetas son normales — el metabolismo se adapta. Vigilamos tu tendencia de 14 días y recalibramos tu plan cuando hace falta. Sigue registrando y lo notamos."
+
+- question_en: "What is BMR?"
+  intent: education
+  answers:
+    en: "Basal Metabolic Rate — calories your body burns at complete rest (breathing, organs, etc.). We calculate yours with the Mifflin-St Jeor formula."
+    es: "Tasa Metabólica Basal — las calorías que tu cuerpo gasta en reposo total (respirar, órganos). Calculamos la tuya con la fórmula Mifflin-St Jeor."
+
+- question_en: "What is TDEE?"
+  intent: education
+  answers:
+    en: "Total Daily Energy Expenditure — BMR multiplied by your activity level. It's the calorie target for maintenance. We compute it from your activity selection."
+    es: "Gasto Energético Diario Total — tu BMR multiplicado por tu nivel de actividad. Es la meta calórica para mantenimiento. La calculamos según tu nivel declarado."
+
+- question_en: "How much water should I drink per day?"
+  intent: hydration
+  answers:
+    en: "Roughly 30–35 ml per kg of body weight. Your plan shows a personalized goal with 8 chronological slots — easier to hit than one giant number."
+    es: "Aproximadamente 30–35 ml por kg de peso. Tu plan muestra una meta personalizada con 8 momentos del día — más fácil que un número gigante."
+
+- question_en: "Is intermittent fasting safe?"
+  intent: fasting
+  answers:
+    en: "Generally yes for healthy adults. 16:8 is the most studied. Avoid if pregnant, breastfeeding, under 18, or with diabetes on insulin — talk to a doctor first."
+    es: "En general sí para adultos sanos. El 16:8 es el más estudiado. Evítalo si estás embarazada, lactando, tienes <18 años o diabetes con insulina — consulta primero."
+
+- question_en: "What is the difference between simple and complex carbs?"
+  intent: education
+  answers:
+    en: "Simple = digest fast (sugar, white bread). Complex = digest slow (oats, beans, vegetables). Your plan biases toward complex for steadier energy."
+    es: "Simples = digestión rápida (azúcar, pan blanco). Complejos = digestión lenta (avena, legumbres, vegetales). Tu plan prioriza complejos para energía estable."
+
+- question_en: "How much fiber should I eat?"
+  intent: macros
+  answers:
+    en: "25 g/day for women, 38 g/day for men is the general target. Coming from real food (vegetables, fruit, legumes, whole grains) — not supplements."
+    es: "25 g/día para mujeres, 38 g/día para hombres es la meta general. Que venga de comida real (vegetales, fruta, legumbres, granos integrales) — no suplementos."
+
+- question_en: "Are eggs healthy?"
+  intent: food_facts
+  answers:
+    en: "Yes for most people. Excellent protein and choline source. If you have very high LDL cholesterol or familial hypercholesterolemia, talk to your doctor about a limit."
+    es: "Sí para la mayoría. Excelente fuente de proteína y colina. Si tienes LDL muy alto o hipercolesterolemia familiar, consulta a tu médico sobre un límite."
+
+- question_en: "Is rice fattening?"
+  intent: food_facts
+  answers:
+    en: "No food is fattening on its own — total calories matter. Rice is fine in your plan if your portions fit your daily target."
+    es: "Ningún alimento engorda por sí solo — lo que cuenta son las calorías totales. El arroz está bien en tu plan si las porciones encajan en tu meta diaria."
+
+- question_en: "Is bread bad for weight loss?"
+  intent: food_facts
+  answers:
+    en: "No. Bread fits weight loss if it's within your daily calories. Whole-grain options have more fiber and keep you fuller — your plan tends to pick those."
+    es: "No. El pan cabe en bajar de peso si está dentro de tus calorías diarias. El integral tiene más fibra y sacia más — tu plan tiende a elegir ese."
+
+- question_en: "How many meals per day should I eat?"
+  intent: meal_timing
+  answers:
+    en: "Total calories matter more than meal count. 3–5 meals/day works for most people. Pick what fits your routine — your plan is built around that count."
+    es: "Las calorías totales importan más que la cantidad de comidas. 3–5 comidas/día funciona para la mayoría. Elige según tu rutina — tu plan se arma con ese número."
+
+- question_en: "Should I count calories?"
+  intent: tracking
+  answers:
+    en: "Helpful at the start to learn portions, less needed once you internalize them. NOVA tracks them automatically when you log meals — you don't need a separate app."
+    es: "Útil al inicio para aprender porciones, menos necesario cuando ya las conoces. NOVA las cuenta automáticamente al registrar comidas — no necesitas otra app."
+
+- question_en: "What is creatine and should I take it?"
+  intent: supplements
+  answers:
+    en: "Creatine monohydrate is the most studied supplement for strength training. ~3-5 g/day. Safe for most healthy adults — check with a doctor if you have kidney issues."
+    es: "El monohidrato de creatina es el suplemento más estudiado para entrenar fuerza. ~3-5 g/día. Seguro para adultos sanos — consulta a tu médico si tienes problemas renales."
+
+- question_en: "Do I need protein powder?"
+  intent: supplements
+  answers:
+    en: "No — it's just convenient. If you hit your protein target with food, you don't need it. If you struggle to, whey or plant-based powder helps."
+    es: "No — es solo conveniente. Si llegas a tu meta de proteína con comida, no lo necesitas. Si te cuesta, el whey o vegetal ayuda."
+
+- question_en: "Can I drink alcohol on a diet?"
+  intent: lifestyle
+  answers:
+    en: "Occasionally, yes — count its calories (7 kcal/g). It also disinhibits eating and lowers sleep quality, so moderation matters. We don't program alcohol in plans."
+    es: "Ocasionalmente sí — cuenta sus calorías (7 kcal/g). También desinhibe el apetito y empeora el sueño, así que con moderación. No programamos alcohol en los planes."
+
+- question_en: "Should I weigh myself every day?"
+  intent: tracking
+  answers:
+    en: "Daily is fine if it doesn't stress you — we average 14 days to ignore noise (water, sodium). Weekly is also enough. Pick what feels sustainable."
+    es: "Diario está bien si no te estresa — promediamos 14 días para ignorar ruido (agua, sodio). Semanal también basta. Elige lo que te resulte sostenible."
+
+- question_en: "When is the best time to weigh myself?"
+  intent: tracking
+  answers:
+    en: "First thing in the morning, after the bathroom, before food or water. Same conditions = comparable numbers."
+    es: "Lo primero al levantarte, después del baño, antes de comer o beber. Mismas condiciones = números comparables."
+
+- question_en: "What is a macro?"
+  intent: education
+  answers:
+    en: "Macronutrient — protein, carbs, or fat. They provide calories (4/4/9 kcal per gram). Micros (vitamins/minerals) don't provide calories."
+    es: "Macronutriente — proteína, carbs o grasa. Aportan calorías (4/4/9 kcal por gramo). Los micros (vitaminas/minerales) no aportan calorías."
+
+- question_en: "Are bananas high in sugar?"
+  intent: food_facts
+  answers:
+    en: "Yes, ~14 g per medium banana — but also fiber, potassium, and vitamin B6. Whole fruit is fine in any plan; juice is not the same."
+    es: "Sí, ~14 g por banana mediana — pero también fibra, potasio y vitamina B6. La fruta entera está bien en cualquier plan; el jugo no es lo mismo."
+
+- question_en: "Is coffee bad for me?"
+  intent: lifestyle
+  answers:
+    en: "Up to 400 mg of caffeine/day (≈4 espressos) is fine for healthy adults. Cut it after 2 p.m. if you sleep poorly. Pregnant: limit to 200 mg/day."
+    es: "Hasta 400 mg de cafeína/día (≈4 espressos) está bien para adultos sanos. Córtala después de las 14h si duermes mal. Embarazo: límite 200 mg/día."
+
+- question_en: "What should I eat after training?"
+  intent: meal_timing
+  answers:
+    en: "Protein + carbs within ~2 h to refill glycogen and start recovery. The exact minute doesn't matter — total daily intake matters more."
+    es: "Proteína + carbs en ~2 h para reponer glucógeno y recuperar. El minuto exacto no importa — la ingesta diaria total pesa más."
+
+- question_en: "How do I read a nutrition label?"
+  intent: education
+  answers:
+    en: "Check serving size first (everything scales from there), then calories, protein, fiber, sodium, added sugar. Ingredients listed by weight."
+    es: "Mira primero el tamaño de la porción (todo escala desde ahí), luego calorías, proteína, fibra, sodio y azúcar añadida. Los ingredientes van por peso."
+
+- question_en: "Why do I crave sugar at night?"
+  intent: cravings
+  answers:
+    en: "Common causes: undereating during the day, poor sleep, low daytime protein. Track those for a week — usually fixes itself. We notice patterns from your logs too."
+    es: "Causas comunes: comer poco de día, dormir mal, poca proteína diurna. Tráckealos una semana — suele resolverse. También notamos patrones en tus registros."
+
+- question_en: "Is keto good for weight loss?"
+  intent: diets
+  answers:
+    en: "Works for some, hard for many. Total calorie deficit is what drives weight loss — keto isn't magical. We don't program full keto in MVP."
+    es: "A algunos les funciona, a muchos les cuesta. Lo que baja peso es el déficit calórico — la keto no es mágica. No programamos keto pura en el MVP."
+
+- question_en: "Should I eat before working out?"
+  intent: meal_timing
+  answers:
+    en: "Depends on you. Fasted training is fine for low/medium intensity. For heavy sessions, eat 1–3 h before with protein + carbs."
+    es: "Depende de ti. Entrenar en ayunas está bien para intensidad baja/media. Para sesiones fuertes, come 1–3 h antes con proteína + carbs."
+
+- question_en: "How do I read my plan?"
+  intent: app_help
+  answers:
+    en: "Home screen shows today's meals, water target, and daily progress. Tap a meal to see ingredients, swap it, or mark eaten. Your overall plan stretches across several days."
+    es: "La pantalla principal muestra las comidas de hoy, meta de agua y progreso diario. Toca una comida para ver ingredientes, cambiarla o marcarla. Tu plan completo abarca varios días."
+
+- question_en: "How do I swap a meal?"
+  intent: app_help
+  answers:
+    en: "Tap the meal you don't want, choose 'Swap', and we'll suggest alternatives that fit your macros and preferences."
+    es: "Toca la comida que no quieres, elige 'Cambiar', y te sugerimos alternativas que encajen en tus macros y preferencias."
+
+- question_en: "How do I add a snack to my plan?"
+  intent: app_help
+  answers:
+    en: "From the home screen, tap '+' and pick the snack. We'll log its calories and macros for the day."
+    es: "Desde la pantalla principal, toca '+' y elige el snack. Registramos sus calorías y macros del día."
+
+- question_en: "What does the recalibration banner mean?"
+  intent: app_help
+  answers:
+    en: "We noticed your weight trend differs from the original plan and adjusted your calorie target. You can accept, reject, or wait 24 h for auto-accept."
+    es: "Notamos que tu tendencia de peso difiere del plan original y ajustamos tu meta calórica. Puedes aceptar, rechazar o esperar 24 h para auto-aceptación."
+
+- question_en: "Is sodium important?"
+  intent: micronutrients
+  answers:
+    en: "Yes — too much (>2.3 g/day) raises blood pressure for many people. Too little disrupts performance. Real food + minimal processed is the easy heuristic."
+    es: "Sí — demasiado (>2.3 g/día) sube la presión a muchas personas. Muy poco afecta el rendimiento. Comida real + poco procesado es la regla fácil."
+
+- question_en: "How do I know if I'm dehydrated?"
+  intent: hydration
+  answers:
+    en: "Dark yellow urine, headache, low energy. Aim for pale-yellow urine across the day. NOVA's water schedule helps you stay there."
+    es: "Orina amarillo oscuro, dolor de cabeza, poca energía. Apunta a orina amarillo claro durante el día. El horario de agua de NOVA te ayuda a llegar."
+
+- question_en: "Can I have cheat days?"
+  intent: lifestyle
+  answers:
+    en: "A planned higher-calorie day once a week or two is fine — it can even help adherence. 'Cheat' as a mindset is what hurts. We track week-by-week, not meal-by-meal."
+    es: "Un día planeado con más calorías cada 1-2 semanas está bien — incluso ayuda a sostener el plan. El 'cheat' como mentalidad es lo que duele. Vemos semana a semana, no comida a comida."
+
+- question_en: "What is the difference between weight loss and fat loss?"
+  intent: education
+  answers:
+    en: "Weight = scale total (fat + muscle + water + glycogen). Fat loss = lower fat mass specifically. A slow steady deficit + protein + training preserves muscle, so most weight lost = fat."
+    es: "Peso = total en la balanza (grasa + músculo + agua + glucógeno). Pérdida de grasa = bajar grasa específicamente. Déficit lento + proteína + entrenar preserva músculo, así casi todo lo que pierdes es grasa."

@@ -137,8 +137,11 @@ class Settings(BaseSettings):
     # Local error tracker writes rotated JSONL to this path. Override per env.
     nova_error_log_path: str = "/var/log/nova/errors.jsonl"
     # --- i18n ---
-    supported_locales: str = "en,es,pt,fr,de"
-    default_locale: Literal["en", "es", "pt", "fr", "de"] = "en"
+    # NOTE: The authoritative gate is app/shared/i18n/locale_resolver.Locale
+    # (currently Literal["es", "en"]). These config strings are advisory; any
+    # tag not present in `Locale` falls back to default at resolve-time.
+    supported_locales: str = "en,es"
+    default_locale: Literal["en", "es"] = "en"
 
     # --- Regions ---
     default_region: Literal["us", "ca", "eu", "uk", "latam"] = "us"
