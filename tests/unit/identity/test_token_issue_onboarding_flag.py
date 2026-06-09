@@ -6,14 +6,13 @@ that added ``onboarding_completed`` to ``TokenPairResponse`` shipped without
 unit tests asserting the new behaviour. These tests close that gap.
 
 Coverage (one assertion per branch that calls ``_issue_token_pair``):
- 1. ``RegisterUser`` → flag always ``False`` (no DB lookup performed)
- 2. ``LoginUser`` → flag mirrors repository value (``True`` branch)
- 3. ``LoginUser`` → flag mirrors repository value (``False`` branch)
- 4. ``RefreshTokens`` → flag re-fetched on every rotation (freshness contract)
- 5. ``OAuthLogin`` (new user) → flag ``False`` (profile row not yet created)
- 6. ``OAuthLogin`` (existing user, onboarded) → flag ``True``
- 7. ``VerifyOtp`` purpose=``login`` → flag mirrors repository value
- 8. ``VerifyOtp`` purpose=``register`` → flag ``False`` (no profile after register)
+ 1. ``LoginUser`` → flag mirrors repository value (``True`` branch)
+ 2. ``LoginUser`` → flag mirrors repository value (``False`` branch)
+ 3. ``RefreshTokens`` → flag re-fetched on every rotation (freshness contract)
+ 4. ``OAuthLogin`` (new user) → flag ``False`` (profile row not yet created)
+ 5. ``OAuthLogin`` (existing user, onboarded) → flag ``True``
+ 6. ``VerifyOtp`` purpose=``login`` → flag mirrors repository value
+ 7. ``VerifyOtp`` purpose=``register`` → flag ``False`` (no profile after register)
 """
 
 from __future__ import annotations
@@ -127,6 +126,9 @@ class _FakeOtpRepo:
     async def get_active(self, user_id: UUID, purpose: OtpPurpose) -> OtpCode | None:
         return self.active
 
+    async def get_active_by_email(self, email: str, purpose: OtpPurpose) -> OtpCode | None:
+        return self.active
+
     async def increment_attempts(self, otp_id: UUID) -> int:
         return 0
 
@@ -204,11 +206,9 @@ def _user(
 
 
 @pytest.mark.asyncio
-async def test_register_user_returns_flag_false_and_skips_profile_lookup() -> None:
-    """``RegisterUser`` MUST hardcode ``False`` — the user_profiles row does
-    not exist yet, so querying it would be a wasted round trip on a hot path
-    (account creation).
-    """
+async def test_register_user_skips_profile_lookup() -> None:
+    """``RegisterUser`` must not query onboarding state when creating a
+    pending registration."""
     repo = _CountingUserRepo(onboarding_completed=True)  # repo would lie, but...
     uc = RegisterUser(
         users=repo,
@@ -217,11 +217,10 @@ async def test_register_user_returns_flag_false_and_skips_profile_lookup() -> No
         jwt=_FakeJwt(),
         bus=_bus(),
     )
-    pair = await uc(email="new@example.com", password="correctsecret")  # noqa: S106 — test fixture
+    await uc(email="new@example.com", password="correctsecret")  # noqa: S106 — test fixture
 
-    assert pair.onboarding_completed is False
-    # The contract: register skips the profile lookup. If this assertion
-    # ever flips to ``1``, somebody added a redundant query — review.
+    # The contract: register does not need a profile lookup because the
+    # user row does not exist yet.
     assert repo.onboarding_call_count == 0
 
 
@@ -360,6 +359,8 @@ async def test_verify_otp_login_purpose_returns_repo_value() -> None:
     otp = OtpCode(
         id=uuid4(),
         user_id=user.id,
+        email=user.email,
+        password_hash=None,
         code_hash=hasher.hash("123456"),
         purpose="login",
         expires_at=datetime.now(UTC) + timedelta(minutes=5),
@@ -391,6 +392,8 @@ async def test_verify_otp_register_purpose_returns_false_when_no_profile() -> No
     otp = OtpCode(
         id=uuid4(),
         user_id=user.id,
+        email=user.email,
+        password_hash=None,
         code_hash=hasher.hash("654321"),
         purpose="register",
         expires_at=datetime.now(UTC) + timedelta(minutes=5),

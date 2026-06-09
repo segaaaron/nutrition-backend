@@ -6,11 +6,11 @@ that gap.
 
 Coverage:
  1. RegisterUser dispatches OTP via send_otp (purpose=register).
- 2. RegisterUser swallows Resend failure + logs structured warning,
-    user is still created.
- 3. LoginUser rejects unverified user with the SAME error code as
+ 2. RegisterUser swallows Resend failure + keeps the registration pending.
+ 3. VerifyOtp register flow creates the user only after successful OTP.
+ 4. LoginUser rejects unverified user with the SAME error code as
     wrong password (F2 — no enumeration oracle).
- 4. RefreshTokens rejects unverified user (F7 — uniform gate).
+ 5. RefreshTokens rejects unverified user (F7 — uniform gate).
 """
 
 from __future__ import annotations
@@ -22,13 +22,15 @@ from uuid import UUID, uuid4
 import pytest
 
 from app.core.errors import InvalidCredentials, Unauthenticated
+from app.shared.domain.email_sender import EmailDeliveryError
 from app.core.event_bus import EventBus
 from app.identity.application.use_cases import (
     LoginUser,
     RefreshTokens,
     RegisterUser,
+    VerifyOtp,
 )
-from app.identity.domain.entities import OtpPurpose, RefreshToken, User
+from app.identity.domain.entities import OtpCode, OtpPurpose, RefreshToken, User
 
 
 @dataclass
@@ -107,7 +109,13 @@ class _SpySendOtp:
     calls: list[tuple[str, str]] = field(default_factory=list)
     raises: Exception | None = None
 
-    async def __call__(self, *, email: str, purpose: OtpPurpose) -> str:
+    async def __call__(
+        self,
+        *,
+        email: str,
+        purpose: OtpPurpose,
+        password_hash: str | None = None,
+    ) -> str:
         self.calls.append((email, purpose))
         if self.raises is not None:
             raise self.raises
@@ -153,16 +161,73 @@ async def test_register_dispatches_otp_with_register_purpose() -> None:
     await uc(email="new@example.com", password="correctsecret")  # noqa: S106
 
     assert spy.calls == [("new@example.com", "register")]
-    assert repo.user is not None
-    assert repo.user.email_verified is False
+    assert repo.user is None
+
+
+@dataclass
+class _FakeRegisterOtpRepo:
+    active: OtpCode | None = None
+
+    async def add(self, otp: OtpCode) -> None:
+        self.active = otp
+
+    async def get_active(self, user_id: UUID, purpose: OtpPurpose) -> OtpCode | None:
+        return self.active
+
+    async def get_active_by_email(self, email: str, purpose: OtpPurpose) -> OtpCode | None:
+        return self.active
+
+    async def increment_attempts(self, otp_id: UUID) -> int:
+        return 0
+
+    async def lock(self, otp_id: UUID, until: datetime) -> None: ...
+
+    async def consume(self, otp_id: UUID) -> None:
+        self.active = None
 
 
 @pytest.mark.asyncio
-async def test_register_swallows_send_otp_failure_and_still_creates_user() -> None:
-    """Resend down must NOT roll back user creation — OTP is resendable
-    via POST /auth/otp/send. The exception is logged with stacktrace."""
+async def test_verify_otp_register_creates_user_on_pending_registration() -> None:
     repo = _UserRepo()
-    spy = _SpySendOtp(raises=RuntimeError("resend_down"))
+    hasher = _Hasher()
+    otp_repo = _FakeRegisterOtpRepo()
+    otp_repo.active = OtpCode(
+        id=uuid4(),
+        user_id=None,
+        email="new@example.com",
+        password_hash=hasher.hash("correctsecret"),
+        code_hash=hasher.hash("123456"),
+        purpose="register",
+        expires_at=datetime.now(UTC) + timedelta(minutes=5),
+    )
+    uc = VerifyOtp(
+        users=repo,
+        otps=otp_repo,
+        refresh_tokens=_RefreshRepo(),
+        hasher=hasher,
+        jwt=_Jwt(),
+        bus=_bus(),
+    )
+
+    pair = await uc(email="new@example.com", purpose="register", code="123456")
+
+    assert pair.user_id == repo.user.id  # type: ignore[union-attr]
+    assert repo.user is not None
+    assert repo.user.email_verified is True
+
+
+@pytest.mark.asyncio
+async def test_register_swallows_email_delivery_failure_and_keeps_pending_verification() -> None:
+    """Resend down must NOT fail registration. The pending OTP can be retried
+    via POST /auth/otp/send.
+
+    Contract narrowed (2026-06-09): we swallow ONLY ``EmailDeliveryError``.
+    Any other exception (SQL, type bug) must propagate so the route-level
+    session rollback runs — otherwise the session sits in
+    ``InFailedSqlTransaction`` and the request 500s at commit time.
+    """
+    repo = _UserRepo()
+    spy = _SpySendOtp(raises=EmailDeliveryError("email_provider_status_503"))
     uc = RegisterUser(
         users=repo,
         refresh_tokens=_RefreshRepo(),
@@ -172,13 +237,33 @@ async def test_register_swallows_send_otp_failure_and_still_creates_user() -> No
         send_otp=spy,
     )
 
-    pair = await uc(email="new@example.com", password="correctsecret")  # noqa: S106
+    await uc(email="new@example.com", password="correctsecret")  # noqa: S106
 
-    assert pair.user_id == repo.user.id  # type: ignore[union-attr]
     assert spy.calls == [("new@example.com", "register")]
-    # User exists despite OTP dispatch failure.
-    assert repo.user is not None
-    assert repo.user.email_verified is False
+    # No user is created before OTP verification.
+    assert repo.user is None
+
+
+@pytest.mark.asyncio
+async def test_register_propagates_non_email_failures() -> None:
+    """Persistence / unexpected errors MUST propagate. Previously a bare
+    ``except Exception`` swallowed DB errors and left the SQLAlchemy session
+    in a failed transaction, which surfaced as an opaque HTTP 500 at commit
+    time. Root cause of the 500-on-register bug fixed on 2026-06-09."""
+    repo = _UserRepo()
+    spy = _SpySendOtp(raises=RuntimeError("simulated_db_failure"))
+    uc = RegisterUser(
+        users=repo,
+        refresh_tokens=_RefreshRepo(),
+        hasher=_Hasher(),
+        jwt=_Jwt(),
+        bus=_bus(),
+        send_otp=spy,
+    )
+
+    with pytest.raises(RuntimeError):
+        await uc(email="new@example.com", password="correctsecret")  # noqa: S106
+    assert repo.user is None
 
 
 @pytest.mark.asyncio

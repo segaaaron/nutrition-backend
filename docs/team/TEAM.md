@@ -2,15 +2,15 @@
 
 **Última actualización:** 2026-06-01
 **Owner humano:** Miguel Ángel Saravia (mikisaraviaios@gmail.com)
-**Total agentes:** 10 especialistas
+**Total skills:** 9 especialistas
 
 ---
 
 ## 🔒 REGLA DE ORO
 
-**Solo los 10 agentes de este documento pueden tocar el proyecto NOVA Nutrition.**
+**Solo las 9 skills de este documento pueden tocar el proyecto NOVA Nutrition.**
 
-Cualquier otro agente, skill, plugin o asistente externo está prohibido modificar código, documentación, configuración o cualquier artefacto del repositorio. Si una tarea no calza con ningún agente del team, se delega a Claude base sin spawn de agente externo.
+Cualquier otra skill, plugin o asistente externo está prohibido modificar código, documentación, configuración o cualquier artefacto del repositorio. Si una tarea no calza con ninguna skill del team, se delega a Claude base sin invocar skill externa.
 
 Excepciones permitidas:
 - Subagents implementer genéricos (general-purpose) bajo orden directa del owner humano
@@ -18,9 +18,9 @@ Excepciones permitidas:
 - Skills oficiales superpowers (TDD, debugging, planning) como soporte metodológico
 
 Prohibido:
-- Crear nuevos agentes sin aprobación explícita del owner
-- Usar agentes de plugins externos para tareas técnicas del backend
-- Delegar trabajo NOVA-específico a agentes no listados aquí
+- Crear nuevas skills sin aprobación explícita del owner
+- Usar skills de plugins externos para tareas técnicas del backend
+- Delegar trabajo NOVA-específico a skills no listadas aquí
 
 ---
 
@@ -32,19 +32,19 @@ Prohibido:
 
 ---
 
-## Equipo agentes (9)
+## Equipo skills (9)
 
-| # | Agente | Color | Rol principal |
-|---|--------|-------|---------------|
-| 1 | `nova-backend-architect` | 🔵 blue | Arquitectura backend + Clean Arch/DDD + polyglot persistence + nutrition domain |
-| 2 | `nova-qa-elite` | 🟢 green | QA holístico + algorithm correctness audit |
-| 3 | `nova-clinical-nutrition-generator` | ⚪ — | Generador batch recetas validadas |
-| 4 | `nova-api-expert` | 🔷 cyan | REST/HTTP/OpenAPI/SSE contract design |
-| 5 | `nova-python-expert` | 🟡 yellow | Py3.12 idioms + async correctness + Decimal precision |
-| 6 | `nova-design-patterns-expert` | 🟣 purple | Clean Arch + GoF + DDD + SOLID enforcement |
-| 7 | `nova-best-practices-advisor` | 🟠 orange | Refactor pragmático + commit hygiene + dev quality |
-| 8 | `nova-elite-test-engineer` | 🔴 red | Property-based + mutation + contract testing |
-| 9 | `nova-nutrition-algorithms-expert` | 🟪 magenta | **Math engine + Plan generator basado en data cliente** |
+| # | Skill | Rol principal |
+|---|-------|---------------|
+| 1 | `nova-backend-architect` | Arquitectura backend + Clean Arch/DDD + polyglot persistence + nutrition domain |
+| 2 | `nova-qa-elite` | QA holístico + algorithm correctness audit |
+| 3 | `nova-clinical-nutrition-generator` | Generador batch recetas validadas |
+| 4 | `nova-api-expert` | REST/HTTP/OpenAPI/SSE contract design |
+| 5 | `nova-python-expert` | Py3.12 idioms + async correctness + Decimal precision |
+| 6 | `nova-design-patterns-expert` | Clean Arch + GoF + DDD + SOLID enforcement |
+| 7 | `nova-best-practices-advisor` | Refactor pragmático + commit hygiene + dev quality |
+| 8 | `nova-elite-test-engineer` | Property-based + mutation + contract testing |
+| 9 | `nova-nutrition-algorithms-expert` | **Math engine + Plan generator basado en data cliente** |
 
 ---
 

@@ -124,7 +124,21 @@
       "Bash(awk '/@router\\\\.\\(post|get|patch|delete|put\\)/{cap=1; line=$0; next} cap && /^\\\\s*\"/{gsub\\(/[ \\\\t\"]/, \"\", $0\\); print line \" \" $0; cap=0; next} cap{cap=0}' app/vision/presentation/router.py app/voice/presentation/router.py)",
       "Bash(awk '/^---/{c++; next} c==1' .claude/agents/nova-backend-architect.md)",
       "Bash(awk '/^---/{c++; next} c==1' .claude/agents/nova-nutrition-backend-architect.md)",
-      "Bash(kill 46163)"
+      "Bash(kill 46163)",
+      "Bash(ps -p 66308 -o lstart=)",
+      "Bash(echo \"Started: $\\(ps -p 66308 -o lstart= \\)\")",
+      "Bash(ps -p 66308 -o stat=)",
+      "Bash(echo \"Process state: $\\(ps -p 66308 -o stat= \\) \\(S=sleeping = waiting on throttle\\)\")",
+      "Bash(/Users/miguelangelsaraviabelmonte/dev-backend/Nova-nutrition-backend/.venv/bin/python3.12 -m pytest tests/unit/identity/test_email_verification_gate.py tests/unit/identity/test_send_otp_locale.py tests/unit/identity/test_token_issue_onboarding_flag.py tests/unit/test_identity_di_and_rate_limit.py --tb=short)",
+      "Bash(/Users/miguelangelsaraviabelmonte/dev-backend/Nova-nutrition-backend/.venv/bin/python3.12 -m pytest tests/unit/identity/test_email_verification_gate.py tests/unit/identity/test_send_otp_locale.py tests/unit/identity/test_token_issue_onboarding_flag.py --tb=short)",
+      "Bash(/Users/miguelangelsaraviabelmonte/dev-backend/Nova-nutrition-backend/.venv/bin/python3.12 -m pytest tests/unit/ --tb=short -q)",
+      "Bash(docker compose *)",
+      "Bash(brew list *)",
+      "Bash(/tmp/vps_ssh.exp \"docker exec mstechllc-novabackend-ajhvrz-api-1 alembic current 2>&1 | tail -5\")",
+      "Bash(/tmp/vps_ssh.exp docker exec mstechllc-novabackend-ajhvrz-api-1 alembic upgrade head 2>&1 | tail -60 *)",
+      "Bash(/tmp/vps_ssh.exp *)",
+      "Bash(tar czf *)",
+      "Bash(/tmp/vps_scp.exp *)"
     ]
   },
   "model": "claude-opus-4-7"

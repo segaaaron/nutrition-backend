@@ -48,6 +48,10 @@ class VerifyOtpRequest(_Strict):
     code: str = Field(min_length=6, max_length=6)
 
 
+class RegisterPendingResponse(_Strict):
+    status: Literal["pending_verification"] = "pending_verification"
+
+
 class TokenPairResponse(_Strict):
     access_token: str
     refresh_token: str

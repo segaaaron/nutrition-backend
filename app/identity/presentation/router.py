@@ -46,6 +46,7 @@ from app.identity.presentation.schemas import (
     LogoutRequest,
     OAuthLoginRequest,
     RefreshRequest,
+    RegisterPendingResponse,
     RegisterRequest,
     SendOtpRequest,
     TokenPairResponse,
@@ -79,18 +80,24 @@ def _token_resp(pair) -> TokenPairResponse:
 
 
 @router.post(
-    "/auth/register", response_model=TokenPairResponse, status_code=status.HTTP_201_CREATED
+    "/auth/register",
+    response_model=RegisterPendingResponse,
+    status_code=status.HTTP_202_ACCEPTED,
 )
 async def register(
     body: RegisterRequest,
     session: SessionDep,
-) -> TokenPairResponse:
+    accept_language: Annotated[str | None, Header(alias="Accept-Language")] = None,
+) -> RegisterPendingResponse:
     await rate_limit(
         scope="auth", identifier=body.email, limit_per_min=get_settings().rate_limit_auth_per_min
     )
-    uc: RegisterUser = make_register(session)
-    pair = await uc(email=body.email, password=body.password)
-    return _token_resp(pair)
+    locale = await _resolve_otp_email_locale(
+        session, email=body.email, accept_language=accept_language
+    )
+    uc: RegisterUser = make_register(session, locale=locale)
+    await uc(email=body.email, password=body.password)
+    return RegisterPendingResponse()
 
 
 @router.post("/auth/login", response_model=TokenPairResponse)

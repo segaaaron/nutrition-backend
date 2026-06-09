@@ -55,7 +55,9 @@ class RefreshToken:
 @dataclass(slots=True)
 class OtpCode:
     id: UUID
-    user_id: UUID
+    user_id: UUID | None
+    email: str | None
+    password_hash: str | None
     code_hash: str
     purpose: OtpPurpose
     expires_at: datetime

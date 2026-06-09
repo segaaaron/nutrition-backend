@@ -63,9 +63,11 @@ class RefreshTokenModel(Base):
 class OtpCodeModel(Base):
     __tablename__ = "otp_codes"
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
-    user_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE")
+    user_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=True
     )
+    email: Mapped[str | None] = mapped_column(CITEXT, nullable=True)
+    password_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
     code_hash: Mapped[str] = mapped_column(Text, nullable=False)
     purpose: Mapped[str] = mapped_column(_OTP_PURPOSE_ENUM, nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

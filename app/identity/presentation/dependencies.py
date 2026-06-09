@@ -227,22 +227,25 @@ async def remember_idempotent(
 # --- Use-case factories (DI sugar) ---
 
 
-def make_register(session: SessionDep) -> RegisterUser:
+def make_register(session: SessionDep, *, locale: Locale | None = None) -> RegisterUser:
     # Lazy import keeps email infra (httpx + Resend client) out of the
     # identity module import graph until first use.
     from app.core.di import get_email_sender
 
+    # Per refactor 2026-06-09: ``RegisterUser`` no longer issues tokens or
+    # publishes ``UserRegistered`` (both moved to ``VerifyOtp``). Therefore
+    # it does not need ``refresh_tokens`` / ``jwt`` / ``bus``. We still pass
+    # ``hasher`` so the pending password can be securely staged on the OTP
+    # row.
     return RegisterUser(
         users=SqlUserRepository(session),
-        refresh_tokens=SqlRefreshTokenRepository(session),
         hasher=get_hasher(),
-        jwt=get_jwt(),
-        bus=get_event_bus(),
         send_otp=SendOtp(
             users=SqlUserRepository(session),
             otps=SqlOtpRepository(session),
             hasher=get_hasher(),
             email_sender=get_email_sender(),
+            locale=locale,
         ),
     )
 

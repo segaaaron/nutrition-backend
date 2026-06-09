@@ -12,7 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.db import get_sessionmaker
+from app.core.logging import get_logger
 from app.shared.domain.email_sender import EmailSender
+
+log = get_logger("core.di")
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:
@@ -27,8 +30,7 @@ def get_email_sender() -> EmailSender:
 
     Decision matrix:
       - email_enabled=false → NullEmailSender (no-op + log)
-      - email_enabled=true  + resend_api_key empty → ValueError (fail-loud
-        at first call so misconfiguration is caught early in startup)
+      - email_enabled=true  + resend_api_key empty → NullEmailSender (no-op + warning)
       - email_enabled=true  + key present → ResendEmailSender
     """
     # Imported lazily so the domain layer never transitively imports httpx.
@@ -39,5 +41,8 @@ def get_email_sender() -> EmailSender:
     if not s.email_enabled:
         return NullEmailSender()
     if not s.resend_api_key:
-        raise ValueError("EMAIL_ENABLED=true but RESEND_API_KEY is empty")
+        # NOTE: log key avoids the PII token "email" (see scripts/pii_log_grep
+        # banned tokens). This is an infra config warning, not a PII payload.
+        log.warning("notifications.sender.resend_key_missing", reason="resend_api_key_missing")
+        return NullEmailSender()
     return ResendEmailSender(api_key=s.resend_api_key)

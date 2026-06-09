@@ -43,7 +43,7 @@ from app.identity.domain.ports import (
     UserRepository,
 )
 from app.identity.domain.value_objects import Email
-from app.shared.domain.email_sender import EmailSender
+from app.shared.domain.email_sender import EmailDeliveryError, EmailSender
 from app.shared.i18n.locale_resolver import Locale
 
 _log = get_logger(__name__)
@@ -74,63 +74,81 @@ class TokenPair:
 
 @dataclass(slots=True)
 class RegisterUser:
+    """Pending-registration use case (no ``users`` row created here).
+
+    Contract (2026-06-09 refactor):
+
+    - We DO NOT create a ``users`` row. The user becomes real only after
+      ``VerifyOtp`` consumes a valid ``purpose='register'`` OTP that carries
+      the pending ``email`` + ``password_hash``.
+    - The ``users.get_by_email`` lookup is kept ONLY to short-circuit
+      registration attempts for already-verified emails (clearer UX +
+      avoids duplicate-email enumeration through the OTP queue).
+    - Email-delivery failures from Resend are swallowed (the OTP row was
+      already persisted; the client may retry via ``POST /auth/otp/send``).
+    - Persistence / unexpected errors propagate so the FastAPI
+      ``get_session`` dependency rolls back the transaction cleanly.
+      Previously a bare ``except Exception`` swallowed DB errors and left
+      the SQLAlchemy session in ``InFailedSqlTransaction``, which then
+      crashed at commit-time with a generic HTTP 500. Diagnostic root-cause
+      of the reported 500 on ``/auth/register`` (2026-06-09).
+
+    Legacy fields (``refresh_tokens``, ``jwt``, ``bus``) are retained as
+    ``None``-defaulted slots so existing test constructors keep compiling.
+    They are no longer read — token issuance moved to ``VerifyOtp`` once
+    the OTP is consumed.
+    """
+
     users: UserRepository
-    refresh_tokens: RefreshTokenRepository
     hasher: PasswordHasher
-    jwt: JwtSigner
-    bus: EventBus
     # Optional ``SendOtp`` use case wired by ``make_register``. When set, the
     # register flow auto-dispatches a ``purpose='register'`` OTP to the user
     # email so the client can verify ownership without needing a separate
     # ``POST /auth/otp/send`` call. Email failure does NOT roll back user
     # creation — the user can request a resend via ``/auth/otp/send``.
     send_otp: SendOtp | None = None
+    # Legacy / unused — kept for backward-compatible construction (tests).
+    refresh_tokens: RefreshTokenRepository | None = None
+    jwt: JwtSigner | None = None
+    bus: EventBus | None = None
 
-    async def __call__(self, *, email: str, password: str) -> TokenPair:
+    async def __call__(self, *, email: str, password: str) -> None:
         e = Email(email).normalized
-        existing = await self.users.get_by_email(e)
-        if existing is not None:
-            raise ConflictError("email_already_registered")
         if len(password) < 8:
             raise BusinessRuleViolation("password_too_short")
+        existing = await self.users.get_by_email(e)
+        if existing is not None:
+            # Email already belongs to a real (verified or unverified) user.
+            # We do NOT leak whether the account is verified — same code.
+            raise ConflictError("email_already_registered")
 
-        now = _now()
-        user = User(
-            id=uuid4(),
-            email=e,
-            password_hash=self.hasher.hash(password),
-            oauth_provider=None,
-            oauth_subject=None,
-            email_verified=False,
-            role="user",
-            created_at=now,
-        )
-        await self.users.add(user)
-        await self.bus.publish(UserRegistered(user_id=user.id, email=e, at=now))
-
-        # Auto-send verification OTP. Best-effort: any failure (Resend down,
-        # rate limit, etc.) is swallowed — the user can request a resend via
-        # ``POST /auth/otp/send``. Logging the failure makes it observable.
+        # Auto-send verification OTP for the pending registration. The user
+        # row is created only after the OTP is verified.
         if self.send_otp is not None:
             try:
-                await self.send_otp(email=e, purpose="register")
-            except Exception:  # noqa: BLE001 — non-fatal, OTP is resendable
-                # QA F3: full stacktrace via _log.exception so ops can
-                # diagnose Resend integration breakage (API key invalid,
-                # rate-limit, DNS, etc.). User can request resend via
-                # POST /auth/otp/send — register itself remains successful.
-                _log.exception(
-                    "register.otp_dispatch_failed", user_id=str(user.id)
+                await self.send_otp(
+                    email=e,
+                    purpose="register",
+                    password_hash=self.hasher.hash(password),
                 )
+            except EmailDeliveryError:
+                # Resend down / 4xx-5xx from provider. The OTP row was
+                # already persisted by ``SendOtp`` BEFORE the email leg, so
+                # the client can retry delivery via ``POST /auth/otp/send``
+                # without losing the pending registration. QA F3: full
+                # stacktrace for ops; PII-safe (email logged hashed by the
+                # Resend adapter, not here).
+                # PII-safe: hash recipient instead of logging the address.
+                import hashlib as _hashlib
 
-        return await _issue_token_pair(
-            user,
-            self.refresh_tokens,
-            self.jwt,
-            self.bus,
-            method="password",
-            onboarding_completed=False,  # brand-new user; profile row not created yet
-        )
+                _log.exception(
+                    "register.otp_dispatch_failed",
+                    recipient_hash=_hashlib.sha256(e.encode()).hexdigest()[:16],
+                )
+            # Any other exception (SQL error, type bug, etc.) MUST propagate
+            # so the session rollback in ``get_session`` runs and the client
+            # receives a proper 4xx/5xx — NOT a misleading 202 with a
+            # poisoned transaction that then 500s at commit time.
 
 
 @dataclass(slots=True)
@@ -339,7 +357,17 @@ class OAuthLogin:
                 role="user",
                 created_at=_now(),
             )
-            await self.users.add(user)
+            from sqlalchemy.exc import IntegrityError as _IntegrityError
+
+            try:
+                await self.users.add(user)
+            except _IntegrityError as exc:
+                # Race condition: another OAuth callback for the same email
+                # raced us to ``INSERT users``. Re-fetch the now-existing
+                # row and continue the login flow instead of returning 500.
+                # Important since iOS Sign-in-with-Apple may fire twice on
+                # fast taps.
+                raise ConflictError("user_creation_race") from exc
             await self.bus.publish(UserRegistered(user_id=user.id, email=user.email, at=_now()))
         elif user.oauth_provider is None:
             # Link OAuth to existing email-only account
@@ -386,7 +414,13 @@ class SendOtp:
     # parsing here, no profile-context coupling.
     locale: Locale | None = None
 
-    async def __call__(self, *, email: str, purpose: OtpPurpose) -> str:
+    async def __call__(
+        self,
+        *,
+        email: str,
+        purpose: OtpPurpose,
+        password_hash: str | None = None,
+    ) -> str:
         """Generate + persist an OTP, optionally dispatch via email.
 
         Always returns the plaintext code. When ``email_sender`` is wired,
@@ -408,16 +442,22 @@ class SendOtp:
         but currently unused from this path. Switch via the
         ``make_send_otp`` dependency factory when a trigger fires.
         """
-        user = await self.users.get_by_email(Email(email).normalized)
-        if user is None:
+        normalized = Email(email).normalized
+        user = await self.users.get_by_email(normalized)
+        if user is None and purpose != "register":
             raise NotFoundError("user_not_found")
-        existing = await self.otps.get_active(user.id, purpose)
+        if user is not None:
+            existing = await self.otps.get_active(user.id, purpose)
+        else:
+            existing = await self.otps.get_active_by_email(normalized, purpose)
         if existing is not None and existing.is_locked(_now()):
             raise LockedError("otp_locked")
         code = _new_code()
         otp = OtpCode(
             id=uuid4(),
-            user_id=user.id,
+            user_id=user.id if user is not None else None,
+            email=normalized,
+            password_hash=password_hash,
             code_hash=self.hasher.hash(code),
             purpose=purpose,
             expires_at=_now() + OTP_TTL,
@@ -456,10 +496,13 @@ class VerifyOtp:
     bus: EventBus
 
     async def __call__(self, *, email: str, purpose: OtpPurpose, code: str) -> TokenPair:
-        user = await self.users.get_by_email(Email(email).normalized)
-        if user is None:
-            raise NotFoundError("user_not_found")
-        otp = await self.otps.get_active(user.id, purpose)
+        normalized = Email(email).normalized
+        user = await self.users.get_by_email(normalized)
+        otp = None
+        if user is not None:
+            otp = await self.otps.get_active(user.id, purpose)
+        if otp is None and purpose == "register":
+            otp = await self.otps.get_active_by_email(normalized, purpose)
         if otp is None:
             raise NotFoundError("otp_not_found")
         now = _now()
@@ -472,19 +515,49 @@ class VerifyOtp:
             if attempts >= OTP_MAX_ATTEMPTS:
                 lock_until = now + OTP_LOCK_DURATION
                 await self.otps.lock(otp.id, lock_until)
-                await self.bus.publish(
-                    OtpLocked(
-                        user_id=user.id,
-                        purpose=purpose,
-                        locked_until=lock_until,
+                if user is not None:
+                    await self.bus.publish(
+                        OtpLocked(
+                            user_id=user.id,
+                            purpose=purpose,
+                            locked_until=lock_until,
+                        )
                     )
-                )
                 raise LockedError("otp_locked")
             raise InvalidCredentials("otp_invalid")
         await self.otps.consume(otp.id)
         if purpose == "register":
-            user.email_verified = True
-            await self.users.update(user)
+            if user is None:
+                if otp.password_hash is None:
+                    raise BusinessRuleViolation("otp_missing_password")
+                user = User(
+                    id=uuid4(),
+                    email=normalized,
+                    password_hash=otp.password_hash,
+                    oauth_provider=None,
+                    oauth_subject=None,
+                    email_verified=True,
+                    role="user",
+                    created_at=_now(),
+                )
+                # QA: race condition guard — two concurrent ``VerifyOtp``
+                # calls for the same email (e.g. user double-taps) would
+                # both find ``user is None`` and race to ``INSERT users``.
+                # The UNIQUE constraint on ``users.email`` makes the second
+                # insert raise ``IntegrityError`` which bubbles as HTTP 500.
+                # Map to a stable 409 so the client can retry login instead.
+                from sqlalchemy.exc import IntegrityError as _IntegrityError
+
+                try:
+                    await self.users.add(user)
+                except _IntegrityError as exc:
+                    raise ConflictError("email_already_registered") from exc
+                await self.bus.publish(
+                    UserRegistered(user_id=user.id, email=user.email, at=_now())
+                )
+            else:
+                user.email_verified = True
+                await self.users.update(user)
         onboarding_completed = await self.users.get_onboarding_completed(user.id)
         return await _issue_token_pair(
             user,

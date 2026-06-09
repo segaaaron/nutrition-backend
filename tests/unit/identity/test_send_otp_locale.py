@@ -54,9 +54,18 @@ class _FakeUserRepo:
 
 
 class _FakeOtpRepo:
-    async def add(self, otp: OtpCode) -> None: ...
+    def __init__(self) -> None:
+        self.added: list[OtpCode] = []
+
+    async def add(self, otp: OtpCode) -> None:
+        self.added.append(otp)
+
     async def get_active(self, user_id: UUID, purpose: OtpPurpose) -> OtpCode | None:
         return None
+
+    async def get_active_by_email(self, email: str, purpose: OtpPurpose) -> OtpCode | None:
+        return None
+
     async def increment_attempts(self, otp_id: UUID) -> int:
         return 0
     async def lock(self, otp_id: UUID, until: datetime) -> None: ...
@@ -161,6 +170,32 @@ async def test_signup_register_locale_en_produces_english_subject() -> None:
     assert call["subject"] == "Confirm your NOVA account"
     assert code in str(call["html"])
     assert code in str(call["text"])
+
+
+@pytest.mark.asyncio
+async def test_register_otp_allows_new_user_when_no_existing_account() -> None:
+    sender = _RecordingSender()
+    repo = _FakeUserRepo(None)
+    otp_repo = _FakeOtpRepo()
+    hasher = _FakeHasher()
+    uc = SendOtp(
+        users=repo,
+        otps=otp_repo,
+        hasher=hasher,
+        email_sender=sender,
+        locale="en",
+    )
+
+    code = await uc(
+        email="new@example.com",
+        purpose="register",
+        password_hash=hasher.hash("correctsecret"),
+    )
+
+    assert code is not None
+    assert sender.calls[0]["to"] == "new@example.com"
+    assert len(otp_repo.added) == 1
+    assert otp_repo.added[0].email == "new@example.com"
 
 
 @pytest.mark.asyncio

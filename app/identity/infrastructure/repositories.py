@@ -46,6 +46,8 @@ def _otp_from_model(m: OtpCodeModel) -> OtpCode:
     return OtpCode(
         id=m.id,
         user_id=m.user_id,
+        email=m.email,
+        password_hash=m.password_hash,
         code_hash=m.code_hash,
         purpose=m.purpose,  # type: ignore[arg-type]
         expires_at=m.expires_at,
@@ -197,10 +199,35 @@ class SqlOtpRepository:
         self.s = session
 
     async def add(self, otp: OtpCode) -> None:
+        # QA: invalidate any pre-existing active OTP for the same
+        # (user_id|email, purpose) BEFORE inserting the new row. Without
+        # this, every /auth/otp/send leaves stale codes that
+        # ``get_active_by_email`` (ORDER BY created_at DESC LIMIT 1) hides,
+        # and a future UNIQUE constraint addition would 500 on insert.
+        # Idempotent + bounded — deletes only the matching purpose rows
+        # already past usefulness (newer OTP supersedes them).
+        if otp.user_id is not None:
+            await self.s.execute(
+                text(
+                    "DELETE FROM otp_codes "
+                    "WHERE user_id = :uid AND purpose = :p"
+                ),
+                {"uid": otp.user_id, "p": otp.purpose},
+            )
+        elif otp.email is not None:
+            await self.s.execute(
+                text(
+                    "DELETE FROM otp_codes "
+                    "WHERE user_id IS NULL AND email = :em AND purpose = :p"
+                ),
+                {"em": otp.email, "p": otp.purpose},
+            )
         self.s.add(
             OtpCodeModel(
                 id=otp.id,
                 user_id=otp.user_id,
+                email=otp.email,
+                password_hash=otp.password_hash,
                 code_hash=otp.code_hash,
                 purpose=otp.purpose,
                 expires_at=otp.expires_at,
@@ -216,6 +243,19 @@ class SqlOtpRepository:
             select(OtpCodeModel)
             .where(
                 OtpCodeModel.user_id == user_id,
+                OtpCodeModel.purpose == purpose,
+            )
+            .order_by(OtpCodeModel.created_at.desc())
+            .limit(1)
+        )
+        m = (await self.s.execute(stmt)).scalar_one_or_none()
+        return _otp_from_model(m) if m else None
+
+    async def get_active_by_email(self, email: str, purpose: OtpPurpose) -> OtpCode | None:
+        stmt = (
+            select(OtpCodeModel)
+            .where(
+                OtpCodeModel.email == email,
                 OtpCodeModel.purpose == purpose,
             )
             .order_by(OtpCodeModel.created_at.desc())
