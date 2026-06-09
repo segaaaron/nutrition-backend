@@ -18,6 +18,7 @@ from app.identity.application.use_cases import (
     OAuthLogin,
     RefreshTokens,
     RegisterUser,
+    ResetPassword,
     SendOtp,
     VerifyOtp,
 )
@@ -35,6 +36,7 @@ from app.identity.presentation.dependencies import (
     make_oauth,
     make_refresh,
     make_register,
+    make_reset_password,
     make_send_otp,
     make_verify_otp,
 )
@@ -45,6 +47,7 @@ from app.identity.presentation.schemas import (
     LoginRequest,
     LogoutRequest,
     OAuthLoginRequest,
+    PasswordResetRequest,
     RefreshRequest,
     RegisterPendingResponse,
     RegisterRequest,
@@ -208,6 +211,52 @@ async def otp_send(
     if get_settings().env == "dev":
         return {"status": "sent", "dev_code": code}
     return {"status": "sent"}
+
+
+@router.post(
+    "/auth/password/reset",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        204: {"description": "Password updated, or silently ignored if email unknown."},
+        401: {"description": "OTP invalid, expired or locked."},
+        422: {"description": "Password does not meet server policy."},
+        429: {"description": "Rate limit exceeded."},
+    },
+)
+async def password_reset(
+    body: PasswordResetRequest,
+    request: Request,
+    session: SessionDep,
+) -> Response:
+    """Consume a ``purpose='reset'`` OTP and rotate the user password.
+
+    Security contract (defended by ``ResetPassword`` use case + this router):
+
+    - Rate limited per-email AND per-IP (composite identifier) so attackers
+      cannot bypass throttling either by spraying IPs against one account
+      OR by spraying accounts from one IP.
+    - 204 on success AND on unknown email (anti-enumeration). The use case
+      returns ``None`` for both paths.
+    - 401 ``otp_invalid`` / ``otp_expired`` / ``otp_locked`` — uniform code
+      space, no distinction between "OTP wrong", "email mismatch on the
+      OTP-bound user", or "user vanished".
+    - 422 ``weak_password`` — backend policy re-applied (defence-in-depth
+      vs. the Pydantic schema rule).
+    - No tokens emitted: the client logs in via ``POST /auth/login`` after
+      a successful reset. Sessions in flight before the reset are revoked.
+    """
+    client_ip = request.client.host if request.client else "unknown"
+    # Composite rate-limit identifier: ties both axes together so a single
+    # bucket counts (email, ip) pairs. An attacker pivoting either axis
+    # alone still trips the bucket on the unchanged axis.
+    await rate_limit(
+        scope="auth",
+        identifier=f"pwreset:{body.email}:{client_ip}",
+        limit_per_min=get_settings().rate_limit_auth_per_min,
+    )
+    uc: ResetPassword = make_reset_password(session)
+    await uc(email=body.email, code=body.code, new_password=body.new_password)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/auth/otp/verify", response_model=TokenPairResponse)

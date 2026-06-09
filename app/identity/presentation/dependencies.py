@@ -32,6 +32,7 @@ from app.identity.application.use_cases import (
     OAuthLogin,
     RefreshTokens,
     RegisterUser,
+    ResetPassword,
     SendOtp,
     VerifyOtp,
 )
@@ -314,6 +315,15 @@ def make_verify_otp(session: SessionDep) -> VerifyOtp:
         hasher=get_hasher(),
         jwt=get_jwt(),
         bus=get_event_bus(),
+    )
+
+
+def make_reset_password(session: SessionDep) -> ResetPassword:
+    return ResetPassword(
+        users=SqlUserRepository(session),
+        otps=SqlOtpRepository(session),
+        refresh_tokens=SqlRefreshTokenRepository(session),
+        hasher=get_hasher(),
     )
 
 

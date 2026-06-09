@@ -193,6 +193,24 @@ class SqlRefreshTokenRepository:
             update(RefreshTokenModel).where(RefreshTokenModel.id == token_id).values(reused_at=at),
         )
 
+    async def revoke_all_for_user(self, user_id: UUID, at: datetime) -> int:
+        """Bulk-revoke every active refresh token for a user.
+
+        Used by ``ResetPassword`` after a successful password change so any
+        session minted before the reset (including the attacker's, if the
+        OTP leak was a takeover) can no longer rotate. Single UPDATE; no
+        N+1.
+        """
+        res = await self.s.execute(
+            update(RefreshTokenModel)
+            .where(
+                RefreshTokenModel.user_id == user_id,
+                RefreshTokenModel.revoked_at.is_(None),
+            )
+            .values(revoked_at=at),
+        )
+        return res.rowcount or 0
+
 
 class SqlOtpRepository:
     def __init__(self, session: AsyncSession) -> None:
@@ -282,3 +300,21 @@ class SqlOtpRepository:
     async def consume(self, otp_id: UUID) -> None:
         # Consumption = delete (one-shot semantics).
         await self.s.execute(text("DELETE FROM otp_codes WHERE id = :id"), {"id": otp_id})
+
+    async def claim(self, otp_id: UUID) -> bool:
+        """Atomic single-use claim via ``DELETE ... RETURNING id``.
+
+        Two concurrent password-reset calls quoting the same OTP both pass
+        the read-side validation (``get_active_by_email`` + expiry + user
+        match). Without an atomic claim, both would also pass the consume
+        leg and the password would be UPDATEd twice — race-condition gateway
+        to replay attacks. Postgres ``DELETE ... RETURNING`` is serialised
+        per-row inside the transaction, so exactly one caller observes
+        ``rowcount == 1`` and the other gets ``0``.
+        """
+        res = await self.s.execute(
+            text("DELETE FROM otp_codes WHERE id = :id RETURNING id"),
+            {"id": otp_id},
+        )
+        row = res.first()
+        return row is not None

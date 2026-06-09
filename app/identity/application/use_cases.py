@@ -420,12 +420,15 @@ class SendOtp:
         email: str,
         purpose: OtpPurpose,
         password_hash: str | None = None,
-    ) -> str:
+    ) -> str | None:
         """Generate + persist an OTP, optionally dispatch via email.
 
-        Always returns the plaintext code. When ``email_sender`` is wired,
-        the code is also sent via email. Email delivery failure does NOT
-        roll back OTP persistence — the user can retry. Errors are logged
+        Returns the plaintext code on success. Returns ``None`` silently when
+        ``purpose != "register"`` and the email has no corresponding user —
+        anti-enumeration defence (caller still returns 202 to the client so
+        an attacker cannot probe email existence). When ``email_sender`` is
+        wired, the code is also sent via email. Email delivery failure does
+        NOT roll back OTP persistence — the user can retry. Errors are logged
         and re-raised as :class:`EmailDeliveryError` so the router can map
         to 502.
 
@@ -445,7 +448,10 @@ class SendOtp:
         normalized = Email(email).normalized
         user = await self.users.get_by_email(normalized)
         if user is None and purpose != "register":
-            raise NotFoundError("user_not_found")
+            # Anti-enumeration: silently no-op for reset/login when user does
+            # not exist. Caller (router) still returns 202 to the client so an
+            # attacker cannot probe email existence via this endpoint.
+            return None
         if user is not None:
             existing = await self.otps.get_active(user.id, purpose)
         else:
@@ -567,6 +573,143 @@ class VerifyOtp:
             method="otp",
             onboarding_completed=onboarding_completed,
         )
+
+
+# ---------------------------------------------------------------------------
+# Password reset (purpose='reset' OTP)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(slots=True)
+class ResetPassword:
+    """Consume a ``purpose='reset'`` OTP and set a new password.
+
+    Security invariants (all enforced; failure of any one = atomic abort):
+
+    1. The user whose ``password_hash`` is updated is *exactly* the owner of
+       the OTP row (``OTP.user_id``). The request body's ``email`` is used
+       ONLY as a cross-check — never as the lookup key for the user to
+       mutate. Defends against cross-user attacks where an attacker holds a
+       victim's OTP and submits their own email hoping the backend mutates
+       the wrong row.
+    2. The OTP MUST carry a non-null ``user_id``. Reset is only meaningful
+       for an existing verified user. A reset request that resolves to a
+       ``user_id IS NULL`` OTP (e.g. a stray register OTP) → ``otp_invalid``.
+    3. Single-use: the OTP is atomically claimed (``DELETE ... RETURNING``).
+       Two concurrent calls quoting the same code → exactly one wins.
+    4. After a successful password change, every active refresh token of
+       the user is revoked. Any session minted with the previous credential
+       (including the attacker's, if the reset was triggered by a
+       takeover-in-progress) loses its rotation capability immediately.
+    5. Anti-enumeration: when no active reset OTP exists for the email, the
+       caller observes the same outcome as a successful reset (silent 204
+       at the router boundary — the use case returns normally). We do NOT
+       emit ``NotFoundError`` here. The router maps the silent path.
+    6. PII: no email plaintext in logs. ``user_id_hash`` is sha256[:16].
+    """
+
+    users: UserRepository
+    otps: OtpRepository
+    refresh_tokens: RefreshTokenRepository
+    hasher: PasswordHasher
+
+    async def __call__(self, *, email: str, code: str, new_password: str) -> None:
+        normalized = Email(email).normalized
+
+        # (1) Backend-side password policy. Re-validated here so the use
+        # case is the single source of truth for the rule even when the
+        # presentation layer's Pydantic schema is bypassed (e.g. internal
+        # invocations, scripted recovery). Matches ``RegisterUser`` policy.
+        if len(new_password) < 8:
+            raise BusinessRuleViolation("weak_password")
+
+        # (2) Lookup the active reset OTP by email. Use the email-keyed
+        # lookup (NOT user_id-keyed) so we never even resolve a ``users``
+        # row from the request body's email before we have an OTP — which
+        # would otherwise leak account existence via timing.
+        otp = await self.otps.get_active_by_email(normalized, "reset")
+        if otp is None:
+            # Silent path (router → 204). Anti-enumeration: indistinguishable
+            # from a successful reset for an attacker probing emails. We log
+            # for ops observability but never expose externally.
+            _log.info("password.reset_silent_no_otp")
+            return
+
+        now = _now()
+        if otp.is_locked(now):
+            # An OTP can be locked-out due to too many wrong attempts on
+            # /auth/otp/verify. Refuse the reset.
+            raise LockedError("otp_locked")
+        if otp.expires_at <= now:
+            raise BusinessRuleViolation("otp_expired")
+
+        # (3) Reset OTPs MUST carry a user_id. Register OTPs are the only
+        # purpose allowed to be user-less and they should never match the
+        # purpose='reset' query, but defence-in-depth: if somehow a row
+        # arrives here without user_id, refuse — never mutate "the matching
+        # user by email" because that bypasses the OTP→user binding.
+        if otp.user_id is None:
+            _log.warning("password.reset_otp_user_id_null", otp_id=str(otp.id))
+            raise InvalidCredentials("otp_invalid")
+
+        # (4) Verify the submitted code BEFORE looking up the user — extra
+        # mutation-blocking gate. Failed attempts increment the OTP's
+        # attempt counter exactly like /auth/otp/verify so brute-force gets
+        # the same lockout treatment.
+        if not self.hasher.verify(code, otp.code_hash):
+            attempts = await self.otps.increment_attempts(otp.id)
+            if attempts >= OTP_MAX_ATTEMPTS:
+                await self.otps.lock(otp.id, now + OTP_LOCK_DURATION)
+                raise LockedError("otp_locked")
+            raise InvalidCredentials("otp_invalid")
+
+        # (5) Load the user the OTP is bound to. user_id wins over any
+        # email present in the request body.
+        user = await self.users.get_by_id(otp.user_id)
+        if user is None or user.is_deleted:
+            # User vanished between OTP issue and consumption (account
+            # deletion, hard delete, etc). Refuse — same 401 surface, no
+            # distinct error code that would leak.
+            raise InvalidCredentials("otp_invalid")
+
+        # (6) Cross-user defence: the request body's email MUST match the
+        # email on the user record bound to the OTP. An attacker who somehow
+        # learned a victim's OTP cannot submit it with their own email to
+        # take over a row they own — the mismatch trips here and the
+        # password is not mutated.
+        if user.email != normalized:
+            _log.warning(
+                "password.reset_email_mismatch",
+                user_id_hash=_hash_user_id(user.id),
+            )
+            raise InvalidCredentials("otp_invalid")
+
+        # (7) Atomic single-use claim of the OTP. Two concurrent calls with
+        # the same OTP code: only one wins. Loser → 401.
+        won = await self.otps.claim(otp.id)
+        if not won:
+            raise InvalidCredentials("otp_invalid")
+
+        # (8) Mutate password + revoke every active refresh token. SAME
+        # SQLAlchemy session as everything above → ONE transaction → all
+        # changes commit together or roll back together. Order matters: if
+        # revoke_all_for_user fails after the password is updated, the
+        # outer route session.rollback also unwinds the password change.
+        user.password_hash = self.hasher.hash(new_password)
+        await self.users.update(user)
+        await self.refresh_tokens.revoke_all_for_user(user.id, now)
+
+        # (9) Audit. PII-safe — no email, no password, only user_id_hash.
+        _log.info(
+            "password.reset_completed",
+            user_id_hash=_hash_user_id(user.id),
+        )
+
+
+def _hash_user_id(user_id: UUID) -> str:
+    import hashlib
+
+    return hashlib.sha256(str(user_id).encode()).hexdigest()[:16]
 
 
 # ---------------------------------------------------------------------------

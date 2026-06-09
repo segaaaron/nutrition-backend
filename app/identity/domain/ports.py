@@ -36,6 +36,17 @@ class RefreshTokenRepository(Protocol):
     async def revoke(self, token_id: UUID, at: datetime) -> None: ...
     async def revoke_family(self, family_id: UUID, at: datetime) -> int: ...
     async def mark_reused(self, token_id: UUID, at: datetime) -> None: ...
+    async def revoke_all_for_user(self, user_id: UUID, at: datetime) -> int:
+        """Revoke EVERY non-revoked refresh token belonging to ``user_id``.
+
+        Used by the password-reset flow: changing the password invalidates
+        all active sessions on every device (defence against account
+        takeover via a leaked credential).
+
+        Returns the number of rows affected (0 when the user had no active
+        sessions). Idempotent — already-revoked tokens are not touched.
+        """
+        ...
 
 
 class OtpRepository(Protocol):
@@ -45,6 +56,17 @@ class OtpRepository(Protocol):
     async def increment_attempts(self, otp_id: UUID) -> int: ...
     async def lock(self, otp_id: UUID, until: datetime) -> None: ...
     async def consume(self, otp_id: UUID) -> None: ...
+    async def claim(self, otp_id: UUID) -> bool:
+        """Atomic single-use claim. Returns True if THIS caller wins the
+        race and the OTP is now consumed, False if another concurrent caller
+        already consumed it (or it does not exist).
+
+        Implemented as ``DELETE ... WHERE id = :id RETURNING id`` so two
+        concurrent password-reset requests with the same OTP cannot both
+        change the password — exactly one wins, the other gets False and
+        must be mapped to ``otp_invalid`` by the caller.
+        """
+        ...
 
 
 class PasswordHasher(Protocol):

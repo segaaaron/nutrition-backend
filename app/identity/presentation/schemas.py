@@ -48,6 +48,22 @@ class VerifyOtpRequest(_Strict):
     code: str = Field(min_length=6, max_length=6)
 
 
+class PasswordResetRequest(_Strict):
+    """Body for ``POST /auth/password/reset``.
+
+    - ``email``: cross-check only; the user that gets mutated is the one
+      bound to the OTP (``OTP.user_id``), not the one looked up by this
+      email. See ``ResetPassword`` use case for the invariant chain.
+    - ``code``: 6-digit numeric OTP issued by ``POST /auth/otp/send``
+      with ``purpose='reset'``.
+    - ``new_password``: revalidated server-side by the use case.
+    """
+
+    email: EmailStr
+    code: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
+    new_password: str = Field(min_length=8, max_length=128)
+
+
 class RegisterPendingResponse(_Strict):
     status: Literal["pending_verification"] = "pending_verification"
 
