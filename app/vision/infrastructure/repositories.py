@@ -10,8 +10,22 @@ from uuid import UUID
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.vision.domain.entities import DetectedFoodItem, VisionJob
+from app.vision.domain.entities import DetectedFoodItem, FoodGroup, VisionJob
 from app.vision.infrastructure.models import VisionJobModel
+
+# Mirror of the FoodGroup vocabulary for JSONB hygiene: rows written by a
+# future/rolled-back enum version must degrade to "other", never leak an
+# out-of-vocab string typed as FoodGroup (explain_plate would silently drop
+# it from groups while still counting its kcal in the total).
+_VALID_FOOD_GROUPS: frozenset[str] = frozenset(
+    {"vegetable", "fruit", "grain", "protein", "dairy", "fat", "sweet", "beverage", "other"}
+)
+
+
+def _coerce_food_group(raw: object) -> FoodGroup | None:
+    if raw is None:
+        return None
+    return raw if raw in _VALID_FOOD_GROUPS else "other"  # type: ignore[return-value]
 
 
 def _items_to_jsonb(items: list[DetectedFoodItem]) -> list[dict[str, Any]]:
@@ -25,6 +39,7 @@ def _items_to_jsonb(items: list[DetectedFoodItem]) -> list[dict[str, Any]]:
             "carbs_g": i.carbs_g,
             "fat_g": i.fat_g,
             "confidence": i.confidence,
+            "food_group": i.food_group,
             "matched_food_id": str(i.matched_food_id) if i.matched_food_id else None,
             "matched_name_norm": i.matched_name_norm,
             "match_method": i.match_method,
@@ -67,6 +82,7 @@ def _items_from_jsonb(raw: list[dict[str, Any]] | None) -> list[DetectedFoodItem
                 carbs_g=int(d["carbs_g"]),
                 fat_g=int(d["fat_g"]),
                 confidence=float(d["confidence"]),
+                food_group=_coerce_food_group(d.get("food_group")),
                 matched_food_id=UUID(d["matched_food_id"]) if d.get("matched_food_id") else None,
                 matched_name_norm=d.get("matched_name_norm"),
                 match_method=d.get("match_method"),

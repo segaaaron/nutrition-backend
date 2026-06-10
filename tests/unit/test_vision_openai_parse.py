@@ -26,6 +26,45 @@ def test_parse_drops_malformed_rows() -> None:
     assert out[0].kcal == 230
 
 
+def test_parse_food_group_valid_and_fallback() -> None:
+    raw = {
+        "items": [
+            {
+                "name": "tomate",
+                "estimated_amount_g": 40,
+                "kcal": 7,
+                "protein_g": 0,
+                "carbs_g": 2,
+                "fat_g": 0,
+                "confidence": 0.9,
+                "food_group": "vegetable",
+            },
+            {
+                "name": "cosa rara",
+                "estimated_amount_g": 50,
+                "kcal": 90,
+                "protein_g": 1,
+                "carbs_g": 10,
+                "fat_g": 4,
+                "confidence": 0.8,
+                "food_group": "hallucinated_group",
+            },
+            {
+                # legacy row without food_group (pre-prompt-bump cache)
+                "name": "avena",
+                "estimated_amount_g": 60,
+                "kcal": 230,
+                "protein_g": 7,
+                "carbs_g": 40,
+                "fat_g": 4,
+                "confidence": 0.91,
+            },
+        ]
+    }
+    out = _parse_items(raw)
+    assert [i.food_group for i in out] == ["vegetable", "other", "other"]
+
+
 def test_parse_clips_confidence() -> None:
     raw = {
         "items": [

@@ -115,7 +115,9 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # OK4: OpenAI vision wrappers with fallback contracts.
     "app/vision/application/process_vision_job.py": {156, 214, 275, 359},
     "app/vision/infrastructure/food_matcher.py": {93},
-    "app/vision/infrastructure/openai_vision.py": {195, 201, 318, 544},
+    "app/vision/infrastructure/openai_vision.py": {212, 218, 335, 561},
+    # OK4: plate explanation is decorative — poll must still serve items.
+    "app/vision/presentation/router.py": {169},
     # OK4: voice/food text parser — LLM best-effort.
     "app/voice/infrastructure/food_text_parser.py": {202},
     # OK2: worker task top-level boundaries (Arq retry control).

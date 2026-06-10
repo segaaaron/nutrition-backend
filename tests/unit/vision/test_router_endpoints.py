@@ -471,6 +471,108 @@ class TestGetJobStatus:
         assert body["error_code"] is None
         assert body["completed_at"] is None
 
+    # ------------------------------------------------------------------ #
+    # Plate explanation (groups / total_kcal / summary)                   #
+    # ------------------------------------------------------------------ #
+
+    @staticmethod
+    def _grouped_job() -> VisionJob:
+        from decimal import Decimal as _D
+
+        def _it(name: str, kcal: int, group: str) -> DetectedFoodItem:
+            return DetectedFoodItem(
+                name=name,
+                estimated_amount_g=_D("100"),
+                kcal=kcal,
+                protein_g=0,
+                carbs_g=0,
+                fat_g=0,
+                confidence=0.9,
+                food_group=group,  # type: ignore[arg-type]
+            )
+
+        return VisionJob(
+            id=uuid4(),
+            user_id=FAKE_USER_ID,
+            status="completed",
+            image_sha256="c" * 64,
+            created_at=datetime.now(UTC),
+            completed_at=datetime.now(UTC),
+            detected_items=[
+                _it("pollo", 198, "protein"),
+                _it("tomate", 7, "vegetable"),
+                _it("cebolla", 12, "vegetable"),
+            ],
+        )
+
+    def test_completed_job_includes_plate_explanation_default_es(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        job = self._grouped_job()
+        _patch_get_job_status(monkeypatch, behaviour=job)
+
+        resp = client.get(f"/logs/food/jobs/{job.id}")
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["total_kcal"] == 217
+        assert [g["group"] for g in body["groups"]] == ["protein", "vegetable"]
+        veg = body["groups"][1]
+        assert veg["item_names"] == ["tomate", "cebolla"]
+        assert veg["total_kcal"] == 19
+        assert "Total estimado: 217 kcal" in body["summary"]
+        assert body["items"][0]["food_group"] == "protein"
+
+    def test_accept_language_en_switches_summary_language(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        job = self._grouped_job()
+        _patch_get_job_status(monkeypatch, behaviour=job)
+
+        resp = client.get(
+            f"/logs/food/jobs/{job.id}", headers={"Accept-Language": "en-US,en;q=0.9"}
+        )
+
+        assert resp.status_code == 200
+        assert "Estimated total: 217 kcal" in resp.json()["summary"]
+
+    def test_queued_job_has_no_plate_explanation(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        job = VisionJob(
+            id=uuid4(),
+            user_id=FAKE_USER_ID,
+            status="queued",
+            image_sha256="d" * 64,
+            created_at=datetime.now(UTC),
+        )
+        _patch_get_job_status(monkeypatch, behaviour=job)
+
+        body = client.get(f"/logs/food/jobs/{job.id}").json()
+
+        assert body["groups"] == []
+        assert body["total_kcal"] is None
+        assert body["summary"] is None
+
+    def test_explainer_failure_degrades_without_breaking_poll(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        job = self._grouped_job()
+        _patch_get_job_status(monkeypatch, behaviour=job)
+
+        def _boom(*_a, **_kw):
+            raise RuntimeError("explainer bug")
+
+        monkeypatch.setattr(router_module, "explain_plate", _boom)
+
+        resp = client.get(f"/logs/food/jobs/{job.id}")
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert len(body["items"]) == 3  # items still served
+        assert body["groups"] == []
+        assert body["summary"] is None
+
 
 # =========================================================================== #
 # POST /logs/food/{food_log_id}/edit                                          #

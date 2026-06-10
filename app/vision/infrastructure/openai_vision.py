@@ -137,6 +137,20 @@ VISION_SCHEMA: dict[str, Any] = {
                     "carbs_g": {"type": "integer"},
                     "fat_g": {"type": "integer"},
                     "confidence": {"type": "number"},
+                    "food_group": {
+                        "type": "string",
+                        "enum": [
+                            "vegetable",
+                            "fruit",
+                            "grain",
+                            "protein",
+                            "dairy",
+                            "fat",
+                            "sweet",
+                            "beverage",
+                            "other",
+                        ],
+                    },
                 },
                 "required": [
                     "name",
@@ -146,6 +160,7 @@ VISION_SCHEMA: dict[str, Any] = {
                     "carbs_g",
                     "fat_g",
                     "confidence",
+                    "food_group",
                 ],
             },
         },
@@ -159,6 +174,8 @@ def _system_prompt(locale: str, region: str) -> str:
         "Eres un experto en nutrición LatAm/US/EU. Analiza la foto del plato y "
         "devuelve solo ingredientes visibles con macros estimados per ítem, en gramos. "
         "Usa USDA FDC como referencia. Confidence en 0..1. "
+        "Clasifica cada ítem en food_group: vegetable|fruit|grain|protein|dairy|"
+        "fat|sweet|beverage|other. "
         f"Locale={locale}. Region={region}. "
         "Devuelve estricto JSON conforme al esquema; nunca texto libre."
     )
@@ -552,10 +569,16 @@ class OpenAIVisionProvider:
         raise UpstreamError(f"vision_failed:{last_exc!s}")
 
 
+_FOOD_GROUPS: frozenset[str] = frozenset(
+    {"vegetable", "fruit", "grain", "protein", "dairy", "fat", "sweet", "beverage", "other"}
+)
+
+
 def _parse_items(raw: dict[str, Any]) -> list[DetectedFoodItem]:
     out: list[DetectedFoodItem] = []
     for r in raw.get("items", []) or []:
         try:
+            group = str(r.get("food_group", "other"))
             out.append(
                 DetectedFoodItem(
                     name=str(r["name"])[:120],
@@ -565,6 +588,7 @@ def _parse_items(raw: dict[str, Any]) -> list[DetectedFoodItem]:
                     carbs_g=max(0, int(r["carbs_g"])),
                     fat_g=max(0, int(r["fat_g"])),
                     confidence=max(0.0, min(1.0, float(r["confidence"]))),
+                    food_group=group if group in _FOOD_GROUPS else "other",  # type: ignore[arg-type]
                 )
             )
         except (KeyError, ValueError, TypeError, InvalidOperation) as exc:

@@ -80,6 +80,37 @@ def test_items_from_jsonb_returns_empty_for_empty_list():
     assert _items_from_jsonb([]) == []
 
 
+def test_jsonb_roundtrip_preserves_food_group():
+    item = _item("rice")
+    item.food_group = "grain"
+    restored = _items_from_jsonb(_items_to_jsonb([item]))
+    assert restored[0].food_group == "grain"
+
+
+def test_items_from_jsonb_legacy_rows_without_food_group():
+    rows = _items_to_jsonb([_item("oat")])
+    for r in rows:
+        r.pop("food_group", None)  # simulate pre-bump cached row
+    restored = _items_from_jsonb(rows)
+    assert restored[0].food_group is None
+
+
+def test_items_from_jsonb_coerces_out_of_vocab_food_group_to_other():
+    rows = _items_to_jsonb([_item("oat")])
+    rows[0]["food_group"] = "hallucinated_future_group"
+    restored = _items_from_jsonb(rows)
+    assert restored[0].food_group == "other"
+
+
+def test_strip_personal_fields_preserves_food_group():
+    item = _item()
+    item.food_group = "vegetable"
+    cleaned = _strip_personal_fields(_items_to_jsonb([item]))
+    # food_group is image-bound (not per-user) — MUST survive the
+    # cross-user SHA cache strip.
+    assert cleaned[0]["food_group"] == "vegetable"
+
+
 def test_strip_personal_fields_removes_matcher_artifacts():
     rows = _items_to_jsonb([_item()])
     cleaned = _strip_personal_fields(rows)

@@ -1,6 +1,6 @@
 """Profile Pydantic schemas. Strict.
 
-Mobile contract: see `docs/mobile/ONBOARDING_API_CONTRACT.md` for the iOS +
+Mobile contract: see `docs/mobile/IOS_API_REFERENCE.md` §3 for the iOS +
 Android client-facing field map, conditional fields, and error-handling table.
 """
 

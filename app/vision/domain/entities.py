@@ -15,6 +15,21 @@ from uuid import UUID, uuid4
 
 VisionJobStatus = Literal["queued", "running", "completed", "failed", "cancelled"]
 
+# Closed food-group vocabulary the vision LLM classifies each item into
+# (strict enum in VISION_SCHEMA). "other" is the parser fallback for any
+# out-of-vocabulary value so one bad row never drops the whole item.
+FoodGroup = Literal[
+    "vegetable",
+    "fruit",
+    "grain",
+    "protein",
+    "dairy",
+    "fat",
+    "sweet",
+    "beverage",
+    "other",
+]
+
 
 @dataclass(slots=True)
 class DetectedFoodItem:
@@ -25,6 +40,7 @@ class DetectedFoodItem:
     carbs_g: int
     fat_g: int
     confidence: float
+    food_group: FoodGroup | None = None
     matched_food_id: UUID | None = None
     matched_name_norm: str | None = None
     match_method: str | None = None  # 'trigram' | 'embedding' | 'unmatched'
