@@ -48,7 +48,10 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.core.errors import BusinessRuleViolation, NotFoundError
+from app.core.logging import get_logger
 from app.shared.i18n import Locale, TranslatorProtocol, resolve_locale
+
+_log = get_logger(__name__)
 
 PROBLEM_URN_BASE = "urn:nova:problem"
 PROBLEM_CONTENT_TYPE = "application/problem+json"
@@ -152,6 +155,16 @@ _PLAN_RULE_TITLES: dict[str, tuple[str, str, str]] = {
         "plan:nutritional-goals-missing",
         "Nutritional goals missing — complete onboarding first",
         "nutritional_goals_missing",
+    ),
+    "nutritional_goals_unavailable": (
+        "plan:nutritional-goals-unavailable",
+        "Profile incomplete — complete onboarding first",
+        "nutritional_goals_unavailable",
+    ),
+    "profile_not_found": (
+        "profile:not-found",
+        "Profile not found — complete onboarding first",
+        "profile_not_found",
     ),
     "no_candidates_for_meal": (
         "plan:no-candidates-for-meal",
@@ -362,10 +375,12 @@ async def _validation_handler(request: Request, exc: Exception) -> JSONResponse:
         "One or more fields failed validation.",
     )
     errors: list[dict[str, Any]] = []
+    raw_errors: list[dict[str, Any]] = []
     for err in exc.errors():
         loc = err.get("loc", ())
         raw_type = err.get("type", "invalid")
         raw_msg = err.get("msg", "")
+        raw_input = err.get("input")
         translated_msg = raw_msg
         if translator is not None and raw_type:
             candidate = await translator.translate(
@@ -373,13 +388,49 @@ async def _validation_handler(request: Request, exc: Exception) -> JSONResponse:
             )
             if candidate != raw_type:
                 translated_msg = candidate
+        field_path = ".".join(str(p) for p in loc)
         errors.append(
             {
-                "field": ".".join(str(p) for p in loc),
+                "field": field_path,
                 "type": raw_type,
                 "message": translated_msg,
             }
         )
+        # Internal-log entry: includes the offending value snippet so ops
+        # can diagnose without asking the client. Truncated to keep logs
+        # bounded and avoid leaking large PII payloads.
+        raw_errors.append(
+            {
+                "field": field_path,
+                "type": raw_type,
+                "input_repr": _safe_input_repr(raw_input),
+            }
+        )
+    # Structured log for observability — captured by stdout JSON logger
+    # AND visible via docker logs / log files. NO PII fields (email,
+    # password) are logged; values are truncated reprs of the offending
+    # input for enum/format errors.
+    user_id = None
+    request_id = None
+    try:
+        user_id = getattr(request.state, "user_id", None)
+        if user_id is not None:
+            user_id = str(user_id)
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        request_id = getattr(request.state, "request_id", None)
+    except Exception:  # noqa: BLE001
+        pass
+    _log.warning(
+        "request.validation_failed",
+        path=str(request.url.path),
+        method=request.method,
+        user_id=user_id,
+        request_id=request_id,
+        error_count=len(raw_errors),
+        errors=raw_errors,
+    )
     return _problem_response(
         type_=f"{PROBLEM_URN_BASE}:validation:invalid-field",
         title=env_title,
@@ -388,6 +439,31 @@ async def _validation_handler(request: Request, exc: Exception) -> JSONResponse:
         instance=str(request.url.path),
         extras={"errors": errors},
     )
+
+
+# PII-aware fields that must NEVER appear in logs even via input_repr.
+_REDACTED_FIELDS = frozenset(
+    {"password", "new_password", "old_password", "token", "refresh_token", "code"}
+)
+
+
+def _safe_input_repr(value: Any) -> str:
+    """Bounded repr of offending input. Redacts known PII fields.
+
+    For dict payloads (whole-body validation), redacts known PII keys.
+    For scalars, truncates to 120 chars. Never raises.
+    """
+    try:
+        if isinstance(value, dict):
+            sanitized = {
+                k: ("***" if k in _REDACTED_FIELDS else v) for k, v in value.items()
+            }
+            text = repr(sanitized)
+        else:
+            text = repr(value)
+    except Exception:  # noqa: BLE001
+        return "<unrepresentable>"
+    return text[:120] + "…" if len(text) > 120 else text
 
 
 def register_problem_handlers(app: FastAPI) -> None:

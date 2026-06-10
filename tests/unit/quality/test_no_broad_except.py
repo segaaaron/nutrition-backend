@@ -49,6 +49,8 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 # Keep alphabetised by path for stable diffs.
 # When you add a new entry, also add the OK-category in a comment.
 ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
+    # OK4: best-effort metadata read from request.state; PII-safe input repr.
+    "app/core/problem_details.py": {419, 423, 464},
     # OK6: generic decorator wrapping arbitrary user-supplied callable.
     "app/coach/application/chat_message.py": {190, 231},
     # OK4: best-effort cache miss + LLM call boundary.

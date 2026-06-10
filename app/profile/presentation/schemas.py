@@ -241,6 +241,20 @@ class LocalePatch(_Strict):
     locale: Locale
 
 
+class PlanJobInfo(_Strict):
+    """Async plan generation job kicked off automatically by `POST /me/onboarding`.
+
+    Mobile clients poll `GET /plans/active` (or use the job_id with the
+    plan status endpoint) until the plan is ready. `status` mirrors the
+    Arq job lifecycle at enqueue time — always "queued" on the first
+    response. When the broker is unavailable the field is omitted from
+    the response and the client must fall back to `POST /plans` itself.
+    """
+
+    job_id: str
+    status: Literal["queued"]
+
+
 class ProfileResponse(_Strict):
     user_id: UUID
     name: str | None
@@ -261,6 +275,7 @@ class ProfileResponse(_Strict):
     theme: Theme
     onboarding_completed: bool
     updated_at: datetime | None
+    plan_job: PlanJobInfo | None = None
 
 
 class LocaleResponse(_Strict):

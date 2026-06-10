@@ -1,10 +1,21 @@
-"""Profile FastAPI router (/me, /me/onboarding, /me/locale)."""
+"""Profile FastAPI router (/me, /me/onboarding, /me/locale).
+
+Note (2026-06-09): ``POST /me/onboarding`` no longer auto-enqueues a plan
+generation job. The single source of truth for plan generation is now
+``POST /plans``, which accepts an optional ``profile`` field carrying the
+full :class:`OnboardingRequest`. The iOS happy path on the last
+onboarding screen calls ``POST /plans`` directly with the profile
+payload — one HTTP round-trip persists profile + goals + enqueues the
+plan atomically. ``POST /me/onboarding`` stays as a profile-only save
+for clients that want to decouple profile updates from plan generation.
+"""
 
 from __future__ import annotations
 
 from fastapi import APIRouter, status
 
 from app.core.event_bus import get_event_bus
+from app.core.logging import get_logger
 from app.identity.presentation.dependencies import CurrentUserDep, SessionDep
 from app.nutrition.infrastructure.compute_goals_adapter import InlineComputeGoals
 from app.profile.application.use_cases import (
@@ -20,14 +31,18 @@ from app.profile.presentation.schemas import (
     LocalePatch,
     LocaleResponse,
     OnboardingRequest,
+    PlanJobInfo,
     ProfilePatch,
     ProfileResponse,
 )
+from app.shared.i18n import LocaleDep
+
+_log = get_logger("profile.router")
 
 router = APIRouter(tags=["profile"])
 
 
-def _to_resp(p: UserProfile) -> ProfileResponse:
+def _to_resp(p: UserProfile, *, plan_job: PlanJobInfo | None = None) -> ProfileResponse:
     return ProfileResponse(
         user_id=p.user_id,
         name=p.name,
@@ -48,6 +63,7 @@ def _to_resp(p: UserProfile) -> ProfileResponse:
         theme=p.theme,
         onboarding_completed=p.onboarding_completed,
         updated_at=p.updated_at,
+        plan_job=plan_job,
     )
 
 
@@ -79,7 +95,15 @@ async def onboarding(
     body: OnboardingRequest,
     current_user: CurrentUserDep,
     session: SessionDep,
+    locale: LocaleDep,  # noqa: ARG001 — kept for symmetric API surface
 ) -> ProfileResponse:
+    """Profile + nutritional-goals upsert. **Does not** enqueue a plan.
+
+    Plan generation lives exclusively in ``POST /plans`` (see module
+    docstring). The legacy ``plan_job`` field stays in the response
+    schema set to ``None`` for backward compatibility with clients
+    that already deserialise it.
+    """
     bus = get_event_bus()
     uc = CompleteOnboarding(
         profiles=SqlProfileRepository(session),
@@ -90,7 +114,8 @@ async def onboarding(
     payload = body.model_dump(exclude_none=False)
     payload["height_cm"] = body.resolved_height_cm
     payload.pop("height_m", None)
-    return _to_resp(await uc(user_id=current_user, payload=payload))
+    profile = await uc(user_id=current_user, payload=payload)
+    return _to_resp(profile, plan_job=None)
 
 
 @router.get("/me/locale", response_model=LocaleResponse)

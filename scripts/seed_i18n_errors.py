@@ -260,6 +260,26 @@ ERROR_MESSAGES: Final[dict[str, _ErrorEntry]] = {
             "en": "We need your complete profile (weight, height, age, goal) to generate the plan. Complete onboarding first.",
         },
     },
+    "nutritional_goals_unavailable": {
+        "title": {
+            "es": "Falta completar tu perfil",
+            "en": "Profile setup incomplete",
+        },
+        "detail": {
+            "es": "Antes de generar tu plan, completa el onboarding con tus datos (peso, altura, edad, meta de salud).",
+            "en": "Before generating your plan, complete onboarding with your data (weight, height, age, health goal).",
+        },
+    },
+    "profile_not_found": {
+        "title": {
+            "es": "Perfil no encontrado",
+            "en": "Profile not found",
+        },
+        "detail": {
+            "es": "Aún no has completado tu perfil. Completa el onboarding primero.",
+            "en": "You haven't completed your profile yet. Complete onboarding first.",
+        },
+    },
     "no_candidates_for_meal": {
         "title": {
             "es": "Sin recetas para esta comida",
