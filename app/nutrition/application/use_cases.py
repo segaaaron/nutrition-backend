@@ -126,6 +126,7 @@ def _adjust_and_enforce_floor(
     bmr_int: int,
     conditions: frozenset[str],
     trimester: str | None,
+    is_exclusively_breastfeeding: bool | None = None,
 ) -> int:
     """Apply lactation + pregnancy surpluses, then enforce BMR safety floor.
 
@@ -143,7 +144,11 @@ def _adjust_and_enforce_floor(
     defense-in-depth telemetry but no longer decides the outcome.
     """
     target = Decimal(kcal_target_int)
-    target = apply_lactation_adjustment(kcal_target=target, conditions=conditions)
+    target = apply_lactation_adjustment(
+        kcal_target=target,
+        conditions=conditions,
+        is_exclusive=is_exclusively_breastfeeding,
+    )
     target = apply_trimester_adjustment(
         kcal_target=target,
         trimester=trimester,  # type: ignore[arg-type]
@@ -222,6 +227,7 @@ def _build_goals(
     region: str | None = None,
     pregnant: bool = False,
     lactating: bool = False,
+    is_exclusively_breastfeeding: bool | None = None,
 ) -> NutritionalGoals:
     af = _ACTIVITY_FACTOR[activity_level]
     bmr = compute_bmr(sex=sex, weight_kg=weight_kg, height_cm=height_cm, age=age)  # type: ignore[arg-type]
@@ -235,6 +241,7 @@ def _build_goals(
         bmr_int=bmr,
         conditions=conditions,
         trimester=trimester,
+        is_exclusively_breastfeeding=is_exclusively_breastfeeding,
     )
     _bmr_safety_warn(user_id=user_id, kcal_target=kcal_target, bmr=bmr)
     macros = compute_macros(kcal_target=kcal_target, weight_kg=weight_kg, goal=goal)  # type: ignore[arg-type]
@@ -294,6 +301,7 @@ class ComputeInitialGoals:
             region=bio.get("region"),
             pregnant=bool(bio.get("pregnant")),
             lactating=bool(bio.get("lactating")),
+            is_exclusively_breastfeeding=bio.get("is_exclusively_breastfeeding"),
         )
         return await self.goals_repo.expire_current_and_insert(user_id, goals)
 
@@ -367,6 +375,7 @@ class RecalibrateGoals:
             bmr_int=result.bmr_new,
             conditions=frozenset(bio.get("conditions") or ()),
             trimester=bio.get("trimester"),
+            is_exclusively_breastfeeding=bio.get("is_exclusively_breastfeeding"),
         )
         macros = compute_macros(
             kcal_target=kcal_target, weight_kg=bio["weight_kg"], goal=bio["goal"]

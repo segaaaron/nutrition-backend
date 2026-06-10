@@ -10,6 +10,7 @@ from __future__ import annotations
 from app.plan.domain.condition_gates.celiac import CeliacGate
 from app.plan.domain.condition_gates.ckd import CKDGate
 from app.plan.domain.condition_gates.diabetes_t2 import DiabetesT2Gate
+from app.plan.domain.condition_gates.fatty_liver import FattyLiverGate
 from app.plan.domain.condition_gates.hypertension import HypertensionGate
 from app.plan.domain.condition_gates.lactation import LactationGate
 from app.plan.domain.condition_gates.pregnancy import PregnancyGate
@@ -28,6 +29,7 @@ register_gate(DiabetesT2Gate())
 register_gate(CKDGate())
 register_gate(HypertensionGate())
 register_gate(CeliacGate())
+register_gate(FattyLiverGate())
 
 __all__ = [
     "CONDITION_GATES",
@@ -39,4 +41,5 @@ __all__ = [
     "CKDGate",
     "HypertensionGate",
     "CeliacGate",
+    "FattyLiverGate",
 ]

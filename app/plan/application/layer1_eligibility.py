@@ -65,15 +65,23 @@ class Layer1Eligibility:
         conditions: list[str] = prof.get("conditions") or []
         weight_kg: Decimal | None = prof.get("weight_kg")
 
-        # Strict cultural separation (owner directive 2026-06-07):
-        # admit recipes tagged ``world`` (culturally universal — bowls,
-        # grilled proteins, salads, etc.) PLUS recipes tagged with the
-        # user's own ISO country code. NEVER mix Mexican, Peruvian, etc.
-        # cuisines for a Bolivian user. Empty country falls back to world.
-        # Tag string is capped at 5 chars to fit recipes.regions char(5)[].
-        allowed_tags: list[str] = ["world"]
-        if country:
-            allowed_tags.append(country)
+        # Region-based filtering (post-2026-06-09 fix).
+        #
+        # HISTORICAL DECISION (2026-06-07): originally intended to admit
+        # ``world`` + ISO country code tags for strict cultural separation.
+        # That required the catalog to be re-tagged per-country (`PE`, `MX`,
+        # etc.) plus a `world` marker. The retag script
+        # (`scripts/retag_catalog_by_country.py`) was prepared but never run
+        # against prod — catalog still uses MARKETS (`us`, `latam`, `eu`,
+        # `uk`, `ca`) per the original ADR-0008 model.
+        #
+        # CURRENT BEHAVIOR: use the pre-computed ``profile.region``
+        # (country_to_region mapping at onboarding-save time) so the eligibility
+        # query matches the actual catalog tagging. ``country`` is preserved
+        # in the profile and still drives Layer3 cultural_fit scoring (which
+        # operates on the recipe.regions array as a fuzzy match).
+        region = (prof.get("region") or "us").lower().strip()
+        allowed_tags: list[str] = [region]
 
         where: list[str] = [
             "r.regions && CAST(:regions AS char(5)[])",

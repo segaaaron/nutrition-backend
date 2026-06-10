@@ -13,6 +13,10 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.core.logging import get_logger
+
+_log = get_logger("profile.schemas")
+
 
 class _Strict(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -43,6 +47,7 @@ MobileCondition = Literal[
     "hypothyroidism",
     "lactation",  # H2.1 lifted (ADR-0016)
     "pregnancy",  # H2.2 — mobile may send even though server still gates
+    "fatty_liver",  # NAFLD/NASH — UI label: "Hígado graso (NAFLD/NASH)"
 ]
 MobileAllergen = Literal[
     "dairy",
@@ -83,10 +88,6 @@ class OnboardingRequest(_Strict):
             "example": "male",
             "description": "Sex at birth — drives Mifflin BMR formula.",
         },
-    )
-    units: Units = Field(
-        default="metric",
-        json_schema_extra={"description": "Display preference only. Server stores SI."},
     )
     weight_kg: Decimal = Field(
         ge=Decimal("30"),
@@ -150,7 +151,13 @@ class OnboardingRequest(_Strict):
         default=None,
         max_length=200,
         json_schema_extra={
-            "description": "Free text override. Stored as PII; NOT routed to Layer1 condition filter."
+            "deprecated": True,
+            "description": (
+                "DEPRECATED (iOS 2026-06+ form removes this field). Free text "
+                "override stored as PII; NOT routed to Layer1 condition filter. "
+                "Legacy clients tolerated: value is persisted if sent but ignored "
+                "by filters. NEW clients MUST NOT send this field."
+            )
         },
     )
 
@@ -164,7 +171,13 @@ class OnboardingRequest(_Strict):
         default=None,
         max_length=200,
         json_schema_extra={
-            "description": 'UI "Otra alergia…" free text. NON-EMPTY value REFUSES plan generation — server returns 422 problem `urn:nova:problem:plan:allergen-unmapped-requires-review`.'
+            "deprecated": True,
+            "description": (
+                "DEPRECATED (iOS 2026-06+ form removes this field). Previously: "
+                "non-empty value refused plan generation. Now: legacy clients "
+                "tolerated — value is logged as a warning and silently ignored "
+                "(no plan refuse). NEW clients MUST NOT send this field."
+            )
         },
     )
 
@@ -195,21 +208,56 @@ class OnboardingRequest(_Strict):
             "description": "Optional. Server falls back to Accept-Language header → region default."
         },
     )
-    theme: Theme = "light"
 
     @model_validator(mode="after")
     def _validate(self) -> OnboardingRequest:
-        # Refuse on unmapped allergen free text — safety hard-stop.
+        # Legacy clients may still send `other_allergy`. iOS 2026-06+ form
+        # removes the field, so production traffic should be zero. Tolerate
+        # legacy payloads: warn + ignore, do NOT refuse the plan. The
+        # previous 422 hard-stop produced an unrecoverable dead-end UI for
+        # any client that hadn't been updated yet.
         if self.other_allergy and self.other_allergy.strip():
-            raise ValueError("allergen_unmapped_requires_review")
+            _log.warning(
+                "onboarding.other_allergy_ignored",
+                text_length=len(self.other_allergy),
+            )
+            self.other_allergy = None
+        if self.other_condition and self.other_condition.strip():
+            # Persist as PII (no filter routing). Track the legacy field so
+            # we can confirm production iOS no longer sends it.
+            _log.info(
+                "onboarding.other_condition_received_legacy",
+                text_length=len(self.other_condition),
+            )
         # Exactly one of height_cm / height_m must be supplied.
         if self.height_cm is None and self.height_m is None:
             raise ValueError("height_required")
-        # Conditional fields: pregnancy requires trimester; lactation requires bf flag.
+        # Lactation: default exclusive=True if not specified (IOM DRI 2002 safer baseline).
+        # Mobile chip-based onboarding does NOT collect the breastfeeding flag,
+        # so the server back-fills with the higher-energy exclusive value
+        # (+500 kcal/day) to avoid under-feeding lactating mothers. Clients can
+        # later PATCH the field once a parcial vs exclusiva distinction is in
+        # the UI.
+        if (
+            "lactation" in self.medical_conditions
+            and self.is_exclusively_breastfeeding is None
+        ):
+            _log.info(
+                "onboarding.lactation_breastfeeding_defaulted_exclusive",
+                source="IOM_DRI_2002",
+            )
+            self.is_exclusively_breastfeeding = True
+        # Pregnancy: default third trimester if not specified (highest demand).
+        # Same rationale as lactation — chip-based UI omits the trimester
+        # selector. Third trimester (+452 kcal/day, IOM DRI 2002) is the
+        # safest default; under-feeding T3 carries greater risk than mildly
+        # over-feeding T1.
         if "pregnancy" in self.medical_conditions and self.trimester is None:
-            raise ValueError("trimester_required_for_pregnancy")
-        if "lactation" in self.medical_conditions and self.is_exclusively_breastfeeding is None:
-            raise ValueError("breastfeeding_status_required_for_lactation")
+            _log.info(
+                "onboarding.pregnancy_trimester_defaulted_third",
+                source="IOM_DRI_2002",
+            )
+            self.trimester = "third"
         return self
 
     @property
@@ -224,7 +272,6 @@ class ProfilePatch(_Strict):
     name: str | None = None
     age: int | None = Field(default=None, ge=12, le=100)
     sex: Sex | None = None
-    units: Units | None = None
     weight_kg: Decimal | None = Field(default=None, gt=Decimal("20"), lt=Decimal("300"))
     height_cm: Decimal | None = Field(default=None, gt=Decimal("50"), lt=Decimal("250"))
     goal: Goal | None = None
@@ -234,7 +281,6 @@ class ProfilePatch(_Strict):
     allergies: list[str] | None = None
     other_allergy: str | None = None
     country: str | None = Field(default=None, min_length=2, max_length=2)
-    theme: Theme | None = None
 
 
 class LocalePatch(_Strict):
@@ -260,7 +306,6 @@ class ProfileResponse(_Strict):
     name: str | None
     age: int | None
     sex: Sex | None
-    units: Units
     weight_kg: Decimal | None
     height_cm: Decimal | None
     goal: Goal | None
@@ -272,7 +317,6 @@ class ProfileResponse(_Strict):
     country: str | None
     region: str | None
     locale: str
-    theme: Theme
     onboarding_completed: bool
     updated_at: datetime | None
     plan_job: PlanJobInfo | None = None

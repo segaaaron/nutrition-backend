@@ -114,6 +114,19 @@ class CompleteOnboarding:
                 user_id=str(user_id),
                 goal=profile.goal,
             )
+        # Clinical safety net: celiac users MUST exclude gluten. If the iOS
+        # client forgot to auto-add the "gluten" allergen when toggling the
+        # "Celiaquía" chip, backend enforces the invariant server-side.
+        # Without this, a celiac user could receive a plan with gluten-bearing
+        # recipes — real clinical risk. Idempotent (set semantics).
+        if profile.medical_conditions and "celiac" in profile.medical_conditions:
+            allergies = list(profile.allergies or [])
+            if "gluten" not in allergies:
+                profile.allergies = sorted(set(allergies) | {"gluten"})
+                _log.info(
+                    "onboarding.celiac_auto_gluten_added",
+                    user_id=str(user_id),
+                )
         if profile.country:
             profile.region = country_to_region(profile.country)
             if not payload.get("locale"):
@@ -193,6 +206,18 @@ class UpdateProfile:
         if profile.country:
             profile.region = country_to_region(profile.country)
         region_after = profile.region
+        # Clinical safety net (parity with CompleteOnboarding): if the patch
+        # leaves the user marked celiac, ensure gluten is in the allergens
+        # set. Prevents PATCH /me from regressing a celiac user into a
+        # gluten-exposed plan.
+        if profile.medical_conditions and "celiac" in profile.medical_conditions:
+            allergies = list(profile.allergies or [])
+            if "gluten" not in allergies:
+                profile.allergies = sorted(set(allergies) | {"gluten"})
+                _log.info(
+                    "profile_update.celiac_auto_gluten_added",
+                    user_id=str(user_id),
+                )
 
         # ADR-0026 L1 — region pinning. A 30-day lock on region changes
         # closes the small-country leaderboard spoofing vector. Audit

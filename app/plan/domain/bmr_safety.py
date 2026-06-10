@@ -119,22 +119,48 @@ def enforce_bmr_safety_floor(*, kcal_target: Decimal, bmr: Decimal) -> Decimal:
     return kcal_target
 
 
-_LACTATION_KCAL_SURPLUS = Decimal("500")
+_LACTATION_KCAL_SURPLUS_EXCLUSIVE = Decimal("500")
+_LACTATION_KCAL_SURPLUS_PARTIAL = Decimal("330")
+# Backward compat alias — the exclusive surplus has historically been the
+# only constant exported by this module. Kept so external callers /
+# property-based tests in `test_bmr_safety.py` and `test_multi_condition.py`
+# continue to import a stable name.
+_LACTATION_KCAL_SURPLUS = _LACTATION_KCAL_SURPLUS_EXCLUSIVE
 
 
-def apply_lactation_adjustment(*, kcal_target: Decimal, conditions: frozenset[str]) -> Decimal:
+def apply_lactation_adjustment(
+    *,
+    kcal_target: Decimal,
+    conditions: frozenset[str],
+    is_exclusive: bool | None = None,
+) -> Decimal:
     """Add lactation energy surplus to kcal target when applicable.
 
-    Per IOM DRI for breastfeeding women, energy needs rise ~+500 kcal/day
-    during exclusive lactation (months 0-6). Caller is responsible for
-    deciding whether the user is in active lactation; this function only
-    applies the surplus when `"lactation" in conditions`.
+    Per IOM DRI 2002 for breastfeeding women, energy needs rise:
+      - +500 kcal/day during **exclusive** lactation (months 0-6, sole
+        infant nutrition source).
+      - +330 kcal/day during **partial** lactation (>6 months, with
+        complementary solids reducing milk volume demand).
 
-    Returns input unchanged otherwise.
+    Caller is responsible for deciding whether the user is in active
+    lactation; this function only applies the surplus when
+    `"lactation" in conditions`.
+
+    `is_exclusive` selects the magnitude:
+      - True   → +500 kcal (exclusive — safer default).
+      - False  → +330 kcal (partial).
+      - None   → treat as exclusive (safer baseline; matches schema
+        validator default, IOM DRI 2002 conservative path).
+
+    Returns input unchanged when lactation is absent. Sources: IOM DRI
+    2002 (Energy chapter, Table 5-22); WHO Infant and Young Child Feeding
+    2009; AAP Breastfeeding and the Use of Human Milk 2022.
     """
-    if "lactation" in conditions:
-        return kcal_target + _LACTATION_KCAL_SURPLUS
-    return kcal_target
+    if "lactation" not in conditions:
+        return kcal_target
+    if is_exclusive is False:
+        return kcal_target + _LACTATION_KCAL_SURPLUS_PARTIAL
+    return kcal_target + _LACTATION_KCAL_SURPLUS_EXCLUSIVE
 
 
 # Pregnancy energy surplus per trimester (IOM DRI 2002):

@@ -134,7 +134,14 @@ class SqlProfileReader:
             # pregnant / lactating drive +300 / +700 ml bumps respectively.
             "region": p.region,
             "pregnant": p.trimester is not None,
-            "lactating": bool(p.is_exclusively_breastfeeding),
+            # `lactating` reflects the user's lactation condition, not the
+            # exclusive-vs-parcial flag. A mother who is partially
+            # breastfeeding still needs the +700 ml/day hydration bump
+            # (IOM DRI 2002). The exclusive flag controls the kcal surplus
+            # magnitude (+500 exclusive vs +330 partial) and is forwarded
+            # separately below.
+            "lactating": "lactation" in (p.medical_conditions or ()),
+            "is_exclusively_breastfeeding": p.is_exclusively_breastfeeding,
         }
 
 

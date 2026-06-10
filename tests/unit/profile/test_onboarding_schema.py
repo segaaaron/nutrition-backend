@@ -118,12 +118,12 @@ def test_pregnancy_with_trimester() -> None:
 # ── refuse paths (mobile must surface these as UI errors) ─────────────────────
 
 
-def test_allergen_freetext_refuses() -> None:
-    """ANY non-empty other_allergy → server refuses plan.
-    Mobile must show: 'Tu alergia personalizada requiere revisión manual.'"""
-    with pytest.raises(ValidationError) as ei:
-        OnboardingRequest(**_base_payload(other_allergy="ajonjolí"))  # type: ignore[arg-type]
-    assert "allergen_unmapped_requires_review" in str(ei.value)
+def test_allergen_freetext_legacy_ignored() -> None:
+    """Legacy iOS clients may still send `other_allergy`. Backend tolerates
+    it: warns + silently nulls the field, never refuses the plan. iOS
+    2026-06+ removes the field entirely so production traffic is zero."""
+    body = OnboardingRequest(**_base_payload(other_allergy="ajonjolí"))  # type: ignore[arg-type]
+    assert body.other_allergy is None
 
 
 def test_allergen_freetext_whitespace_only_passes() -> None:
@@ -139,24 +139,27 @@ def test_height_missing_both_refuses() -> None:
     assert "height_required" in str(ei.value)
 
 
-def test_pregnancy_without_trimester_refuses() -> None:
-    with pytest.raises(ValidationError) as ei:
-        OnboardingRequest(
-            **_base_payload(  # type: ignore[arg-type]
-                medical_conditions=["pregnancy"],
-            )
+def test_pregnancy_without_trimester_defaults_third() -> None:
+    """IOM DRI 2002 safer baseline: chip-based onboarding does not collect
+    trimester, server defaults to third (+452 kcal/day, highest demand)."""
+    req = OnboardingRequest(
+        **_base_payload(  # type: ignore[arg-type]
+            medical_conditions=["pregnancy"],
         )
-    assert "trimester_required_for_pregnancy" in str(ei.value)
+    )
+    assert req.trimester == "third"
 
 
-def test_lactation_without_breastfeeding_flag_refuses() -> None:
-    with pytest.raises(ValidationError) as ei:
-        OnboardingRequest(
-            **_base_payload(  # type: ignore[arg-type]
-                medical_conditions=["lactation"],
-            )
+def test_lactation_without_breastfeeding_flag_defaults_exclusive() -> None:
+    """IOM DRI 2002 safer baseline: chip-based onboarding does not collect
+    the exclusive-vs-parcial flag, server defaults to exclusive (+500 kcal/
+    day) to avoid under-feeding lactating mothers."""
+    req = OnboardingRequest(
+        **_base_payload(  # type: ignore[arg-type]
+            medical_conditions=["lactation"],
         )
-    assert "breastfeeding_status_required_for_lactation" in str(ei.value)
+    )
+    assert req.is_exclusively_breastfeeding is True
 
 
 @pytest.mark.parametrize("age", [12, 17, 81, 100])

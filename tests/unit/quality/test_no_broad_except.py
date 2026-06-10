@@ -102,7 +102,7 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # OK1: profile event handler boundary.
     "app/profile/application/event_handlers.py": {74},
     # OK4: profile use_case OpenAI wrappers.
-    "app/profile/application/use_cases.py": {147, 260},
+    "app/profile/application/use_cases.py": {160, 285},
     # OK4: recipes router fallback.
     "app/recipes/presentation/router.py": {63},
     # OK4: i18n translation must never break a request.
