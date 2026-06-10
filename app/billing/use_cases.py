@@ -182,8 +182,19 @@ class HandleWebhook:
         if "subscription.created" in etype or "checkout.session.completed" in etype:
             sub_obj = event.get("data", {}).get("object", {})
             plan_str = sub_obj.get("metadata", {}).get("plan", "premium")
+            # Patrón #5 — invariante post-mutación: a user MUST have at most
+            # one live subscription row (statuses trialing/active/past_due).
+            # Previously this branch minted ``uuid4()`` on every event so the
+            # ``ON CONFLICT (id) DO UPDATE`` in ``upsert_subscription`` never
+            # fired — two concurrent ``subscription.created`` webhooks for
+            # the same user produced two ``status='active'`` rows. We now
+            # reuse the existing row id when present and rely on the
+            # partial UNIQUE index ``uq_subscriptions_one_live_per_user``
+            # (migration 0016) as last-line defence for the race window
+            # between read and write.
+            existing = await self.repo.get_subscription(uid)
             sub = Subscription(
-                id=uuid4(),
+                id=existing.id if existing is not None else uuid4(),
                 user_id=uid,
                 plan=Plan(plan_str),
                 status=SubscriptionStatus.ACTIVE,
@@ -193,7 +204,18 @@ class HandleWebhook:
                 cancel_at_period_end=False,
                 trial_end=None,
             )
-            await self.repo.upsert_subscription(sub)
+            from sqlalchemy.exc import IntegrityError as _IntegrityError
+
+            try:
+                await self.repo.upsert_subscription(sub)
+            except _IntegrityError:
+                # UNIQUE violation on (user_id) WHERE status IN
+                # ('trialing','active','past_due'): a concurrent webhook
+                # already promoted the user to active. The other transaction
+                # wins; this one is a redundant replay. Idempotent no-op —
+                # the webhook_events row was already inserted above so
+                # downstream retries are deduped at that layer too.
+                return {"processed": False, "reason": "duplicate_live_subscription", "event_id": event_id}
             await self.bus.publish(
                 SubscriptionCreated(
                     user_id=uid,

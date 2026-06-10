@@ -27,7 +27,7 @@ import hashlib
 import io
 import json
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from statistics import fmean
 from typing import Any, Literal
 from uuid import UUID
@@ -567,9 +567,11 @@ def _parse_items(raw: dict[str, Any]) -> list[DetectedFoodItem]:
                     confidence=max(0.0, min(1.0, float(r["confidence"]))),
                 )
             )
-        except (
-            Exception
-        ) as exc:  # noqa: BLE001, S112 — defensive skip: malformed LLM rows are expected (KeyError/ValueError/InvalidOperation); logged at debug for telemetry, drop row and continue parsing remaining items.
+        except (KeyError, ValueError, TypeError, InvalidOperation) as exc:
+            # Defensive skip: malformed LLM rows are expected; logged at
+            # debug for telemetry, drop the row and continue parsing the
+            # remaining items. Narrow surface — any other exception (e.g.
+            # AttributeError) signals a real parser bug and must propagate.
             log.debug("vision.parse.skip_row", error=str(exc))
             continue
     return out

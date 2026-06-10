@@ -15,6 +15,7 @@ from app.core.db import session_scope
 from app.core.event_bus import get_event_bus
 from app.core.logging import get_logger
 from app.core.redis import get_redis
+from app.nutrition.infrastructure.compute_goals_adapter import InlineComputeGoals
 from app.plan.application.create_plan import CreatePlan
 from app.plan.application.layer1_eligibility import Layer1Eligibility
 from app.plan.application.layer2_shortlist import Layer2Shortlist
@@ -50,10 +51,15 @@ async def generate_plan_task(
         layer2 = Layer2Shortlist(session=session)
         layer3 = Layer3Ranking(session=session, profile_ctx=user_ctx, taste_vector=taste_vec)
         layer4 = Layer4Coherence(client=CoherencePass(user_id=uid))
+        bus = get_event_bus()
         uc = CreatePlan(
             plans=SqlPlanRepository(session),
             layer1=layer1, layer2=layer2, layer3=layer3, layer4=layer4,
-            user_ctx=user_ctx, bus=get_event_bus(),
+            user_ctx=user_ctx, bus=bus,
+            # Defense-in-depth: if goals are missing (legacy users that
+            # onboarded before the inline fix, or external publishers),
+            # recover by computing them inline in the same worker tx.
+            ensure_goals=InlineComputeGoals(session=session, bus=bus),
         )
         # Locale is validated at the API boundary (LocaleDep). The worker
         # forwards it verbatim; CreatePlan tolerates `None` and falls back

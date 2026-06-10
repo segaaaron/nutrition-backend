@@ -47,14 +47,41 @@ def get_sessionmaker() -> async_sessionmaker[AsyncSession]:
 
 @asynccontextmanager
 async def session_scope() -> AsyncIterator[AsyncSession]:
+    """Transactional session with post-commit event dispatch.
+
+    Opens a deferred-publish scope (ADR-0030) so any ``bus.publish``
+    called inside the ``with`` block queues into a request-local list.
+    On clean exit we commit the DB transaction first and only then
+    dispatch the queued events — guaranteeing that handlers which open
+    fresh sessions see committed data. On exception we discard the
+    queue without dispatching.
+    """
+    from app.core.event_bus import (
+        begin_request_scope,
+        discard_request_scope,
+        flush_request_scope,
+        get_event_bus,
+        is_request_scope_active,
+    )
+
     sm = get_sessionmaker()
+    # Nest cleanly: if a request-scope is already active (e.g. FastAPI
+    # dep opened one), defer to it — do NOT open a second scope, which
+    # would split the queue and dispatch events twice.
+    nested = is_request_scope_active()
+    token = None if nested else begin_request_scope()
     async with sm() as session:
         try:
             yield session
             await session.commit()
         except Exception:
             await session.rollback()
+            if token is not None:
+                discard_request_scope(token)
             raise
+        else:
+            if token is not None:
+                await flush_request_scope(get_event_bus(), token)
 
 
 async def dispose_engine() -> None:

@@ -312,13 +312,21 @@ class Logout:
             from app.core.config import get_settings
             from app.identity.infrastructure.jwt_signer import revoke_jti
 
+            from redis.exceptions import RedisError
+
+            from app.core.errors import Unauthenticated
+
             try:
                 claims = await self.jwt.verify_access(access_token)
                 jti = claims.get("jti")
                 if jti:
                     await revoke_jti(jti, ttl_seconds=get_settings().jwt_access_ttl_seconds)
-            except Exception:  # noqa: BLE001,S110 — invalid/expired token must not block logout
-                pass
+            except (Unauthenticated, RedisError):
+                # Invalid/expired token or Redis hiccup must not block logout
+                # — the refresh token is already revoked above. We don't log
+                # at exception level because expired-access during logout is
+                # the common happy-path; a stack trace would be noisy.
+                _log.debug("logout.access_revoke_skipped")
 
 
 # ---------------------------------------------------------------------------

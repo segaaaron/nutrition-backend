@@ -5,6 +5,11 @@
 from __future__ import annotations
 
 from argon2 import PasswordHasher
+from argon2.exceptions import (
+    InvalidHashError,
+    VerificationError,
+    VerifyMismatchError,
+)
 
 _hasher = PasswordHasher()
 
@@ -14,7 +19,10 @@ def hash_password(plain: str) -> str:
 
 
 def verify_password(plain: str, hashed: str) -> bool:
+    # Narrow exception surface: only argon2's own auth failures are expected.
+    # Any other exception (TypeError on non-str input, etc.) must propagate
+    # so we surface real bugs instead of silently returning "wrong password".
     try:
         return _hasher.verify(hashed, plain)
-    except Exception:
+    except (VerifyMismatchError, VerificationError, InvalidHashError):
         return False

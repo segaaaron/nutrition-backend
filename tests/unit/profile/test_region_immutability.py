@@ -1,22 +1,22 @@
 """ADR-0026 L1 — 30-day region immutability check inside `UpdateProfile`.
 
-We unit-test the gate by stubbing `session_scope` so no real DB is
-required. The use case only reads/writes one well-known SQL pair
-(`SELECT changed_at … LIMIT 1` then `INSERT … profile_region_change_audit`).
-The stub session records calls and returns a controllable `changed_at`.
+Patrón #3 refactor: the use case no longer opens a nested
+``session_scope()`` for the audit. It receives a ``RegionAuditPort``
+adapter (bound to the SAME session as the profile upsert), so the
+audit row and the profile row commit atomically. Tests now drive the
+gate through an in-memory port stub.
 """
 
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
-from app.core.errors import LockedError
+from app.core.errors import BusinessRuleViolation, LockedError
 from app.profile.application import use_cases as uc_mod
 from app.profile.application.use_cases import UpdateProfile
 from app.profile.domain.entities import UserProfile
@@ -25,26 +25,29 @@ pytestmark = pytest.mark.anyio
 
 
 @dataclass
-class _StubResult:
-    value: object = None
+class _StubRegionAudit:
+    last_change: datetime | None = None
+    insert_calls: list[dict] = field(default_factory=list)
 
-    def scalar(self) -> object:
-        return self.value
+    async def last_change_at(self, user_id: UUID) -> datetime | None:  # noqa: ARG002
+        return self.last_change
 
-
-class _StubSession:
-    def __init__(self, last_change: datetime | None) -> None:
-        self.last_change = last_change
-        self.insert_calls: list[dict] = []
-
-    async def execute(self, stmt, params=None):  # noqa: ANN001
-        sql = str(stmt).lower()
-        if "select changed_at" in sql:
-            return _StubResult(self.last_change)
-        if "insert into profile_region_change_audit" in sql:
-            self.insert_calls.append(params or {})
-            return _StubResult(None)
-        return _StubResult(None)
+    async def record_change(
+        self,
+        *,
+        user_id: UUID,
+        old_region: str | None,
+        new_region: str | None,
+        changed_at: datetime,
+    ) -> None:
+        self.insert_calls.append(
+            {
+                "uid": str(user_id),
+                "old": old_region,
+                "new": new_region,
+                "ts": changed_at,
+            }
+        )
 
 
 class _StubProfilesRepo:
@@ -83,86 +86,81 @@ def _build_profile(country: str, region: str) -> UserProfile:
 
 @pytest.fixture(autouse=True)
 def _disable_segment_gate(monkeypatch):
-    # The segment gate has its own tests — neutralise it here.
     monkeypatch.setattr(uc_mod, "_enforce_mvp_segment_gate", lambda *_a, **_k: None)
 
 
-def _patch_session(monkeypatch, stub: _StubSession) -> None:
-    @asynccontextmanager
-    async def _fake_scope():
-        yield stub
-
-    monkeypatch.setattr(uc_mod, "session_scope", _fake_scope)
-
-
-async def test_region_change_with_no_prior_audit_succeeds(monkeypatch):
+async def test_region_change_with_no_prior_audit_succeeds():
     profile = _build_profile("PE", "latam")
     repo = _StubProfilesRepo(profile)
     bus = _StubBus()
-    stub = _StubSession(last_change=None)
-    _patch_session(monkeypatch, stub)
+    audit = _StubRegionAudit(last_change=None)
 
-    # Change country PE→ES (latam→eu)
-    await UpdateProfile(profiles=repo, bus=bus)(
+    await UpdateProfile(profiles=repo, bus=bus, region_audit=audit)(
         user_id=profile.user_id, patch={"country": "ES"}
     )
 
     assert repo.upserted is not None
     assert repo.upserted.region == "eu"
-    assert len(stub.insert_calls) == 1
-    assert stub.insert_calls[0]["old"] == "latam"
-    assert stub.insert_calls[0]["new"] == "eu"
+    assert len(audit.insert_calls) == 1
+    assert audit.insert_calls[0]["old"] == "latam"
+    assert audit.insert_calls[0]["new"] == "eu"
 
 
-async def test_region_change_inside_30d_raises_locked(monkeypatch):
+async def test_region_change_inside_30d_raises_locked():
     profile = _build_profile("PE", "latam")
     repo = _StubProfilesRepo(profile)
     bus = _StubBus()
-    # Last change 10 days ago — inside the 30-day lock.
-    stub = _StubSession(
-        last_change=datetime.now(UTC) - timedelta(days=10)
-    )
-    _patch_session(monkeypatch, stub)
+    audit = _StubRegionAudit(last_change=datetime.now(UTC) - timedelta(days=10))
 
     with pytest.raises(LockedError) as exc_info:
-        await UpdateProfile(profiles=repo, bus=bus)(
+        await UpdateProfile(profiles=repo, bus=bus, region_audit=audit)(
             user_id=profile.user_id, patch={"country": "ES"}
         )
 
     err = exc_info.value
     assert err.detail == "region_change_locked"
-    # Retry-After should be within (30-10)d ± a few seconds.
     expected_s = int(timedelta(days=20).total_seconds())
     actual_s = int(err.extra["retry_after"])
     assert abs(actual_s - expected_s) <= 5
-    # No INSERT happened.
-    assert stub.insert_calls == []
+    assert audit.insert_calls == []
 
 
-async def test_region_change_after_30d_succeeds(monkeypatch):
+async def test_region_change_after_30d_succeeds():
     profile = _build_profile("PE", "latam")
     repo = _StubProfilesRepo(profile)
     bus = _StubBus()
-    stub = _StubSession(
-        last_change=datetime.now(UTC) - timedelta(days=31)
-    )
-    _patch_session(monkeypatch, stub)
+    audit = _StubRegionAudit(last_change=datetime.now(UTC) - timedelta(days=31))
 
-    await UpdateProfile(profiles=repo, bus=bus)(
+    await UpdateProfile(profiles=repo, bus=bus, region_audit=audit)(
         user_id=profile.user_id, patch={"country": "ES"}
     )
-    assert len(stub.insert_calls) == 1
+    assert len(audit.insert_calls) == 1
 
 
-async def test_no_region_change_skips_audit(monkeypatch):
+async def test_no_region_change_skips_audit():
     profile = _build_profile("PE", "latam")
     repo = _StubProfilesRepo(profile)
     bus = _StubBus()
-    stub = _StubSession(last_change=None)
-    _patch_session(monkeypatch, stub)
+    audit = _StubRegionAudit(last_change=None)
 
-    # Patch with same country — region stays the same.
-    await UpdateProfile(profiles=repo, bus=bus)(
+    await UpdateProfile(profiles=repo, bus=bus, region_audit=audit)(
         user_id=profile.user_id, patch={"country": "PE"}
     )
-    assert stub.insert_calls == []
+    assert audit.insert_calls == []
+
+
+async def test_region_change_without_audit_port_refused():
+    """Defensive contract: refusing a region change without the audit
+    port is preferable to silently bypassing the 30-day lock + audit
+    trail. Older call sites that forgot to wire the adapter must fail
+    closed, not open.
+    """
+    profile = _build_profile("PE", "latam")
+    repo = _StubProfilesRepo(profile)
+    bus = _StubBus()
+
+    with pytest.raises(BusinessRuleViolation) as exc_info:
+        await UpdateProfile(profiles=repo, bus=bus, region_audit=None)(
+            user_id=profile.user_id, patch={"country": "ES"}
+        )
+    assert "region_audit_unavailable" in str(exc_info.value)

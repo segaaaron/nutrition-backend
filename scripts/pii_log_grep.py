@@ -10,11 +10,18 @@ Rationale (D8 + docs/security/PII_LOG_POLICY.md):
 
 Strategy:
   Walk `app/` for `.py` files. For every line that starts a logger call
-  at INFO+ (`log.info`, `log.warning`, `log.warn`, `log.error`,
-  `logger.info` …, `_logger.info` …), search the *full statement*
-  (continuation lines included) for banned tokens (case-insensitive).
-  Tokens are matched as substrings, not whole words, so `bmi=…`,
-  `BMIvalue`, and `body_mass_index` all trip.
+  at DEBUG or above (`log.debug`, `log.info`, `log.warning`, `log.warn`,
+  `log.error`, `log.critical`, `log.exception`, `logger.*`, `_logger.*`,
+  `_log.*`), search the *full statement* (continuation lines included)
+  for banned tokens (case-insensitive). Tokens are matched as substrings,
+  not whole words, so `bmi=…`, `BMIvalue`, and `body_mass_index` all
+  trip.
+
+  Policy update 2026-06-09: DEBUG and `exception` are now covered. After
+  the Patrón #2 sweep narrowed many `except` blocks, the canonical
+  failure-log pattern is `log.exception(...)` — we cannot allow PII to
+  ride the stack-trace payload. DEBUG, while disabled in PROD shipping,
+  still leaks into dev/staging dumps and Sentry issue attachments.
 
 Exit code:
   0 — clean.
@@ -62,13 +69,22 @@ _BANNED_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
     for tok in BANNED_TOKENS
 )
 
-# Any logger call at INFO / WARN / ERROR / CRITICAL. DEBUG is intentionally
-# excluded — it's verbose telemetry and disabled in PROD log shipping.
+# Any logger call at DEBUG / INFO / WARN / ERROR / CRITICAL / EXCEPTION.
+#
+# Why DEBUG is included (extended 2026-06-09): although DEBUG is disabled
+# in PROD log shipping, several `log.exception(...)` calls and ad-hoc
+# `log.debug(..., email=...)` slipped past the original gate. DEBUG can
+# leak in dev / staging dumps and in local logs that get attached to
+# Sentry issues. Treat all tiers uniformly.
+#
+# `exception` MUST be covered: `log.exception(...)` is the canonical
+# pattern after the Patrón #2 sweep (narrow except → log.exception),
+# and we cannot allow `email=` to ride along the stack-trace payload.
 _LOG_CALL = re.compile(
     r"""\b
-        (?:log|logger|_logger|_log)        # common logger identifiers
+        (?:log|logger|_logger|_log)                          # common logger identifiers
         \s*\.\s*
-        (info|warning|warn|error|critical) # tier filter
+        (debug|info|warning|warn|error|critical|exception)   # tier filter
         \s*\(
     """,
     re.VERBOSE,

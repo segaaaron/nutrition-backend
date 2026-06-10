@@ -68,14 +68,37 @@ def get_hasher() -> Argon2PasswordHasher:
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:
+    """FastAPI session dependency with deferred-event dispatch.
+
+    ADR-0030: opens a request-scoped event queue. Domain events
+    published by use cases during the request are NOT dispatched
+    immediately — they are dispatched after ``session.commit()``
+    succeeds, so handlers (which open their own sessions) observe the
+    publisher's writes. On rollback the queue is discarded.
+    """
+    from app.core.event_bus import (
+        begin_request_scope,
+        discard_request_scope,
+        flush_request_scope,
+        get_event_bus,
+        is_request_scope_active,
+    )
+
     sm = get_sessionmaker()
+    nested = is_request_scope_active()
+    token = None if nested else begin_request_scope()
     async with sm() as session:
         try:
             yield session
             await session.commit()
         except Exception:
             await session.rollback()
+            if token is not None:
+                discard_request_scope(token)
             raise
+        else:
+            if token is not None:
+                await flush_request_scope(get_event_bus(), token)
 
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]

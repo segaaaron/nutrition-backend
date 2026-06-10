@@ -42,14 +42,33 @@ class WeightLogged(DomainEvent):
 
 
 async def _on_biometrics_changed(evt: BiometricsChanged) -> None:
+    """Defensive baseline filler.
+
+    Production baseline creation has moved INSIDE the originating
+    transaction via `app.nutrition.infrastructure.compute_goals_adapter
+    .InlineComputeGoals` (wired into `CompleteOnboarding` and
+    `UpdateProfile`). That path eliminates the cross-session race that
+    used to silently log `profile_not_found` and leave
+    `nutritional_goals` empty (which then caused `POST /plans` to emit
+    empty plan_meals).
+
+    The handler is kept as a SAFETY NET that only fires when goals are
+    still missing (e.g. an external publisher emits `BiometricsChanged`
+    without using the inline path). Skips when a current row already
+    exists so we never burn a recalibration slot.
+    """
     if not (
         evt.weight_kg and evt.height_cm and evt.age and evt.sex and evt.goal and evt.activity_level
     ):
         return  # need full biometrics to compute baseline
     async with session_scope() as s:
+        goals_repo = SqlNutritionalGoalsRepository(s)
+        existing = await goals_repo.get_current(evt.user_id)
+        if existing is not None:
+            return  # primary inline path already produced the baseline
         uc = ComputeInitialGoals(
             profile_reader=SqlProfileReader(s),
-            goals_repo=SqlNutritionalGoalsRepository(s),
+            goals_repo=goals_repo,
             bus=__import__("app.core.event_bus", fromlist=["get_event_bus"]).get_event_bus(),
         )
         try:

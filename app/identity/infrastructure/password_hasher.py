@@ -8,7 +8,11 @@ so future library upgrades don't silently change the work factor.
 from __future__ import annotations
 
 from argon2 import PasswordHasher as _Argon2
-from argon2.exceptions import VerifyMismatchError
+from argon2.exceptions import (
+    InvalidHashError,
+    VerificationError,
+    VerifyMismatchError,
+)
 
 
 class Argon2PasswordHasher:
@@ -25,7 +29,10 @@ class Argon2PasswordHasher:
         return self._hasher.hash(plain)
 
     def verify(self, plain: str, hashed: str) -> bool:
+        # Narrow to argon2-specific auth failures. Any other exception
+        # (TypeError on non-str input, OOM, etc.) must propagate so we
+        # surface real bugs instead of silently returning "wrong password".
         try:
             return self._hasher.verify(hashed, plain)
-        except (VerifyMismatchError, Exception):
+        except (VerifyMismatchError, VerificationError, InvalidHashError):
             return False

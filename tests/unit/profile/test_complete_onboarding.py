@@ -108,3 +108,69 @@ async def test_publishes_onboarding_and_biometrics_events() -> None:
     types = {type(e) for e in bus.published}
     assert OnboardingCompleted in types
     assert BiometricsChanged in types
+
+
+class _SpyComputeGoals:
+    """Records every invocation; lets us assert ordering vs persistence."""
+
+    def __init__(self, repo: _Repo) -> None:
+        self.calls: list[UUID] = []
+        self.repo = repo
+        self.profile_visible_at_call: list[bool] = []
+
+    async def __call__(self, *, user_id: UUID) -> None:
+        # When the inline port runs, the profile upsert must already
+        # be visible in the repo — this is what guarantees that the
+        # nutritional baseline can read a complete biometrics row from
+        # the same transaction.
+        self.calls.append(user_id)
+        self.profile_visible_at_call.append(user_id in self.repo.store)
+
+
+@pytest.mark.asyncio
+async def test_compute_goals_called_in_same_tx_as_profile_upsert() -> None:
+    """The fix for the empty-plan_meals bug: ComputeInitialGoals must
+    run AFTER profile.upsert (so SqlProfileReader sees the row) and
+    BEFORE event publishing (so any post-publish subscribers find the
+    goals already persisted). Crucially, both must commit atomically
+    under the same outer session_scope/get_session — verified at the
+    use-case layer by ensuring the port runs while we hold the same
+    in-memory repo state.
+    """
+    repo = _Repo()
+    bus = _SpyBus()
+    spy = _SpyComputeGoals(repo)
+    uc = CompleteOnboarding(profiles=repo, bus=bus, compute_goals=spy)
+
+    user_id = uuid4()
+    await uc(user_id=user_id, payload=_payload())
+
+    assert spy.calls == [user_id]
+    assert spy.profile_visible_at_call == [True]
+
+
+@pytest.mark.asyncio
+async def test_compute_goals_failure_propagates_so_router_rolls_back() -> None:
+    """If goals computation fails, the onboarding must raise so the
+    SessionDep teardown rolls back the profile upsert — preventing the
+    "profile saved, goals missing" inconsistency that caused empty
+    plan_meals downstream.
+    """
+
+    class _ExplodingComputeGoals:
+        async def __call__(self, *, user_id: UUID) -> None:
+            raise RuntimeError("simulated_failure")
+
+    repo = _Repo()
+    bus = _SpyBus()
+    uc = CompleteOnboarding(
+        profiles=repo, bus=bus, compute_goals=_ExplodingComputeGoals()
+    )
+
+    with pytest.raises(RuntimeError, match="simulated_failure"):
+        await uc(user_id=uuid4(), payload=_payload())
+
+    # No BiometricsChanged should have been published — events ship
+    # AFTER goals computation succeeds.
+    assert all(type(e) is not BiometricsChanged for e in bus.published)
+    assert all(type(e) is not OnboardingCompleted for e in bus.published)

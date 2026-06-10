@@ -5,23 +5,21 @@ directly.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
 from functools import lru_cache
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.core.config import get_settings
-from app.core.db import get_sessionmaker
 from app.core.logging import get_logger
 from app.shared.domain.email_sender import EmailSender
 
 log = get_logger("core.di")
 
 
-async def get_session() -> AsyncIterator[AsyncSession]:
-    sm = get_sessionmaker()
-    async with sm() as session:
-        yield session
+# NOTE: a previous ``get_session`` lived here. It was DEAD CODE — no
+# router imported it (only ``app.identity.presentation.dependencies
+# .get_session`` is wired into ``SessionDep``). The stale duplicate
+# did NOT begin a deferred event scope and did NOT commit, so any code
+# that started to depend on it would silently lose writes and never
+# dispatch domain events. Removed in the Patrón #3 audit pass.
 
 
 @lru_cache(maxsize=1)

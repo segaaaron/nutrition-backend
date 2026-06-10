@@ -12,7 +12,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.errors import Forbidden, NotFoundError
+from app.core.errors import BusinessRuleViolation, Forbidden, NotFoundError
 from app.grocery.domain import GroceryCategory, GroceryItem, GroceryList, categorise
 from app.grocery.repository import SqlGroceryRepository
 
@@ -101,6 +101,37 @@ class GenerateGroceryList:
             )
         await self.repo.bulk_insert_items(items)
         gl.items = items
+
+        # Patrón #5 — invariante post-mutación: a grocery list whose source
+        # plan contains meals MUST contain at least one item. The aggregation
+        # query above can legitimately return zero rows when the plan has no
+        # ``plan_meals`` (degenerate plan, blocked at write time by the
+        # ``plan_generation_yielded_no_meals`` invariant) — but it can ALSO
+        # return zero rows when ``recipe_components`` is empty for every
+        # chosen recipe (catalog corruption / mis-seeded recipe rows). In the
+        # latter case we MUST refuse to persist an empty grocery list rather
+        # than silently produce a useless UI surface. The outer ``DELETE
+        # FROM grocery_items`` would already have run, so we raise to roll
+        # back the whole tx and leave the previous grocery list intact.
+        if not items:
+            plan_has_meals_row = (
+                (
+                    await self.session.execute(
+                        text(
+                            "SELECT 1 FROM plan_meals pm "
+                            "JOIN plan_days pd ON pd.id = pm.plan_day_id "
+                            "WHERE pd.plan_id = :pid LIMIT 1"
+                        ),
+                        {"pid": str(plan_id)},
+                    )
+                )
+                .first()
+            )
+            if plan_has_meals_row is not None:
+                raise BusinessRuleViolation(
+                    "grocery_generation_yielded_no_items",
+                    plan_id=str(plan_id),
+                )
         return gl
 
 

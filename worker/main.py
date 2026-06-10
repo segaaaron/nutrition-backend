@@ -43,6 +43,7 @@ from worker.coach_tasks import (
 from worker.email_tasks import send_email_task
 from worker.idempotency_tasks import cleanup_idempotency_keys_cron
 from worker.leaderboard_audit_purge_task import leaderboard_audit_purge_cron
+from worker.outbox_drainer import outbox_drainer_cron
 from worker.plan_tasks import generate_plan_task
 from worker.vision_tasks import vision_recognize_task
 
@@ -77,6 +78,9 @@ CRON_JOBS: list[Any] = [
     # Every 5 minutes — short-lived cleanup.
     cron(cleanup_expired_sse_tickets_cron, name="cleanup_sse_tickets", minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55}),
     cron(cleanup_expired_otp_lockouts_cron, name="cleanup_otp_lockouts", minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55}),
+    # ADR-0030 — outbox retry cadence (every minute). Picks up domain
+    # events whose post-commit handler raised, logs + bumps attempts.
+    cron(outbox_drainer_cron, name="outbox_drainer", minute=set(range(60))),
 ]
 
 

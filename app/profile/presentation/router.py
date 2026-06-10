@@ -6,6 +6,7 @@ from fastapi import APIRouter, status
 
 from app.core.event_bus import get_event_bus
 from app.identity.presentation.dependencies import CurrentUserDep, SessionDep
+from app.nutrition.infrastructure.compute_goals_adapter import InlineComputeGoals
 from app.profile.application.use_cases import (
     CompleteOnboarding,
     GetProfile,
@@ -13,6 +14,7 @@ from app.profile.application.use_cases import (
     UpdateProfile,
 )
 from app.profile.domain.entities import UserProfile
+from app.profile.infrastructure.region_audit import SqlRegionAudit
 from app.profile.infrastructure.repositories import SqlProfileRepository
 from app.profile.presentation.schemas import (
     LocalePatch,
@@ -61,7 +63,13 @@ async def patch_me(
     current_user: CurrentUserDep,
     session: SessionDep,
 ) -> ProfileResponse:
-    uc = UpdateProfile(profiles=SqlProfileRepository(session), bus=get_event_bus())
+    bus = get_event_bus()
+    uc = UpdateProfile(
+        profiles=SqlProfileRepository(session),
+        bus=bus,
+        compute_goals=InlineComputeGoals(session=session, bus=bus),
+        region_audit=SqlRegionAudit(session=session),
+    )
     patch = body.model_dump(exclude_unset=True)
     return _to_resp(await uc(user_id=current_user, patch=patch))
 
@@ -72,7 +80,12 @@ async def onboarding(
     current_user: CurrentUserDep,
     session: SessionDep,
 ) -> ProfileResponse:
-    uc = CompleteOnboarding(profiles=SqlProfileRepository(session), bus=get_event_bus())
+    bus = get_event_bus()
+    uc = CompleteOnboarding(
+        profiles=SqlProfileRepository(session),
+        bus=bus,
+        compute_goals=InlineComputeGoals(session=session, bus=bus),
+    )
     # Normalize height: meters → cm if mobile sent height_m.
     payload = body.model_dump(exclude_none=False)
     payload["height_cm"] = body.resolved_height_cm

@@ -403,7 +403,7 @@ class MercadoPagoGateway:
 
         try:
             body = json.loads(payload.decode())
-        except Exception as e:
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
             raise UpstreamError("mercadopago_webhook_invalid:bad_payload") from e
 
         data_id = str(((body.get("data") or {}).get("id")) or "")

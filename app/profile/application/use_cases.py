@@ -8,7 +8,6 @@ from typing import Any, Protocol
 from uuid import UUID
 
 from app.core.config import get_settings
-from app.core.db import session_scope
 from app.core.errors import BusinessRuleViolation, LockedError, NotFoundError
 from app.core.event_bus import EventBus
 from app.core.logging import get_logger
@@ -53,6 +52,42 @@ class ProfileRepository(Protocol):
     async def upsert(self, profile: UserProfile) -> None: ...
 
 
+class ComputeGoalsPort(Protocol):
+    """Profile-owned port for computing nutritional baseline goals.
+
+    Implemented in `app.nutrition.infrastructure` as a thin adapter that
+    invokes `ComputeInitialGoals` on the SAME session as the profile
+    upsert, so onboarding/profile-update + goals creation commit
+    atomically (fixes the cross-session race where the post-commit
+    event handler read profile rows that did not yet exist).
+    """
+
+    async def __call__(self, *, user_id: UUID) -> None: ...
+
+
+class RegionAuditPort(Protocol):
+    """Profile-owned port for the 30-day region-change lock audit.
+
+    Adapter MUST run on the SAME session as the profile upsert. The
+    previous implementation opened a nested ``session_scope()`` which
+    committed independently from the outer request transaction — if the
+    outer rolled back, the audit row remained orphan; if the audit
+    committed but the outer raised after, the audit lied. Atomicity is
+    a correctness invariant for the spoof-proofing audit (ADR-0026 L1).
+    """
+
+    async def last_change_at(self, user_id: UUID) -> datetime | None: ...
+
+    async def record_change(
+        self,
+        *,
+        user_id: UUID,
+        old_region: str | None,
+        new_region: str | None,
+        changed_at: datetime,
+    ) -> None: ...
+
+
 _BIOMETRIC_FIELDS = ("weight_kg", "height_cm", "age", "sex", "goal", "activity_level")
 
 
@@ -60,6 +95,7 @@ _BIOMETRIC_FIELDS = ("weight_kg", "height_cm", "age", "sex", "goal", "activity_l
 class CompleteOnboarding:
     profiles: ProfileRepository
     bus: EventBus
+    compute_goals: ComputeGoalsPort | None = None
 
     async def __call__(self, *, user_id: UUID, payload: dict[str, Any]) -> UserProfile:
         existing = await self.profiles.get(user_id)
@@ -93,6 +129,33 @@ class CompleteOnboarding:
         # has already fired.)
         profile.updated_at = _now()
         await self.profiles.upsert(profile)
+        # Compute nutritional baseline inline, in the SAME session, BEFORE
+        # publishing domain events. This guarantees that by the time the
+        # router commits, both `user_profiles` AND `nutritional_goals`
+        # rows exist atomically. The previous design relied on a
+        # post-publish BiometricsChanged handler running on its own
+        # session, which read the profile BEFORE the outer transaction
+        # committed and silently logged `profile_not_found` — leaving
+        # users with onboarding done but no goals, which in turn caused
+        # `POST /plans` to produce empty `plan_meals`. Best-effort
+        # logging is preserved (no raise) so users with partial
+        # biometrics still complete onboarding. Required full biometrics
+        # are already enforced above by `is_complete_enough_for_targets`.
+        if self.compute_goals is not None:
+            try:
+                await self.compute_goals(user_id=user_id)
+            except Exception as exc:  # noqa: BLE001
+                # Fail loud: if onboarding declared biometrics complete
+                # but goals computation fails, the request must surface
+                # the error rather than silently leaving the user in a
+                # broken state. The outer router transaction will
+                # roll back (no profile upsert visible to clients).
+                _log.error(
+                    "compute_initial_goals_failed",
+                    user_id=str(user_id),
+                    error=str(exc),
+                )
+                raise
         await self.bus.publish_many(
             [
                 OnboardingCompleted(user_id=user_id, at=profile.updated_at),
@@ -115,6 +178,8 @@ class CompleteOnboarding:
 class UpdateProfile:
     profiles: ProfileRepository
     bus: EventBus
+    compute_goals: ComputeGoalsPort | None = None
+    region_audit: RegionAuditPort | None = None
 
     async def __call__(self, *, user_id: UUID, patch: dict[str, Any]) -> UserProfile:
         profile = await self.profiles.get(user_id)
@@ -137,53 +202,68 @@ class UpdateProfile:
             region_after is not None and region_after != region_before
         )
         if region_changed:
-            from sqlalchemy import text as _sql_text
-
-            async with session_scope() as audit_session:
-                last_change = (
-                    await audit_session.execute(
-                        _sql_text(
-                            """
-                            SELECT changed_at FROM profile_region_change_audit
-                             WHERE user_id = :uid
-                             ORDER BY changed_at DESC LIMIT 1
-                            """
-                        ),
-                        {"uid": str(user_id)},
+            # Patrón #3 fix: previously opened a nested `session_scope()`
+            # which committed the audit row independently of the outer
+            # request transaction. That caused two failure modes:
+            #   (a) outer rolls back → audit row remains orphan, audit
+            #       trail lies about a change that never persisted.
+            #   (b) outer raises after audit insert → same orphan row.
+            # Both compromise the spoof-proofing audit (ADR-0026 L1).
+            # The `region_audit` port now runs on the SAME session as
+            # the profile upsert, so the audit row and the profile row
+            # commit (or roll back) atomically.
+            if self.region_audit is None:
+                # Defensive: keep the lock enforceable even if the
+                # adapter was not wired (older call sites). Without an
+                # adapter we cannot read prior history nor record a
+                # row, so we MUST refuse the region change to preserve
+                # the audit invariant.
+                raise BusinessRuleViolation("region_audit_unavailable")
+            last_change = await self.region_audit.last_change_at(user_id)
+            if last_change is not None:
+                elapsed = _now() - last_change
+                lock_window = timedelta(days=_REGION_LOCK_DAYS)
+                if elapsed < lock_window:
+                    retry_after_s = int(
+                        (lock_window - elapsed).total_seconds()
                     )
-                ).scalar()
-                if last_change is not None:
-                    elapsed = _now() - last_change
-                    lock_window = timedelta(days=_REGION_LOCK_DAYS)
-                    if elapsed < lock_window:
-                        retry_after_s = int(
-                            (lock_window - elapsed).total_seconds()
-                        )
-                        raise LockedError(
-                            "region_change_locked",
-                            retry_after=retry_after_s,
-                            lock_days=_REGION_LOCK_DAYS,
-                        )
-                await audit_session.execute(
-                    _sql_text(
-                        """
-                        INSERT INTO profile_region_change_audit
-                            (user_id, old_region, new_region, changed_at)
-                        VALUES (:uid, :old, :new, :ts)
-                        """
-                    ),
-                    {
-                        "uid": str(user_id),
-                        "old": region_before,
-                        "new": region_after,
-                        "ts": _now(),
-                    },
-                )
+                    raise LockedError(
+                        "region_change_locked",
+                        retry_after=retry_after_s,
+                        lock_days=_REGION_LOCK_DAYS,
+                    )
+            await self.region_audit.record_change(
+                user_id=user_id,
+                old_region=region_before,
+                new_region=region_after,
+                changed_at=_now(),
+            )
 
         biometrics_after = {f: getattr(profile, f) for f in _BIOMETRIC_FIELDS}
         _enforce_mvp_segment_gate(profile)
         profile.updated_at = _now()
         await self.profiles.upsert(profile)
+        # Same atomicity guarantee as CompleteOnboarding: recompute the
+        # nutritional baseline INLINE when biometrics change so the new
+        # `nutritional_goals` row commits with the profile mutation.
+        # `ComputeInitialGoals` is idempotent across re-invocations
+        # (expire current + insert new, no duplicate rows). When patch
+        # leaves biometrics untouched, we skip to avoid spurious
+        # baseline rewrites that would reset the recalibration history.
+        if (
+            biometrics_before != biometrics_after
+            and self.compute_goals is not None
+            and profile.is_complete_enough_for_targets
+        ):
+            try:
+                await self.compute_goals(user_id=user_id)
+            except Exception as exc:  # noqa: BLE001
+                _log.error(
+                    "recompute_goals_on_update_failed",
+                    user_id=str(user_id),
+                    error=str(exc),
+                )
+                raise
         if biometrics_before != biometrics_after:
             await self.bus.publish(
                 BiometricsChanged(

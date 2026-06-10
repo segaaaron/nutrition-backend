@@ -25,6 +25,7 @@ from uuid import UUID, uuid4
 
 from prometheus_client import Histogram
 
+from app.core.errors import BusinessRuleViolation
 from app.core.event_bus import EventBus
 from app.core.logging import get_logger
 from app.plan.application.layer1_eligibility import Layer1Eligibility
@@ -53,6 +54,19 @@ class _UserContext(Protocol):
     async def get_user_profile_snapshot(self, user_id: UUID) -> dict: ...
 
 
+class _EnsureGoalsPort(Protocol):
+    """Defense-in-depth: compute nutritional goals inline if missing.
+
+    Set by the worker wiring (`worker/plan_tasks.py`) so that when the
+    upstream event-driven baseline somehow failed to materialise (legacy
+    rows, external publisher, etc.) we never produce a plan with empty
+    `plan_meals`. When the port is `None` and goals are missing, the
+    plan generation raises rather than silently degrading.
+    """
+
+    async def __call__(self, *, user_id: UUID) -> None: ...
+
+
 @dataclass(slots=True)
 class CreatePlan:
     plans: SqlPlanRepository
@@ -62,6 +76,7 @@ class CreatePlan:
     layer4: Layer4Coherence
     user_ctx: _UserContext
     bus: EventBus
+    ensure_goals: _EnsureGoalsPort | None = None
     meals_per_day_default: int = 3
     meal_times: tuple[str, ...] = ("breakfast", "lunch", "dinner")
 
@@ -78,6 +93,28 @@ class CreatePlan:
         seed = seed if seed is not None else secrets.randbits(63)
 
         targets = await self.user_ctx.get_user_targets(user_id)
+        # Defense-in-depth invariant — NEVER generate a plan against the
+        # 2000 kcal fallback. If `nutritional_goals` is missing, recover
+        # by computing the baseline inline (idempotent); if that path is
+        # not wired or fails, abort BEFORE the plan row is created so we
+        # never persist an empty plan. Owner directive 2026-06-09:
+        # "no debería crear planes con nada, eso está mal, siempre
+        # tiene que generar un plan".
+        if not targets:
+            if self.ensure_goals is None:
+                raise BusinessRuleViolation("nutritional_goals_missing")
+            try:
+                await self.ensure_goals(user_id=user_id)
+            except Exception as exc:
+                log.error(
+                    "plan.ensure_goals_failed",
+                    user_id=str(user_id),
+                    error=str(exc),
+                )
+                raise BusinessRuleViolation("nutritional_goals_unavailable") from exc
+            targets = await self.user_ctx.get_user_targets(user_id)
+            if not targets:
+                raise BusinessRuleViolation("nutritional_goals_missing")
         profile = await self.user_ctx.get_user_profile_snapshot(user_id)
         kcal_daily = int(targets.get("kcal_max") or targets.get("kcal_min") or 2000)
         protein_daily = int(targets.get("protein_g") or 100)
@@ -162,6 +199,17 @@ class CreatePlan:
                     meals=meals,
                 )
             )
+
+        # Hard invariant — never persist a plan with zero meals across all
+        # days. The per-meal Layer3 fall-through (skip when no candidate)
+        # is meant for sparse-catalog edge cases; if EVERY slot returns
+        # empty, the eligibility/ranking pipeline is misconfigured and
+        # the right answer is to fail fast so the worker job errors,
+        # not to persist a 7-day shell with no recipes. Outer
+        # `session_scope()` rolls back, leaving no plan/plan_days rows.
+        total_meals = sum(len(d.meals) for d in days)
+        if total_meals == 0:
+            raise BusinessRuleViolation("plan_generation_yielded_no_meals")
 
         # Layer 4 — one LLM call over the whole plan.
         t0 = time.perf_counter()

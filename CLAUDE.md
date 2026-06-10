@@ -8,6 +8,30 @@
 
 **Owner Miguel is the ONLY entity that touches git in this repo.** No AI assistant, agent, skill, or automated tool may execute git modifying commands. Period.
 
+### ⚠️ NO LOOPHOLES — common "innocent" excuses are ALSO forbidden
+
+The following reasons are NOT valid excuses to touch git. **Each was used historically to violate this rule:**
+
+- ❌ "I just wanted to verify a test failure was pre-existing" → forbidden (use `git diff`, NOT `git stash`)
+- ❌ "I'll undo it right after" → forbidden (recovery is owner-only)
+- ❌ "It's a read-only stash" → forbidden (stash mutates the index)
+- ❌ "I'm in a worktree, it's safe" → forbidden (still touches git state)
+- ❌ "I need to test on a clean tree" → ask owner, do not stash
+- ❌ "Quick checkout to compare branches" → forbidden, use `git show <ref>:<file>`
+- ❌ "Just restoring a single file" → forbidden, edit manually
+- ❌ "Resolving a merge conflict locally" → forbidden, owner resolves
+- ❌ "Need to bump a version tag" → owner only
+
+**If any temptation to type a git mutating command arises, STOP and report to owner. NO exceptions.** The forbidden list (next section) is exhaustive — if it's there, it's forbidden, regardless of intent.
+
+### Violation by subagents
+
+When delegating to a subagent via the Agent tool, ALWAYS include in the prompt:
+
+> "GOLDEN RULE #0: NO git modifying commands. NO `git stash` for any reason, including verification. If you need to inspect a clean tree, ASK the owner. Read-only git commands (status, log, diff, show) only."
+
+Do not assume subagents will read CLAUDE.md. State the rule explicitly in the prompt.
+
 ### FORBIDDEN — never execute
 - `git add` / `git rm`
 - `git commit` / `git commit --amend`
