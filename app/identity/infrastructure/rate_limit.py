@@ -22,10 +22,15 @@ async def rate_limit(
     scope: str,
     identifier: str,
     limit_per_min: int,
+    window_s: int = 60,
 ) -> None:
-    """Raises RateLimited on overflow; no return value otherwise."""
+    """Raises RateLimited on overflow; no return value otherwise.
+
+    ``window_s`` overrides the default 60-second sliding window. Use 3600
+    for hourly buckets (e.g. OTP send rate-limit per email per hour).
+    """
     now_ms = int(time.time() * 1000)
-    window_ms = 60_000
+    window_ms = window_s * 1000
     key = f"rl:{scope}:{identifier}"
     # QA: Redis acquisition itself can fail (pool exhausted, DNS, factory
     # raises). The full path — client construction → pipeline build → execute
@@ -49,4 +54,4 @@ async def rate_limit(
         log.warning("rate_limit.infra_error", err_type=type(exc).__name__)
         return
     if int(count) > limit_per_min:
-        raise RateLimited(f"rate_limited:{scope}", limit=limit_per_min, window_s=60)
+        raise RateLimited(f"rate_limited:{scope}", limit=limit_per_min, window_s=window_s)

@@ -252,6 +252,17 @@ class RefreshTokens:
         rec = await self.refresh_tokens.get_by_hash(token_hash)
         if rec is None:
             raise Unauthenticated("refresh_invalid")
+        # Serialize concurrent refresh requests for the same token.
+        # Without this lock two in-flight requests both read revoked_at=None,
+        # both pass the check, and both issue new tokens — breaking RFC 6819
+        # §5.2.2.3 family-reuse protection. The advisory lock is held until
+        # the transaction commits so the second caller re-reads the now-revoked
+        # row and hits the reuse-detection branch below.
+        await self.refresh_tokens.lock_for_rotation(token_hash)
+        # Re-read inside the lock so we see the committed state.
+        rec = await self.refresh_tokens.get_by_hash(token_hash)
+        if rec is None:
+            raise Unauthenticated("refresh_invalid")
         if rec.expires_at <= now:
             raise Unauthenticated("refresh_expired")
         if rec.revoked_at is not None:

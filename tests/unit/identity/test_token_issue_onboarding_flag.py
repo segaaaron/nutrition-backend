@@ -114,6 +114,8 @@ class _FakeRefreshRepo:
             if t.id == token_id:
                 t.reused_at = at
 
+    async def lock_for_rotation(self, token_hash: str) -> None: ...
+
 
 @dataclass
 class _FakeOtpRepo:

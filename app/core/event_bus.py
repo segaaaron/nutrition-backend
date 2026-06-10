@@ -49,10 +49,10 @@ from contextvars import ContextVar, Token
 from dataclasses import dataclass, fields, is_dataclass
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, Optional
 from uuid import UUID
 
-Handler = Callable[[Any], Awaitable[None] | None]
+Handler = Callable[[Any], Optional[Awaitable[None]]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -251,7 +251,7 @@ async def flush_request_scope(
                         # flush. The publisher's commit already
                         # succeeded — a downstream failure must not
                         # 500 the user.
-                        log.exception(
+                        log.critical(
                             "event_bus.spool_unrecoverable",
                             event_type=type(event).__name__,
                         )

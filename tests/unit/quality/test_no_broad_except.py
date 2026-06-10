@@ -84,7 +84,7 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # OK4: OAuth verifier collapses provider errors into Unauthenticated.
     "app/identity/infrastructure/oauth_verifiers.py": {59},
     # OK3: identity rate-limit fail-open on infra surprise (logged).
-    "app/identity/infrastructure/rate_limit.py": {48},
+    "app/identity/infrastructure/rate_limit.py": {53},
     # OK3: /readyz health probe — reports component status without 500.
     "app/main.py": {210, 216, 224},
     # OK1: nutrition event handlers — best-effort with explicit log.

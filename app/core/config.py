@@ -10,7 +10,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -186,6 +186,20 @@ class Settings(BaseSettings):
     #     a nutrition tracker; user must use specialised tooling.
     mvp_blocked_conditions: str = "diabetes_t1"
     mvp_blocked_regions: str = "us"
+
+    @model_validator(mode="after")
+    def _validate_prod_requirements(self) -> "Settings":
+        if self.env == "prod" and not self.cors_allowed_origins.strip():
+            raise ValueError(
+                "CORS_ALLOWED_ORIGINS is REQUIRED in prod — no fallback. "
+                "Set it in the Dokploy panel (e.g. 'https://app.nova.com')."
+            )
+        if self.email_enabled and not self.resend_api_key.strip():
+            raise ValueError(
+                "RESEND_API_KEY is REQUIRED when EMAIL_ENABLED=true. "
+                "Set it in the Dokploy panel or .env."
+            )
+        return self
 
     @field_validator("database_url")
     @classmethod

@@ -33,6 +33,20 @@ class UserRepository(Protocol):
 class RefreshTokenRepository(Protocol):
     async def add(self, token: RefreshToken) -> None: ...
     async def get_by_hash(self, token_hash: str) -> RefreshToken | None: ...
+    async def lock_for_rotation(self, token_hash: str) -> None:
+        """Acquire an exclusive advisory lock keyed by ``token_hash`` for the
+        duration of the current transaction (``pg_advisory_xact_lock``).
+
+        Serializes concurrent ``/auth/refresh`` calls for the same token so
+        the reuse-detection check in ``RefreshTokens.__call__`` is atomic:
+        two requests racing with the same refresh token cannot both read
+        ``revoked_at=None`` and both rotate, which would break RFC 6819
+        §5.2.2.3 family-reuse protection. One request acquires the lock,
+        rotates, commits, releases; the second then reads the revoked row and
+        raises ``refresh_reused_family_revoked``.
+        """
+        ...
+
     async def revoke(self, token_id: UUID, at: datetime) -> None: ...
     async def revoke_family(self, family_id: UUID, at: datetime) -> int: ...
     async def mark_reused(self, token_id: UUID, at: datetime) -> None: ...

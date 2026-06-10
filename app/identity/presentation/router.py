@@ -202,6 +202,15 @@ async def otp_send(
         identifier=f"otp:{body.email}",
         limit_per_min=get_settings().rate_limit_auth_per_min,
     )
+    # Hourly cap per email: max 3 OTP requests/hour regardless of per-minute quota.
+    # Prevents attackers from generating many OTPs across multiple minutes to
+    # brute-force one that hasn't expired (OTP TTL=10min, 6 windows/hour).
+    await rate_limit(
+        scope="otp_hourly",
+        identifier=body.email,
+        limit_per_min=3,
+        window_s=3600,
+    )
     locale = await _resolve_otp_email_locale(
         session, email=body.email, accept_language=accept_language
     )

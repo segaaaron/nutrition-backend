@@ -92,22 +92,28 @@ def test_downgrade_drops_named_index_with_if_exists() -> None:
     assert "ix_vision_jobs_sha_recent" in src
 
 
-def test_run_concurrently_commits_before_autocommit_switch() -> None:
-    """CONCURRENTLY is rejected inside an open transaction. The helper MUST
-    commit the Alembic-opened txn before switching isolation level."""
+def test_run_concurrently_uses_autocommit_block() -> None:
+    """CONCURRENTLY is rejected inside an open transaction.
+
+    The migration uses Alembic's ``op.get_context().autocommit_block()``
+    context manager (the official Alembic >=1.13 pattern) which commits the
+    outer migration transaction and switches to AUTOCOMMIT automatically.
+    This is safer than the old manual ``text("COMMIT") + AUTOCOMMIT`` pattern
+    because Alembic handles isolation-level restoration after the block.
+    """
     import inspect
 
     mod = _load_migration()
-    src = inspect.getsource(mod._run_concurrently)
+    upgrade_src = inspect.getsource(mod.upgrade)
+    downgrade_src = inspect.getsource(mod.downgrade)
 
-    # Order matters: COMMIT first, then AUTOCOMMIT execution.
-    commit_idx = src.find('text("COMMIT")')
-    autocommit_idx = src.find("AUTOCOMMIT")
-    assert commit_idx != -1, "missing explicit COMMIT before AUTOCOMMIT switch"
-    assert autocommit_idx != -1, "missing isolation_level='AUTOCOMMIT' override"
-    assert commit_idx < autocommit_idx, (
-        "COMMIT must precede AUTOCOMMIT, otherwise Postgres rejects "
-        "CREATE INDEX CONCURRENTLY ('cannot run inside a transaction block')"
+    assert "autocommit_block" in upgrade_src, (
+        "upgrade() must use op.get_context().autocommit_block() to run "
+        "CREATE INDEX CONCURRENTLY outside a transaction"
+    )
+    assert "autocommit_block" in downgrade_src, (
+        "downgrade() must use op.get_context().autocommit_block() to run "
+        "DROP INDEX CONCURRENTLY outside a transaction"
     )
 
 

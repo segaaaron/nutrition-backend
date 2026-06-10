@@ -172,6 +172,15 @@ class SqlRefreshTokenRepository:
         ).scalar_one_or_none()
         return _token_from_model(m) if m else None
 
+    async def lock_for_rotation(self, token_hash: str) -> None:
+        # pg_advisory_xact_lock(bigint) — released automatically when the
+        # surrounding transaction commits or rolls back. hashtext() returns
+        # int4 which Postgres implicitly casts to bigint.
+        await self.s.execute(
+            text("SELECT pg_advisory_xact_lock(hashtext(:h))"),
+            {"h": token_hash},
+        )
+
     async def revoke(self, token_id: UUID, at: datetime) -> None:
         await self.s.execute(
             update(RefreshTokenModel).where(RefreshTokenModel.id == token_id).values(revoked_at=at),

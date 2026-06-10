@@ -46,6 +46,9 @@ async def test_spool_failure_does_not_propagate_out_of_flush(monkeypatch) -> Non
         def exception(self, msg: str, **_kw) -> None:
             unrecoverable_logs.append(msg)
 
+        def critical(self, msg: str, **_kw) -> None:
+            unrecoverable_logs.append(msg)
+
     import app.core.logging as logging_mod
 
     monkeypatch.setattr(logging_mod, "get_logger", lambda _name=None: _FakeLog())

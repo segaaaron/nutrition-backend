@@ -75,6 +75,8 @@ class _RefreshRepo:
 
     async def mark_reused(self, token_id: UUID, at: datetime) -> None: ...
 
+    async def lock_for_rotation(self, token_hash: str) -> None: ...
+
 
 class _Hasher:
     def hash(self, plain: str) -> str:
