@@ -113,7 +113,7 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     "app/tracking/infrastructure/food_log_repository.py": {186, 241},
     "app/tracking/infrastructure/repositories.py": {80, 108},
     # OK4: OpenAI vision wrappers with fallback contracts.
-    "app/vision/application/process_vision_job.py": {156, 214, 275, 359},
+    "app/vision/application/process_vision_job.py": {156, 214, 278, 362},
     "app/vision/infrastructure/food_matcher.py": {93},
     "app/vision/infrastructure/openai_vision.py": {212, 218, 335, 561},
     # OK4: plate explanation is decorative — poll must still serve items.

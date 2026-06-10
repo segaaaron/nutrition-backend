@@ -1,9 +1,14 @@
 """Layer 1 — Eligibility filter (deterministic SQL, no LLM).
 
 Filters the recipe catalog down to the candidate set for a given user × meal
-slot. **Hard** rules (no soft fallback):
+slot. **Hard** rules (no soft fallback), except region (see 1):
 
   1. Region overlap: `recipes.regions && ARRAY[user.region]` (ADR-0008).
+     SOFT since 2026-06-10 (owner decision): if the user's market yields zero
+     candidates after all safety filters, the region clause is dropped and
+     the query retries against the whole catalog (warning logged). Safety
+     filters (2-4) are never relaxed; Layer3 cultural_fit still prefers
+     same-region recipes in ranking.
   2. Allergen hard-exclude: `NOT (recipes.allergens && user.allergies)` —
      never returns a recipe whose denormalised allergens overlap the user's
      allergies. Enforced through the closed `allergen_enum` (ADR-0001).
@@ -34,6 +39,10 @@ from uuid import UUID
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.logging import get_logger
+
+_log = get_logger("plan.layer1")
 
 # FALCPA / EU 1169 declared tree nuts. Lowercase ASCII-stripped match patterns
 # applied via regex over component free_text_name and joined food name.
@@ -179,4 +188,32 @@ class Layer1Eligibility:
              WHERE {' AND '.join(where)}
         """  # noqa: S608
         res = await self.session.execute(text(sql), params)
-        return [row[0] for row in res.all()]
+        ids = [row[0] for row in res.all()]
+        if ids:
+            return ids
+
+        # Region fallback (owner decision 2026-06-10): region is a cultural
+        # preference, NOT a safety filter. If the user's market has zero
+        # eligible recipes after allergen + condition gates, retry across the
+        # whole catalog rather than failing plan generation outright. Safety
+        # filters (allergens, condition gates) are NEVER relaxed — only the
+        # region overlap clause is dropped. Layer3 cultural_fit still ranks
+        # same-region recipes first, so local dishes win whenever they exist.
+        region_clause = "r.regions && CAST(:regions AS char(5)[])"
+        if region_clause not in where:
+            return []
+        where_global = [w for w in where if w != region_clause]
+        sql_global = f"""
+            SELECT r.id FROM recipes r
+             WHERE {' AND '.join(where_global)}
+        """  # noqa: S608
+        res = await self.session.execute(text(sql_global), params)
+        ids = [row[0] for row in res.all()]
+        if ids:
+            _log.warning(
+                "layer1.region_fallback_used",
+                region=region,
+                meal_time=meal_time,
+                n_global=len(ids),
+            )
+        return ids

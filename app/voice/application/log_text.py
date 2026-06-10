@@ -45,16 +45,18 @@ class LogFoodText:
     ) -> list[UUID]:
         items = await parse_food_text(raw_text, user_id=user_id)
 
-        # ADR-0026 L1 — per-meal-slot cap (3 entries / slot / UTC day).
-        # Increment by the batch size so a single quick-log of N items
-        # is counted as N writes against the slot quota.
+        # ADR-0026 L1 — per-meal-slot cap (3 LOG EVENTS / slot / UTC day).
+        # One submission = 1 against the quota, regardless of how many
+        # items it parses into (fixed 2026-06-10: counting items blocked
+        # legitimate multi-component meals — "arroz, pollo, ensalada y
+        # palta" is ONE dinner, not four).
         if items:
             slot_count = await check_and_increment_food_log_slot(
                 get_redis(),
                 user_id,
                 date.today(),
                 meal_time,
-                amount=len(items),
+                amount=1,
             )
             if slot_count > FOOD_LOG_PER_SLOT_CAP:
                 raise BusinessRuleViolation(

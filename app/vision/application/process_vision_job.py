@@ -247,10 +247,13 @@ class ProcessVisionJob:
             total_kcal = sum(i.kcal for i in items)
             _ = cache_hit  # observability hook; keep for log enrichment later
 
-            # ADR-0026 L1 — per-meal-slot cap. Counted by the number of
-            # items that will actually land as food_logs rows. Photo jobs
-            # cannot raise an HTTP error here (worker context); on cap
-            # exhaust we log + skip the inserts to avoid silent XP gain.
+            # ADR-0026 L1 — per-meal-slot cap. Counted by LOG EVENTS (one
+            # photo submission = 1), NOT by detected ingredients (fixed
+            # 2026-06-10: a single real plate yields 5-10 items, so counting
+            # items blocked legitimate meals — 8-ingredient dinner logged
+            # nothing and burned the whole slot quota). Photo jobs cannot
+            # raise an HTTP error here (worker context); on cap exhaust we
+            # log + skip the inserts to avoid silent XP gain.
             insertable = [
                 it for it in items
                 if it.confidence >= FOOD_LOG_AUTO_INSERT_CONFIDENCE
@@ -270,7 +273,7 @@ class ProcessVisionJob:
                         user_id,
                         date.today(),
                         meal_time,
-                        amount=len(insertable),
+                        amount=1,
                     )
                 except Exception as rexc:  # noqa: BLE001
                     log.warning(
