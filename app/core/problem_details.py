@@ -143,6 +143,36 @@ _PLAN_RULE_TITLES: dict[str, tuple[str, str, str]] = {
         "Geriatric users require specialist review",
         "geriatric_requires_specialist_review",
     ),
+    "plan_generation_yielded_no_meals": (
+        "plan:generation-yielded-no-meals",
+        "Plan generation produced no meals for your restrictions",
+        "plan_generation_yielded_no_meals",
+    ),
+    "nutritional_goals_missing": (
+        "plan:nutritional-goals-missing",
+        "Nutritional goals missing — complete onboarding first",
+        "nutritional_goals_missing",
+    ),
+    "no_candidates_for_meal": (
+        "plan:no-candidates-for-meal",
+        "No recipes match your restrictions for this meal",
+        "no_candidates_for_meal",
+    ),
+    "region_audit_unavailable": (
+        "profile:region-audit-unavailable",
+        "Region change audit unavailable — try again",
+        "region_audit_unavailable",
+    ),
+    "duplicate_live_subscription": (
+        "billing:duplicate-live-subscription",
+        "Active subscription already exists",
+        "duplicate_live_subscription",
+    ),
+    "grocery_generation_yielded_no_items": (
+        "grocery:generation-yielded-no-items",
+        "Grocery list generation produced no items",
+        "grocery_generation_yielded_no_items",
+    ),
 }
 
 

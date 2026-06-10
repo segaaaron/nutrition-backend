@@ -240,6 +240,97 @@ ERROR_MESSAGES: Final[dict[str, _ErrorEntry]] = {
             "en": "Your plan is being generated. Try again in a few seconds.",
         },
     },
+    "plan_generation_yielded_no_meals": {
+        "title": {
+            "es": "No se pudo generar tu plan",
+            "en": "Could not generate your plan",
+        },
+        "detail": {
+            "es": "No encontramos recetas que cumplan todas tus restricciones. Revisa tus alergias y condiciones, o contacta soporte.",
+            "en": "We couldn't find recipes that meet all your restrictions. Review your allergies and conditions, or contact support.",
+        },
+    },
+    "nutritional_goals_missing": {
+        "title": {
+            "es": "Falta completar tu perfil",
+            "en": "Profile setup incomplete",
+        },
+        "detail": {
+            "es": "Necesitamos tus datos completos (peso, altura, edad, meta) para generar el plan. Completa el onboarding.",
+            "en": "We need your complete profile (weight, height, age, goal) to generate the plan. Complete onboarding first.",
+        },
+    },
+    "no_candidates_for_meal": {
+        "title": {
+            "es": "Sin recetas para esta comida",
+            "en": "No recipes for this meal",
+        },
+        "detail": {
+            "es": "No encontramos recetas para esta comida que cumplan tus restricciones. Considera relajar alergias o condiciones.",
+            "en": "We couldn't find recipes for this meal matching your restrictions. Consider easing allergies or conditions.",
+        },
+    },
+    "region_audit_unavailable": {
+        "title": {
+            "es": "No se pudo actualizar tu región",
+            "en": "Could not update your region",
+        },
+        "detail": {
+            "es": "Hubo un problema temporal. Inténtalo de nuevo en unos segundos.",
+            "en": "There was a temporary problem. Try again in a few seconds.",
+        },
+    },
+    "duplicate_live_subscription": {
+        "title": {
+            "es": "Ya tienes una suscripción activa",
+            "en": "You already have an active subscription",
+        },
+        "detail": {
+            "es": "Ya tienes una suscripción vigente. Cancélala primero si quieres cambiar de plan.",
+            "en": "You already have an active subscription. Cancel it first if you want to switch plans.",
+        },
+    },
+    "grocery_generation_yielded_no_items": {
+        "title": {
+            "es": "No se pudo generar tu lista de compras",
+            "en": "Could not generate your grocery list",
+        },
+        "detail": {
+            "es": "No pudimos generar items para tu lista. Reintenta o contacta soporte.",
+            "en": "We couldn't generate items for your list. Retry or contact support.",
+        },
+    },
+    "user_creation_race": {
+        "title": {
+            "es": "Conflicto al crear la cuenta",
+            "en": "Account creation conflict",
+        },
+        "detail": {
+            "es": "Otra solicitud creó tu cuenta al mismo tiempo. Intenta iniciar sesión.",
+            "en": "Another request created your account at the same time. Try signing in.",
+        },
+    },
+    "otp_invalid": {
+        "title": {"es": "Código incorrecto", "en": "Invalid code"},
+        "detail": {
+            "es": "El código que ingresaste es incorrecto. Verifica e intenta de nuevo.",
+            "en": "The code you entered is incorrect. Verify and try again.",
+        },
+    },
+    "otp_expired": {
+        "title": {"es": "Código expirado", "en": "Code expired"},
+        "detail": {
+            "es": "El código expiró. Solicita uno nuevo.",
+            "en": "The code expired. Request a new one.",
+        },
+    },
+    "otp_locked": {
+        "title": {"es": "Demasiados intentos", "en": "Too many attempts"},
+        "detail": {
+            "es": "Demasiados intentos fallidos. Espera unos minutos antes de reintentar.",
+            "en": "Too many failed attempts. Wait a few minutes before retrying.",
+        },
+    },
 }
 
 # Pydantic v2 error `type` -> human messages.
