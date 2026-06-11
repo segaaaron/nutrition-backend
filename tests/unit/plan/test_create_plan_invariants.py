@@ -29,6 +29,15 @@ class _StubPlans:
     def __init__(self) -> None:
         self.saved: list[Any] = []
         self.seeds: list[tuple[UUID, int]] = []
+        self.locks: list[UUID] = []
+        self.archived_for: list[UUID] = []
+
+    async def acquire_user_lock(self, user_id: UUID) -> None:
+        self.locks.append(user_id)
+
+    async def archive_active(self, user_id: UUID) -> int:
+        self.archived_for.append(user_id)
+        return 0
 
     async def save(self, plan: Any) -> Any:
         self.saved.append(plan)
@@ -237,9 +246,16 @@ async def test_create_plan_succeeds_when_pipeline_yields_meals() -> None:
         bus=EventBus(),
     )
 
-    plan = await uc(user_id=uuid4(), plan_type="week")  # type: ignore[arg-type]
+    user_id = uuid4()
+    plan = await uc(user_id=user_id, plan_type="week")  # type: ignore[arg-type]
 
     assert len(plans.saved) == 1
     assert len(plans.seeds) == 1
     total_meals = sum(len(d.meals) for d in plan.days)
     assert total_meals > 0
+    # Idempotent-by-user invariant (2026-06-11 root-cause fix):
+    # CreatePlan must acquire the per-user advisory lock + archive any
+    # existing active plan BEFORE inserting the new row, so a backlog
+    # drain or concurrent retry never trips `one_active_plan`.
+    assert plans.locks == [user_id]
+    assert plans.archived_for == [user_id]

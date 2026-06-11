@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -82,6 +82,35 @@ class SqlPlanRepository:
         )
         m = (await self.s.execute(stmt)).scalar_one_or_none()
         return _plan_from_model(m) if m else None
+
+    async def acquire_user_lock(self, user_id: UUID) -> None:
+        """Serialize concurrent plan generation for a single user.
+
+        Postgres advisory xact lock keyed on a stable hash of `user_id`.
+        Released automatically on tx commit/rollback. Without it, two
+        concurrent worker jobs for the same user (backlog drain, double-tap,
+        retry storm) can both pass the `get_active` check and race the
+        `one_active_plan` partial unique index → IntegrityError 500 to iOS.
+        """
+        await self.s.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:k, 0))"),
+            {"k": str(user_id)},
+        )
+
+    async def archive_active(self, user_id: UUID) -> int:
+        """Cancel the user's currently-active plan (if any).
+
+        Returns the rowcount. Used by `CreatePlan` to make plan generation
+        idempotent-by-user: an existing active plan is archived BEFORE the
+        new one is inserted, preserving the `one_active_plan` invariant
+        under any retry / concurrent-job scenario.
+        """
+        result = await self.s.execute(
+            update(PlanModel)
+            .where(PlanModel.user_id == user_id, PlanModel.status == "active")
+            .values(status="cancelled")
+        )
+        return result.rowcount or 0
 
     async def save(self, plan: Plan) -> Plan:
         m = PlanModel(

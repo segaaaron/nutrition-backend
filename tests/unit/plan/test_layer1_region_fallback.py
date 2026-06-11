@@ -107,9 +107,35 @@ async def test_fallback_drops_region_but_keeps_safety_clauses() -> None:
 
 @pytest.mark.asyncio
 async def test_fallback_empty_returns_empty() -> None:
-    session = _StubSession(results=[[], []])
+    # Three queries now: region → cross-meal_time → still empty.
+    # Cross-meal fallback (2026-06-11) drops `meal_time` after `regions`
+    # to guarantee plan generation succeeds whenever the catalog has ANY
+    # safety-compatible recipe for the user, regardless of meal_time tags.
+    session = _StubSession(results=[[], [], []])
 
     ids = await _uc(session)(user_id=uuid4(), meal_time="dinner")
 
     assert ids == []
-    assert len(session.captured) == 2
+    assert len(session.captured) == 3
+
+
+@pytest.mark.asyncio
+async def test_cross_meal_fallback_drops_meal_time_clause() -> None:
+    """If region fallback also yields nothing, Layer1 retries without
+    the `meal_time` filter — any safe recipe can fill any slot.
+    Safety filters (allergens + condition gates) MUST remain intact.
+    """
+    rid = uuid4()
+    session = _StubSession(results=[[], [], [rid]])
+
+    ids = await _uc(session)(user_id=uuid4(), meal_time="snack")
+
+    assert ids == [rid]
+    assert len(session.captured) == 3
+    third = session.captured[2]
+    assert "r.meal_time" not in third.sql
+    assert _REGION_CLAUSE not in third.sql
+    # Safety clauses still present.
+    assert "allergens" in third.sql
+    assert "contraindicated_conditions" in third.sql
+    assert third.params["allergies"] == ["dairy"]

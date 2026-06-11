@@ -200,18 +200,44 @@ class Layer1Eligibility:
         # region overlap clause is dropped. Layer3 cultural_fit still ranks
         # same-region recipes first, so local dishes win whenever they exist.
         region_clause = "r.regions && CAST(:regions AS char(5)[])"
-        if region_clause not in where:
-            return []
-        where_global = [w for w in where if w != region_clause]
-        sql_global = f"""
+        meal_time_clause = "r.meal_time = :meal_time"
+        where_no_region = [w for w in where if w != region_clause]
+        if region_clause in where:
+            sql_global = f"""
+                SELECT r.id FROM recipes r
+                 WHERE {' AND '.join(where_no_region)}
+            """  # noqa: S608
+            res = await self.session.execute(text(sql_global), params)
+            ids = [row[0] for row in res.all()]
+            if ids:
+                _log.warning(
+                    "layer1.region_fallback_used",
+                    region=region,
+                    meal_time=meal_time,
+                    n_global=len(ids),
+                )
+                return ids
+
+        # Cross-meal-time fallback (2026-06-11 root-cause hardening for
+        # `plan_generation_yielded_no_meals`). When the catalog has zero
+        # recipes tagged for the requested meal_time but DOES have safe
+        # recipes for other meal_times under the same allergen + condition
+        # constraints, accept those instead. A recipe whose `meal_time`
+        # column says "lunch" is still nutritionally appropriate at dinner;
+        # the user-facing meal slot is purely a label. Safety filters
+        # (allergens, condition gates) remain hard. Without this fallback,
+        # a single empty meal_time bucket for a user's allergen profile
+        # crashes the entire 7-day pipeline.
+        where_no_meal = [w for w in where_no_region if w != meal_time_clause]
+        sql_any_meal = f"""
             SELECT r.id FROM recipes r
-             WHERE {' AND '.join(where_global)}
+             WHERE {' AND '.join(where_no_meal)}
         """  # noqa: S608
-        res = await self.session.execute(text(sql_global), params)
+        res = await self.session.execute(text(sql_any_meal), params)
         ids = [row[0] for row in res.all()]
         if ids:
             _log.warning(
-                "layer1.region_fallback_used",
+                "layer1.cross_meal_fallback_used",
                 region=region,
                 meal_time=meal_time,
                 n_global=len(ids),

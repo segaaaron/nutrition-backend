@@ -279,6 +279,21 @@ class CreatePlan:
             days=days,
             water_view=water_view,
         )
+        # Idempotent-by-user invariant (2026-06-11 root-cause fix for iOS
+        # plan-create errors). The `one_active_plan` partial unique index
+        # on `plans(user_id) WHERE status='active'` made every regeneration
+        # request crash with IntegrityError if any active plan already
+        # existed (or two concurrent jobs raced). We now:
+        #   1. Acquire a per-user pg_advisory_xact_lock so concurrent
+        #      worker jobs for the same user serialise (backlog drain,
+        #      double-tap, retry storms).
+        #   2. Archive the existing active plan in-tx → frees the partial
+        #      unique slot. End state: at most one active plan per user,
+        #      "regenerate" semantics match the iOS mental model.
+        # Lock released automatically on commit/rollback. DB constraint
+        # stays as belt-and-suspenders against future regressions.
+        await self.plans.acquire_user_lock(user_id)
+        await self.plans.archive_active(user_id)
         await self.plans.save(plan)
         await self.plans.save_seed(plan_id, seed)
         await self.bus.publish(
