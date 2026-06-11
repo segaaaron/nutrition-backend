@@ -27,6 +27,13 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     app_name: str = "nova-nutrition-backend"
     app_version: str = "0.1.0"
+    # Process role. Drives which prod validations are HTTP-only and therefore
+    # irrelevant to the arq worker (CORS_ALLOWED_ORIGINS, billing redirect
+    # URLs). Default "api" preserves the strict posture for the HTTP service;
+    # worker compose sets SERVICE_ROLE=worker so its boot does not require
+    # HTTP-layer env vars that it never reads. Avoids a shared-Settings crash
+    # loop when the panel forgets to mirror HTTP vars onto the worker.
+    service_role: Literal["api", "worker"] = "api"
 
     # --- Database ---
     # REQUIRED — no default. A silent fallback masked a Dokploy env-propagation
@@ -151,11 +158,10 @@ class Settings(BaseSettings):
     stripe_webhook_secret: str = ""
     mercadopago_access_token: str = ""
     mercadopago_webhook_secret: str = ""
-    # REQUIRED — Stripe redirect URLs post-checkout / on-cancel. Previously
-    # hardcoded in `app/billing/router.py` body schema; moved to Settings on
-    # 2026-06-04 so deploys can swap mobile deep links vs web URLs per env.
-    billing_success_url: str
-    billing_cancel_url: str
+    # Stripe redirect URLs post-checkout / on-cancel. REQUIRED when
+    # service_role=api (validated below); worker never reads these.
+    billing_success_url: str = ""
+    billing_cancel_url: str = ""
 
     # --- Email (Resend — https://resend.com/) ---
     # Master kill-switch. When False, all email sends become no-ops (logged
@@ -189,10 +195,31 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _validate_prod_requirements(self) -> "Settings":
-        if self.env == "prod" and not self.cors_allowed_origins.strip():
+        is_api = self.service_role == "api"
+        is_prod_api = is_api and self.env == "prod"
+        # CORS gate: prod-api only (preserves original env=="prod" rule).
+        if is_prod_api and not self.cors_allowed_origins.strip():
             raise ValueError(
-                "CORS_ALLOWED_ORIGINS is REQUIRED in prod — no fallback. "
+                "CORS_ALLOWED_ORIGINS is REQUIRED in prod (api) — no fallback. "
                 "Set it in the Dokploy panel (e.g. 'https://app.nova.com')."
+            )
+        # Billing gates: all envs when api (preserves original always-required
+        # field_validator rule). Worker skips since it never invokes Stripe.
+        if is_api and not self.billing_success_url.strip():
+            raise ValueError(
+                "BILLING_SUCCESS_URL is REQUIRED (api) — no fallback default."
+            )
+        if is_api and not self.billing_cancel_url.strip():
+            raise ValueError(
+                "BILLING_CANCEL_URL is REQUIRED (api) — no fallback default."
+            )
+        if self.billing_success_url and not self.billing_success_url.startswith("https://"):
+            raise ValueError(
+                f"BILLING_SUCCESS_URL must use https://; got '{self.billing_success_url[:40]}…'."
+            )
+        if self.billing_cancel_url and not self.billing_cancel_url.startswith("https://"):
+            raise ValueError(
+                f"BILLING_CANCEL_URL must use https://; got '{self.billing_cancel_url[:40]}…'."
             )
         if self.email_enabled and not self.resend_api_key.strip():
             raise ValueError(
@@ -245,22 +272,6 @@ class Settings(BaseSettings):
             raise ValueError(
                 f"REDIS_URL must use redis:// or rediss:// scheme; "
                 f"got '{scheme}://'."
-            )
-        return v
-
-    @field_validator("billing_success_url", "billing_cancel_url")
-    @classmethod
-    def _validate_billing_url(cls, v: str) -> str:
-        """Fail loud on missing or non-HTTPS Stripe redirect URLs."""
-        if not v:
-            raise ValueError(
-                "BILLING_SUCCESS_URL / BILLING_CANCEL_URL env vars are "
-                "REQUIRED — no fallback default. Set them in the Dokploy "
-                "panel (or .env for local dev)."
-            )
-        if not v.startswith("https://"):
-            raise ValueError(
-                f"Billing redirect URLs must use https://; got '{v[:40]}…'."
             )
         return v
 
