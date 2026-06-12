@@ -183,9 +183,12 @@ class Layer1Eligibility:
         # fragments authored in this function or returned by registered
         # ConditionGate strategies. User-controlled values are bound via
         # :params. No injection vector.
+        # ORDER BY r.id: deterministic candidate order so seeded plan
+        # generation is reproducible (heap order varies across runs).
         sql = f"""
             SELECT r.id FROM recipes r
              WHERE {' AND '.join(where)}
+             ORDER BY r.id
         """  # noqa: S608
         res = await self.session.execute(text(sql), params)
         ids = [row[0] for row in res.all()]
@@ -206,6 +209,7 @@ class Layer1Eligibility:
             sql_global = f"""
                 SELECT r.id FROM recipes r
                  WHERE {' AND '.join(where_no_region)}
+                 ORDER BY r.id
             """  # noqa: S608
             res = await self.session.execute(text(sql_global), params)
             ids = [row[0] for row in res.all()]
@@ -232,6 +236,7 @@ class Layer1Eligibility:
         sql_any_meal = f"""
             SELECT r.id FROM recipes r
              WHERE {' AND '.join(where_no_meal)}
+             ORDER BY r.id
         """  # noqa: S608
         res = await self.session.execute(text(sql_any_meal), params)
         ids = [row[0] for row in res.all()]

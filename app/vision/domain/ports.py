@@ -43,7 +43,12 @@ class VisionProvider(Protocol):
         user_id: UUID | None,
         locale: str,
         region: str,
+        stage: str = "auto",
     ) -> tuple[list[DetectedFoodItem], str]:  # returns (items, prompt_sha256)
+        """stage — "auto": provider-internal cascade (legacy behaviour);
+        "primary_only": cheap model, NO internal escalation (the pipeline
+        decides after catalog grounding); "full_only": heavy model direct
+        (pipeline-decided escalation)."""
         ...
 
     def current_prompt_sha256(self, *, locale: str, region: str) -> str:

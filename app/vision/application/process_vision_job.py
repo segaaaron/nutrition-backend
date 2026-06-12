@@ -17,7 +17,8 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
+from decimal import ROUND_HALF_EVEN, Decimal
 from typing import Literal
 from uuid import UUID, uuid4
 
@@ -34,9 +35,13 @@ from app.core.metrics import (
     VISION_JOB_DURATION,
 )
 from app.core.redis import get_redis
+from app.imaging.infrastructure.phash import compute_phash_64
+from app.shared.domain.time import utc_today
 from app.vision.domain.entities import DetectedFoodItem
 from app.vision.domain.events import FoodPhotoLogged, VisionJobCompleted, VisionJobFailed
+from app.vision.domain.plate_decomposition import decompose
 from app.vision.domain.ports import FoodMatcher, JobNotifier, VisionJobRepository, VisionProvider
+from app.vision.domain.triangulation import arbitrate
 
 log = get_logger("vision.process")
 
@@ -45,6 +50,33 @@ log = get_logger("vision.process")
 # review. Threshold is calibrated against the v1 golden set; tightening
 # requires an ADR amendment.
 FOOD_LOG_AUTO_INSERT_CONFIDENCE = 0.7
+
+# Grounded escalation thresholds (2026-06-11). After catalog grounding,
+# the cheap model's output is escalated to the heavy model only when the
+# catalog could not vouch for it: any item with truly unusable confidence,
+# or low average confidence COMBINED with a mostly-unmatched plate. A
+# low-confidence but well-matched plate keeps the cheap result — grounding
+# already replaced its macros with audited per-100g values.
+_ESCALATE_MIN_ITEM_CONF = 0.35
+_ESCALATE_UNMATCHED_RATIO = 0.4
+
+
+def needs_full_model(
+    items: list[DetectedFoodItem], *, conf_threshold: float
+) -> tuple[bool, str]:
+    """Pipeline-level escalation decision (pure). Returns (escalate, reason)."""
+    if not items:
+        return True, "empty"
+    confidences = [i.confidence for i in items]
+    if min(confidences) < _ESCALATE_MIN_ITEM_CONF:
+        return True, "very_low_item_confidence"
+    unmatched = [i for i in items if i.matched_food_id is None]
+    unmatched_ratio = len(unmatched) / len(items)
+    avg_conf = sum(confidences) / len(confidences)
+    if avg_conf < conf_threshold and unmatched_ratio > _ESCALATE_UNMATCHED_RATIO:
+        return True, "low_confidence_unmatched"
+    return False, ""
+
 
 # HIGH-2: in-flight lock TTL (60s). Bounds the worst-case waste when a
 # worker crashes mid-job. The waiter polls the cache for up to 30s before
@@ -137,10 +169,66 @@ class ProcessVisionJob:
                     n_items=len(items),
                     prompt_sha=prompt_sha[:8] if prompt_sha else None,
                 )
+                # Persist the perceptual hash on SHA hits too: byte-identical
+                # re-uploads are the cheapest photo-farming pattern, and the
+                # anomaly pHash-clustering signal only sees rows that carry
+                # phash_64 (QA 2026-06-12).
+                try:
+                    sha_hit_phash = await asyncio.to_thread(
+                        compute_phash_64, image_bytes
+                    )
+                    await self._save_phash_best_effort(job_id, sha_hit_phash)
+                except Exception as pexc:  # noqa: BLE001 — OK4: observability metadata only
+                    log.debug("vision.phash.sha_hit_failed", err=str(pexc))
             else:
-                # HIGH-2: serialise concurrent workers on the same SHA via a
-                # Redis lock to avoid double-billing the provider.
-                lock_key = _INFLIGHT_KEY_FMT.format(sha=image_sha) if image_sha else None
+                # Near-duplicate dedup via perceptual hash (cost lever,
+                # 2026-06-11). SHA missed — but the user may have just
+                # re-photographed the SAME plate (blur retry, new angle,
+                # identical daily breakfast): different bytes, same scene.
+                # aHash Hamming ≤5 within this user's recent completed
+                # jobs reuses the prior result for $0. Best-effort: any
+                # failure (libvips absent, repo without the method in
+                # test doubles) falls through to the normal provider path.
+                phash: int | None = None
+                try:
+                    phash = await asyncio.to_thread(compute_phash_64, image_bytes)
+                    finder = getattr(self.repo, "find_recent_completed_by_phash", None)
+                    if phash is not None and finder is not None:
+                        near = _normalize_cache_result(
+                            await finder(
+                                user_id=user_id,
+                                phash_64=phash,
+                                ttl_days=settings.vision_cache_ttl_days,
+                                current_prompt_sha256=current_prompt_sha,
+                            )
+                        )
+                        if near is not None:
+                            cache_hit = True
+                            VISION_CACHE_HITS.inc()
+                            items, near_prompt_sha = near
+                            prompt_sha = near_prompt_sha or current_prompt_sha
+                            log.info(
+                                "vision.phash.near_dup_hit",
+                                job_id=str(job_id),
+                                n_items=len(items),
+                            )
+                except Exception as pexc:  # noqa: BLE001 — OK4: pHash dedup is a best-effort cost optimization; never blocks the provider path
+                    log.debug("vision.phash.lookup_failed", err=str(pexc))
+
+                await self._save_phash_best_effort(job_id, phash)
+                # Grounded escalation: with the cascade on, ask the provider
+                # for the cheap model ONLY — the escalate decision moves to
+                # the pipeline, after catalog grounding (see below).
+                provider_stage = (
+                    "primary_only" if settings.vision_cascade_enabled else "auto"
+                )
+                if cache_hit:
+                    # pHash near-dup hit — skip the provider entirely.
+                    lock_key = None
+                else:
+                    # HIGH-2: serialise concurrent workers on the same SHA
+                    # via a Redis lock to avoid double-billing the provider.
+                    lock_key = _INFLIGHT_KEY_FMT.format(sha=image_sha) if image_sha else None
                 acquired = True
                 redis = get_redis() if lock_key else None
                 if lock_key and redis is not None:
@@ -161,7 +249,11 @@ class ProcessVisionJob:
                         acquired = True
 
                 try:
-                    if not acquired:
+                    if cache_hit:
+                        # pHash near-dup already supplied the items —
+                        # provider call skipped entirely.
+                        pass
+                    elif not acquired:
                         # Another worker is processing this SHA. Poll the
                         # cache for up to _INFLIGHT_WAIT_S seconds.
                         waited_hit = None
@@ -197,6 +289,7 @@ class ProcessVisionJob:
                                 user_id=user_id,
                                 locale=locale,
                                 region=region,
+                                stage=provider_stage,
                             )
                     else:
                         VISION_CACHE_MISSES.inc()
@@ -206,6 +299,7 @@ class ProcessVisionJob:
                             user_id=user_id,
                             locale=locale,
                             region=region,
+                            stage=provider_stage,
                         )
                 finally:
                     if acquired and lock_key and redis is not None:
@@ -224,27 +318,66 @@ class ProcessVisionJob:
             # with matcher fields stripped at the repo layer; cache misses
             # produce raw LLM items with no match yet. Either way, the
             # FoodMatcher fires fresh against this user's catalog + personal
-            # foods.
-            for it in items:
-                # Defensive: ensure any leaking personal field is wiped.
-                it.matched_food_id = None
-                it.matched_name_norm = None
-                it.match_method = None
-                food_id, name_norm, method = await self.matcher.match(
-                    name=it.name,
-                    amount_g=float(it.estimated_amount_g),
-                    locale=locale,
-                    user_id=user_id,
+            # foods. Grounding then replaces the LLM's kcal arithmetic with
+            # audited per-100g values (see _match_and_ground).
+            await self._match_and_ground(items, locale=locale, user_id=user_id)
+
+            # GROUNDED ESCALATION (cost lever, 2026-06-11). When the cheap
+            # primary model ran (stage="primary_only"), the escalate-or-not
+            # decision happens HERE — after catalog grounding — instead of
+            # inside the provider. Rationale: the old internal cascade
+            # escalated on raw confidence alone, but a low-confidence item
+            # whose name MATCHED the catalog already got its macros fixed
+            # by grounding; paying the heavy model for it is wasted spend.
+            # Only escalate when the catalog could NOT vouch for the output.
+            if (
+                not cache_hit
+                and settings.vision_cascade_enabled
+                and items is not None
+            ):
+                escalate, esc_reason = needs_full_model(
+                    items, conf_threshold=settings.vision_confidence_threshold
                 )
-                it.matched_food_id = food_id
-                it.matched_name_norm = name_norm
-                it.match_method = method
+                if escalate:
+                    log.info(
+                        "vision.grounded_escalation",
+                        job_id=str(job_id),
+                        reason=esc_reason,
+                        n_items_primary=len(items),
+                    )
+                    items, prompt_sha = await self.provider.recognise(
+                        image_bytes=image_bytes,
+                        mime=mime,
+                        user_id=user_id,
+                        locale=locale,
+                        region=region,
+                        stage="full_only",
+                    )
+                    await self._match_and_ground(
+                        items, locale=locale, user_id=user_id
+                    )
+
+            # TRIANGULATION (Fase 2): second, independent opinion for main
+            # dishes — the recipe catalog's kcal scaled to the estimated
+            # portion, reconciled by the physics arbiter (density bands).
+            # Best-effort: anchor lookup failure leaves bottom-up values.
+            await self._triangulate_mains(items)
+
+            # Plate Decomposition 2.0 post-pass (pure domain): clamp dry
+            # spices to ≤5 kcal (LLM hallucinates calories for a pinch of
+            # comino), condiment kcal floors, infer absorbed cooking oil /
+            # hidden dairy (cream soups, purées, LatAm rice), beverage
+            # engine (containers + alcohol formula), and honest totals
+            # (kcal_min/best/max). Inferred items carry confidence 0.5 <
+            # auto-insert threshold, so they land in detected_items for
+            # user review — never silently in food_logs.
+            items, plate_totals = decompose(items)
 
             # Persist food_logs (only items above the auto-insert confidence
             # threshold or with a strong catalog match land as automatic
             # logs; lower-confidence rows stay in detected_items for review).
             food_log_ids: list[UUID] = []
-            total_kcal = sum(i.kcal for i in items)
+            total_kcal = plate_totals.kcal
             _ = cache_hit  # observability hook; keep for log enrichment later
 
             # ADR-0026 L1 — per-meal-slot cap. Counted by LOG EVENTS (one
@@ -256,8 +389,16 @@ class ProcessVisionJob:
             # log + skip the inserts to avoid silent XP gain.
             insertable = [
                 it for it in items
-                if it.confidence >= FOOD_LOG_AUTO_INSERT_CONFIDENCE
-                or it.matched_food_id is not None
+                # Inferred items (hidden oil/cream estimates) NEVER auto-log,
+                # even when the matcher pairs them with a real catalog food
+                # — e.g. a cached replay re-matching "aceite de cocción
+                # (estimado)" to real oil would otherwise double-log kcal
+                # the original run never inserted (QA 2026-06-12).
+                if not it.inferred
+                and (
+                    it.confidence >= FOOD_LOG_AUTO_INSERT_CONFIDENCE
+                    or it.matched_food_id is not None
+                )
             ]
             if insertable:
                 from app.gamification.infrastructure.anti_cheat_caps import (
@@ -271,7 +412,7 @@ class ProcessVisionJob:
                     slot_count = await check_and_increment_food_log_slot(
                         get_redis(),
                         user_id,
-                        date.today(),
+                        utc_today(),
                         meal_time,
                         amount=1,
                     )
@@ -312,7 +453,7 @@ class ProcessVisionJob:
                     {
                         "id": str(flog_id),
                         "uid": str(user_id),
-                        "d": date.today(),
+                        "d": utc_today(),
                         "mt": meal_time,
                         "fid": str(it.matched_food_id) if it.matched_food_id else None,
                         "ftn": it.name if it.matched_food_id is None else None,
@@ -355,7 +496,17 @@ class ProcessVisionJob:
             await self.notifier.notify(
                 user_id=user_id,
                 channel="vision",
-                payload={"job_id": str(job_id), "status": "completed", "n_items": len(items)},
+                payload={
+                    "job_id": str(job_id),
+                    "status": "completed",
+                    "n_items": len(items),
+                    # Honest calorie range (Plate Decomposition 2.0) —
+                    # additive fields; older clients ignore them.
+                    "kcal": plate_totals.kcal,
+                    "kcal_min": plate_totals.kcal_min,
+                    "kcal_max": plate_totals.kcal_max,
+                    "confidence": plate_totals.confidence,
+                },
             )
             log.info("vision.process.done", job_id=str(job_id), n=len(items))
 
@@ -377,3 +528,142 @@ class ProcessVisionJob:
             )
             log.warning("vision.process.failed", job_id=str(job_id), err=err_code)
             raise
+
+    async def _match_and_ground(
+        self, items: list[DetectedFoodItem], *, locale: str, user_id: UUID
+    ) -> None:
+        """Per-user catalog match + DB macro grounding for every item.
+
+        Matching ALWAYS reruns per user (CRITICAL-2: cached items arrive
+        with matcher fields stripped). Grounding replaces the LLM's kcal
+        arithmetic with audited foods-per-100g × estimated grams.
+        """
+        for it in items:
+            # Defensive: ensure any leaking personal field is wiped.
+            it.matched_food_id = None
+            it.matched_name_norm = None
+            it.match_method = None
+            food_id, name_norm, method = await self.matcher.match(
+                name=it.name,
+                amount_g=float(it.estimated_amount_g),
+                locale=locale,
+                user_id=user_id,
+            )
+            it.matched_food_id = food_id
+            it.matched_name_norm = name_norm
+            it.match_method = method
+        await self._ground_matched_macros(items)
+
+    async def _triangulate_mains(self, items: list[DetectedFoodItem]) -> None:
+        """Top-down catalog anchor + physics arbiter for main dishes.
+
+        Only `role == "main"` items get the anchor lookup AND the physics
+        clamp (sides/sauces are too generic to match recipes, and their
+        density bands overlap too much to clamp safely). Best-effort:
+        any failure leaves bottom-up values untouched.
+        """
+        try:
+            from app.vision.infrastructure.dish_anchor import SqlDishAnchor
+
+            anchor_repo = SqlDishAnchor(self.session)
+            for idx, it in enumerate(items):
+                if it.role != "main" or it.inferred:
+                    continue
+                anchor = await anchor_repo.lookup(it.name)
+                if anchor is None:
+                    continue
+                refined = arbitrate(it, anchor)
+                if refined.kcal != it.kcal:
+                    log.info(
+                        "vision.triangulation.adjusted",
+                        name=it.name[:60],
+                        kcal_bottom_up=it.kcal,
+                        kcal_final=refined.kcal,
+                        anchor_sim=round(anchor.similarity, 2),
+                    )
+                items[idx] = refined
+        except Exception as exc:  # noqa: BLE001 — OK4: triangulation is a best-effort accuracy layer; never blocks the pipeline
+            log.warning("vision.triangulation.failed", err=str(exc))
+
+    async def _save_phash_best_effort(self, job_id: UUID, phash: int | None) -> None:
+        """Persist the job's perceptual hash so future photos can near-dup
+        against it (and the anomaly pHash-clustering signal gets data).
+        Best-effort: repo doubles in tests may lack the method."""
+        if phash is None:
+            return
+        saver = getattr(self.repo, "save_phash", None)
+        if saver is None:
+            return
+        try:
+            await saver(job_id, phash)
+        except Exception as exc:  # noqa: BLE001 — OK4: observability/dedup metadata write; never blocks the pipeline
+            log.debug("vision.phash.save_failed", err=str(exc))
+
+    async def _ground_matched_macros(self, items: list[DetectedFoodItem]) -> None:
+        """Recompute macros from the audited foods table for matched items.
+
+        foods.{kcal,protein_g,carbs_g,fat_g} are per-100g (same contract the
+        voice flow scales by). One batched SELECT; Decimal math with
+        banker's rounding (CLAUDE.md non-negotiable #2). Items whose DB
+        kcal disagrees with the LLM estimate by >3× in either direction
+        keep the LLM value — that gap signals a wrong MATCH, not a wrong
+        estimate, and grounding to the wrong food is worse than not
+        grounding at all.
+        """
+        matched = [it for it in items if it.matched_food_id is not None]
+        if not matched:
+            return
+        ids = list({str(it.matched_food_id) for it in matched})
+        try:
+            rows = (
+                await self.session.execute(
+                    text(
+                        """
+                        SELECT id, COALESCE(kcal, 0), COALESCE(protein_g, 0),
+                               COALESCE(carbs_g, 0), COALESCE(fat_g, 0)
+                          FROM foods
+                         WHERE id = ANY(CAST(:ids AS uuid[]))
+                        """
+                    ),
+                    {"ids": ids},
+                )
+            ).all()
+            per100 = {row[0]: (row[1], row[2], row[3], row[4]) for row in rows}
+        except Exception as exc:  # noqa: BLE001 — OK4: grounding is a best-effort accuracy enhancement; a foods lookup failure must not fail the photo job (LLM estimates remain).
+            log.warning("vision.ground.lookup_failed", err=str(exc))
+            return
+
+        for it in matched:
+            macro = per100.get(it.matched_food_id)
+            if macro is None or not macro[0]:
+                continue  # no audited kcal for this food — keep LLM value
+            factor = Decimal(str(it.estimated_amount_g)) / Decimal("100")
+
+            def _scale(v: object, _f: Decimal = factor) -> int:
+                return int(
+                    (Decimal(str(v)) * _f).quantize(
+                        Decimal("1"), rounding=ROUND_HALF_EVEN
+                    )
+                )
+
+            kcal_db = _scale(macro[0])
+            if kcal_db <= 0:
+                continue
+            # Wrong-match guard: >3× disagreement → distrust the match.
+            if it.kcal > 0 and not (it.kcal / 3 <= kcal_db <= it.kcal * 3):
+                log.info(
+                    "vision.ground.match_disagreement",
+                    name=it.name[:60],
+                    kcal_llm=it.kcal,
+                    kcal_db=kcal_db,
+                    method=it.match_method,
+                )
+                continue
+            it.kcal = kcal_db
+            it.protein_g = _scale(macro[1])
+            it.carbs_g = _scale(macro[2])
+            it.fat_g = _scale(macro[3])
+            # Composition is now ground truth; residual uncertainty is
+            # portion size only → tighten the range to ±20%.
+            it.kcal_min = int(round(kcal_db * 0.8))
+            it.kcal_max = int(round(kcal_db * 1.2))

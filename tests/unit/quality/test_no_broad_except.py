@@ -78,7 +78,9 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # OK3: arq queue depth probe — returns 0 on any error (health probe).
     "app/core/metrics.py": {141},
     # OK4: catalogue lookup best-effort.
-    "app/grocery/use_cases.py": {207},
+    "app/grocery/use_cases.py": {211},
+    # OK4: pHash compute is a best-effort cost optimization (logged, returns None).
+    "app/imaging/infrastructure/phash.py": {59},
     # OK5: identity session rollback wrapper — re-raises.
     "app/identity/presentation/dependencies.py": {94},
     # OK4: OAuth verifier collapses provider errors into Unauthenticated.
@@ -90,7 +92,7 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # OK1: nutrition event handlers — best-effort with explicit log.
     "app/nutrition/event_handlers.py": {76, 108},
     # OK4: ensure_goals fallback wrapper — logs and re-raises domain error.
-    "app/plan/application/create_plan.py": {108, 241},
+    "app/plan/application/create_plan.py": {142, 351},
     # OK4: taste profile cache fetch — falls through on miss.
     "app/plan/application/taste_profile.py": {48},
     # OK4: plan cache best-effort.
@@ -98,7 +100,7 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # OK4: OpenAI coherence client — structured fallback.
     "app/plan/infrastructure/openai_coherence_client.py": {101, 113, 163, 200},
     # OK4: taste fetcher SQL best-effort.
-    "app/plan/infrastructure/taste_fetcher.py": {65},
+    "app/plan/infrastructure/taste_fetcher.py": {66},
     # OK1: profile event handler boundary.
     "app/profile/application/event_handlers.py": {74},
     # OK4: profile use_case OpenAI wrappers.
@@ -108,22 +110,24 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # OK4: i18n translation must never break a request.
     "app/shared/i18n/fastapi_dep.py": {70, 93},
     # OK1: tracking event handler best-effort cache miss.
-    "app/tracking/event_handlers.py": {17},
+    "app/tracking/event_handlers.py": {16},
     # OK4: aggregate table optional — fallback path documented.
     "app/tracking/infrastructure/food_log_repository.py": {186, 241},
     "app/tracking/infrastructure/repositories.py": {80, 108},
+    # OK4: dish-anchor lookup is a best-effort second opinion (logged).
+    "app/vision/infrastructure/dish_anchor.py": {53},
     # OK4: OpenAI vision wrappers with fallback contracts.
-    "app/vision/application/process_vision_job.py": {156, 214, 278, 362},
+    "app/vision/application/process_vision_job.py": {181, 215, 244, 308, 419, 513, 585, 599, 632},
     "app/vision/infrastructure/food_matcher.py": {93},
-    "app/vision/infrastructure/openai_vision.py": {212, 218, 335, 561},
+    "app/vision/infrastructure/openai_vision.py": {271, 277, 394, 670},
     # OK4: plate explanation is decorative — poll must still serve items.
     "app/vision/presentation/router.py": {169},
     # OK4: voice/food text parser — LLM best-effort.
-    "app/voice/infrastructure/food_text_parser.py": {202},
+    "app/voice/infrastructure/food_text_parser.py": {261},
     # OK2: worker task top-level boundaries (Arq retry control).
     "worker/coach_tasks.py": {63, 80, 97},
     "worker/outbox_drainer.py": {148},
-    "worker/vision_tasks.py": {59},
+    "worker/vision_tasks.py": {64},
 }
 
 

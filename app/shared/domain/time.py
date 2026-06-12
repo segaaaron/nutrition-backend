@@ -31,6 +31,18 @@ from typing import Final
 UTC_EPOCH_DATE: Final[date] = date(1970, 1, 1)
 
 
+def utc_today() -> date:
+    """Current UTC civil date — server-timezone-independent "today".
+
+    `date.today()` uses the host's local timezone: a server in UTC-5
+    rolls the date 5 hours later than the rest of the system (Redis
+    markers, `now()` SQL defaults, event timestamps), which made streak
+    and daily-goal boundaries drift depending on where the container
+    ran. Always use this instead of `date.today()` in app code.
+    """
+    return datetime.now(UTC).date()
+
+
 def utc_day_index(dt: datetime) -> int:
     """Return integer day count from `UTC_EPOCH_DATE` to UTC date of `dt`.
 

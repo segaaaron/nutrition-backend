@@ -283,12 +283,15 @@ def recalibrate(inp: RecalibrationInput) -> RecalibrationResult | RecalibrationS
     # under-report bias: R2 already inflated intake, so the *true* deficit
     # is smaller than (tdee - raw_mean); using raw drove AT to over-correct
     # and re-reduce TDEE in a self-reinforcing loop.
-    avg_deficit = max(0.0, inp.tdee_current - corrected_mean)
-    days_in_deficit = len(inp.kcal_in) if avg_deficit > 0 else 0
+    # Decimal end-to-end: `corrected_mean_dec` is already Decimal; doing
+    # the subtraction in float and round-tripping through str degraded
+    # precision before the AT correction.
+    avg_deficit_dec = max(Decimal("0"), Decimal(inp.tdee_current) - corrected_mean_dec)
+    days_in_deficit = len(inp.kcal_in) if avg_deficit_dec > 0 else 0
     at = float(
         at_correction(
             days_in_deficit=days_in_deficit,
-            avg_deficit_kcal=Decimal(str(avg_deficit)),
+            avg_deficit_kcal=avg_deficit_dec,
             tdee=Decimal(str(inp.tdee_current)),
         )
     )

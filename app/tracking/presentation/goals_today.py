@@ -7,7 +7,6 @@ Layer-3 style scoring deterministically — no LLM.
 
 from __future__ import annotations
 
-from datetime import date
 from typing import Literal
 
 from fastapi import APIRouter, Response, status
@@ -16,6 +15,7 @@ from sqlalchemy import text
 
 from app.core.errors import NotFoundError
 from app.identity.presentation.dependencies import CurrentUserDep, SessionDep
+from app.shared.domain.time import utc_today
 
 router = APIRouter(tags=["goals"])
 
@@ -143,6 +143,6 @@ async def toggle_daily_item(
           completed_at = CASE WHEN NOT daily_goals.completed THEN now() ELSE NULL END
     """
         ),
-        {"uid": str(current_user), "d": date.today(), "it": item},
+        {"uid": str(current_user), "d": utc_today(), "it": item},
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)

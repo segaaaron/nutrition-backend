@@ -80,13 +80,13 @@ _SQL_ACTIVE_USERS = text(
     """
     SELECT DISTINCT user_id FROM (
         SELECT user_id FROM food_logs
-         WHERE created_at >= now() - (:days || ' days')::interval
+         WHERE created_at >= now() - make_interval(days => :days)
         UNION
         SELECT user_id FROM weight_logs
-         WHERE time >= now() - (:days || ' days')::interval
+         WHERE time >= now() - make_interval(days => :days)
         UNION
         SELECT user_id FROM vision_jobs
-         WHERE created_at >= now() - (:days || ' days')::interval
+         WHERE created_at >= now() - make_interval(days => :days)
     ) AS active
     """
 )

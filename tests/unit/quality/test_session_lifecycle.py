@@ -69,21 +69,25 @@ ALLOWED_SESSION_SCOPE: dict[str, str] = {
     # required and safe.
     "app/core/event_bus.py:344": "OK1 outbox spool — post-commit, independent by design",
     # OK2 — event handlers (deferred bus, post-commit dispatch).
-    "app/gamification/application/event_handlers.py:229": "OK2 event handler (FoodLogged)",
-    "app/gamification/application/event_handlers.py:260": "OK2 event handler (FoodPhotoLogged)",
-    "app/gamification/application/event_handlers.py:304": "OK2 event handler (WaterLogged)",
-    "app/gamification/application/event_handlers.py:339": "OK2 event handler (FastingCompleted)",
-    "app/gamification/application/event_handlers.py:358": "OK2 event handler (FoodLogged achievement)",
-    "app/gamification/application/event_handlers.py:375": "OK2 event handler (FastingCompleted achievement)",
-    "app/gamification/application/event_handlers.py:397": "OK2 event handler (DayCompleted achievement)",
-    "app/gamification/application/event_handlers.py:422": "OK2 event handler (WeightLogged)",
+    "app/gamification/application/event_handlers.py:230": "OK2 event handler (FoodLogged)",
+    "app/gamification/application/event_handlers.py:261": "OK2 event handler (FoodPhotoLogged)",
+    "app/gamification/application/event_handlers.py:305": "OK2 event handler (WaterLogged)",
+    "app/gamification/application/event_handlers.py:340": "OK2 event handler (FastingCompleted)",
+    "app/gamification/application/event_handlers.py:359": "OK2 event handler (FoodLogged achievement)",
+    "app/gamification/application/event_handlers.py:376": "OK2 event handler (FastingCompleted achievement)",
+    "app/gamification/application/event_handlers.py:398": "OK2 event handler (DayCompleted achievement)",
+    "app/gamification/application/event_handlers.py:423": "OK2 event handler (WeightLogged)",
     "app/coach/application/event_handlers.py:17": "OK2 event handler (FoodPhotoLogged → foto_cross_check)",
     "app/nutrition/event_handlers.py:64": "OK2 event handler (BiometricsChanged safety net)",
     "app/nutrition/event_handlers.py:83": "OK2 event handler (WeightLogged recalibration)",
     # OK3 — worker tasks (arq job entry-points, no outer FastAPI session).
     "worker/plan_tasks.py:44": "OK3 worker task",
     "worker/outbox_drainer.py:121": "OK3 worker task",
-    "worker/vision_tasks.py:44": "OK3 worker task",
+    "worker/vision_tasks.py:49": "OK3 worker task",
+    # OK3 — fresh session for failure bookkeeping AFTER the main job
+    # session rolled back (mark_failed + deadletter must survive the
+    # rollback or the vision job stays 'running' forever).
+    "worker/vision_tasks.py:87": "OK3 worker task (post-rollback failure bookkeeping)",
     "worker/leaderboard_audit_purge_task.py:55": "OK3 worker task",
     "worker/idempotency_tasks.py:16": "OK3 worker task",
     "worker/anomaly_score_task.py:211": "OK3 worker task",

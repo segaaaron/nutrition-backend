@@ -8,7 +8,7 @@ Subscribed events:
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 from sqlalchemy import text
@@ -28,6 +28,7 @@ from app.gamification.infrastructure.anti_cheat_caps import (
     check_and_mark_sha_used,
     is_xp_cap_exceeded,
 )
+from app.shared.domain.time import utc_today
 from app.tracking.domain.events import FoodLogged, WaterLogged, WeightLogged
 from app.tracking.domain.fasting import FastingCompleted
 from app.vision.domain.events import FoodPhotoLogged
@@ -163,7 +164,7 @@ async def _mark_daily_goal(session, *, user_id: UUID, item: str) -> None:
           completed = true, completed_at = now()
     """
         ),
-        {"uid": str(user_id), "d": date.today(), "item": item},
+        {"uid": str(user_id), "d": utc_today(), "item": item},
     )
 
 
@@ -177,7 +178,7 @@ async def _check_day_complete(session, *, user_id: UUID) -> bool:
           FROM daily_goals WHERE user_id = :uid AND date = :d
     """
             ),
-            {"uid": str(user_id), "d": date.today()},
+            {"uid": str(user_id), "d": utc_today()},
         )
     ).first()
     if not row:
@@ -218,7 +219,7 @@ async def _bump_streak(session, *, user_id: UUID, stype: str) -> int:
         RETURNING value
     """
         ),
-        {"uid": str(user_id), "t": stype, "d": date.today()},
+        {"uid": str(user_id), "t": stype, "d": utc_today()},
     )
     val = res.scalar() or 1
     return int(val)
@@ -243,7 +244,7 @@ def register(bus: EventBus) -> None:  # noqa: PLR0915 — closure-heavy registry
                 await bus.publish(
                     DayCompleted(
                         user_id=evt.user_id,
-                        on_date=date.today(),
+                        on_date=utc_today(),
                         at=datetime.now(UTC),
                     )
                 )
@@ -325,7 +326,7 @@ def register(bus: EventBus) -> None:  # noqa: PLR0915 — closure-heavy registry
                  WHERE user_id = :uid AND time::date = :d
             """
                         ),
-                        {"uid": str(evt.user_id), "d": date.today()},
+                        {"uid": str(evt.user_id), "d": utc_today()},
                     )
                 ).scalar()
                 or 0

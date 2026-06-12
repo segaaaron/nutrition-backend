@@ -96,7 +96,7 @@ class SqlWeightLogRepository:
             SELECT day, weight_kg_mean
               FROM biometric_aggregates_daily
              WHERE user_id = :uid
-               AND day >= (CURRENT_DATE - (:days || ' days')::interval)
+               AND day >= CURRENT_DATE - CAST(:days AS int)
              ORDER BY day ASC
         """
         )
@@ -112,7 +112,7 @@ class SqlWeightLogRepository:
             """
             SELECT time, weight_kg FROM weight_logs
              WHERE user_id = :uid
-               AND time >= (now() - (:days || ' days')::interval)
+               AND time >= (now() - make_interval(days => :days))
              ORDER BY time ASC
         """
         )

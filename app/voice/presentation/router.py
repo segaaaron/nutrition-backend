@@ -16,7 +16,6 @@ Voice processing contract:
 
 from __future__ import annotations
 
-from datetime import date
 from decimal import Decimal
 from typing import Annotated, Literal
 from uuid import UUID, uuid4
@@ -36,6 +35,7 @@ from app.core.idempotency import (
 )
 from app.core.redis import get_redis
 from app.identity.presentation.dependencies import CurrentUserDep, SessionDep
+from app.shared.domain.time import utc_today
 from app.vision.infrastructure.food_matcher import HybridFoodMatcher
 from app.voice.application.log_text import LogFoodText
 
@@ -211,7 +211,7 @@ async def log_food_manual(
         {
             "id": str(flog_id),
             "uid": str(current_user),
-            "d": date.today(),
+            "d": utc_today(),
             "mt": body.meal_time,
             "fid": str(body.food_id) if body.food_id else None,
             "ftn": body.free_text_name,

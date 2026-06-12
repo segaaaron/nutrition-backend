@@ -91,11 +91,65 @@ DEFAULT_PORTION_G = {
     "yogur": 170,
 }
 
-# Pattern: optional number (digit or word) + optional unit (g, gr, ml) + food name.
+# Household measures → grams/ml equivalents. "2 tazas de leche" previously
+# fell through to the 100 g default (→ 200 g instead of ~480 ml).
+HOUSEHOLD_UNIT_G: dict[str, float] = {
+    "taza": 240.0,
+    "tazas": 240.0,
+    "cup": 240.0,
+    "cups": 240.0,
+    "vaso": 250.0,
+    "vasos": 250.0,
+    "glass": 250.0,
+    "glasses": 250.0,
+    "cucharada": 15.0,
+    "cucharadas": 15.0,
+    "tbsp": 15.0,
+    "cucharadita": 5.0,
+    "cucharaditas": 5.0,
+    "tsp": 5.0,
+    "oz": 28.0,
+    "onza": 28.0,
+    "onzas": 28.0,
+}
+
+# Cup-like units are VOLUME; 240 g/cup only holds for water-density
+# liquids. A cup of dry oats is ~85 g, not 240 g (QA 2026-06-11: flat
+# density overestimated "1 taza de avena" 3×). Per-food g/cup for common
+# dry staples, keyed by the food's first word (es + en).
+_CUP_LIKE_UNITS = frozenset(
+    {"taza", "tazas", "cup", "cups", "vaso", "vasos", "glass", "glasses"}
+)
+DRY_CUP_G: dict[str, float] = {
+    "avena": 85.0,
+    "oats": 85.0,
+    "oatmeal": 85.0,
+    "arroz": 185.0,
+    "rice": 185.0,
+    "harina": 120.0,
+    "flour": 120.0,
+    "granola": 110.0,
+    "quinoa": 170.0,
+    "lentejas": 200.0,
+    "lentils": 200.0,
+    "frijoles": 185.0,
+    "beans": 185.0,
+    "garbanzos": 200.0,
+    "chickpeas": 200.0,
+    "azucar": 200.0,
+    "azúcar": 200.0,
+    "sugar": 200.0,
+    "cereal": 30.0,
+}
+
+# Pattern: optional number (digit or word) + optional unit (metric or
+# household) + food name.
 RE_QTY = re.compile(
     r"(?:(\d+(?:[.,]\d+)?)|("
     + "|".join(list(NUMBER_WORDS_ES) + list(NUMBER_WORDS_EN))
-    + r"))\s*(g|gr|gramos|grams|ml|cc)?\s+(?:de\s+|of\s+)?([a-záéíóúñ ]+?)(?:\s+(?:con|and|y|,)|$)",
+    + r"))\s*(g|gr|gramos|grams|ml|cc|"
+    + "|".join(HOUSEHOLD_UNIT_G)
+    + r")?\s+(?:de\s+|of\s+)?([a-záéíóúñ ]+?)(?:\s+(?:con|and|y|,)|$)",
     re.IGNORECASE,
 )
 
@@ -136,6 +190,11 @@ def parse_regex(text: str) -> list[ParsedItem]:
         unit_l = (unit or "").lower()
         if unit_l in ("g", "gr", "gramos", "grams", "ml", "cc"):
             grams = qty_n
+        elif unit_l in HOUSEHOLD_UNIT_G:
+            per_unit = HOUSEHOLD_UNIT_G[unit_l]
+            if unit_l in _CUP_LIKE_UNITS:
+                per_unit = DRY_CUP_G.get(name_clean.split()[0], per_unit)
+            grams = qty_n * per_unit
         else:
             # Multiplier × default portion.
             grams = qty_n * DEFAULT_PORTION_G.get(name_clean.split()[0], 100.0)

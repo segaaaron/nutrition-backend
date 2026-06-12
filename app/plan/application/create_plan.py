@@ -2,20 +2,37 @@
 
 Algorithm (per day, per meal slot):
   1. Layer 1 yields eligible candidate IDs (region/allergens/conditions).
+     Cached per meal_time for the whole generation (catalog is static
+     within one run).
   2. Layer 2 picks the top-20 macro-balanced shortlist (kcal/protein
-     residuals) honouring repetition cap (rolling 7-day forbidden set).
-  3. Layer 3 ranks the shortlist with the taste-EMA composite.
-  4. Layer 4 runs a single LLM coherence pass over the candidate plan and
+     fit) honouring the repetition cap (rolling forbidden window: 7 days
+     for day/week plans, 14 days for month plans) plus same-day
+     cross-slot dedup. If the cap starves the pool, it is relaxed
+     progressively (history first, then same-day) — safety filters are
+     never relaxed, they live in Layer 1.
+  3. Layer 3 ranks the shortlist with the taste-EMA composite, fed with
+     real novelty counts (recipe occurrences in the user's plans over
+     the last 30 days, updated in-generation as slots are filled) and
+     adherence rates (historical completion per recipe).
+  4. Seeded stochastic pick over the top-5 ranked candidates (geometric
+     weights) — same seed + same DB state reproduces the same plan
+     (novelty counts and catalog contents are inputs too); a fresh seed
+     yields a different-but-equally-good plan, so regeneration never
+     returns an identical plan and month plans don't cycle the same week.
+  5. Layer 4 runs a single LLM coherence pass over the candidate plan and
      applies validated swaps from the per-slot alternatives map.
-  5. Persist plan + days + meals + seed via the repository.
+  6. Persist plan + days + meals + seed via the repository.
 
-Per-meal-slot kcal share = daily kcal / meals_per_day; per-meal protein
-share = daily protein / meals_per_day. Layer 4 is best-effort: failures
-return the unmodified plan.
+Per-meal kcal/protein shares follow the slot-weight distribution
+(`_SLOT_WEIGHTS`) instead of a uniform split, and the divisor is the
+number of slots actually generated, so daily totals close to the target
+even when `meals_per_day` exceeds the available slot set. Layer 4 is
+best-effort: failures return the unmodified plan.
 """
 
 from __future__ import annotations
 
+import random
 import secrets
 import time
 from dataclasses import dataclass
@@ -48,6 +65,23 @@ _layer_hist = Histogram(
     buckets=(0.025, 0.05, 0.1, 0.2, 0.5, 1.0, 3.0, 10.0),
 )
 
+# Per-slot kcal/protein distribution (replaces the old uniform split).
+# Keyed by number of generated slots; values follow `meal_times` order
+# (breakfast, lunch, dinner, snack). Nutrition rationale: lunch is the
+# largest intake in LatAm/EU eating patterns; snack is a light bridge.
+_SLOT_WEIGHTS: dict[int, tuple[float, ...]] = {
+    1: (1.0,),
+    2: (0.45, 0.55),
+    3: (0.30, 0.40, 0.30),
+    4: (0.25, 0.35, 0.30, 0.10),
+}
+
+# Geometric sampling weights over the top-5 Layer3 candidates. Rank 1
+# stays the most likely pick (~52%) so quality is preserved, while the
+# tail introduces enough seeded variety that two generations (different
+# seeds) or two weeks of a month plan don't repeat the same sequence.
+_PICK_WEIGHTS: tuple[float, ...] = (8.0, 4.0, 2.0, 1.0, 0.5)
+
 
 class _UserContext(Protocol):
     async def get_user_targets(self, user_id: UUID) -> dict: ...
@@ -78,7 +112,7 @@ class CreatePlan:
     bus: EventBus
     ensure_goals: _EnsureGoalsPort | None = None
     meals_per_day_default: int = 3
-    meal_times: tuple[str, ...] = ("breakfast", "lunch", "dinner")
+    meal_times: tuple[str, ...] = ("breakfast", "lunch", "dinner", "snack")
 
     async def __call__(
         self,
@@ -119,35 +153,96 @@ class CreatePlan:
         kcal_daily = int(targets.get("kcal_max") or targets.get("kcal_min") or 2000)
         protein_daily = int(targets.get("protein_g") or 100)
         meals_per_day = int(targets.get("meals_per_day") or self.meals_per_day_default)
-        kcal_share = kcal_daily // max(1, meals_per_day)
-        protein_share = protein_daily // max(1, meals_per_day)
+        # The kcal/protein divisor is the number of slots actually
+        # generated. Previously `meals_per_day=5` divided the day into 5
+        # shares but only 3 slots existed → the plan silently delivered
+        # ~60% of the daily target.
+        slots = self.meal_times[: max(1, min(meals_per_day, len(self.meal_times)))]
+        weights = _SLOT_WEIGHTS.get(len(slots)) or tuple(
+            1.0 / len(slots) for _ in slots
+        )
+        kcal_share_by_slot = {
+            mt: max(1, int(round(kcal_daily * w))) for mt, w in zip(slots, weights, strict=False)
+        }
+        protein_share_by_slot = {
+            mt: max(1, int(round(protein_daily * w))) for mt, w in zip(slots, weights, strict=False)
+        }
 
         plan_id = uuid4()
         now = datetime.now(UTC)
         days: list[PlanDay] = []
+        rng = random.Random(seed)  # noqa: S311 — meal variety sampling, not crypto; seeded for reproducibility
 
-        # rolling 7-day forbidden set, by meal_time, for repetition cap.
-        forbidden: dict[str, set[UUID]] = {mt: set() for mt in self.meal_times}
+        # Real historical signals for Layer3 (previously never wired, so
+        # novelty was constant 1.0 and adherence constant 0.5 — 20% of the
+        # composite score was dead weight). `novelty_counts` is also
+        # updated in-generation so a month plan penalises recipes already
+        # used in earlier weeks of the same plan.
+        novelty_counts = dict(
+            await self.plans.count_recent_recipe_occurrences(user_id, days=30)
+        )
+        adherence_rates = await self.plans.recipe_completion_rates(user_id)
+
+        # Rolling forbidden window, by meal_time: 7 days for day/week
+        # plans, 14 for month plans (a 7-day window let deterministic
+        # picks cycle the exact same week 4×).
+        window_days = 7 if total_days <= 7 else 14
+        forbidden: dict[str, set[UUID]] = {mt: set() for mt in slots}
         forbidden_window: list[tuple[int, str, UUID]] = []  # (day_index, mt, rid)
         alternatives_by_slot: dict[tuple[int, str], list[str]] = {}
+        # Layer1 candidates are stable within one generation run — cache
+        # per meal_time instead of re-querying per day (month plan: 120
+        # identical queries → 4).
+        layer1_cache: dict[str, list[UUID]] = {}
 
         for d in range(total_days):
             day_id = uuid4()
             meals: list[PlanMeal] = []
-            for mt in self.meal_times[:meals_per_day]:
+            chosen_today: set[UUID] = set()
+            for mt in slots:
                 t0 = time.perf_counter()
-                cand_ids = await self.layer1(user_id=user_id, meal_time=mt)
+                if mt not in layer1_cache:
+                    layer1_cache[mt] = await self.layer1(user_id=user_id, meal_time=mt)
+                cand_ids = layer1_cache[mt]
                 _layer_hist.labels(layer="1").observe(time.perf_counter() - t0)
 
                 t0 = time.perf_counter()
+                kcal_share = kcal_share_by_slot[mt]
+                protein_share = protein_share_by_slot[mt]
                 shortlist = await self.layer2(
                     candidate_ids=cand_ids,
                     meal_time=mt,
                     kcal_target_share=kcal_share,
                     protein_target_share=protein_share,
-                    forbidden_ids=forbidden[mt],
+                    # Cross-slot dedup: never serve the same recipe twice
+                    # in one day, regardless of slot.
+                    forbidden_ids=forbidden[mt] | chosen_today,
                     top_k=20,
                 )
+                if not shortlist and (forbidden[mt] or chosen_today):
+                    # Repetition cap starved the pool (small catalog for
+                    # this user's allergen/condition profile). Variety is
+                    # a preference, not a safety rule — relax history
+                    # first, then same-day dedup, rather than serving a
+                    # partial day. Safety filters live in Layer1 and are
+                    # never relaxed.
+                    shortlist = await self.layer2(
+                        candidate_ids=cand_ids,
+                        meal_time=mt,
+                        kcal_target_share=kcal_share,
+                        protein_target_share=protein_share,
+                        forbidden_ids=chosen_today,
+                        top_k=20,
+                    )
+                if not shortlist and chosen_today:
+                    shortlist = await self.layer2(
+                        candidate_ids=cand_ids,
+                        meal_time=mt,
+                        kcal_target_share=kcal_share,
+                        protein_target_share=protein_share,
+                        forbidden_ids=set(),
+                        top_k=20,
+                    )
                 _layer_hist.labels(layer="2").observe(time.perf_counter() - t0)
 
                 t0 = time.perf_counter()
@@ -155,6 +250,8 @@ class CreatePlan:
                     user_id=user_id,
                     candidate_ids=[rid for rid, _ in shortlist],
                     meal_time=mt,
+                    novelty_counts=novelty_counts,
+                    adherence_rates=adherence_rates,
                 )
                 _layer_hist.labels(layer="3").observe(time.perf_counter() - t0)
 
@@ -163,8 +260,19 @@ class CreatePlan:
                     # generator surfaces this as a partial day; UI can offer
                     # manual override.
                     continue
-                chosen, _ = ranked[0]
-                alternatives_by_slot[(d, mt)] = [str(rid) for rid, _ in ranked[1:6]]
+                # Seeded stochastic pick over the top-5: same seed →
+                # same plan (reproducible); new seed → fresh-but-good
+                # plan. Replaces the old deterministic ranked[0] pick
+                # that made every regeneration identical.
+                top = ranked[: len(_PICK_WEIGHTS)]
+                chosen = rng.choices(
+                    [rid for rid, _ in top],
+                    weights=_PICK_WEIGHTS[: len(top)],
+                    k=1,
+                )[0]
+                alternatives_by_slot[(d, mt)] = [
+                    str(rid) for rid, _ in ranked[:6] if rid != chosen
+                ][:5]
 
                 meal_id = uuid4()
                 meals.append(
@@ -181,11 +289,13 @@ class CreatePlan:
                 )
                 forbidden_window.append((d, mt, chosen))
                 forbidden[mt].add(chosen)
+                chosen_today.add(chosen)
+                novelty_counts[chosen] = novelty_counts.get(chosen, 0) + 1
 
-            # Slide repetition window: drop entries older than 7 days.
-            cutoff = d - 6
+            # Slide repetition window: drop entries older than window_days.
+            cutoff = d - (window_days - 1)
             forbidden_window = [t for t in forbidden_window if t[0] >= cutoff]
-            forbidden = {mt: set() for mt in self.meal_times}
+            forbidden = {mt: set() for mt in slots}
             for _, mt, rid in forbidden_window:
                 forbidden[mt].add(rid)
 
@@ -271,7 +381,9 @@ class CreatePlan:
             current_day=1,
             status="active",
             goal=str(targets.get("goal") or ""),
-            meals_per_day=meals_per_day,
+            # Honest value: the number of slots actually generated (a
+            # request for 5 meals clamps to the 4 available slots).
+            meals_per_day=len(slots),
             preferences=preferences or [],
             kcal_target=kcal_daily,
             version=0,
@@ -279,6 +391,29 @@ class CreatePlan:
             days=days,
             water_view=water_view,
         )
+        # Per-meal macros (2026-06-11 root-cause fix). Persisting plans
+        # with NULL kcal/protein/carbs/fat broke the iOS plan screen — UI
+        # rendered each meal as nutritional zero. Layer3 picks a recipe
+        # for each slot; recipes already carry their own kcal+macro totals
+        # in `recipes.{kcal,protein_g,carbs_g,fat_g}`. We batch-fetch them
+        # in a single query (typically ~15 unique recipes across 21 meals
+        # due to weekly repetition) and project them onto each PlanMeal
+        # BEFORE persistence. Layer4 swaps may have changed `recipe_id`,
+        # so this step must run AFTER Layer4 and BEFORE save.
+        all_recipe_ids = [
+            m.recipe_id for d in days for m in d.meals if m.recipe_id is not None
+        ]
+        if all_recipe_ids:
+            macros = await self.plans.fetch_recipe_macros(all_recipe_ids)
+            for d in days:
+                for m in d.meals:
+                    if m.recipe_id is None:
+                        continue
+                    row = macros.get(m.recipe_id)
+                    if row is None:
+                        continue
+                    m.kcal, m.protein_g, m.carbs_g, m.fat_g = row
+
         # Idempotent-by-user invariant (2026-06-11 root-cause fix for iOS
         # plan-create errors). The `one_active_plan` partial unique index
         # on `plans(user_id) WHERE status='active'` made every regeneration

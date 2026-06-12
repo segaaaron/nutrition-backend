@@ -216,6 +216,9 @@ def calculate_water_target(
     capped_by_medical = False
     if conditions & MEDICAL_OVERRIDE_CONDITIONS:
         total = min(total, MEDICAL_OVERRIDE_CAP_ML)
+        # Semantics (property-tested): True whenever a medical override
+        # condition is present — it means "user is under a medical fluid
+        # restriction", not "the cap numerically reduced the value".
         capped_by_medical = True
 
     # ---- Materialise to int (banker's rounding) -----------------------

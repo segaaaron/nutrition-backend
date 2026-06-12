@@ -12,7 +12,7 @@ from uuid import UUID, uuid4
 
 # pgvector lacks py.typed marker, runtime works.
 from pgvector.sqlalchemy import Vector  # type: ignore[import-untyped]
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, Text
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, Numeric, Text
 from sqlalchemy.dialects.postgresql import ENUM as PG_ENUM
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
@@ -49,6 +49,9 @@ class VisionJobModel(Base):
     image_bytes: Mapped[int] = mapped_column(Integer)
     idempotency_key: Mapped[str | None] = mapped_column(Text, nullable=True)
     prompt_sha256: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Perceptual hash (63-bit aHash) — column created by migration 0013,
+    # producer wired 2026-06-11 (near-dup photo dedup + anomaly signal).
+    phash_64: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     detected_items: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     error_code: Mapped[str | None] = mapped_column(Text, nullable=True)
     error_detail: Mapped[str | None] = mapped_column(Text, nullable=True)

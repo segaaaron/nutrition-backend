@@ -49,10 +49,10 @@ from contextvars import ContextVar, Token
 from dataclasses import dataclass, fields, is_dataclass
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Any, Optional
+from typing import Any
 from uuid import UUID
 
-Handler = Callable[[Any], Optional[Awaitable[None]]]
+Handler = Callable[[Any], Awaitable[None] | None]
 
 
 @dataclass(frozen=True, slots=True)

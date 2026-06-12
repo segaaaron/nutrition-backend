@@ -14,6 +14,7 @@ from uuid import UUID
 from redis.asyncio import Redis
 
 from app.core.event_bus import EventBus
+from app.shared.domain.time import utc_today
 from app.tracking.domain.food_log import (
     DailyTotals,
     FoodLog,
@@ -65,7 +66,7 @@ class DeleteFoodLog:
     ) -> None:
         await self.repo.delete(user_id=user_id, log_id=log_id, reason=reason)
         if self.redis is not None:
-            await self.redis.delete(_cache_key_totals(user_id, date.today()))
+            await self.redis.delete(_cache_key_totals(user_id, utc_today()))
 
 
 @dataclass(slots=True)
@@ -74,7 +75,7 @@ class GetDailyTotals:
     redis: Redis | None = None
 
     async def __call__(self, *, user_id: UUID, on: date | None = None) -> DailyTotals:
-        on = on or date.today()
+        on = on or utc_today()
         if self.redis is not None:
             cached = await self.redis.get(_cache_key_totals(user_id, on))
             if cached:
@@ -92,7 +93,7 @@ class GetDailyTotals:
                     sodium_mg=d.get("sodium_mg", 0),
                 )
         totals = await self.repo.daily_totals(user_id=user_id, on=on)
-        if self.redis is not None and on == date.today():
+        if self.redis is not None and on == utc_today():
             import json
 
             await self.redis.set(

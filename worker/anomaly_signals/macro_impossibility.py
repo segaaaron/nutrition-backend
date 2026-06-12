@@ -42,7 +42,7 @@ _SQL_KCAL = text(
            COUNT(DISTINCT date)   AS active_days
       FROM food_logs
      WHERE user_id = :uid
-       AND created_at >= now() - (:days || ' days')::interval
+       AND created_at >= now() - make_interval(days => :days)
     """
 )
 

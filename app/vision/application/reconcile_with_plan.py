@@ -8,12 +8,13 @@ to a single mini call (or skips if the gap is < 15% kcal).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.shared.domain.time import utc_today
 
 
 @dataclass(slots=True)
@@ -42,7 +43,7 @@ class ReconcileWithPlan:
              LIMIT 1
         """
                 ),
-                {"uid": str(user_id), "today": date.today(), "mt": meal_time},
+                {"uid": str(user_id), "today": utc_today(), "mt": meal_time},
             )
         ).first()
         if not row:

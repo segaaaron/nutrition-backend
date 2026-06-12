@@ -44,6 +44,12 @@ class DetectedFoodItem:
     matched_food_id: UUID | None = None
     matched_name_norm: str | None = None
     match_method: str | None = None  # 'trigram' | 'embedding' | 'unmatched'
+    # Plate Decomposition 2.0 (optional — older cached JSONB rows lack them).
+    role: str | None = None  # main|side|sauce|condiment|cooking_fat|garnish|sweetener|beverage_base
+    prep_method: str | None = None  # deep_fried|fried|sauteed|grilled|boiled|steamed|baked|stewed|raw|unknown
+    kcal_min: int | None = None
+    kcal_max: int | None = None
+    inferred: bool = False  # True = added by hidden-calorie post-pass, not detected by the LLM
 
 
 @dataclass(slots=True)

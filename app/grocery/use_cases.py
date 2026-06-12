@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import math
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
@@ -89,7 +90,10 @@ class GenerateGroceryList:
         for r in rows:
             name = r["name"]
             total_g = float(r["total_g"] or 0) * scale
-            amount = f"{int(round(total_g))} g" if total_g > 0 else None
+            # Ceil, not round(): Python's banker's rounding turns 0.5 g
+            # into 0 g and 2.5 g into 2 g. For a shopping list,
+            # under-buying is the bad failure mode — always round up.
+            amount = f"{math.ceil(total_g)} g" if total_g > 0 else None
             items.append(
                 GroceryItem(
                     id=uuid4(),

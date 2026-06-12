@@ -30,6 +30,14 @@ def mifflin_st_jeor(
     sex: Sex,
 ) -> Decimal:
     """Canonical Decimal BMR. kcal/day, rounded half-even."""
+    if weight_kg <= 0 or height_cm <= 0 or age < 1:
+        # A zero/negative biometric silently yields a nonsensical BMR
+        # (negative for extreme ages) that would corrupt every downstream
+        # goal. Onboarding validation makes this unreachable in practice;
+        # raising here is the defense-in-depth backstop.
+        raise ValueError(
+            f"invalid biometrics: weight_kg={weight_kg} height_cm={height_cm} age={age}"
+        )
     base = Decimal("10") * weight_kg + Decimal("6.25") * height_cm - Decimal("5") * Decimal(age)
     offset = Decimal("5") if sex == "male" else Decimal("-161")
     return (base + offset).quantize(_INT, rounding=ROUND_HALF_EVEN)

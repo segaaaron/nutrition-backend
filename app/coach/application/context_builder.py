@@ -10,7 +10,6 @@ Sources:
 
 from __future__ import annotations
 
-from datetime import date
 from uuid import UUID
 
 from sqlalchemy import text
@@ -24,6 +23,7 @@ from app.coach.infrastructure.prompt_sanitizer import (
 from app.coach.infrastructure.repositories import SqlConversationRepository
 from app.core.logging import get_logger
 from app.recipes.infrastructure.openai_embedder import OpenAIEmbedder
+from app.shared.domain.time import utc_today
 
 log = get_logger("coach.context_builder")
 
@@ -99,7 +99,7 @@ async def build_context(
          WHERE p.user_id = :uid AND p.status = 'active' AND pd.date = :d
     """
             ),
-            {"uid": str(user_id), "d": date.today()},
+            {"uid": str(user_id), "d": utc_today()},
         )
     ).all()
     if rows:

@@ -15,6 +15,7 @@ from app.plan.infrastructure.models import (
     PlanMealModel,
     PlanModel,
 )
+from app.recipes.infrastructure.models import RecipeModel
 
 
 def _meal_from_model(m: PlanMealModel) -> PlanMeal:
@@ -82,6 +83,88 @@ class SqlPlanRepository:
         )
         m = (await self.s.execute(stmt)).scalar_one_or_none()
         return _plan_from_model(m) if m else None
+
+    async def fetch_recipe_macros(
+        self, recipe_ids: list[UUID]
+    ) -> dict[UUID, tuple[int | None, int | None, int | None, int | None]]:
+        """Batch-fetch (kcal, protein_g, carbs_g, fat_g) per recipe id.
+
+        Used by `CreatePlan` to populate per-meal macros after Layer3 picks
+        a recipe for each slot. A single round-trip avoids N+1 — typical
+        plan has 21 meals but only ~10-15 unique recipes due to weekly
+        repetition. Returns a tuple per id; missing rows are omitted so
+        callers can fall back to `None` safely.
+        """
+        if not recipe_ids:
+            return {}
+        unique_ids = list({rid for rid in recipe_ids})
+        stmt = select(
+            RecipeModel.id,
+            RecipeModel.kcal,
+            RecipeModel.protein_g,
+            RecipeModel.carbs_g,
+            RecipeModel.fat_g,
+        ).where(RecipeModel.id.in_(unique_ids))
+        rows = (await self.s.execute(stmt)).all()
+        return {row[0]: (row[1], row[2], row[3], row[4]) for row in rows}
+
+    async def count_recent_recipe_occurrences(
+        self, user_id: UUID, *, days: int = 30
+    ) -> dict[UUID, int]:
+        """Recipe → times it appeared in this user's plans recently.
+
+        Feeds the Layer3 `novelty` signal (1 - n/10): recipes the user has
+        seen often in the last `days` rank lower, so consecutive plan
+        generations rotate the catalog instead of repeating the same
+        top-ranked dishes.
+        """
+        res = await self.s.execute(
+            text(
+                """
+                SELECT pm.recipe_id, COUNT(*) AS n
+                  FROM plan_meals pm
+                  JOIN plan_days pd ON pd.id = pm.plan_day_id
+                  JOIN plans p ON p.id = pd.plan_id
+                 WHERE p.user_id = :uid
+                   AND pm.recipe_id IS NOT NULL
+                   AND pd.date >= CURRENT_DATE - CAST(:days AS int)
+                 GROUP BY pm.recipe_id
+                """
+            ),
+            {"uid": str(user_id), "days": days},
+        )
+        return {row[0]: int(row[1]) for row in res.all()}
+
+    async def recipe_completion_rates(
+        self, user_id: UUID, *, days: int = 90
+    ) -> dict[UUID, float]:
+        """Recipe → fraction of its plan appearances the user completed.
+
+        Feeds the Layer3 `adherence` signal: recipes the user actually
+        eats rank higher than ones they skip. Only recipes with at least
+        3 appearances are returned — below that the rate is noise and the
+        cold-start default (0.5) is more honest.
+        """
+        res = await self.s.execute(
+            text(
+                """
+                SELECT pm.recipe_id,
+                       COUNT(*) AS n,
+                       AVG(CASE WHEN pm.completed THEN 1.0 ELSE 0.0 END) AS rate
+                  FROM plan_meals pm
+                  JOIN plan_days pd ON pd.id = pm.plan_day_id
+                  JOIN plans p ON p.id = pd.plan_id
+                 WHERE p.user_id = :uid
+                   AND pm.recipe_id IS NOT NULL
+                   AND pd.date >= CURRENT_DATE - CAST(:days AS int)
+                   AND pd.date < CURRENT_DATE
+                 GROUP BY pm.recipe_id
+                HAVING COUNT(*) >= 3
+                """
+            ),
+            {"uid": str(user_id), "days": days},
+        )
+        return {row[0]: float(row[2]) for row in res.all()}
 
     async def acquire_user_lock(self, user_id: UUID) -> None:
         """Serialize concurrent plan generation for a single user.

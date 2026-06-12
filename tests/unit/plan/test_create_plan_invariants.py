@@ -39,6 +39,22 @@ class _StubPlans:
         self.archived_for.append(user_id)
         return 0
 
+    async def fetch_recipe_macros(
+        self, recipe_ids: list[UUID]
+    ) -> dict[UUID, tuple[int | None, int | None, int | None, int | None]]:
+        # Deterministic macros so tests can assert population.
+        return {rid: (500, 30, 50, 15) for rid in recipe_ids}
+
+    async def count_recent_recipe_occurrences(
+        self, user_id: UUID, *, days: int = 30
+    ) -> dict[UUID, int]:
+        return {}
+
+    async def recipe_completion_rates(
+        self, user_id: UUID, *, days: int = 90
+    ) -> dict[UUID, float]:
+        return {}
+
     async def save(self, plan: Any) -> Any:
         self.saved.append(plan)
         return plan
@@ -87,6 +103,8 @@ class _Layer3Empty:
         user_id: UUID,
         candidate_ids: list[UUID],
         meal_time: str,
+        novelty_counts: dict[UUID, int] | None = None,
+        adherence_rates: dict[UUID, float] | None = None,
     ) -> list[tuple[UUID, float]]:
         return []
 
@@ -259,3 +277,194 @@ async def test_create_plan_succeeds_when_pipeline_yields_meals() -> None:
     # drain or concurrent retry never trips `one_active_plan`.
     assert plans.locks == [user_id]
     assert plans.archived_for == [user_id]
+    # Per-meal macros must be populated from the recipe row, NOT left
+    # NULL (2026-06-11 fix: NULL macros rendered as zero in iOS).
+    for d in plan.days:
+        for m in d.meals:
+            assert m.kcal == 500
+            assert m.protein_g == 30
+            assert m.carbs_g == 50
+            assert m.fat_g == 15
+
+
+# ---------------------------------------------------------------------------
+# Variety invariants (algorithm 0.2.0): seeded sampling, repetition window,
+# cross-slot dedup, slot-weighted kcal shares.
+# ---------------------------------------------------------------------------
+
+
+class _Layer1Pool:
+    """Fixed candidate pool per meal_time."""
+
+    def __init__(self, pool: dict[str, list[UUID]]) -> None:
+        self.pool = pool
+        self.calls = 0
+
+    async def __call__(self, *, user_id: UUID, meal_time: str) -> list[UUID]:
+        self.calls += 1
+        return list(self.pool.get(meal_time, []))
+
+
+class _Layer2Filter:
+    """Respects forbidden_ids like the real Layer2; stable score order."""
+
+    def __init__(self) -> None:
+        self.share_calls: list[tuple[str, int, int]] = []
+
+    async def __call__(
+        self,
+        *,
+        candidate_ids: list[UUID],
+        meal_time: str,
+        kcal_target_share: int,
+        protein_target_share: int,
+        forbidden_ids: set[UUID],
+        top_k: int,
+    ) -> list[tuple[UUID, float]]:
+        self.share_calls.append((meal_time, kcal_target_share, protein_target_share))
+        kept = [cid for cid in candidate_ids if cid not in forbidden_ids]
+        return [(cid, 1.0) for cid in kept[:top_k]]
+
+
+class _Layer3PassThrough:
+    async def __call__(
+        self,
+        *,
+        user_id: UUID,
+        candidate_ids: list[UUID],
+        meal_time: str,
+        novelty_counts: dict[UUID, int] | None = None,
+        adherence_rates: dict[UUID, float] | None = None,
+    ) -> list[tuple[UUID, float]]:
+        return [(cid, 1.0) for cid in candidate_ids]
+
+
+def _pool_uc(
+    *, pool_size: int = 40, targets: dict[str, Any] | None = None
+) -> tuple[CreatePlan, _StubPlans, _Layer1Pool, _Layer2Filter]:
+    pool = {
+        mt: [uuid4() for _ in range(pool_size)]
+        for mt in ("breakfast", "lunch", "dinner", "snack")
+    }
+    plans = _StubPlans()
+    layer1 = _Layer1Pool(pool)
+    layer2 = _Layer2Filter()
+    ctx = _StubUserContext(
+        targets=targets or _valid_targets(), profile={"locale": "es"}
+    )
+    uc = CreatePlan(
+        plans=plans,  # type: ignore[arg-type]
+        layer1=layer1,  # type: ignore[arg-type]
+        layer2=layer2,  # type: ignore[arg-type]
+        layer3=_Layer3PassThrough(),  # type: ignore[arg-type]
+        layer4=_Layer4NoOp(),  # type: ignore[arg-type]
+        user_ctx=ctx,  # type: ignore[arg-type]
+        bus=EventBus(),
+    )
+    return uc, plans, layer1, layer2
+
+
+@pytest.mark.asyncio
+async def test_week_plan_has_no_repeated_recipe_per_slot() -> None:
+    uc, _, _, _ = _pool_uc()
+    plan = await uc(user_id=uuid4(), plan_type="week", seed=42)  # type: ignore[arg-type]
+
+    for mt in ("breakfast", "lunch", "dinner"):
+        picks = [
+            m.recipe_id for d in plan.days for m in d.meals if m.meal_time == mt
+        ]
+        assert len(picks) == 7
+        assert len(set(picks)) == 7, f"{mt} repeats within the week"
+
+
+@pytest.mark.asyncio
+async def test_month_plan_does_not_cycle_the_same_week() -> None:
+    """Old bug: deterministic ranked[0] + 7-day window made days 8-14
+    repeat days 1-7 exactly. With the 14-day window every 14-consecutive-day
+    stretch must be repeat-free per slot."""
+    uc, _, _, _ = _pool_uc()
+    plan = await uc(user_id=uuid4(), plan_type="month", seed=7)  # type: ignore[arg-type]
+
+    assert len(plan.days) == 30
+    for mt in ("breakfast", "lunch", "dinner"):
+        picks = [
+            m.recipe_id for d in plan.days for m in d.meals if m.meal_time == mt
+        ]
+        for start in range(len(picks) - 13):
+            window = picks[start : start + 14]
+            assert len(set(window)) == 14, (
+                f"{mt}: repeat inside 14-day window starting day {start}"
+            )
+
+
+@pytest.mark.asyncio
+async def test_no_recipe_repeats_across_slots_same_day() -> None:
+    # Same pool for every slot → without cross-slot dedup the same top
+    # recipe would land in breakfast AND lunch AND dinner.
+    shared = [uuid4() for _ in range(40)]
+    pool = {mt: list(shared) for mt in ("breakfast", "lunch", "dinner", "snack")}
+    plans = _StubPlans()
+    ctx = _StubUserContext(targets=_valid_targets(), profile={"locale": "es"})
+    uc = CreatePlan(
+        plans=plans,  # type: ignore[arg-type]
+        layer1=_Layer1Pool(pool),  # type: ignore[arg-type]
+        layer2=_Layer2Filter(),  # type: ignore[arg-type]
+        layer3=_Layer3PassThrough(),  # type: ignore[arg-type]
+        layer4=_Layer4NoOp(),  # type: ignore[arg-type]
+        user_ctx=ctx,  # type: ignore[arg-type]
+        bus=EventBus(),
+    )
+    plan = await uc(user_id=uuid4(), plan_type="week", seed=99)  # type: ignore[arg-type]
+    for d in plan.days:
+        ids = [m.recipe_id for m in d.meals]
+        assert len(ids) == len(set(ids)), f"day {d.day_index} repeats a recipe"
+
+
+@pytest.mark.asyncio
+async def test_same_seed_reproduces_plan_different_seed_varies() -> None:
+    uid = uuid4()
+    uc1, _, _, _ = _pool_uc()
+    plan_a = await uc1(user_id=uid, plan_type="week", seed=1234)  # type: ignore[arg-type]
+    # Same pools must be reused for a meaningful comparison.
+    uc2 = CreatePlan(
+        plans=_StubPlans(),  # type: ignore[arg-type]
+        layer1=uc1.layer1,
+        layer2=_Layer2Filter(),  # type: ignore[arg-type]
+        layer3=_Layer3PassThrough(),  # type: ignore[arg-type]
+        layer4=_Layer4NoOp(),  # type: ignore[arg-type]
+        user_ctx=_StubUserContext(
+            targets=_valid_targets(), profile={"locale": "es"}
+        ),  # type: ignore[arg-type]
+        bus=EventBus(),
+    )
+    plan_b = await uc2(user_id=uid, plan_type="week", seed=1234)  # type: ignore[arg-type]
+    plan_c = await uc2(user_id=uid, plan_type="week", seed=5678)  # type: ignore[arg-type]
+
+    def picks(p: Any) -> list[UUID]:
+        return [m.recipe_id for d in p.days for m in d.meals]
+
+    assert picks(plan_a) == picks(plan_b), "same seed must reproduce the plan"
+    assert picks(plan_a) != picks(plan_c), "different seed must vary the plan"
+
+
+@pytest.mark.asyncio
+async def test_kcal_shares_close_to_daily_target_even_with_5_meals() -> None:
+    """Old bug: meals_per_day=5 divided kcal by 5 but generated only 3
+    slots → plan delivered ~60% of the daily target. Now the divisor is
+    the generated slot count and shares follow _SLOT_WEIGHTS."""
+    targets = {**_valid_targets(), "meals_per_day": 5}
+    uc, _, _, layer2 = _pool_uc(targets=targets)
+    plan = await uc(user_id=uuid4(), plan_type="day", seed=1)  # type: ignore[arg-type]
+
+    # 5 requested → clamped to the 4 available slots.
+    assert plan.meals_per_day == 4
+    assert len(plan.days[0].meals) == 4
+
+    kcal_daily = targets["kcal_max"]
+    shares = {mt: k for mt, k, _ in layer2.share_calls}
+    total_share = sum(shares.values())
+    assert abs(total_share - kcal_daily) <= 4, (
+        f"slot shares {shares} sum to {total_share}, target {kcal_daily}"
+    )
+    # Lunch must be the largest share (30/40/30 + snack pattern).
+    assert shares["lunch"] == max(shares.values())

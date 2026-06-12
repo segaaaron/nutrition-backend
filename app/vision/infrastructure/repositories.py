@@ -43,6 +43,12 @@ def _items_to_jsonb(items: list[DetectedFoodItem]) -> list[dict[str, Any]]:
             "matched_food_id": str(i.matched_food_id) if i.matched_food_id else None,
             "matched_name_norm": i.matched_name_norm,
             "match_method": i.match_method,
+            # Plate Decomposition 2.0 — image-bound, shareable via SHA cache.
+            "role": i.role,
+            "prep_method": i.prep_method,
+            "kcal_min": i.kcal_min,
+            "kcal_max": i.kcal_max,
+            "inferred": i.inferred,
         }
         for i in items
     ]
@@ -86,6 +92,12 @@ def _items_from_jsonb(raw: list[dict[str, Any]] | None) -> list[DetectedFoodItem
                 matched_food_id=UUID(d["matched_food_id"]) if d.get("matched_food_id") else None,
                 matched_name_norm=d.get("matched_name_norm"),
                 match_method=d.get("match_method"),
+                # Optional v2 fields — pre-2.0 cached rows lack them.
+                role=d.get("role"),
+                prep_method=d.get("prep_method"),
+                kcal_min=int(d["kcal_min"]) if d.get("kcal_min") is not None else None,
+                kcal_max=int(d["kcal_max"]) if d.get("kcal_max") is not None else None,
+                inferred=bool(d.get("inferred", False)),
             )
         )
     return out
@@ -163,6 +175,71 @@ class SqlVisionJobRepository:
                 completed_at=datetime.now(UTC),
             )
         )
+
+    async def save_phash(self, job_id: UUID, phash_64: int) -> None:
+        await self.s.execute(
+            update(VisionJobModel)
+            .where(VisionJobModel.id == job_id)
+            .values(phash_64=phash_64)
+        )
+
+    async def find_recent_completed_by_phash(
+        self,
+        *,
+        user_id: UUID,
+        phash_64: int,
+        ttl_days: int,
+        current_prompt_sha256: str | None = None,
+        max_hamming: int = 4,
+    ) -> tuple[list[DetectedFoodItem], str | None] | None:
+        """Near-duplicate photo lookup (cost lever, 2026-06-11).
+
+        SAME-USER ONLY by design: a Hamming-≤5 aHash match across users
+        could pair visually-similar but different plates; within one
+        user it overwhelmingly means "re-photographed the same plate"
+        (blur retry, second angle, identical daily breakfast). Personal
+        matcher fields are returned as-is — same user, still re-matched
+        by the caller per the CRITICAL-2 contract.
+
+        Prompt-sha gating mirrors the SHA cache: results produced by an
+        older prompt template are never reused.
+        """
+        cutoff = datetime.now(UTC) - timedelta(days=ttl_days)
+        # Two-step on purpose: the Hamming scan only needs (id, phash) —
+        # dragging up to 200 detected_items JSONB blobs through the wire
+        # per photo was ~1 MB of waste. The winner row is fetched alone.
+        stmt = (
+            select(
+                VisionJobModel.id,
+                VisionJobModel.phash_64,
+                VisionJobModel.prompt_sha256,
+            )
+            .where(
+                VisionJobModel.user_id == user_id,
+                VisionJobModel.status == "completed",
+                VisionJobModel.created_at >= cutoff,
+                VisionJobModel.phash_64.isnot(None),
+                VisionJobModel.detected_items.isnot(None),
+            )
+            .order_by(VisionJobModel.created_at.desc())
+            .limit(200)  # per-user recent window; Hamming filter in Python
+        )
+        if current_prompt_sha256 is not None:
+            stmt = stmt.where(VisionJobModel.prompt_sha256 == current_prompt_sha256)
+        rows = (await self.s.execute(stmt)).all()
+        for row_id, row_phash, row_prompt_sha in rows:
+            if (int(row_phash) ^ phash_64).bit_count() <= max_hamming:
+                raw_items = (
+                    await self.s.execute(
+                        select(VisionJobModel.detected_items).where(
+                            VisionJobModel.id == row_id
+                        )
+                    )
+                ).scalar_one_or_none()
+                if raw_items is None:
+                    return None
+                return _items_from_jsonb(raw_items), row_prompt_sha
+        return None
 
     async def find_recent_completed_by_sha(
         self,

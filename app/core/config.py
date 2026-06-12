@@ -91,12 +91,15 @@ class Settings(BaseSettings):
     # the heavier, more accurate model. Set both equal to disable cascade.
     openai_vision_model_primary: str = "gpt-4o-mini"
     openai_vision_model_fallback: str = "gpt-4o-2024-08-06"
-    # MASTER feature flag for the hybrid cost cascade. OFF by default in prod
-    # until the golden-set calibration validates the 0.7 confidence threshold.
+    # MASTER feature flag for the hybrid cost cascade. ON by default since
+    # 2026-06-11 (owner decision): the DB macro grounding in
+    # process_vision_job compensates the cheap model's weak kcal
+    # arithmetic, so the historical reason to keep this OFF (pending
+    # golden-set calibration) no longer outweighs the ~65% cost saving.
     # When False: every call goes straight to the fallback (gpt-4o full) —
     # behaviour identical to the legacy single-model pipeline.
     # See docs/algorithms/ for golden-set protocol.
-    vision_cascade_enabled: bool = False
+    vision_cascade_enabled: bool = True
     # Average confidence threshold to *accept* the primary model output.
     # Below this OR if min(item.confidence) < 0.5 OR items.empty → fallback.
     vision_confidence_threshold: float = 0.7
@@ -194,7 +197,7 @@ class Settings(BaseSettings):
     mvp_blocked_regions: str = "us"
 
     @model_validator(mode="after")
-    def _validate_prod_requirements(self) -> "Settings":
+    def _validate_prod_requirements(self) -> Settings:
         is_api = self.service_role == "api"
         is_prod_api = is_api and self.env == "prod"
         # CORS gate: prod-api only (preserves original env=="prod" rule).

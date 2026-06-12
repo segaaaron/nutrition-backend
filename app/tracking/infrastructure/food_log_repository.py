@@ -226,7 +226,7 @@ class SqlFoodLogRepository:
             """
             SELECT day, kcal, protein_g, carbs_g, fat_g
               FROM food_logs_aggregates_daily
-             WHERE user_id = :uid AND day >= (CURRENT_DATE - (:n || ' days')::interval)
+             WHERE user_id = :uid AND day >= CURRENT_DATE - CAST(:n AS int)
              ORDER BY day ASC
         """
         )
@@ -250,7 +250,7 @@ class SqlFoodLogRepository:
                    COALESCE(SUM(fat_g),0)::int     AS fat_g
               FROM food_logs
              WHERE user_id = :uid
-               AND date >= (CURRENT_DATE - (:n || ' days')::interval)::date
+               AND date >= CURRENT_DATE - CAST(:n AS int)
              GROUP BY date
              ORDER BY date ASC
         """

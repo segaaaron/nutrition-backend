@@ -18,7 +18,7 @@ positive framing, forward-action, no punitive language.
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from datetime import UTC, date
+from datetime import UTC
 from typing import Final
 from uuid import UUID
 
@@ -26,6 +26,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.coach.domain.value_objects import Intent
+from app.shared.domain.time import utc_today
 
 # Direct submodule import — avoid the ``app.shared.i18n`` package facade
 # which pulls in FastAPI-only ``fastapi_dep`` (and via identity, this very
@@ -135,7 +136,7 @@ async def view_today_plan(user_id: UUID, session: AsyncSession, locale: Locale) 
          ORDER BY array_position(ARRAY['breakfast','lunch','dinner','snack']::text[], pm.meal_time::text)
     """
             ),
-            {"uid": str(user_id), "d": date.today()},
+            {"uid": str(user_id), "d": utc_today()},
         )
     ).all()
     if not rows:
@@ -164,7 +165,7 @@ async def next_meal(user_id: UUID, session: AsyncSession, locale: Locale) -> str
          LIMIT 1
     """
             ),
-            {"uid": str(user_id), "d": date.today()},
+            {"uid": str(user_id), "d": utc_today()},
         )
     ).first()
     if not row:

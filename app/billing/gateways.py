@@ -20,7 +20,7 @@ import hashlib
 import hmac
 import json
 import time
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 from urllib.parse import urlencode
 from uuid import UUID
@@ -337,8 +337,13 @@ class MercadoPagoGateway:
                 "amount_cents": cents,
                 "currency": currency,
             }
-        # Decimal-correct unit price (cents → major units, 2 dp); never float math.
-        unit_price = float((Decimal(cents) / Decimal(100)).quantize(Decimal("0.01")))
+        # Decimal-correct unit price (cents → major units, 2 dp); never float
+        # math. Explicit ROUND_HALF_UP: the default context rounding is
+        # half-even, which is the wrong default for money if a 3-decimal
+        # currency is ever added.
+        unit_price = float(
+            (Decimal(cents) / Decimal(100)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        )
         body: dict[str, Any] = {
             "items": [
                 {

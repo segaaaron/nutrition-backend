@@ -320,12 +320,11 @@ class Logout:
         await self.refresh_tokens.revoke(rec.id, _now())
         # OWASP API2: revoke access token jti so it cannot be reused until expiry.
         if access_token:
-            from app.core.config import get_settings
-            from app.identity.infrastructure.jwt_signer import revoke_jti
-
             from redis.exceptions import RedisError
 
+            from app.core.config import get_settings
             from app.core.errors import Unauthenticated
+            from app.identity.infrastructure.jwt_signer import revoke_jti
 
             try:
                 claims = await self.jwt.verify_access(access_token)

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
@@ -162,11 +164,17 @@ class HandleWebhook:
     provider: BillingProvider
 
     async def __call__(self, *, event: dict) -> dict:
-        event_id = (
-            event.get("id")
-            or event.get("data", {}).get("id")
-            or f"{self.provider.value}:{datetime.now(UTC).timestamp()}"
-        )
+        # Fallback when the provider omits `id`: deterministic hash of the
+        # payload, NOT a timestamp. A timestamp-based synthetic id made every
+        # replay of the same id-less webhook look unique → duplicate
+        # processing. Same payload now always maps to the same event_id, so
+        # the insert_webhook_event dedup still holds.
+        event_id = event.get("id") or event.get("data", {}).get("id")
+        if not event_id:
+            digest = hashlib.sha256(
+                json.dumps(event, sort_keys=True, default=str).encode()
+            ).hexdigest()[:32]
+            event_id = f"{self.provider.value}:sha:{digest}"
         ok = await self.repo.insert_webhook_event(
             event_id=event_id,
             provider=self.provider.value,

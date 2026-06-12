@@ -33,7 +33,7 @@ _SQL_DAILY_KCAL = text(
     SELECT date AS d, COALESCE(SUM(kcal), 0)::numeric AS kcal_day
       FROM food_logs
      WHERE user_id = :uid
-       AND date >= (current_date - (:days || ' days')::interval)::date
+       AND date >= current_date - CAST(:days AS int)
      GROUP BY date
      ORDER BY date
     """
@@ -45,7 +45,7 @@ _SQL_DAILY_WEIGHT = text(
            AVG(weight_kg)::numeric        AS wkg
       FROM weight_logs
      WHERE user_id = :uid
-       AND time >= now() - (:days || ' days')::interval
+       AND time >= now() - make_interval(days => :days)
      GROUP BY d
      ORDER BY d
     """

@@ -2,14 +2,16 @@
 
 Inputs from Layer 1: `candidate_ids` already region/allergen/condition safe.
 
-Per slot, fetch macro metadata once, rank by a single weighted score:
+Per slot, fetch macro metadata once, rank by a normalised weighted score:
 
-    score = -|recipe.kcal - target_kcal_share|
-            + 0.1 * (recipe.protein_g / target_protein_share)
+    kcal_fit    = max(0, 1 - |recipe.kcal - target_kcal_share| / target_kcal_share)
+    protein_fit = min(1, recipe.protein_g / target_protein_share)
+    score       = 0.7 * kcal_fit + 0.3 * protein_fit
 
-The minus on the kcal residual punishes deviation from the meal's kcal share
-(strict balance), while the small positive protein bonus tilts toward
-hitting the daily protein goal (spec §6).
+Both terms live in [0, 1] so the weights mean what they say. The previous
+formula (`-kcal_dev + 0.1 * protein_ratio`) mixed raw kcal units (hundreds)
+with a ≤0.2 protein bonus, so protein was decimal noise and the daily
+protein goal was effectively ignored (spec §6).
 
 Repetition cap: caller passes `forbidden_ids` containing recipes already
 present in the rolling 7-day window (spec §9.5 step 5). We filter those out
@@ -60,11 +62,15 @@ class Layer2Shortlist:
             sql, {"ids": [str(i) for i in filtered], "meal_time": meal_time}
         )
         target_p = max(1, protein_target_share)
+        target_k = max(1, kcal_target_share)
         scored: list[tuple[UUID, float]] = []
         for row in res.mappings():
             kcal_dev = abs(int(row["kcal"]) - kcal_target_share)
-            protein_bonus = 0.1 * (int(row["protein_g"]) / target_p)
-            scored.append((row["id"], -kcal_dev + protein_bonus))
+            kcal_fit = max(0.0, 1.0 - kcal_dev / target_k)
+            protein_fit = min(1.0, int(row["protein_g"]) / target_p)
+            scored.append((row["id"], 0.7 * kcal_fit + 0.3 * protein_fit))
 
-        scored.sort(key=lambda x: x[1], reverse=True)
+        # Stable tie-break by id: equal scores must rank identically
+        # across runs for seeded reproducibility.
+        scored.sort(key=lambda x: (-x[1], str(x[0])))
         return scored[:top_k]

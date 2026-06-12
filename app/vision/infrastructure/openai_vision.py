@@ -133,6 +133,8 @@ VISION_SCHEMA: dict[str, Any] = {
                     "name": {"type": "string"},
                     "estimated_amount_g": {"type": "number"},
                     "kcal": {"type": "integer"},
+                    "kcal_min": {"type": "integer"},
+                    "kcal_max": {"type": "integer"},
                     "protein_g": {"type": "integer"},
                     "carbs_g": {"type": "integer"},
                     "fat_g": {"type": "integer"},
@@ -151,16 +153,48 @@ VISION_SCHEMA: dict[str, Any] = {
                             "other",
                         ],
                     },
+                    "role": {
+                        "type": "string",
+                        "enum": [
+                            "main",
+                            "side",
+                            "sauce",
+                            "condiment",
+                            "cooking_fat",
+                            "garnish",
+                            "sweetener",
+                            "beverage_base",
+                        ],
+                    },
+                    "prep_method": {
+                        "type": "string",
+                        "enum": [
+                            "deep_fried",
+                            "fried",
+                            "sauteed",
+                            "grilled",
+                            "boiled",
+                            "steamed",
+                            "baked",
+                            "stewed",
+                            "raw",
+                            "unknown",
+                        ],
+                    },
                 },
                 "required": [
                     "name",
                     "estimated_amount_g",
                     "kcal",
+                    "kcal_min",
+                    "kcal_max",
                     "protein_g",
                     "carbs_g",
                     "fat_g",
                     "confidence",
                     "food_group",
+                    "role",
+                    "prep_method",
                 ],
             },
         },
@@ -170,12 +204,37 @@ VISION_SCHEMA: dict[str, Any] = {
 
 
 def _system_prompt(locale: str, region: str) -> str:
+    # Plate Decomposition 2.0 — full decomposition, not just visible items.
+    # Any wording change here changes prompt_sha256 → SHA dedup cache
+    # self-invalidates (by design).
     return (
-        "Eres un experto en nutrición LatAm/US/EU. Analiza la foto del plato y "
-        "devuelve solo ingredientes visibles con macros estimados per ítem, en gramos. "
-        "Usa USDA FDC como referencia. Confidence en 0..1. "
-        "Clasifica cada ítem en food_group: vegetable|fruit|grain|protein|dairy|"
-        "fat|sweet|beverage|other. "
+        "Eres un nutricionista clínico experto en cocina LatAm/US/EU que "
+        "descompone platos a partir de una foto. Devuelve TODOS los "
+        "componentes del plato o bebida, no solo los visibles:\n"
+        "1) Componentes visibles: principal, guarniciones, salsas, "
+        "aderezos, condimentos, toppings, bebida.\n"
+        "2) Componentes INVISIBLES inferidos por el método de preparación: "
+        "aceite absorbido en frituras y salteados, mantequilla en purés, "
+        "crema en sopas cremosas, azúcar en jugos/refrescos/postres, "
+        "aderezo en ensaladas que se ven aliñadas.\n"
+        "3) Condimentos: DIFERENCIA especias secas (comino, pimienta, "
+        "orégano, ají seco molido — kcal 0-5, cantidades de 1-3 g) de "
+        "condimentos calóricos (ají en aceite, salsa criolla, mayonesa, "
+        "chimichurri, ketchup, crema — kcal reales con su gramaje).\n"
+        "Por cada ítem: role (main|side|sauce|condiment|cooking_fat|"
+        "garnish|sweetener|beverage_base), prep_method (deep_fried|fried|"
+        "sauteed|grilled|boiled|steamed|baked|stewed|raw|unknown), "
+        "estimated_amount_g (mejor estimación), kcal para esa cantidad, y "
+        "kcal_min/kcal_max como rango honesto según tu incertidumbre de "
+        "porción (kcal_min <= kcal <= kcal_max). Macros para la mejor "
+        "estimación. Usa USDA FDC como referencia. Confidence en 0..1. "
+        "Clasifica food_group: vegetable|fruit|grain|protein|dairy|fat|"
+        "sweet|beverage|other. "
+        "ESCALA DE PORCIONES: usa objetos de referencia en la foto para "
+        "calibrar gramos — plato estándar Ø26cm, plato hondo ~400ml, "
+        "cuchara sopera 15ml, tenedor 18cm, vaso 250ml, taza 240ml, lata "
+        "355ml, mano/dedos si aparecen. Estima la profundidad del montículo "
+        "de comida, no solo el área. "
         f"Locale={locale}. Region={region}. "
         "Devuelve estricto JSON conforme al esquema; nunca texto libre."
     )
@@ -365,6 +424,10 @@ class OpenAIVisionProvider:
             )
             return True, "parse_error_accept_default"
 
+        if reason_raw not in PREFILTER_VALID_REASONS:
+            # Surface the raw value: if a prompt update makes the LLM emit
+            # new reason codes, this is the only trace of what it said.
+            log.info("vision.prefilter.invalid_reason", reason_raw=str(reason_raw)[:60])
         reason = reason_raw if reason_raw in PREFILTER_VALID_REASONS else "uncertain"
         log.info(
             "vision.prefilter.result",
@@ -382,6 +445,7 @@ class OpenAIVisionProvider:
         user_id: UUID | None,
         locale: str,
         region: str,
+        stage: str = "auto",
     ) -> tuple[list[DetectedFoodItem], str]:
         s = get_settings()
         sys_prompt = _system_prompt(locale, region)
@@ -401,6 +465,31 @@ class OpenAIVisionProvider:
         fallback_model = self._fallback_model()
         cascade_enabled = primary_model != fallback_model
 
+        # Pipeline-directed stages (grounded escalation, 2026-06-11):
+        # the use case calls "primary_only" first, grounds the result
+        # against the foods catalog, and only re-calls with "full_only"
+        # when grounding could NOT vouch for the cheap model's output.
+        # This kills the escalations the old internal cascade fired for
+        # photos whose macros the catalog fixes anyway.
+        if stage == "full_only":
+            full_items = await self._invoke(
+                model=fallback_model,
+                sys_prompt=sys_prompt,
+                data_url=data_url,
+                detail=detail,
+                user_id=user_id,
+                max_output_tokens=s.vision_max_output_tokens,
+            )
+            log.info(
+                "vision.cascade",
+                stage=stage,
+                fallback_model=fallback_model,
+                n_items=len(full_items),
+                detail=detail,
+                prompt_sha=prompt_sha[:8],
+            )
+            return full_items, prompt_sha
+
         # --- Primary call ---
         primary_items = await self._invoke(
             model=primary_model,
@@ -410,6 +499,26 @@ class OpenAIVisionProvider:
             user_id=user_id,
             max_output_tokens=s.vision_max_output_tokens,
         )
+
+        if stage == "primary_only":
+            if not cascade_enabled:
+                # Misconfig guard: primary == fallback means this call
+                # already paid the heavy model; a pipeline escalation to
+                # "full_only" would pay it AGAIN for the same answer.
+                log.warning(
+                    "vision.cascade.models_identical",
+                    model=primary_model,
+                    hint="set distinct openai_vision_model_primary/fallback or disable cascade",
+                )
+            log.info(
+                "vision.cascade",
+                stage=stage,
+                primary_model=primary_model,
+                n_items=len(primary_items),
+                detail=detail,
+                prompt_sha=prompt_sha[:8],
+            )
+            return primary_items, prompt_sha
 
         if not cascade_enabled:
             log.info(
@@ -573,29 +682,69 @@ _FOOD_GROUPS: frozenset[str] = frozenset(
     {"vegetable", "fruit", "grain", "protein", "dairy", "fat", "sweet", "beverage", "other"}
 )
 
+# Plate Decomposition 2.0 vocab — kept in sync with VISION_SCHEMA enums and
+# app/vision/domain/plate_decomposition.py.
+_ITEM_ROLES: frozenset[str] = frozenset(
+    {"main", "side", "sauce", "condiment", "cooking_fat", "garnish", "sweetener", "beverage_base"}
+)
+_PREP_METHODS: frozenset[str] = frozenset(
+    {
+        "deep_fried",
+        "fried",
+        "sauteed",
+        "grilled",
+        "boiled",
+        "steamed",
+        "baked",
+        "stewed",
+        "raw",
+        "unknown",
+    }
+)
+
 
 def _parse_items(raw: dict[str, Any]) -> list[DetectedFoodItem]:
     out: list[DetectedFoodItem] = []
     for r in raw.get("items", []) or []:
         try:
             group = str(r.get("food_group", "other"))
+            role = str(r.get("role") or "") or None
+            prep = str(r.get("prep_method") or "") or None
+            kcal_best = max(0, int(r["kcal"]))
+            # Optional range (v2 prompt always sends it; old cache rows and
+            # degraded responses may not). Sanity-bracket around the best
+            # estimate so a confused LLM can't emit min > best.
+            kcal_min = r.get("kcal_min")
+            kcal_max = r.get("kcal_max")
+            kcal_min = min(max(0, int(kcal_min)), kcal_best) if kcal_min is not None else None
+            kcal_max = max(int(kcal_max), kcal_best) if kcal_max is not None else None
             out.append(
                 DetectedFoodItem(
                     name=str(r["name"])[:120],
                     estimated_amount_g=Decimal(str(r["estimated_amount_g"])),
-                    kcal=max(0, int(r["kcal"])),
+                    kcal=kcal_best,
                     protein_g=max(0, int(r["protein_g"])),
                     carbs_g=max(0, int(r["carbs_g"])),
                     fat_g=max(0, int(r["fat_g"])),
                     confidence=max(0.0, min(1.0, float(r["confidence"]))),
                     food_group=group if group in _FOOD_GROUPS else "other",  # type: ignore[arg-type]
+                    role=role if role in _ITEM_ROLES else None,
+                    prep_method=prep if prep in _PREP_METHODS else None,
+                    kcal_min=kcal_min,
+                    kcal_max=kcal_max,
                 )
             )
         except (KeyError, ValueError, TypeError, InvalidOperation) as exc:
-            # Defensive skip: malformed LLM rows are expected; logged at
-            # debug for telemetry, drop the row and continue parsing the
-            # remaining items. Narrow surface — any other exception (e.g.
-            # AttributeError) signals a real parser bug and must propagate.
-            log.debug("vision.parse.skip_row", error=str(exc))
+            # Defensive skip: malformed LLM rows are expected; drop the row
+            # and continue parsing the remaining items. INFO (not debug):
+            # a silently dropped row means the user's detected-items count
+            # won't match their plate — ops needs to see how often.
+            # Narrow surface — any other exception (e.g. AttributeError)
+            # signals a real parser bug and must propagate.
+            log.info(
+                "vision.parse.skip_row",
+                error=str(exc),
+                name=str(r.get("name", "?"))[:60],
+            )
             continue
     return out

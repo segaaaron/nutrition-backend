@@ -7,6 +7,8 @@ from uuid import UUID
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.shared.domain.time import utc_today
+
 
 class SqlEmbeddingFetcher:
     def __init__(self, session: AsyncSession) -> None:
@@ -35,9 +37,8 @@ class SqlEmbeddingFetcher:
         )
         res = await self.s.execute(sql, {"uid": str(user_id), "weeks": weeks_back})
         out: list[tuple[int, list[float]]] = []
-        from datetime import date as _date
 
-        today = _date.today()
+        today = utc_today()
         for row in res.mappings():
             weeks_ago = max(0, (today - row["d"]).days // 7)
             out.append((weeks_ago, list(row["emb"])))

@@ -99,5 +99,7 @@ class Layer3Ranking:
                 + 0.10 * s_adh
             )
             scored.append((rid, total))
-        scored.sort(key=lambda x: x[1], reverse=True)
+        # Stable tie-break by id: equal scores must rank identically
+        # across runs for seeded reproducibility.
+        scored.sort(key=lambda x: (-x[1], str(x[0])))
         return scored

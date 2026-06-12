@@ -34,12 +34,12 @@ _SQL = text(
     SELECT EXTRACT(HOUR FROM created_at AT TIME ZONE 'UTC')::int AS hour
       FROM food_logs
      WHERE user_id = :uid
-       AND created_at >= now() - (:days || ' days')::interval
+       AND created_at >= now() - make_interval(days => :days)
     UNION ALL
     SELECT EXTRACT(HOUR FROM time AT TIME ZONE 'UTC')::int AS hour
       FROM weight_logs
      WHERE user_id = :uid
-       AND time >= now() - (:days || ' days')::interval
+       AND time >= now() - make_interval(days => :days)
     """
 )
 

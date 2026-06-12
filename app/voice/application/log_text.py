@@ -7,7 +7,7 @@ to `food_id`. Items with no match are persisted as `free_text_name`.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from decimal import ROUND_HALF_EVEN, Decimal
 from typing import Literal
 from uuid import UUID, uuid4
@@ -22,6 +22,7 @@ from app.gamification.infrastructure.anti_cheat_caps import (
     FOOD_LOG_PER_SLOT_CAP,
     check_and_increment_food_log_slot,
 )
+from app.shared.domain.time import utc_today
 from app.tracking.domain.events import FoodLogged
 from app.vision.infrastructure.food_matcher import HybridFoodMatcher
 from app.voice.infrastructure.food_text_parser import parse_food_text
@@ -54,7 +55,7 @@ class LogFoodText:
             slot_count = await check_and_increment_food_log_slot(
                 get_redis(),
                 user_id,
-                date.today(),
+                utc_today(),
                 meal_time,
                 amount=1,
             )
@@ -130,7 +131,7 @@ class LogFoodText:
                 {
                     "id": str(flog_id),
                     "uid": str(user_id),
-                    "d": date.today(),
+                    "d": utc_today(),
                     "mt": meal_time,
                     "fid": str(food_id) if food_id else None,
                     "ftn": it.name if food_id is None else None,

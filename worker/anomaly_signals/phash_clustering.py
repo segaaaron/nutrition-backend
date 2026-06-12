@@ -28,7 +28,7 @@ _SQL = text(
     SELECT phash_64
       FROM vision_jobs
      WHERE user_id = :uid
-       AND created_at >= now() - (:days || ' days')::interval
+       AND created_at >= now() - make_interval(days => :days)
        AND phash_64 IS NOT NULL
     """
 )
