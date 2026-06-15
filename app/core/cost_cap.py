@@ -178,9 +178,14 @@ async def record_usage(
     model: str,
     in_tok: int,
     out_tok: int,
+    cached_tok: int = 0,
     user_segment: str = "free",
 ) -> float:
-    cost = _price(model, in_tok, out_tok)
+    # Cached input tokens billed at 50% by OpenAI. Non-cached at full rate.
+    # Sanitize: cached_tok can't be negative or exceed total prompt tokens.
+    cached_tok = max(0, min(cached_tok, in_tok))
+    normal_tok = in_tok - cached_tok
+    cost = _price(model, normal_tok, out_tok) + _price(model, cached_tok, 0) * 0.5
     r = get_redis()
     day = _today_utc()
     pipe = r.pipeline()
@@ -192,7 +197,12 @@ async def record_usage(
     pipe.incrbyfloat(okey, cost)
     pipe.expire(okey, 36 * 3600)
     await pipe.execute()
+    # kind="input" = ALL prompt tokens (normal + cached). kind="cached" is a
+    # subset of "input" — do NOT sum both in dashboards (double-count).
+    # Use kind="cached" only to measure cache hit rate / savings.
     _tokens_in.labels(model=model, kind="input").inc(in_tok)
     _tokens_in.labels(model=model, kind="output").inc(out_tok)
+    if cached_tok:
+        _tokens_in.labels(model=model, kind="cached").inc(cached_tok)
     _cost_usd.labels(model=model, user_segment=user_segment).inc(cost)
     return cost

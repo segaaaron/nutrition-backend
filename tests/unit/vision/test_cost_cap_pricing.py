@@ -30,14 +30,19 @@ def _png(w: int, h: int) -> bytes:
     return buf.getvalue()
 
 
-def _mk_response(items: list[dict[str, Any]]) -> Any:
+def _mk_response(items: list[dict[str, Any]], cached_tokens: int = 0) -> Any:
+    details = SimpleNamespace(cached_tokens=cached_tokens) if cached_tokens else None
     return SimpleNamespace(
         choices=[
             SimpleNamespace(
                 message=SimpleNamespace(content=json.dumps({"items": items})),
             )
         ],
-        usage=SimpleNamespace(prompt_tokens=900, completion_tokens=180),
+        usage=SimpleNamespace(
+            prompt_tokens=900,
+            completion_tokens=180,
+            prompt_tokens_details=details,
+        ),
     )
 
 
@@ -171,3 +176,105 @@ async def test_pre_check_full_model_higher(
     # gpt-4o full input is 2.75/1M (~16x mini @ 0.17/1M)
     assert full_est > 0.005, f"full-model estimate {full_est} unexpectedly low"
     get_settings.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_invoke_passes_cached_tok_to_record_usage(
+    monkeypatch: pytest.MonkeyPatch,
+    _no_breaker,
+    _cascade_on,
+) -> None:
+    """cached_tokens in OpenAI response must be forwarded to record_usage."""
+    rec_calls: list[dict] = []
+
+    async def _rec(**kw):
+        rec_calls.append(kw)
+        return 0.0
+
+    async def _pre(**_kw):
+        pass
+
+    monkeypatch.setattr(ov, "record_usage", _rec)
+    monkeypatch.setattr(ov, "pre_check", _pre)
+
+    items = [
+        {
+            "name": "rice",
+            "estimated_amount_g": 150,
+            "kcal": 200,
+            "kcal_min": 180,
+            "kcal_max": 220,
+            "protein_g": 4,
+            "carbs_g": 44,
+            "fat_g": 1,
+            "confidence": 0.95,
+            "food_group": "grain",
+            "role": "main",
+            "prep_method": "boiled",
+        }
+    ]
+    create = AsyncMock(return_value=_mk_response(items, cached_tokens=384))
+    client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
+    with patch.object(ov, "_get_client", return_value=client):
+        provider = ov.OpenAIVisionProvider()
+        await provider.recognise(
+            image_bytes=_png(800, 800),
+            mime="image/png",
+            user_id=None,
+            locale="es",
+            region="latam",
+        )
+
+    assert len(rec_calls) == 1
+    assert rec_calls[0]["cached_tok"] == 384
+    assert rec_calls[0]["in_tok"] == 900
+
+
+@pytest.mark.asyncio
+async def test_invoke_cached_tok_zero_when_details_absent(
+    monkeypatch: pytest.MonkeyPatch,
+    _no_breaker,
+    _cascade_on,
+) -> None:
+    """No prompt_tokens_details → cached_tok=0, backward compat."""
+    rec_calls: list[dict] = []
+
+    async def _rec(**kw):
+        rec_calls.append(kw)
+        return 0.0
+
+    async def _pre(**_kw):
+        pass
+
+    monkeypatch.setattr(ov, "record_usage", _rec)
+    monkeypatch.setattr(ov, "pre_check", _pre)
+
+    items = [
+        {
+            "name": "salad",
+            "estimated_amount_g": 100,
+            "kcal": 50,
+            "kcal_min": 40,
+            "kcal_max": 60,
+            "protein_g": 2,
+            "carbs_g": 8,
+            "fat_g": 1,
+            "confidence": 0.9,
+            "food_group": "vegetable",
+            "role": "main",
+            "prep_method": "raw",
+        }
+    ]
+    create = AsyncMock(return_value=_mk_response(items))  # no cached_tokens
+    client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
+    with patch.object(ov, "_get_client", return_value=client):
+        provider = ov.OpenAIVisionProvider()
+        await provider.recognise(
+            image_bytes=_png(800, 800),
+            mime="image/png",
+            user_id=None,
+            locale="es",
+            region="latam",
+        )
+
+    assert rec_calls[0]["cached_tok"] == 0

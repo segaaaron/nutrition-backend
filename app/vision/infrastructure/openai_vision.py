@@ -385,11 +385,15 @@ class OpenAIVisionProvider:
             out_tok = (
                 getattr(usage, "completion_tokens", 0) if usage else PREFILTER_MAX_OUTPUT_TOKENS
             )
+            cached_tok = 0
+            if usage and hasattr(usage, "prompt_tokens_details") and usage.prompt_tokens_details:
+                cached_tok = getattr(usage.prompt_tokens_details, "cached_tokens", 0) or 0
             await record_usage(
                 user_id=user_id,
                 model=PREFILTER_MODEL,
                 in_tok=in_tok,
                 out_tok=out_tok,
+                cached_tok=cached_tok,
             )
         except Exception as exc:  # noqa: BLE001 — fail-open by contract
             log.warning(
@@ -637,11 +641,15 @@ class OpenAIVisionProvider:
             )
             content = resp.choices[0].message.content or "{}"
             usage = resp.usage
+            _cached_tok = 0
+            if usage and hasattr(usage, "prompt_tokens_details") and usage.prompt_tokens_details:
+                _cached_tok = getattr(usage.prompt_tokens_details, "cached_tokens", 0) or 0
             await record_usage(
                 user_id=user_id,
                 model=model,
                 in_tok=(getattr(usage, "prompt_tokens", 0) if usage else img_tok),
                 out_tok=(getattr(usage, "completion_tokens", 0) if usage else max_output_tokens),
+                cached_tok=_cached_tok,
             )
             # HIGH-3: max_tokens truncation can produce incomplete JSON.
             # Treat that as "empty items" so the cascade decision sees no

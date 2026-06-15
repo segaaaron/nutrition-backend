@@ -12,7 +12,13 @@ import pytest
 from app.vision.infrastructure import openai_vision as ov
 
 
-def _resp_accept() -> SimpleNamespace:
+def _resp_accept(cached_tokens: int = 0) -> SimpleNamespace:
+    details = SimpleNamespace(cached_tokens=cached_tokens) if cached_tokens else None
+    usage = SimpleNamespace(
+        prompt_tokens=180,
+        completion_tokens=12,
+        prompt_tokens_details=details,
+    )
     return SimpleNamespace(
         choices=[
             SimpleNamespace(
@@ -21,7 +27,7 @@ def _resp_accept() -> SimpleNamespace:
                 ),
             )
         ],
-        usage=SimpleNamespace(prompt_tokens=180, completion_tokens=12),
+        usage=usage,
     )
 
 
@@ -72,6 +78,68 @@ async def test_prefilter_records_usage_with_mini_model(
     assert kwargs["max_tokens"] == ov.PREFILTER_MAX_OUTPUT_TOKENS
     img_part = next(p for p in kwargs["messages"][1]["content"] if p["type"] == "image_url")
     assert img_part["image_url"]["detail"] == "low"
+
+
+@pytest.mark.asyncio
+async def test_prefilter_records_cached_tok_when_present(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """cached_tokens in usage.prompt_tokens_details must reach record_usage."""
+    rec_calls: list[dict] = []
+
+    async def _pre(**kw):
+        pass
+
+    async def _rec(**kw):
+        rec_calls.append(kw)
+        return 0.0
+
+    monkeypatch.setattr(ov, "pre_check", _pre)
+    monkeypatch.setattr(ov, "record_usage", _rec)
+
+    create = AsyncMock(return_value=_resp_accept(cached_tokens=100))
+    client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
+    with patch.object(ov, "_get_client", return_value=client):
+        provider = ov.OpenAIVisionProvider()
+        await provider.is_food_image(
+            image_bytes=b"\x89PNG_FAKE_BYTES_",
+            mime="image/webp",
+            user_id=None,
+        )
+
+    assert len(rec_calls) == 1
+    assert rec_calls[0]["cached_tok"] == 100
+    assert rec_calls[0]["in_tok"] == 180
+
+
+@pytest.mark.asyncio
+async def test_prefilter_cached_tok_zero_when_details_absent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """No prompt_tokens_details → cached_tok=0, no regression on old responses."""
+    rec_calls: list[dict] = []
+
+    async def _pre(**kw):
+        pass
+
+    async def _rec(**kw):
+        rec_calls.append(kw)
+        return 0.0
+
+    monkeypatch.setattr(ov, "pre_check", _pre)
+    monkeypatch.setattr(ov, "record_usage", _rec)
+
+    create = AsyncMock(return_value=_resp_accept())  # no cached_tokens
+    client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
+    with patch.object(ov, "_get_client", return_value=client):
+        provider = ov.OpenAIVisionProvider()
+        await provider.is_food_image(
+            image_bytes=b"\x89PNG_FAKE_BYTES_",
+            mime="image/webp",
+            user_id=None,
+        )
+
+    assert rec_calls[0]["cached_tok"] == 0
 
 
 @pytest.mark.asyncio
