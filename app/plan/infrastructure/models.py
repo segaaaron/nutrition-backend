@@ -99,6 +99,9 @@ class PlanMealModel(Base):
     fat_g: Mapped[int | None] = mapped_column(Integer, nullable=True)
     water_ml: Mapped[int | None] = mapped_column(Integer, nullable=True)
     water_pct: Mapped[float | None] = mapped_column(Numeric, nullable=True)
+    # Portion-scaling multiplier vs the recipe's native macros (migration 0018).
+    # iOS scales displayed ingredient amounts by this. NULL = legacy → 1.0.
+    scaled_factor: Mapped[float | None] = mapped_column(Numeric, nullable=True)
     completed: Mapped[bool] = mapped_column(Boolean, default=False)
     swapped_from: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), nullable=True)
 

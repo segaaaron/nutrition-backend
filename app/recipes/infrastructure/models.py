@@ -119,6 +119,11 @@ class RecipeModel(Base):
     recommended_conditions: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
     contraindicated_conditions: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
     target_goals: Mapped[list[str]] = mapped_column(ARRAY(_GOAL_ENUM), default=list)
+    # Dietary pattern flags (migration 0017). NULL = unclassified → Layer 1
+    # excludes for vegan/vegetarian users (fail-safe). Backfilled from
+    # ingredients by scripts/backfill_diet_flags.py.
+    is_vegetarian: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    is_vegan: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     embedding: Mapped[list[float] | None] = mapped_column(Vector(1536), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 

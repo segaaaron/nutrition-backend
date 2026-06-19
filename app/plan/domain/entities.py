@@ -22,6 +22,7 @@ class PlanMeal:
     fat_g: int | None
     water_ml: int | None = None
     water_pct: float | None = None
+    scaled_factor: float | None = None
     completed: bool = False
     swapped_from: UUID | None = None
 

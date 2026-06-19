@@ -1,7 +1,8 @@
 """Adapter exposing the slim eligibility view of the user profile.
 
 Lives in the plan context because it's an anti-corruption layer over the
-profile aggregate — only the four fields needed by Layer 1 leak through.
+profile aggregate — only the eligibility fields Layer 1 needs leak through
+(region, allergies, conditions, weight, dietary_pattern).
 """
 
 from __future__ import annotations
@@ -27,4 +28,7 @@ class SqlEligibilityProfileReader:
             "allergies": list(p.allergies or []),
             "conditions": list(p.medical_conditions or []),
             "weight_kg": p.weight_kg,
+            # Drives the vegan/vegetarian hard-exclude in Layer 1 (the
+            # onboarding promise "NOVA excluirá los alimentos que no comes").
+            "dietary_pattern": p.dietary_pattern,
         }

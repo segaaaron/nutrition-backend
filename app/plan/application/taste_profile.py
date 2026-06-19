@@ -81,28 +81,47 @@ def cosine(a: list[float], b: list[float]) -> float:
     return dot / (na * nb)
 
 
-def cultural_fit(user_country: str | None, recipe_regions: list[str]) -> float:
-    """Strict cultural separation (owner directive 2026-06-07).
+# ISO-2 country → market region mapping. Used to score old-catalog recipes
+# (tagged with market strings like "latam") when the user profile carries an
+# ISO-2 country code. Keeps cultural_fit meaningful while both catalog
+# generations coexist in prod.
+_COUNTRY_TO_MARKET: dict[str, str] = {
+    # LatAm
+    "MX": "latam", "PE": "latam", "CO": "latam", "AR": "latam", "CL": "latam",
+    "BO": "latam", "BR": "latam", "DO": "latam", "CU": "latam", "EC": "latam",
+    "VE": "latam", "CR": "latam", "GT": "latam", "NI": "latam", "PA": "latam",
+    "HN": "latam", "PY": "latam", "SV": "latam", "UY": "latam",
+    # North America
+    "US": "us", "CA": "ca",
+    # Europe
+    "GB": "gb", "UK": "gb",
+    "ES": "eu", "FR": "eu", "DE": "eu", "IT": "eu", "PT": "eu",
+}
 
-    Catalogue now tags recipes with ISO country codes (``MX``, ``PE``,
-    ``BO``, …) when the name carries an explicit cultural marker
-    (taco → MX, ceviche → PE, etc.) and ``world`` for culturally
-    universal recipes (grain bowls, grilled proteins, salads). The
-    coarse ``latam`` bucket was dropped. Tag string is capped at 5
-    chars to fit ``recipes.regions char(5)[]``.
+
+def cultural_fit(user_country: str | None, recipe_regions: list[str]) -> float:
+    """Cultural relevance score bridging ISO-2 country codes and market tags.
+
+    The catalog is in transition: old recipes use market strings (``latam``,
+    ``us``, ``eu``) while v3 recipes use ISO-2 codes (``pe``, ``mx``, …).
+    This function handles both so Layer 3 ranking stays meaningful during the
+    migration instead of collapsing to 0.0 for all old-catalog recipes.
 
     Scoring:
-        - 1.0 if the user's country is in ``regions`` (exact match)
-        - 0.7 if the recipe is ``world`` (universal)
-        - 0.0 otherwise. Layer 1 hard-filters foreign country tags so
-          this branch should be unreachable; kept as defence-in-depth.
+        - 1.0  exact ISO-2 match          (v3 catalog, best signal)
+        - 0.8  user's market matches tag  (old catalog, good signal)
+        - 0.7  recipe tagged ``world``    (universal, neutral)
+        - 0.0  foreign market/country     (hard cultural miss)
     """
     if not user_country or not recipe_regions:
-        return 0.7  # fall back to world score when info missing
+        return 0.7  # no info → treat as world
     cc = user_country.upper().strip()
     normalised = [r.strip().upper() for r in recipe_regions]
     if cc in normalised:
         return 1.0
+    user_market = _COUNTRY_TO_MARKET.get(cc, "").upper()
+    if user_market and user_market in normalised:
+        return 0.8
     if "WORLD" in normalised:
         return 0.7
     return 0.0

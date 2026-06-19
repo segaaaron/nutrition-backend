@@ -43,6 +43,7 @@ class Layer2Shortlist:
         protein_target_share: int,
         forbidden_ids: set[UUID],
         top_k: int = 20,
+        prefer_dense: bool = False,
     ) -> list[tuple[UUID, float]]:
         if not candidate_ids:
             return []
@@ -65,8 +66,15 @@ class Layer2Shortlist:
         target_k = max(1, kcal_target_share)
         scored: list[tuple[UUID, float]] = []
         for row in res.mappings():
-            kcal_dev = abs(int(row["kcal"]) - kcal_target_share)
-            kcal_fit = max(0.0, 1.0 - kcal_dev / target_k)
+            kcal = int(row["kcal"])
+            if prefer_dense:
+                # weight_gain (nutrition expert 2026-06-16): reward energy
+                # density so the picked recipe sits close to / above the slot
+                # target, keeping the upward portion scale small (≤2×) instead
+                # of demanding an uneatable giant plate.
+                kcal_fit = min(1.0, kcal / target_k)
+            else:
+                kcal_fit = max(0.0, 1.0 - abs(kcal - kcal_target_share) / target_k)
             protein_fit = min(1.0, int(row["protein_g"]) / target_p)
             scored.append((row["id"], 0.7 * kcal_fit + 0.3 * protein_fit))
 

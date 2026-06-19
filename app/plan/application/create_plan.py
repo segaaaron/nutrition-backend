@@ -76,11 +76,29 @@ _SLOT_WEIGHTS: dict[int, tuple[float, ...]] = {
     4: (0.25, 0.35, 0.30, 0.10),
 }
 
+# weight_gain distribution (nutrition expert 2026-06-16): a high surplus target
+# is hit with MORE eating occasions + energy-dense food, NOT a single giant
+# plate (early satiety kills adherence). Flatter weights keep every slot's kcal
+# share reachable by scaling a normal recipe within bounds (no slot >30%), and
+# weight_gain forces the snack slot in so 4 occasions exist.
+_SLOT_WEIGHTS_GAIN: dict[int, tuple[float, ...]] = {
+    1: (1.0,),
+    2: (0.5, 0.5),
+    3: (0.30, 0.35, 0.35),
+    4: (0.25, 0.30, 0.25, 0.20),
+}
+
 # Geometric sampling weights over the top-5 Layer3 candidates. Rank 1
 # stays the most likely pick (~52%) so quality is preserved, while the
 # tail introduces enough seeded variety that two generations (different
 # seeds) or two weeks of a month plan don't repeat the same sequence.
 _PICK_WEIGHTS: tuple[float, ...] = (8.0, 4.0, 2.0, 1.0, 0.5)
+
+# Portion-scaling bounds. A meal is scaled so its kcal hits the slot share, but
+# only within a realistic range — a drink can't sanely become 3× and a dense
+# plate shouldn't shrink to a quarter. 1.0 = unscaled.
+_MIN_SCALE: float = 0.5
+_MAX_SCALE: float = 2.0
 
 
 class _UserContext(Protocol):
@@ -152,15 +170,21 @@ class CreatePlan:
         profile = await self.user_ctx.get_user_profile_snapshot(user_id)
         kcal_daily = int(targets.get("kcal_max") or targets.get("kcal_min") or 2000)
         protein_daily = int(targets.get("protein_g") or 100)
+        goal = str(targets.get("goal") or "").lower()
+        prefer_dense = goal == "weight_gain"
         meals_per_day = int(targets.get("meals_per_day") or self.meals_per_day_default)
+        # weight_gain spreads intake across more occasions so no single meal
+        # needs an unrealistic >2x portion to hit a high surplus target — force
+        # the snack slot in (nutrition expert 2026-06-16).
+        if prefer_dense:
+            meals_per_day = max(meals_per_day, 4)
         # The kcal/protein divisor is the number of slots actually
         # generated. Previously `meals_per_day=5` divided the day into 5
         # shares but only 3 slots existed → the plan silently delivered
         # ~60% of the daily target.
         slots = self.meal_times[: max(1, min(meals_per_day, len(self.meal_times)))]
-        weights = _SLOT_WEIGHTS.get(len(slots)) or tuple(
-            1.0 / len(slots) for _ in slots
-        )
+        weight_table = _SLOT_WEIGHTS_GAIN if prefer_dense else _SLOT_WEIGHTS
+        weights = weight_table.get(len(slots)) or tuple(1.0 / len(slots) for _ in slots)
         kcal_share_by_slot = {
             mt: max(1, int(round(kcal_daily * w))) for mt, w in zip(slots, weights, strict=False)
         }
@@ -218,6 +242,7 @@ class CreatePlan:
                     # in one day, regardless of slot.
                     forbidden_ids=forbidden[mt] | chosen_today,
                     top_k=20,
+                    prefer_dense=prefer_dense,
                 )
                 if not shortlist and (forbidden[mt] or chosen_today):
                     # Repetition cap starved the pool (small catalog for
@@ -233,6 +258,7 @@ class CreatePlan:
                         protein_target_share=protein_share,
                         forbidden_ids=chosen_today,
                         top_k=20,
+                        prefer_dense=prefer_dense,
                     )
                 if not shortlist and chosen_today:
                     shortlist = await self.layer2(
@@ -242,6 +268,7 @@ class CreatePlan:
                         protein_target_share=protein_share,
                         forbidden_ids=set(),
                         top_k=20,
+                        prefer_dense=prefer_dense,
                     )
                 _layer_hist.labels(layer="2").observe(time.perf_counter() - t0)
 
@@ -412,7 +439,22 @@ class CreatePlan:
                     row = macros.get(m.recipe_id)
                     if row is None:
                         continue
-                    m.kcal, m.protein_g, m.carbs_g, m.fat_g = row
+                    n_kcal, n_prot, n_carb, n_fat = row
+                    # Portion scaling (2026-06-16): the recipe's native kcal
+                    # rarely equals the slot's kcal share, so scale the portion
+                    # (macros proportionally) toward the target within sane
+                    # bounds — otherwise the day drifts with whatever the picked
+                    # recipe weighs. `scaled_factor` is persisted so iOS scales
+                    # the displayed ingredient amounts to match the shown kcal.
+                    target = kcal_share_by_slot.get(m.meal_time)
+                    factor = 1.0
+                    if n_kcal and target:
+                        factor = max(_MIN_SCALE, min(_MAX_SCALE, target / n_kcal))
+                    m.kcal = int(round((n_kcal or 0) * factor))
+                    m.protein_g = int(round((n_prot or 0) * factor))
+                    m.carbs_g = int(round((n_carb or 0) * factor))
+                    m.fat_g = int(round((n_fat or 0) * factor))
+                    m.scaled_factor = round(factor, 3)
 
         # Idempotent-by-user invariant (2026-06-11 root-cause fix for iOS
         # plan-create errors). The `one_active_plan` partial unique index

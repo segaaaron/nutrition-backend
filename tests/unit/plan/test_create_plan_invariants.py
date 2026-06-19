@@ -92,6 +92,7 @@ class _Layer2Empty:
         protein_target_share: int,
         forbidden_ids: set[UUID],
         top_k: int,
+        prefer_dense: bool = False,
     ) -> list[tuple[UUID, float]]:
         return []
 
@@ -277,14 +278,21 @@ async def test_create_plan_succeeds_when_pipeline_yields_meals() -> None:
     # drain or concurrent retry never trips `one_active_plan`.
     assert plans.locks == [user_id]
     assert plans.archived_for == [user_id]
-    # Per-meal macros must be populated from the recipe row, NOT left
-    # NULL (2026-06-11 fix: NULL macros rendered as zero in iOS).
-    for d in plan.days:
-        for m in d.meals:
-            assert m.kcal == 500
-            assert m.protein_g == 30
-            assert m.carbs_g == 50
-            assert m.fat_g == 15
+    # Per-meal macros populated from the recipe row (2026-06-11: never NULL),
+    # AND scaled to the slot's kcal share (2026-06-16 portion scaling). With a
+    # 1900 kcal target over 3 slots (30/40/30) the native 500-kcal recipe is
+    # scaled per slot, and the day closes to ~1900 instead of summing native
+    # weights (3×500=1500, the old ~60-79% drift).
+    slot_share = {
+        "breakfast": round(1900 * 0.30),
+        "lunch": round(1900 * 0.40),
+        "dinner": round(1900 * 0.30),
+    }
+    day_total = sum(m.kcal for m in plan.days[0].meals)
+    for m in plan.days[0].meals:
+        assert m.kcal == slot_share[m.meal_time], f"{m.meal_time} not scaled to share"
+        assert m.scaled_factor is not None and m.scaled_factor > 0
+    assert abs(day_total - 1900) <= 3, f"day total {day_total} drifted from 1900"
 
 
 # ---------------------------------------------------------------------------
@@ -320,6 +328,7 @@ class _Layer2Filter:
         protein_target_share: int,
         forbidden_ids: set[UUID],
         top_k: int,
+        prefer_dense: bool = False,
     ) -> list[tuple[UUID, float]]:
         self.share_calls.append((meal_time, kcal_target_share, protein_target_share))
         kept = [cid for cid in candidate_ids if cid not in forbidden_ids]
@@ -468,3 +477,22 @@ async def test_kcal_shares_close_to_daily_target_even_with_5_meals() -> None:
     )
     # Lunch must be the largest share (30/40/30 + snack pattern).
     assert shares["lunch"] == max(shares.values())
+
+
+@pytest.mark.asyncio
+async def test_weight_gain_spreads_intake_and_forces_snack() -> None:
+    """weight_gain (nutrition expert 2026-06-16): intake spread over 4
+    occasions with no slot >30 % of the day, so a high surplus target stays
+    reachable by scaling a normal recipe within bounds instead of an uneatable
+    giant plate. The snack slot is forced in even at the default meals_per_day."""
+    targets = {**_valid_targets(), "goal": "weight_gain"}
+    uc, _, _, layer2 = _pool_uc(targets=targets)
+    plan = await uc(user_id=uuid4(), plan_type="day", seed=3)  # type: ignore[arg-type]
+
+    assert plan.meals_per_day == 4, "weight_gain must force the snack occasion in"
+    assert len(plan.days[0].meals) == 4
+    shares = {mt: k for mt, k, _ in layer2.share_calls}
+    ceiling = round(targets["kcal_max"] * 0.30) + 1
+    assert max(shares.values()) <= ceiling, (
+        f"weight_gain slot {shares} exceeds the 30% reachable ceiling {ceiling}"
+    )

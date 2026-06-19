@@ -30,6 +30,7 @@ def _meal_from_model(m: PlanMealModel) -> PlanMeal:
         fat_g=m.fat_g,
         water_ml=m.water_ml,
         water_pct=float(m.water_pct) if m.water_pct is not None else None,
+        scaled_factor=float(m.scaled_factor) if m.scaled_factor is not None else None,
         completed=m.completed,
         swapped_from=m.swapped_from,
     )
@@ -231,6 +232,7 @@ class SqlPlanRepository:
                         fat_g=meal.fat_g,
                         water_ml=meal.water_ml,
                         water_pct=meal.water_pct,
+                        scaled_factor=meal.scaled_factor,
                         completed=meal.completed,
                         swapped_from=meal.swapped_from,
                     )

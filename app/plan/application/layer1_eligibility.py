@@ -73,6 +73,7 @@ class Layer1Eligibility:
         allergies: list[str] = prof.get("allergies") or []
         conditions: list[str] = prof.get("conditions") or []
         weight_kg: Decimal | None = prof.get("weight_kg")
+        dietary_pattern = (prof.get("dietary_pattern") or "").lower().strip()
 
         # Region-based filtering (post-2026-06-09 fix).
         #
@@ -90,7 +91,11 @@ class Layer1Eligibility:
         # in the profile and still drives Layer3 cultural_fit scoring (which
         # operates on the recipe.regions array as a fuzzy match).
         region = (prof.get("region") or "us").lower().strip()
-        allowed_tags: list[str] = [region]
+        # Include the user's ISO-2 country code so v3 catalog recipes
+        # (tagged with lowercase country like "pe", "mx") are eligible
+        # alongside old-catalog recipes (tagged with market strings like
+        # "latam"). The OR inside `&&` operator handles both transparently.
+        allowed_tags: list[str] = list({region, country.lower()} - {""}) if country else [region]
 
         where: list[str] = [
             "r.regions && CAST(:regions AS char(5)[])",
@@ -100,6 +105,25 @@ class Layer1Eligibility:
             "regions": allowed_tags,
             "meal_time": meal_time,
         }
+
+        # Dietary pattern hard-exclude (2026-06-16). The onboarding form
+        # collects vegan/vegetarian and promises on-screen "NOVA excluirá los
+        # alimentos que no comes". Vegan/vegetarian users must NEVER be served
+        # an animal dish. Flags are denormalised (is_vegan / is_vegetarian),
+        # backfilled from ingredients (scripts/backfill_diet_flags.py). NULL =
+        # unclassified ⇒ EXCLUDED for these users (fail-safe): serving a
+        # possibly-animal dish to a vegan is the unrecoverable error. `IS TRUE`
+        # is NULL-safe (NULL → excluded). Survives the region/meal-time
+        # fallbacks below because it lives in `where` — a safety filter, never
+        # relaxed. Omnivore (and any unknown value) → no extra filter.
+        if dietary_pattern == "vegan":
+            where.append("r.is_vegan IS TRUE")
+        elif dietary_pattern in ("vegetarian", "pescatarian"):
+            # Pescatarian eats fish but no land meat. We don't yet carry a
+            # "land-meat only" flag, so treat it as vegetarian (no meat AND no
+            # fish) — stricter than necessary but SAFE: it never serves meat.
+            # TODO: add a `contains_meat` flag to allow fish for pescatarians.
+            where.append("r.is_vegetarian IS TRUE")
 
         if allergies:
             # Defensive: cast both sides to text so we never trip enum-vs-text
@@ -202,6 +226,8 @@ class Layer1Eligibility:
         # filters (allergens, condition gates) are NEVER relaxed — only the
         # region overlap clause is dropped. Layer3 cultural_fit still ranks
         # same-region recipes first, so local dishes win whenever they exist.
+        # cultural_fit now gives 0.0 to foreign recipes so even in global mode
+        # the ranking keeps cultural relevance (2026-06-18 fix).
         region_clause = "r.regions && CAST(:regions AS char(5)[])"
         meal_time_clause = "r.meal_time = :meal_time"
         where_no_region = [w for w in where if w != region_clause]
