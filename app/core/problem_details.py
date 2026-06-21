@@ -272,6 +272,8 @@ def _problem_response(
         body["instance"] = instance
     if extras:
         body.update(extras)
+    # Always overwrite — i18n translation wins over any extras["message"].
+    body["message"] = detail if detail is not None else title
     return JSONResponse(
         status_code=status,
         content=body,

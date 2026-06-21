@@ -247,6 +247,8 @@ def register_exception_handlers(app: FastAPI) -> None:
         body["title"] = title
         if detail is not None:
             body["detail"] = detail
+        # Always overwrite — i18n translation wins over any exc.extra["message"].
+        body["message"] = detail if detail is not None else title
         return JSONResponse(
             status_code=exc.http_status,
             content=body,

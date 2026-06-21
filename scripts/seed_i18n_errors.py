@@ -50,34 +50,52 @@ ERROR_MESSAGES: Final[dict[str, _ErrorEntry]] = {
         },
     },
     "not_found": {
-        "title": {"es": "Recurso no encontrado", "en": "Resource not found"},
-        "detail": None,
+        "title": {"es": "No encontrado", "en": "Not found"},
+        "detail": {
+            "es": "Lo que buscas no existe o fue eliminado.",
+            "en": "What you're looking for doesn't exist or was removed.",
+        },
     },
     "conflict": {
-        "title": {"es": "Conflicto de recurso", "en": "Resource conflict"},
-        "detail": None,
+        "title": {"es": "Ya existe", "en": "Already exists"},
+        "detail": {
+            "es": "Ya existe un registro con esos datos.",
+            "en": "A record with that information already exists.",
+        },
     },
     "gone": {
-        "title": {"es": "Recurso eliminado", "en": "Resource gone"},
-        "detail": None,
+        "title": {"es": "Ya no disponible", "en": "No longer available"},
+        "detail": {
+            "es": "Este recurso ya no está disponible.",
+            "en": "This resource is no longer available.",
+        },
     },
     "locked": {
-        "title": {"es": "Recurso bloqueado", "en": "Resource locked"},
-        "detail": None,
+        "title": {"es": "No disponible ahora", "en": "Not available right now"},
+        "detail": {
+            "es": "Este recurso está bloqueado temporalmente. Intenta más tarde.",
+            "en": "This resource is temporarily locked. Try again later.",
+        },
     },
     "business_rule": {
         "title": {
-            "es": "Violación de regla de negocio",
-            "en": "Business rule violation",
+            "es": "Acción no permitida",
+            "en": "Action not allowed",
         },
-        "detail": None,
+        "detail": {
+            "es": "Esta acción no está permitida en tu cuenta.",
+            "en": "This action is not allowed for your account.",
+        },
     },
     "illegal_transition": {
         "title": {
-            "es": "Transición de estado no permitida",
-            "en": "Illegal state transition",
+            "es": "Acción no válida en este momento",
+            "en": "Action not valid right now",
         },
-        "detail": None,
+        "detail": {
+            "es": "No puedes realizar esta acción en el estado actual. Intenta de nuevo.",
+            "en": "You can't perform this action in the current state. Please try again.",
+        },
     },
     "rate_limited": {
         "title": {"es": "Límite de peticiones excedido", "en": "Rate limit exceeded"},
@@ -95,20 +113,23 @@ ERROR_MESSAGES: Final[dict[str, _ErrorEntry]] = {
     },
     "auth": {
         "title": {"es": "Error de autenticación", "en": "Authentication error"},
-        "detail": None,
+        "detail": {
+            "es": "Hubo un problema con tu autenticación. Vuelve a iniciar sesión.",
+            "en": "There was an authentication problem. Please sign in again.",
+        },
     },
     "unauthenticated": {
-        "title": {"es": "Autenticación requerida", "en": "Authentication required"},
+        "title": {"es": "Sesión expirada", "en": "Session expired"},
         "detail": {
-            "es": "Token faltante o inválido.",
-            "en": "Missing or invalid token.",
+            "es": "Tu sesión expiró. Vuelve a iniciar sesión.",
+            "en": "Your session has expired. Please sign in again.",
         },
     },
     "invalid_credentials": {
-        "title": {"es": "Credenciales inválidas", "en": "Invalid credentials"},
+        "title": {"es": "Datos incorrectos", "en": "Incorrect credentials"},
         "detail": {
-            "es": "Email o contraseña incorrectos.",
-            "en": "Incorrect email or password.",
+            "es": "El correo o la contraseña son incorrectos. Intenta de nuevo.",
+            "en": "Your email or password is incorrect. Please try again.",
         },
     },
     "email_not_verified": {
@@ -119,14 +140,17 @@ ERROR_MESSAGES: Final[dict[str, _ErrorEntry]] = {
         },
     },
     "auth_ticket_invalid": {
-        "title": {"es": "Ticket de autenticación inválido", "en": "Auth ticket invalid"},
-        "detail": None,
+        "title": {"es": "Código inválido", "en": "Invalid code"},
+        "detail": {
+            "es": "El código es inválido o ya fue usado. Solicita uno nuevo.",
+            "en": "The code is invalid or already used. Request a new one.",
+        },
     },
     "forbidden": {
-        "title": {"es": "Acceso denegado", "en": "Forbidden"},
+        "title": {"es": "Sin permiso", "en": "No permission"},
         "detail": {
-            "es": "No tienes permiso para acceder a este recurso.",
-            "en": "You do not have permission to access this resource.",
+            "es": "No tienes permiso para realizar esta acción.",
+            "en": "You don't have permission to perform this action.",
         },
     },
     "upstream": {
@@ -138,75 +162,105 @@ ERROR_MESSAGES: Final[dict[str, _ErrorEntry]] = {
     },
     "exif_leak": {
         "title": {
-            "es": "Error de verificación EXIF",
-            "en": "EXIF strip verification failed",
+            "es": "Error al procesar la imagen",
+            "en": "Image processing error",
         },
-        "detail": None,
+        "detail": {
+            "es": "No pudimos procesar tu imagen correctamente. Intenta con otra foto.",
+            "en": "We couldn't process your image correctly. Please try a different photo.",
+        },
     },
     "internal": {
-        "title": {"es": "Error interno", "en": "Internal error"},
-        "detail": None,
+        "title": {"es": "Error del servidor", "en": "Server error"},
+        "detail": {
+            "es": "Ocurrió un error inesperado. Intenta de nuevo en unos segundos.",
+            "en": "An unexpected error occurred. Please try again in a few seconds.",
+        },
     },
     # --- BusinessRuleViolation classified rules (problem_details.py) ---
     "segment_unsupported_mvp": {
         "title": {
-            "es": "Segmento de usuario no soportado en MVP",
-            "en": "User segment not supported in MVP",
+            "es": "Función no disponible aún",
+            "en": "Feature not available yet",
         },
-        "detail": None,
+        "detail": {
+            "es": "Esta función aún no está disponible para tu tipo de perfil. Pronto llegará.",
+            "en": "This feature is not yet available for your profile type. Coming soon.",
+        },
     },
     "profile_missing": {
         "title": {
-            "es": "Falta un campo obligatorio del perfil",
-            "en": "Required profile field missing",
+            "es": "Falta información en tu perfil",
+            "en": "Profile information missing",
         },
-        "detail": None,
+        "detail": {
+            "es": "Falta completar un campo obligatorio en tu perfil. Revisa tus datos.",
+            "en": "A required field is missing from your profile. Please review your information.",
+        },
     },
     "allergen_unmapped_requires_review": {
         "title": {
-            "es": "Alérgeno no mapeado — requiere revisión especializada",
-            "en": "Allergen unmapped — specialist review required",
+            "es": "Alérgeno requiere revisión",
+            "en": "Allergen requires review",
         },
-        "detail": None,
+        "detail": {
+            "es": "Uno de tus alérgenos necesita revisión especializada. Contacta soporte.",
+            "en": "One of your allergens needs specialist review. Contact support.",
+        },
     },
     "trimester_required_for_pregnancy": {
         "title": {
-            "es": "Se requiere el trimestre para embarazo",
-            "en": "Trimester required for pregnancy",
+            "es": "Falta el trimestre de embarazo",
+            "en": "Pregnancy trimester missing",
         },
-        "detail": None,
+        "detail": {
+            "es": "Por favor indica en qué trimestre de embarazo te encuentras.",
+            "en": "Please indicate which trimester of pregnancy you are in.",
+        },
     },
     "breastfeeding_status_required_for_lactation": {
         "title": {
-            "es": "Se requiere el estado de lactancia",
-            "en": "Breastfeeding status required for lactation",
+            "es": "Falta el estado de lactancia",
+            "en": "Breastfeeding status missing",
         },
-        "detail": None,
+        "detail": {
+            "es": "Por favor indica si estás en período de lactancia.",
+            "en": "Please indicate whether you are currently breastfeeding.",
+        },
     },
     "height_required": {
-        "title": {"es": "Se requiere la altura", "en": "Height required"},
-        "detail": None,
+        "title": {"es": "Falta tu altura", "en": "Height missing"},
+        "detail": {
+            "es": "Necesitamos tu altura para calcular tu plan. Agrégala en tu perfil.",
+            "en": "We need your height to calculate your plan. Add it in your profile.",
+        },
     },
     "onboarding_incomplete": {
-        "title": {"es": "Onboarding incompleto", "en": "Onboarding incomplete"},
+        "title": {"es": "Perfil incompleto", "en": "Profile incomplete"},
         "detail": {
-            "es": "Completa tu perfil antes de continuar.",
-            "en": "Complete your profile before continuing.",
+            "es": "Completa tu perfil para continuar usando la app.",
+            "en": "Complete your profile to continue using the app.",
         },
     },
     "pediatric_outside_mvp_scope": {
         "title": {
-            "es": "Usuarios pediátricos fuera del alcance del MVP",
-            "en": "Pediatric users outside MVP scope",
+            "es": "Perfil no disponible aún",
+            "en": "Profile not available yet",
         },
-        "detail": None,
+        "detail": {
+            "es": "Los planes para menores de edad estarán disponibles próximamente.",
+            "en": "Plans for minors will be available soon.",
+        },
     },
     "geriatric_requires_specialist_review": {
         "title": {
-            "es": "Usuarios geriátricos requieren revisión especializada",
-            "en": "Geriatric users require specialist review",
+            "es": "Requiere revisión médica",
+            "en": "Medical review required",
         },
-        "detail": None,
+        "detail": {
+            "es": "Tu perfil requiere revisión por un especialista antes de generar un plan. Contacta soporte.",
+            "en": "Your profile requires specialist review before generating a plan. Contact support.",
+        },
     },
     # --- iOS user-facing detail messages (option B, 2026-06-07) ---
     # The error handler does a detail-specific i18n lookup first; if the
