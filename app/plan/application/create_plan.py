@@ -464,9 +464,17 @@ class CreatePlan:
                     # supplies them; fall back to global constants for legacy rows.
                     s_min = r_scale_min if r_scale_min is not None else _MIN_SCALE
                     s_max = r_scale_max if r_scale_max is not None else _MAX_SCALE
+                    if s_min > s_max:
+                        log.error(
+                            "plan.invalid_recipe_scale_bounds",
+                            recipe_id=str(m.recipe_id),
+                            scale_min=s_min,
+                            scale_max=s_max,
+                        )
+                        s_min, s_max = _MIN_SCALE, _MAX_SCALE
                     target = kcal_share_by_slot.get(m.meal_time)
                     factor = 1.0
-                    if n_kcal and target:
+                    if n_kcal and n_kcal > 0 and target:
                         factor = max(s_min, min(s_max, target / n_kcal))
                     m.kcal = int(round((n_kcal or 0) * factor))
                     m.protein_g = int(round((n_prot or 0) * factor))
@@ -477,8 +485,12 @@ class CreatePlan:
                 # withinBand: validate day kcal closes near target (±20 %).
                 # Computed after macro hydration so scaled values are final.
                 d.kcal_actual = sum(m.kcal or 0 for m in d.meals)
-                if kcal_daily > 0 and d.kcal_actual > 0:
-                    deviation = abs(d.kcal_actual - kcal_daily) / kcal_daily
+                if kcal_daily > 0:
+                    deviation = (
+                        abs(d.kcal_actual - kcal_daily) / kcal_daily
+                        if d.kcal_actual > 0
+                        else 1.0
+                    )
                     d.within_band = deviation <= 0.20
                     if not d.within_band:
                         log.warning(
