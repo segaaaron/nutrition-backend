@@ -41,8 +41,8 @@ class Settings(BaseSettings):
     # while the managed DB expected `postgres@…`). Pydantic now fails loud at
     # boot if DATABASE_URL is missing or wrong driver.
     database_url: str
-    db_pool_size: int = 15
-    db_max_overflow: int = 10
+    db_pool_size: int = 8
+    db_max_overflow: int = 5
     db_pool_recycle_seconds: int = 3600
 
     # --- Redis ---

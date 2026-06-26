@@ -10,6 +10,7 @@ those two hashes.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 from dataclasses import dataclass
@@ -93,7 +94,12 @@ class CoherencePass:
         plan generation never blocks on the LLM.
         """
         redis = get_redis()
-        cache_key = "plan:coh:" + _hash_inputs(user_profile, candidate_plan)
+        loop = asyncio.get_running_loop()
+
+        # CPU-bound: JSON serialisation + sha256 — off event loop.
+        cache_key = "plan:coh:" + await loop.run_in_executor(
+            None, _hash_inputs, user_profile, candidate_plan
+        )
         cached = await redis.get(cache_key)
         if cached:
             try:
@@ -101,22 +107,42 @@ class CoherencePass:
             except Exception:  # noqa: BLE001,S110 — cache miss falls through to rebuild
                 pass
 
-        prompt = self._prompt(user_profile, candidate_plan, alternatives_by_slot)
+        # Stampede guard: only one coroutine builds per (user_profile, plan) pair.
+        lock_key = cache_key + ":lock"
+        got_lock = await redis.set(lock_key, "1", nx=True, ex=60)
+        if not got_lock:
+            for _ in range(30):
+                await asyncio.sleep(1)
+                cached = await redis.get(cache_key)
+                if cached:
+                    try:
+                        return json.loads(cached)
+                    except Exception:  # noqa: BLE001
+                        break
+            return {"ok": True, "swaps": [], "why_paragraph": ""}
+
+        # CPU-bound: JSON serialisation for prompt + tiktoken encode — off event loop.
+        prompt = await loop.run_in_executor(
+            None, lambda: self._prompt(user_profile, candidate_plan, alternatives_by_slot)
+        )
         model = self._model()
-        est = estimate_input_cost(model, prompt)
+        est = await loop.run_in_executor(None, estimate_input_cost, model, prompt)
         if est > COST_HARD_CAP_USD:
             log.warning("plan.coherence.skip_cost", est_usd=est)
+            await redis.delete(lock_key)
             return {"ok": True, "swaps": [], "why_paragraph": ""}
 
         try:
             await pre_check(user_id=self.user_id, estimate_usd=est)
         except Exception as exc:  # noqa: BLE001
             log.warning("plan.coherence.cap_blocked", error=str(exc))
+            await redis.delete(lock_key)
             return {"ok": True, "swaps": [], "why_paragraph": ""}
 
         async def _do_call() -> dict:
             resp = await _get_client().chat.completions.create(
                 model=model,
+                timeout=25.0,
                 messages=[
                     {
                         "role": "system",
@@ -162,10 +188,12 @@ class CoherencePass:
             raw = await _breaker.call(_do_call)
         except Exception as exc:  # noqa: BLE001
             log.warning("plan.coherence.upstream_failed", error=str(exc))
+            await redis.delete(lock_key)
             return {"ok": True, "swaps": [], "why_paragraph": ""}
 
         validated = self._validate_swaps(raw, alternatives_by_slot)
         await redis.set(cache_key, json.dumps(validated), ex=CACHE_TTL_S)
+        await redis.delete(lock_key)
         return validated
 
     def _prompt(

@@ -12,11 +12,11 @@ plan event handlers; out of scope here).
 from __future__ import annotations
 
 import json
-import math
 from dataclasses import dataclass
 from typing import Protocol
 from uuid import UUID
 
+import numpy as np
 from redis.asyncio import Redis
 
 DECAY_PER_WEEK = 0.92
@@ -57,28 +57,29 @@ class TasteProfileService:
             cold = await self.fetcher.get_onboarding_centroid(user_id)
             return cold or [0.0] * DIM
         # weighted EMA: more recent (smaller weeks_ago) gets larger weight.
-        acc = [0.0] * DIM
-        total_w = 0.0
-        for weeks_ago, emb in history:
-            w = DECAY_PER_WEEK ** max(0, weeks_ago)
-            total_w += w
-            for i, v in enumerate(emb):
-                acc[i] += w * v
+        weights = np.array(
+            [DECAY_PER_WEEK ** max(0, weeks_ago) for weeks_ago, _ in history],
+            dtype=np.float64,
+        )
+        total_w = weights.sum()
         if total_w == 0:
             return [0.0] * DIM
-        return [v / total_w for v in acc]
+        matrix = np.array([emb for _, emb in history], dtype=np.float64)
+        acc = (matrix * weights[:, np.newaxis]).sum(axis=0) / total_w
+        return acc.tolist()
 
 
 def cosine(a: list[float], b: list[float]) -> float:
     if not a or not b:
         return 0.0
     n = min(len(a), len(b))
-    dot = sum(a[i] * b[i] for i in range(n))
-    na = math.sqrt(sum(x * x for x in a[:n]))
-    nb = math.sqrt(sum(x * x for x in b[:n]))
-    if na == 0 or nb == 0:
+    va = np.array(a[:n], dtype=np.float32)
+    vb = np.array(b[:n], dtype=np.float32)
+    na = float(np.linalg.norm(va))
+    nb = float(np.linalg.norm(vb))
+    if na == 0.0 or nb == 0.0:
         return 0.0
-    return dot / (na * nb)
+    return float(np.dot(va, vb) / (na * nb))
 
 
 # ISO-2 country → market region mapping. Used to score old-catalog recipes

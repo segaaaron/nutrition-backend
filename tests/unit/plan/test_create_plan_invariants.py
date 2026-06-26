@@ -97,7 +97,14 @@ class _Layer2Empty:
         return []
 
 
+class _ProfileCtxNoOp:
+    async def get_ranking_context(self, user_id: UUID) -> dict:  # type: ignore[override]
+        return {}
+
+
 class _Layer3Empty:
+    profile_ctx = _ProfileCtxNoOp()
+
     async def __call__(
         self,
         *,
@@ -106,6 +113,8 @@ class _Layer3Empty:
         meal_time: str,
         novelty_counts: dict[UUID, int] | None = None,
         adherence_rates: dict[UUID, float] | None = None,
+        ranking_context: dict | None = None,
+        embedding_cache: dict | None = None,
     ) -> list[tuple[UUID, float]]:
         return []
 
@@ -250,6 +259,8 @@ async def test_create_plan_succeeds_when_pipeline_yields_meals() -> None:
             return [(chosen_recipe, 1.0)]
 
     class _Layer3OK:
+        profile_ctx = _ProfileCtxNoOp()
+
         async def __call__(self, **kw: Any) -> list[tuple[UUID, float]]:
             return [(chosen_recipe, 1.0)]
 
@@ -336,6 +347,8 @@ class _Layer2Filter:
 
 
 class _Layer3PassThrough:
+    profile_ctx = _ProfileCtxNoOp()
+
     async def __call__(
         self,
         *,
@@ -344,6 +357,8 @@ class _Layer3PassThrough:
         meal_time: str,
         novelty_counts: dict[UUID, int] | None = None,
         adherence_rates: dict[UUID, float] | None = None,
+        ranking_context: dict | None = None,
+        embedding_cache: dict | None = None,
     ) -> list[tuple[UUID, float]]:
         return [(cid, 1.0) for cid in candidate_ids]
 

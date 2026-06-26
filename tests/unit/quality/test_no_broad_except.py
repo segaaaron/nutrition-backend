@@ -50,7 +50,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 # When you add a new entry, also add the OK-category in a comment.
 ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # OK4: best-effort metadata read from request.state; PII-safe input repr.
-    "app/core/problem_details.py": {419, 423, 464},
+    "app/core/problem_details.py": {421, 425, 466},
     # OK6: generic decorator wrapping arbitrary user-supplied callable.
     "app/coach/application/chat_message.py": {190, 231},
     # OK4: best-effort cache miss + LLM call boundary.
@@ -92,13 +92,13 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # OK1: nutrition event handlers — best-effort with explicit log.
     "app/nutrition/event_handlers.py": {76, 108},
     # OK4: ensure_goals fallback wrapper — logs and re-raises domain error.
-    "app/plan/application/create_plan.py": {142, 351},
+    "app/plan/application/create_plan.py": {166, 390},
     # OK4: taste profile cache fetch — falls through on miss.
     "app/plan/application/taste_profile.py": {48},
     # OK4: plan cache best-effort.
     "app/plan/infrastructure/cache.py": {32},
     # OK4: OpenAI coherence client — structured fallback.
-    "app/plan/infrastructure/openai_coherence_client.py": {101, 113, 163, 200},
+    "app/plan/infrastructure/openai_coherence_client.py": {107, 120, 137, 189, 228},
     # OK4: taste fetcher SQL best-effort.
     "app/plan/infrastructure/taste_fetcher.py": {66},
     # OK1: profile event handler boundary.
@@ -119,7 +119,7 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # OK4: OpenAI vision wrappers with fallback contracts.
     "app/vision/application/process_vision_job.py": {181, 215, 244, 308, 419, 513, 585, 599, 632},
     "app/vision/infrastructure/food_matcher.py": {93},
-    "app/vision/infrastructure/openai_vision.py": {271, 277, 394, 670},
+    "app/vision/infrastructure/openai_vision.py": {271, 277, 398, 678},
     # OK4: plate explanation is decorative — poll must still serve items.
     "app/vision/presentation/router.py": {169},
     # OK4: voice/food text parser — LLM best-effort.

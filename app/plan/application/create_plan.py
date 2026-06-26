@@ -32,6 +32,7 @@ best-effort: failures return the unmodified plan.
 
 from __future__ import annotations
 
+import asyncio
 import random
 import secrets
 import time
@@ -144,7 +145,12 @@ class CreatePlan:
         total_days = PLAN_TYPE_TO_DAYS[plan_type]
         seed = seed if seed is not None else secrets.randbits(63)
 
-        targets = await self.user_ctx.get_user_targets(user_id)
+        # Gather independent startup DB calls in a single round-trip.
+        targets, profile, ranking_ctx = await asyncio.gather(
+            self.user_ctx.get_user_targets(user_id),
+            self.user_ctx.get_user_profile_snapshot(user_id),
+            self.layer3.profile_ctx.get_ranking_context(user_id),
+        )
         # Defense-in-depth invariant — NEVER generate a plan against the
         # 2000 kcal fallback. If `nutritional_goals` is missing, recover
         # by computing the baseline inline (idempotent); if that path is
@@ -167,7 +173,6 @@ class CreatePlan:
             targets = await self.user_ctx.get_user_targets(user_id)
             if not targets:
                 raise BusinessRuleViolation("nutritional_goals_missing")
-        profile = await self.user_ctx.get_user_profile_snapshot(user_id)
         kcal_daily = int(targets.get("kcal_max") or targets.get("kcal_min") or 2000)
         protein_daily = int(targets.get("protein_g") or 100)
         goal = str(targets.get("goal") or "").lower()
@@ -218,6 +223,11 @@ class CreatePlan:
         # per meal_time instead of re-querying per day (month plan: 120
         # identical queries → 4).
         layer1_cache: dict[str, list[UUID]] = {}
+        # Shared embedding cache: recipe embeddings fetched once per unique
+        # recipe_id and reused across all Layer3 calls. Month plan: up to
+        # 120 calls sharing ~200-400 unique recipes → 99%+ cache hits after
+        # day 1 per meal_time. Dict populated in-place by Layer3.__call__.
+        embedding_cache: dict[UUID, tuple[list[str], int | None, list[float]]] = {}
 
         for d in range(total_days):
             day_id = uuid4()
@@ -279,6 +289,8 @@ class CreatePlan:
                     meal_time=mt,
                     novelty_counts=novelty_counts,
                     adherence_rates=adherence_rates,
+                    ranking_context=ranking_ctx,
+                    embedding_cache=embedding_cache,
                 )
                 _layer_hist.labels(layer="3").observe(time.perf_counter() - t0)
 

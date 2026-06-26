@@ -53,22 +53,47 @@ class Layer3Ranking:
         meal_time: str,
         novelty_counts: dict[UUID, int] | None = None,
         adherence_rates: dict[UUID, float] | None = None,
+        ranking_context: dict | None = None,
+        embedding_cache: dict[UUID, tuple[list[str], int | None, list[float]]] | None = None,
     ) -> list[tuple[UUID, float]]:
         if not candidate_ids:
             return []
-        ctx = await self.profile_ctx.get_ranking_context(user_id)
-        country = (ctx.get("country") or "").lower() or None
-        prep_pref = ctx.get("prep_time_pref_min")
+        # Use pre-fetched context if provided (avoids per-slot DB roundtrip).
+        if ranking_context is None:
+            ranking_context = await self.profile_ctx.get_ranking_context(user_id)
+        country = (ranking_context.get("country") or "").lower() or None
+        prep_pref = ranking_context.get("prep_time_pref_min")
 
-        sql = text(
+        _SQL = text(
             """
             SELECT id, regions, prep_min, embedding
               FROM recipes
              WHERE id = ANY(CAST(:ids AS uuid[]))
         """
         )
-        res = await self.session.execute(sql, {"ids": [str(i) for i in candidate_ids]})
-        rows = list(res.mappings())
+        if embedding_cache is not None:
+            # Fetch only the subset not yet cached.
+            uncached = [cid for cid in candidate_ids if cid not in embedding_cache]
+            if uncached:
+                res = await self.session.execute(_SQL, {"ids": [str(i) for i in uncached]})
+                for row in res.mappings():
+                    rid: UUID = row["id"]
+                    embedding_cache[rid] = (
+                        list(row["regions"] or []),
+                        row["prep_min"],
+                        list(row["embedding"]) if row["embedding"] is not None else [],
+                    )
+            rows = [
+                {"id": cid,
+                 "regions": embedding_cache[cid][0],
+                 "prep_min": embedding_cache[cid][1],
+                 "embedding": embedding_cache[cid][2]}
+                for cid in candidate_ids
+                if cid in embedding_cache
+            ]
+        else:
+            res = await self.session.execute(_SQL, {"ids": [str(i) for i in candidate_ids]})
+            rows = list(res.mappings())
 
         novelty_counts = novelty_counts or {}
         adherence_rates = adherence_rates or {}
