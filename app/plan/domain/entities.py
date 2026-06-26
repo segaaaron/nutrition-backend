@@ -35,6 +35,8 @@ class PlanDay:
     date: date
     completed: bool = False
     meals: list[PlanMeal] = field(default_factory=list)
+    kcal_actual: int | None = None
+    within_band: bool | None = None
 
 
 @dataclass(slots=True)
@@ -55,6 +57,9 @@ class Plan:
     # Daily hydration view — computed from `nutritional_goals.water_ml`
     # (single source of truth). Non-persisted: assembled at create/read time.
     water_view: WaterView | None = None
+    # Per-slot kcal/protein targets (migration 0020).
+    # {"breakfast": {"kcal": 475, "protein_g": 33}, ...}
+    slot_targets: dict | None = None
 
     def find_meal(self, meal_id: UUID) -> PlanMeal | None:
         for d in self.days:

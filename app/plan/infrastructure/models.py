@@ -20,7 +20,7 @@ from sqlalchemy import (
     Numeric,
     Text,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, BIGINT
+from sqlalchemy.dialects.postgresql import ARRAY, BIGINT, JSONB
 from sqlalchemy.dialects.postgresql import ENUM as PG_ENUM
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -56,6 +56,10 @@ class PlanModel(Base):
     kcal_target: Mapped[int | None] = mapped_column(Integer, nullable=True)
     version: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    # Per-slot kcal/protein targets (migration 0020). JSON:
+    # {"breakfast": {"kcal": 475, "protein_g": 33}, "lunch": {...}, ...}
+    # NULL for plans generated before this migration.
+    slot_targets: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     days: Mapped[list[PlanDayModel]] = relationship(
         "PlanDayModel",
@@ -74,6 +78,10 @@ class PlanDayModel(Base):
     day_index: Mapped[int] = mapped_column(Integer)
     date: Mapped[date] = mapped_column(Date)
     completed: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Actual vs target kcal for the day (migration 0020). Computed after
+    # portion scaling; NULL for legacy plans.
+    kcal_actual: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    within_band: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
     meals: Mapped[list[PlanMealModel]] = relationship(
         "PlanMealModel",

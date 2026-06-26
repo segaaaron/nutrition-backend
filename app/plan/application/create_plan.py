@@ -197,6 +197,13 @@ class CreatePlan:
             mt: max(1, int(round(protein_daily * w))) for mt, w in zip(slots, weights, strict=False)
         }
 
+        # Slot targets: persisted on the plan so iOS can show target vs actual
+        # per slot without re-deriving from goals + weights.
+        slot_targets: dict[str, dict[str, int]] = {
+            mt: {"kcal": kcal_share_by_slot[mt], "protein_g": protein_share_by_slot[mt]}
+            for mt in slots
+        }
+
         plan_id = uuid4()
         now = datetime.now(UTC)
         days: list[PlanDay] = []
@@ -429,6 +436,7 @@ class CreatePlan:
             created_at=now,
             days=days,
             water_view=water_view,
+            slot_targets=slot_targets,
         )
         # Per-meal macros (2026-06-11 root-cause fix). Persisting plans
         # with NULL kcal/protein/carbs/fat broke the iOS plan screen — UI
@@ -451,22 +459,35 @@ class CreatePlan:
                     row = macros.get(m.recipe_id)
                     if row is None:
                         continue
-                    n_kcal, n_prot, n_carb, n_fat = row
-                    # Portion scaling (2026-06-16): the recipe's native kcal
-                    # rarely equals the slot's kcal share, so scale the portion
-                    # (macros proportionally) toward the target within sane
-                    # bounds — otherwise the day drifts with whatever the picked
-                    # recipe weighs. `scaled_factor` is persisted so iOS scales
-                    # the displayed ingredient amounts to match the shown kcal.
+                    n_kcal, n_prot, n_carb, n_fat, r_scale_min, r_scale_max = row
+                    # Portion scaling: use per-recipe bounds when the v3 catalog
+                    # supplies them; fall back to global constants for legacy rows.
+                    s_min = r_scale_min if r_scale_min is not None else _MIN_SCALE
+                    s_max = r_scale_max if r_scale_max is not None else _MAX_SCALE
                     target = kcal_share_by_slot.get(m.meal_time)
                     factor = 1.0
                     if n_kcal and target:
-                        factor = max(_MIN_SCALE, min(_MAX_SCALE, target / n_kcal))
+                        factor = max(s_min, min(s_max, target / n_kcal))
                     m.kcal = int(round((n_kcal or 0) * factor))
                     m.protein_g = int(round((n_prot or 0) * factor))
                     m.carbs_g = int(round((n_carb or 0) * factor))
                     m.fat_g = int(round((n_fat or 0) * factor))
                     m.scaled_factor = round(factor, 3)
+
+                # withinBand: validate day kcal closes near target (±20 %).
+                # Computed after macro hydration so scaled values are final.
+                d.kcal_actual = sum(m.kcal or 0 for m in d.meals)
+                if kcal_daily > 0 and d.kcal_actual > 0:
+                    deviation = abs(d.kcal_actual - kcal_daily) / kcal_daily
+                    d.within_band = deviation <= 0.20
+                    if not d.within_band:
+                        log.warning(
+                            "plan.day_outside_band",
+                            day=d.day_index,
+                            kcal_actual=d.kcal_actual,
+                            kcal_target=kcal_daily,
+                            deviation_pct=round(deviation * 100, 1),
+                        )
 
         # Idempotent-by-user invariant (2026-06-11 root-cause fix for iOS
         # plan-create errors). The `one_active_plan` partial unique index

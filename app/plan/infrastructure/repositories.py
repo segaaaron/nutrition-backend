@@ -44,6 +44,8 @@ def _day_from_model(d: PlanDayModel) -> PlanDay:
         date=d.date,
         completed=d.completed,
         meals=[_meal_from_model(m) for m in (d.meals or [])],
+        kcal_actual=d.kcal_actual,
+        within_band=d.within_band,
     )
 
 
@@ -62,6 +64,7 @@ def _plan_from_model(m: PlanModel) -> Plan:
         version=m.version,
         created_at=m.created_at,
         days=[_day_from_model(d) for d in (m.days or [])],
+        slot_targets=dict(m.slot_targets) if m.slot_targets else None,
     )
 
 
@@ -87,14 +90,18 @@ class SqlPlanRepository:
 
     async def fetch_recipe_macros(
         self, recipe_ids: list[UUID]
-    ) -> dict[UUID, tuple[int | None, int | None, int | None, int | None]]:
-        """Batch-fetch (kcal, protein_g, carbs_g, fat_g) per recipe id.
+    ) -> dict[UUID, tuple[int | None, int | None, int | None, int | None, float | None, float | None]]:
+        """Batch-fetch (kcal, protein_g, carbs_g, fat_g, scale_min, scale_max) per recipe id.
 
         Used by `CreatePlan` to populate per-meal macros after Layer3 picks
         a recipe for each slot. A single round-trip avoids N+1 — typical
         plan has 21 meals but only ~10-15 unique recipes due to weekly
         repetition. Returns a tuple per id; missing rows are omitted so
         callers can fall back to `None` safely.
+
+        ``scale_min`` / ``scale_max`` are per-recipe portion bounds from the
+        v3 catalog (migration 0019); NULL for legacy recipes → caller uses
+        the global fallback (_MIN_SCALE / _MAX_SCALE in create_plan).
         """
         if not recipe_ids:
             return {}
@@ -105,9 +112,21 @@ class SqlPlanRepository:
             RecipeModel.protein_g,
             RecipeModel.carbs_g,
             RecipeModel.fat_g,
+            RecipeModel.scale_min,
+            RecipeModel.scale_max,
         ).where(RecipeModel.id.in_(unique_ids))
         rows = (await self.s.execute(stmt)).all()
-        return {row[0]: (row[1], row[2], row[3], row[4]) for row in rows}
+        return {
+            row[0]: (
+                row[1],
+                row[2],
+                row[3],
+                row[4],
+                float(row[5]) if row[5] is not None else None,
+                float(row[6]) if row[6] is not None else None,
+            )
+            for row in rows
+        }
 
     async def count_recent_recipe_occurrences(
         self, user_id: UUID, *, days: int = 30
@@ -210,6 +229,7 @@ class SqlPlanRepository:
             kcal_target=plan.kcal_target,
             version=plan.version,
             created_at=plan.created_at,
+            slot_targets=plan.slot_targets,
         )
         for d in plan.days:
             dm = PlanDayModel(
@@ -218,6 +238,8 @@ class SqlPlanRepository:
                 day_index=d.day_index,
                 date=d.date,
                 completed=d.completed,
+                kcal_actual=d.kcal_actual,
+                within_band=d.within_band,
             )
             for meal in d.meals:
                 dm.meals.append(

@@ -124,6 +124,11 @@ class RecipeModel(Base):
     # ingredients by scripts/backfill_diet_flags.py.
     is_vegetarian: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     is_vegan: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    # v3 catalog fields (migration 0019). NULL for pre-v3 legacy recipes.
+    cuisine: Mapped[str | None] = mapped_column(Text, nullable=True)
+    dish_family: Mapped[str | None] = mapped_column(Text, nullable=True)
+    scale_min: Mapped[float | None] = mapped_column(Numeric(5, 3), nullable=True)
+    scale_max: Mapped[float | None] = mapped_column(Numeric(5, 3), nullable=True)
     embedding: Mapped[list[float] | None] = mapped_column(Vector(1536), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 

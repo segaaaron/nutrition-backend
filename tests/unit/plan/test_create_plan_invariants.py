@@ -41,9 +41,10 @@ class _StubPlans:
 
     async def fetch_recipe_macros(
         self, recipe_ids: list[UUID]
-    ) -> dict[UUID, tuple[int | None, int | None, int | None, int | None]]:
+    ) -> dict[UUID, tuple[int | None, int | None, int | None, int | None, float | None, float | None]]:
         # Deterministic macros so tests can assert population.
-        return {rid: (500, 30, 50, 15) for rid in recipe_ids}
+        # (kcal, protein_g, carbs_g, fat_g, scale_min, scale_max)
+        return {rid: (500, 30, 50, 15, None, None) for rid in recipe_ids}
 
     async def count_recent_recipe_occurrences(
         self, user_id: UUID, *, days: int = 30

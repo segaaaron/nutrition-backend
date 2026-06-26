@@ -92,7 +92,7 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # OK1: nutrition event handlers — best-effort with explicit log.
     "app/nutrition/event_handlers.py": {76, 108},
     # OK4: ensure_goals fallback wrapper — logs and re-raises domain error.
-    "app/plan/application/create_plan.py": {166, 390},
+    "app/plan/application/create_plan.py": {166, 397},
     # OK4: taste profile cache fetch — falls through on miss.
     "app/plan/application/taste_profile.py": {48},
     # OK4: plan cache best-effort.
