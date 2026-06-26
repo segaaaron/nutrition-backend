@@ -60,7 +60,9 @@ async def test_cache_hit_skips_provider() -> None:
     matcher.match = AsyncMock(return_value=(uuid4(), "avena", "trigram"))
 
     session = MagicMock()
-    session.execute = AsyncMock()
+    _exec_result = MagicMock()
+    _exec_result.all.return_value = []
+    session.execute = AsyncMock(return_value=_exec_result)
 
     notifier = MagicMock()
     notifier.notify = AsyncMock()
@@ -120,7 +122,9 @@ async def test_cache_miss_calls_provider() -> None:
     matcher.match = AsyncMock(return_value=(uuid4(), "manzana", "trigram"))
 
     session = MagicMock()
-    session.execute = AsyncMock()
+    _exec_result = MagicMock()
+    _exec_result.all.return_value = []
+    session.execute = AsyncMock(return_value=_exec_result)
 
     notifier = MagicMock()
     notifier.notify = AsyncMock()

@@ -93,7 +93,9 @@ async def test_cache_hit_rematches_for_new_user() -> None:
     matcher.match = AsyncMock(return_value=(food_b_id, "AVENA-USER-B", "trigram"))
 
     session = MagicMock()
-    session.execute = AsyncMock()
+    _exec_result = MagicMock()
+    _exec_result.all.return_value = []
+    session.execute = AsyncMock(return_value=_exec_result)
     notifier = MagicMock()
     notifier.notify = AsyncMock()
     bus = MagicMock()

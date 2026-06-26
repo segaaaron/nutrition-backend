@@ -95,7 +95,7 @@ class Layer1Eligibility:
         # (tagged with lowercase country like "pe", "mx") are eligible
         # alongside old-catalog recipes (tagged with market strings like
         # "latam"). The OR inside `&&` operator handles both transparently.
-        allowed_tags: list[str] = list({region, country.lower()} - {""}) if country else [region]
+        allowed_tags: list[str] = list({region, country.lower(), "world"} - {""}) if country else [region, "world"]
 
         where: list[str] = [
             "r.regions && CAST(:regions AS char(5)[])",

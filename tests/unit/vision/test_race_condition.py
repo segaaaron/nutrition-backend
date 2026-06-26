@@ -102,7 +102,7 @@ async def test_concurrent_same_sha_provider_called_once(
             matcher=matcher,
             notifier=notifier,
             bus=bus,
-            session=MagicMock(execute=AsyncMock()),
+            session=MagicMock(execute=AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[])))),
         )
 
     uc_a = _mk_uc(job_a)
