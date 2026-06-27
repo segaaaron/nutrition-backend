@@ -116,14 +116,22 @@ class Layer1Eligibility:
         # is NULL-safe (NULL → excluded). Survives the region/meal-time
         # fallbacks below because it lives in `where` — a safety filter, never
         # relaxed. Omnivore (and any unknown value) → no extra filter.
+        _KNOWN_DIETARY_PATTERNS = {"vegan", "vegetarian", "pescatarian", "omnivore", ""}
+        if dietary_pattern not in _KNOWN_DIETARY_PATTERNS:
+            _log.warning(
+                "layer1.unknown_dietary_pattern",
+                dietary_pattern=dietary_pattern,
+                user_id=str(user_id),
+            )
         if dietary_pattern == "vegan":
             where.append("r.is_vegan IS TRUE")
-        elif dietary_pattern in ("vegetarian", "pescatarian"):
-            # Pescatarian eats fish but no land meat. We don't yet carry a
-            # "land-meat only" flag, so treat it as vegetarian (no meat AND no
-            # fish) — stricter than necessary but SAFE: it never serves meat.
-            # TODO: add a `contains_meat` flag to allow fish for pescatarians.
+        elif dietary_pattern == "vegetarian":
             where.append("r.is_vegetarian IS TRUE")
+        elif dietary_pattern == "pescatarian":
+            # Pescatarian eats fish/seafood but no land-animal meat.
+            # `IS FALSE` is NULL-safe: NULL IS FALSE → FALSE → excluded.
+            # `IS NOT TRUE` would include NULL (NULL IS NOT TRUE → TRUE) — wrong.
+            where.append("r.contains_meat IS FALSE")
 
         if allergies:
             # Defensive: cast both sides to text so we never trip enum-vs-text

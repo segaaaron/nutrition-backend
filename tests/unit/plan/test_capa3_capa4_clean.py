@@ -301,16 +301,13 @@ async def test_negative_native_kcal_produces_no_negative_meal_kcal() -> None:
 
     for day in plan.days:
         for meal in day.meals:
-            # Guard `n_kcal > 0` prevents scaling → factor=1.0 → kcal = -100*1.0 = -100
-            # The fix ensures factor stays 1.0 (no scaling on negative kcal)
-            # iOS must never see negative kcal in plan_meals
-            assert meal.kcal is not None
-            # With negative native kcal and no scaling (guard), kcal = -100 * 1.0 = -100
-            # This test documents the current behaviour; if native kcal is negative
-            # the meal kcal reflects it. The guard prevents division, not the value.
-            # Primary protection: catalog validation must reject negative kcal.
-            # Secondary: this test ensures at minimum no division crash occurs.
             assert meal.scaled_factor == 1.0, "No scaling must occur when n_kcal <= 0"
+            assert meal.kcal is not None and meal.kcal >= 0, (
+                f"iOS must never receive negative kcal. Got: {meal.kcal}"
+            )
+            assert meal.protein_g is not None and meal.protein_g >= 0
+            assert meal.carbs_g is not None and meal.carbs_g >= 0
+            assert meal.fat_g is not None and meal.fat_g >= 0
 
 
 # ── Test 9 (QA fix): kcal_actual=0 → within_band=False, not None ─────────────
@@ -375,3 +372,71 @@ async def test_layer1_world_tag_in_allowed_tags() -> None:
     assert "world" in regions_used, (
         f"'world' must be in allowed_tags but got: {regions_used}"
     )
+
+
+# ── Test 11: water_view reconstructed on plan read from DB ────────────────────
+
+def _make_plan_model_mock(*, water_ml: int | None, locale: str | None) -> object:
+    from unittest.mock import MagicMock
+    m = MagicMock()
+    m.id = uuid4()
+    m.user_id = uuid4()
+    m.type = "week"
+    m.total_days = 7
+    m.current_day = 1
+    m.status = "active"
+    m.goal = None
+    m.meals_per_day = 3
+    m.preferences = []
+    m.kcal_target = 2000
+    m.version = 1
+    m.created_at = __import__("datetime").datetime.now()
+    m.days = []
+    m.slot_targets = None
+    m.water_ml = water_ml
+    m.locale = locale
+    return m
+
+
+def test_water_view_reconstructed_from_water_ml() -> None:
+    """_plan_from_model must rebuild water_view from plans.water_ml."""
+    from app.plan.infrastructure.repositories import _plan_from_model
+    from app.plan.domain.water_view import WaterView
+
+    plan = _plan_from_model(_make_plan_model_mock(water_ml=2500, locale="es"))  # type: ignore[arg-type]
+
+    assert plan.water_view is not None, "water_view must be rebuilt from water_ml"
+    assert isinstance(plan.water_view, WaterView)
+    assert plan.water_view.total_ml == 2500
+    assert plan.water_view.n_glasses > 0
+    assert "vasos" in plan.water_view.message, "ES locale: must use Spanish message"
+
+
+def test_water_view_locale_en_uses_english_message() -> None:
+    """water_view message must be in English for locale='en'."""
+    from app.plan.infrastructure.repositories import _plan_from_model
+
+    plan = _plan_from_model(_make_plan_model_mock(water_ml=2000, locale="en"))  # type: ignore[arg-type]
+
+    assert plan.water_view is not None
+    assert "glasses" in plan.water_view.message, (
+        f"EN locale must produce English message, got: {plan.water_view.message!r}"
+    )
+
+
+def test_water_view_locale_null_defaults_to_es() -> None:
+    """Legacy plans with locale=NULL must fall back to Spanish."""
+    from app.plan.infrastructure.repositories import _plan_from_model
+
+    plan = _plan_from_model(_make_plan_model_mock(water_ml=1800, locale=None))  # type: ignore[arg-type]
+
+    assert plan.water_view is not None
+    assert "vasos" in plan.water_view.message
+
+
+def test_water_view_none_when_water_ml_null() -> None:
+    """Legacy plans without water_ml must return water_view=None."""
+    from app.plan.infrastructure.repositories import _plan_from_model
+
+    plan = _plan_from_model(_make_plan_model_mock(water_ml=None, locale="en"))  # type: ignore[arg-type]
+    assert plan.water_view is None

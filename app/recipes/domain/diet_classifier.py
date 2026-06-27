@@ -77,8 +77,22 @@ _DAIRY = (
 _EGG = r"\b(huevo|huevos|clara de huevo|yema|egg|mayonesa|mayonnaise|merengue|frittata|omelette|omelet|quiche)"
 _OTHER_ANIMAL = r"\b(miel\b|honey|gelatina|gelatin|grenetina)"
 
+_MEAT_RE = re.compile(_MEAT)
+_FISH_RE = re.compile(_FISH)
+_SEAFOOD_RE = re.compile(_SEAFOOD)
 _NONVEG = re.compile("|".join([_MEAT, _FISH, _SEAFOOD]))
 _NONVEGAN_EXTRA = re.compile("|".join([_DAIRY, _EGG, _OTHER_ANIMAL]))
+
+# Subset of _MEAT without cuts/preparations that also appear in fish dishes
+# ("filete de merluza", "escalope de salmon"). Species names and unambiguous
+# preparations (pechuga, pavo, chorizo, …) remain; "filete" and "escalope"
+# are intentionally removed. Used only in classify_contains_meat.
+_LAND_MEAT_NO_AMBIGUOUS = _MEAT.replace(r"filete|escalope|", "")
+assert _LAND_MEAT_NO_AMBIGUOUS != _MEAT, (
+    "_LAND_MEAT_STRICT_RE build failed: 'filete|escalope|' not found in _MEAT. "
+    "Update this assertion when editing _MEAT."
+)
+_LAND_MEAT_STRICT_RE = re.compile(_LAND_MEAT_NO_AMBIGUOUS)
 
 
 def classify_diet(text: str) -> tuple[bool, bool]:
@@ -88,3 +102,24 @@ def classify_diet(text: str) -> tuple[bool, bool]:
     is_vegetarian = _NONVEG.search(t) is None
     is_vegan = is_vegetarian and _NONVEGAN_EXTRA.search(t) is None
     return is_vegetarian, is_vegan
+
+
+def classify_contains_meat(text: str) -> bool:
+    """Return True if text mentions land-animal meat (not fish/seafood).
+
+    Used for pescatarian filter: pescatarians eat fish but no land meat.
+    Distinct from ``is_vegetarian`` which excludes both meat and fish.
+
+    Two-pass logic:
+    1. Unambiguous land-meat term present → True immediately.
+    2. Only ambiguous cut terms ("filete", "escalope") matched AND fish/seafood
+       also present → False (e.g. "filete de merluza" is fish, not meat).
+    """
+    t = _norm(text)
+    t = _PLANT_OVERRIDES.sub(" ", t)
+    if _LAND_MEAT_STRICT_RE.search(t) is not None:
+        return True
+    if _MEAT_RE.search(t) is None:
+        return False
+    # Only ambiguous cut matched — treat as meat only if no fish/seafood context.
+    return _FISH_RE.search(t) is None and _SEAFOOD_RE.search(t) is None

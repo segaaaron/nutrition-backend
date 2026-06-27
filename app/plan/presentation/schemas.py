@@ -75,6 +75,9 @@ class PlanMealResponse(_Strict):
     protein_g: int | None
     carbs_g: int | None
     fat_g: int | None
+    # Portion-scaling multiplier vs the recipe's native macros. iOS MUST
+    # multiply displayed ingredient amounts by this value. NULL = legacy → 1.0.
+    scaled_factor: float | None = None
     completed: bool
     swapped_from: UUID | None
 
@@ -85,6 +88,9 @@ class PlanDayResponse(_Strict):
     date: date
     completed: bool
     meals: list[PlanMealResponse]
+    # Actual kcal delivered after portion scaling. ±20% of daily target = within_band.
+    kcal_actual: int | None = None
+    within_band: bool | None = None
 
 
 class WaterSlotResponse(_Strict):
@@ -122,6 +128,9 @@ class PlanResponse(_Strict):
     created_at: datetime
     days: list[PlanDayResponse]
     water_target: WaterTargetResponse | None = None
+    # Per-slot kcal/protein targets so iOS can show the distribution breakdown.
+    # {"breakfast": {"kcal": 475, "protein_g": 33}, "lunch": {...}, ...}
+    slot_targets: dict | None = None
 
 
 class AdvanceRequest(_Strict):

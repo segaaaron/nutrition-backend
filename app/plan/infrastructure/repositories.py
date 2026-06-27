@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.plan.domain.entities import Plan, PlanDay, PlanMeal
+from app.plan.domain.water_view import build_water_view
 from app.plan.infrastructure.models import (
     PlanDayModel,
     PlanGenerationSeedModel,
@@ -50,6 +51,11 @@ def _day_from_model(d: PlanDayModel) -> PlanDay:
 
 
 def _plan_from_model(m: PlanModel) -> Plan:
+    water_view = (
+        build_water_view(total_ml=m.water_ml, locale=m.locale or "es")
+        if m.water_ml and m.water_ml > 0
+        else None
+    )
     return Plan(
         id=m.id,
         user_id=m.user_id,
@@ -65,6 +71,8 @@ def _plan_from_model(m: PlanModel) -> Plan:
         created_at=m.created_at,
         days=[_day_from_model(d) for d in (m.days or [])],
         slot_targets=dict(m.slot_targets) if m.slot_targets else None,
+        water_view=water_view,
+        locale=m.locale or "es",
     )
 
 
@@ -230,6 +238,8 @@ class SqlPlanRepository:
             version=plan.version,
             created_at=plan.created_at,
             slot_targets=plan.slot_targets,
+            water_ml=plan.water_view.total_ml if plan.water_view else None,
+            locale=plan.locale,
         )
         for d in plan.days:
             dm = PlanDayModel(

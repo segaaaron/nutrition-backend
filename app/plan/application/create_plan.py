@@ -437,6 +437,7 @@ class CreatePlan:
             days=days,
             water_view=water_view,
             slot_targets=slot_targets,
+            locale=effective_locale,
         )
         # Per-meal macros (2026-06-11 root-cause fix). Persisting plans
         # with NULL kcal/protein/carbs/fat broke the iOS plan screen — UI
@@ -470,16 +471,17 @@ class CreatePlan:
                             recipe_id=str(m.recipe_id),
                             scale_min=s_min,
                             scale_max=s_max,
+                            meal_time=m.meal_time,
                         )
                         s_min, s_max = _MIN_SCALE, _MAX_SCALE
                     target = kcal_share_by_slot.get(m.meal_time)
                     factor = 1.0
                     if n_kcal and n_kcal > 0 and target:
                         factor = max(s_min, min(s_max, target / n_kcal))
-                    m.kcal = int(round((n_kcal or 0) * factor))
-                    m.protein_g = int(round((n_prot or 0) * factor))
-                    m.carbs_g = int(round((n_carb or 0) * factor))
-                    m.fat_g = int(round((n_fat or 0) * factor))
+                    m.kcal = max(0, int(round((n_kcal or 0) * factor)))
+                    m.protein_g = max(0, int(round((n_prot or 0) * factor)))
+                    m.carbs_g = max(0, int(round((n_carb or 0) * factor)))
+                    m.fat_g = max(0, int(round((n_fat or 0) * factor)))
                     m.scaled_factor = round(factor, 3)
 
                 # withinBand: validate day kcal closes near target (±20 %).

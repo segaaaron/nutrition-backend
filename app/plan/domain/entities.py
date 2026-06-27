@@ -60,6 +60,9 @@ class Plan:
     # Per-slot kcal/protein targets (migration 0020).
     # {"breakfast": {"kcal": 475, "protein_g": 33}, ...}
     slot_targets: dict | None = None
+    # User locale at plan-creation time (migration 0023). Used to reconstruct
+    # water_view on read. Defaults to "es" for pre-migration plans.
+    locale: str = "es"
 
     def find_meal(self, meal_id: UUID) -> PlanMeal | None:
         for d in self.days:

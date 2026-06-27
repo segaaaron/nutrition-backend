@@ -189,6 +189,8 @@ def _to_resp(
                 day_index=d.day_index,
                 date=d.date,
                 completed=d.completed,
+                kcal_actual=d.kcal_actual,
+                within_band=d.within_band,
                 meals=[
                     PlanMealResponse(
                         id=m.id,
@@ -200,6 +202,7 @@ def _to_resp(
                         protein_g=m.protein_g,
                         carbs_g=m.carbs_g,
                         fat_g=m.fat_g,
+                        scaled_factor=m.scaled_factor,
                         completed=m.completed,
                         swapped_from=m.swapped_from,
                     )
@@ -209,6 +212,7 @@ def _to_resp(
             for d in p.days
         ],
         water_target=water_target,
+        slot_targets=p.slot_targets,
     )
 
 

@@ -60,6 +60,12 @@ class PlanModel(Base):
     # {"breakfast": {"kcal": 475, "protein_g": 33}, "lunch": {...}, ...}
     # NULL for plans generated before this migration.
     slot_targets: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # Daily hydration target in ml (migration 0021). Used to reconstruct
+    # water_view on read-back. NULL for pre-migration plans.
+    water_ml: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # User locale at creation time (migration 0023). Drives water_view message
+    # language on read. NULL for pre-migration plans → defaults to "es".
+    locale: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     days: Mapped[list[PlanDayModel]] = relationship(
         "PlanDayModel",
