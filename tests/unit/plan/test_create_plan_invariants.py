@@ -291,20 +291,20 @@ async def test_create_plan_succeeds_when_pipeline_yields_meals() -> None:
     assert plans.locks == [user_id]
     assert plans.archived_for == [user_id]
     # Per-meal macros populated from the recipe row (2026-06-11: never NULL),
-    # AND scaled to the slot's kcal share (2026-06-16 portion scaling). With a
-    # 1900 kcal target over 3 slots (30/40/30) the native 500-kcal recipe is
-    # scaled per slot, and the day closes to ~1900 instead of summing native
-    # weights (3×500=1500, the old ~60-79% drift).
+    # AND scaled to the slot's kcal share (2026-06-16 portion scaling).
+    # kcal_daily = (kcal_min + kcal_max) // 2 = (1700 + 1900) // 2 = 1800.
+    # 3-slot weights: breakfast=0.25, lunch=0.45, dinner=0.30.
+    kcal_daily = (_valid_targets()["kcal_min"] + _valid_targets()["kcal_max"]) // 2
     slot_share = {
-        "breakfast": round(1900 * 0.30),
-        "lunch": round(1900 * 0.40),
-        "dinner": round(1900 * 0.30),
+        "breakfast": round(kcal_daily * 0.25),
+        "lunch": round(kcal_daily * 0.45),
+        "dinner": round(kcal_daily * 0.30),
     }
     day_total = sum(m.kcal for m in plan.days[0].meals)
     for m in plan.days[0].meals:
         assert m.kcal == slot_share[m.meal_time], f"{m.meal_time} not scaled to share"
         assert m.scaled_factor is not None and m.scaled_factor > 0
-    assert abs(day_total - 1900) <= 3, f"day total {day_total} drifted from 1900"
+    assert abs(day_total - kcal_daily) <= 3, f"day total {day_total} drifted from {kcal_daily}"
 
 
 # ---------------------------------------------------------------------------
@@ -485,13 +485,13 @@ async def test_kcal_shares_close_to_daily_target_even_with_5_meals() -> None:
     assert plan.meals_per_day == 4
     assert len(plan.days[0].meals) == 4
 
-    kcal_daily = targets["kcal_max"]
+    kcal_daily = (targets["kcal_min"] + targets["kcal_max"]) // 2
     shares = {mt: k for mt, k, _ in layer2.share_calls}
     total_share = sum(shares.values())
     assert abs(total_share - kcal_daily) <= 4, (
         f"slot shares {shares} sum to {total_share}, target {kcal_daily}"
     )
-    # Lunch must be the largest share (30/40/30 + snack pattern).
+    # Lunch must be the largest share (25/40/30/5 pattern).
     assert shares["lunch"] == max(shares.values())
 
 

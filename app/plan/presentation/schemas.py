@@ -78,6 +78,9 @@ class PlanMealResponse(_Strict):
     # Portion-scaling multiplier vs the recipe's native macros. iOS MUST
     # multiply displayed ingredient amounts by this value. NULL = legacy → 1.0.
     scaled_factor: float | None = None
+    image_url: str | None = None
+    prep_min: int | None = None
+    instructions_localized: list[str] = Field(default_factory=list)
     completed: bool
     swapped_from: UUID | None
 

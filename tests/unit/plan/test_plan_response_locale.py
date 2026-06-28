@@ -26,10 +26,18 @@ from app.plan.presentation.router import (
     _to_resp,
 )
 
-# Local alias mirroring the (name_en, name_map, desc_en, desc_map) tuple
-# returned by ``_load_recipe_translations`` — kept inline to keep the test
-# module decoupled from the router's private types.
-_Entry = tuple[str, dict[str, str], str | None, dict[str, str]]
+# Local alias mirroring the full 8-tuple returned by _load_recipe_translations:
+# (name_en, name_map, desc_en, desc_map, image_url, prep_min, instructions_en, instructions_translations)
+_Entry = tuple[str, dict[str, str], str | None, dict[str, str], str | None, int | None, list[str], dict[str, list[str]]]
+
+
+def _entry(
+    name_en: str = "",
+    name_map: dict[str, str] | None = None,
+    desc_en: str | None = None,
+    desc_map: dict[str, str] | None = None,
+) -> _Entry:
+    return (name_en, name_map or {}, desc_en, desc_map or {}, None, None, [], {})
 
 
 def _make_plan() -> tuple[Plan, list[UUID]]:
@@ -84,7 +92,7 @@ def _make_plan() -> tuple[Plan, list[UUID]]:
 def test_localize_name_returns_locale_when_present() -> None:
     rid = uuid4()
     translations: dict[UUID, _Entry] = {
-        rid: ("Grilled Chicken", {"es": "Pollo a la Plancha"}, None, {}),
+        rid: _entry("Grilled Chicken", {"es": "Pollo a la Plancha"}),
     }
     assert _localize_name(rid, translations, "es") == "Pollo a la Plancha"
     assert _localize_name(rid, translations, "en") == "Grilled Chicken"
@@ -92,7 +100,7 @@ def test_localize_name_returns_locale_when_present() -> None:
 
 def test_localize_name_falls_back_to_en_when_locale_missing() -> None:
     rid = uuid4()
-    translations: dict[UUID, _Entry] = {rid: ("Grilled Chicken", {}, None, {})}
+    translations: dict[UUID, _Entry] = {rid: _entry("Grilled Chicken")}
     assert _localize_name(rid, translations, "es") == "Grilled Chicken"
 
 
@@ -106,7 +114,7 @@ def test_localize_name_returns_none_for_missing_recipe() -> None:
 def test_localize_description_locale_priority_then_en_fallback() -> None:
     rid = uuid4()
     translations: dict[UUID, _Entry] = {
-        rid: ("EN", {}, "English description", {"es": "Descripción"}),
+        rid: _entry("EN", {}, "English description", {"es": "Descripción"}),
     }
     assert _localize_description(rid, translations, "es") == "Descripción"
     assert _localize_description(rid, translations, "en") == "English description"
@@ -114,7 +122,7 @@ def test_localize_description_locale_priority_then_en_fallback() -> None:
 
 def test_localize_description_none_when_no_description() -> None:
     rid = uuid4()
-    translations: dict[UUID, _Entry] = {rid: ("EN", {}, None, {})}
+    translations: dict[UUID, _Entry] = {rid: _entry("EN")}
     assert _localize_description(rid, translations, "es") is None
 
 
@@ -125,7 +133,7 @@ def test_localize_description_none_when_no_description() -> None:
 def test_to_resp_projects_recipe_name_per_locale(locale: str, expected_name: str) -> None:
     plan, [rid] = _make_plan()
     translations: dict[UUID, _Entry] = {
-        rid: (
+        rid: _entry(
             "Grilled Chicken",
             {"es": "Pollo a la Plancha", "en": "Grilled Chicken"},
             "Lean protein dinner",
@@ -138,7 +146,6 @@ def test_to_resp_projects_recipe_name_per_locale(locale: str, expected_name: str
 
 def test_to_resp_handles_missing_translations_gracefully() -> None:
     plan, _ = _make_plan()
-    # Empty translations map (e.g. recipe deleted between read and projection)
     empty: dict[UUID, _Entry] = {}
     resp = _to_resp(plan, translations=empty, locale="es")
     assert resp.days[0].meals[0].name_localized is None
@@ -149,12 +156,7 @@ def test_to_resp_default_locale_is_spanish() -> None:
     """Anonymous fallback (D4) — when caller omits locale, default to "es"."""
     plan, [rid] = _make_plan()
     translations: dict[UUID, _Entry] = {
-        rid: (
-            "Grilled Chicken",
-            {"es": "Pollo a la Plancha", "en": "Grilled Chicken"},
-            None,
-            {},
-        ),
+        rid: _entry("Grilled Chicken", {"es": "Pollo a la Plancha", "en": "Grilled Chicken"}),
     }
     resp = _to_resp(plan, translations=translations)
     assert resp.days[0].meals[0].name_localized == "Pollo a la Plancha"

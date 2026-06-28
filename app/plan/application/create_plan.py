@@ -72,9 +72,9 @@ _layer_hist = Histogram(
 # largest intake in LatAm/EU eating patterns; snack is a light bridge.
 _SLOT_WEIGHTS: dict[int, tuple[float, ...]] = {
     1: (1.0,),
-    2: (0.45, 0.55),
-    3: (0.30, 0.40, 0.30),
-    4: (0.25, 0.35, 0.30, 0.10),
+    2: (0.40, 0.60),
+    3: (0.25, 0.45, 0.30),
+    4: (0.25, 0.40, 0.30, 0.05),
 }
 
 # weight_gain distribution (nutrition expert 2026-06-16): a high surplus target
@@ -173,7 +173,12 @@ class CreatePlan:
             targets = await self.user_ctx.get_user_targets(user_id)
             if not targets:
                 raise BusinessRuleViolation("nutritional_goals_missing")
-        kcal_daily = int(targets.get("kcal_max") or targets.get("kcal_min") or 2000)
+        _raw_min = targets.get("kcal_min")
+        _raw_max = targets.get("kcal_max")
+        if _raw_min is not None and _raw_max is not None:
+            kcal_daily = (int(_raw_min) + int(_raw_max)) // 2
+        else:
+            kcal_daily = int(_raw_max or _raw_min or 2000)
         protein_daily = int(targets.get("protein_g") or 100)
         goal = str(targets.get("goal") or "").lower()
         prefer_dense = goal == "weight_gain"

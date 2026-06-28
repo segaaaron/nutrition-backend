@@ -87,13 +87,15 @@ async def _hydrate_water_view(plan: Plan, session: AsyncSession, locale: Locale)
 async def _load_recipe_translations(
     plan: Plan,
     session: AsyncSession,
-) -> dict[uuid.UUID, tuple[str, dict[str, str], str | None, dict[str, str]]]:
-    """Single batched fetch of (name_en, name_translations, description_en,
-    description_translations) for every distinct recipe_id in ``plan``.
+) -> dict[
+    uuid.UUID,
+    tuple[str, dict[str, str], str | None, dict[str, str], str | None, int | None, list[str], dict[str, list[str]]],
+]:
+    """Batched fetch of display fields for every distinct recipe_id in plan.
 
-    Returning the raw EN canonical + translation maps lets the caller pick
-    the locale at projection time (D8 — reuse existing entity helpers; no
-    duplication of localization logic).
+    Returns per recipe_id:
+      (name_en, name_translations, description_en, description_translations,
+       image_url, prep_min, instructions_en, instructions_translations)
     """
     recipe_ids: set[uuid.UUID] = {
         m.recipe_id
@@ -109,6 +111,10 @@ async def _load_recipe_translations(
         RecipeModel.name_translations,
         RecipeModel.description_en,
         RecipeModel.description_translations,
+        RecipeModel.image_url,
+        RecipeModel.prep_min,
+        RecipeModel.instructions_en,
+        RecipeModel.instructions_translations,
     ).where(RecipeModel.id.in_(recipe_ids))
     rows = (await session.execute(stmt)).all()
     return {
@@ -117,14 +123,24 @@ async def _load_recipe_translations(
             dict(row[2] or {}),
             row[3],
             dict(row[4] or {}),
+            row[5],
+            row[6],
+            list(row[7] or []),
+            dict(row[8] or {}),
         )
         for row in rows
     }
 
 
+_RecipeData = tuple[
+    str, dict[str, str], str | None, dict[str, str],
+    str | None, int | None, list[str], dict[str, list[str]],
+]
+
+
 def _localize_name(
     rid: uuid.UUID | None,
-    translations: Mapping[uuid.UUID, tuple[str, Mapping[str, str], str | None, Mapping[str, str]]],
+    translations: Mapping[uuid.UUID, _RecipeData],
     locale: Locale,
 ) -> str | None:
     if rid is None:
@@ -132,13 +148,13 @@ def _localize_name(
     entry = translations.get(rid)
     if entry is None:
         return None
-    name_en, name_map, _desc_en, _desc_map = entry
+    name_en, name_map = entry[0], entry[1]
     return name_map.get(locale) or name_en
 
 
 def _localize_description(
     rid: uuid.UUID | None,
-    translations: Mapping[uuid.UUID, tuple[str, Mapping[str, str], str | None, Mapping[str, str]]],
+    translations: Mapping[uuid.UUID, _RecipeData],
     locale: Locale,
 ) -> str | None:
     if rid is None:
@@ -146,13 +162,13 @@ def _localize_description(
     entry = translations.get(rid)
     if entry is None:
         return None
-    _name_en, _name_map, desc_en, desc_map = entry
+    desc_en, desc_map = entry[2], entry[3]
     return desc_map.get(locale) or desc_en
 
 
 def _to_resp(
     p: Plan,
-    translations: Mapping[uuid.UUID, tuple[str, Mapping[str, str], str | None, Mapping[str, str]]] | None = None,
+    translations: Mapping[uuid.UUID, _RecipeData] | None = None,
     locale: Locale = "es",
 ) -> PlanResponse:
     tr = translations or {}
@@ -203,6 +219,14 @@ def _to_resp(
                         carbs_g=m.carbs_g,
                         fat_g=m.fat_g,
                         scaled_factor=m.scaled_factor,
+                        image_url=tr[m.recipe_id][4] if m.recipe_id and m.recipe_id in tr else None,
+                        prep_min=tr[m.recipe_id][5] if m.recipe_id and m.recipe_id in tr else None,
+                        instructions_localized=(
+                            tr[m.recipe_id][7].get(locale)
+                            or tr[m.recipe_id][6]
+                            if m.recipe_id and m.recipe_id in tr
+                            else []
+                        ),
                         completed=m.completed,
                         swapped_from=m.swapped_from,
                     )
