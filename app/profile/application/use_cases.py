@@ -327,6 +327,11 @@ class GetProfile:
 
     async def __call__(self, *, user_id: UUID) -> UserProfile:
         profile = await self.profiles.get(user_id)
+        # Return an empty shell for users who exist but haven't completed
+        # onboarding yet. GET /me is called immediately after token issuance
+        # before any profile data exists; returning 404 here is semantically
+        # wrong (the authenticated user resource exists) and breaks iOS clients
+        # that treat 404 as a hard error rather than "no profile yet".
         if profile is None:
-            raise NotFoundError("profile_not_found")
+            return UserProfile(user_id=user_id)
         return profile

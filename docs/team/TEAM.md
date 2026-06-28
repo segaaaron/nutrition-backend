@@ -38,7 +38,7 @@ Prohibido:
 |---|-------|---------------|
 | 1 | `nova-backend-architect` | Arquitectura backend + Clean Arch/DDD + polyglot persistence + nutrition domain |
 | 2 | `nova-qa-elite` | QA holístico + algorithm correctness audit |
-| 3 | `nova-clinical-nutrition-generator` | Generador batch recetas validadas |
+| 3 | `nova-clinical-nutrition-generator` | Generador de recetas nutricionalmente correctas por objetivo (NO platos culturales) |
 | 4 | `nova-api-expert` | REST/HTTP/OpenAPI/SSE contract design |
 | 5 | `nova-python-expert` | Py3.12 idioms + async correctness + Decimal precision |
 | 6 | `nova-design-patterns-expert` | Clean Arch + GoF + DDD + SOLID enforcement |
