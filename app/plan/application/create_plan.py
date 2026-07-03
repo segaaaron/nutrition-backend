@@ -180,7 +180,11 @@ class CreatePlan:
         else:
             kcal_daily = int(_raw_max or _raw_min or 2000)
         protein_daily = int(targets.get("protein_g") or 100)
-        goal = str(targets.get("goal") or "").lower()
+        # `goal` lives on the profile snapshot, not the nutritional-goals
+        # targets dict (get_user_targets returns only kcal/macros/water).
+        # Reading it from `targets` always yielded "" → prefer_dense never
+        # fired → the snack slot was never generated for weight_gain users.
+        goal = str(profile.get("goal") or "").lower()
         prefer_dense = goal == "weight_gain"
         meals_per_day = int(targets.get("meals_per_day") or self.meals_per_day_default)
         # weight_gain spreads intake across more occasions so no single meal

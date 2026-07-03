@@ -90,7 +90,10 @@ class PlanDayResponse(_Strict):
     day_index: int
     date: date
     completed: bool
-    meals: list[PlanMealResponse]
+    breakfast: PlanMealResponse | None = None
+    lunch: PlanMealResponse | None = None
+    dinner: PlanMealResponse | None = None
+    snack: PlanMealResponse | None = None
     # Actual kcal delivered after portion scaling. ±20% of daily target = within_band.
     kcal_actual: int | None = None
     within_band: bool | None = None

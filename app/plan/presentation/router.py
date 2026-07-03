@@ -166,6 +166,44 @@ def _localize_description(
     return desc_map.get(locale) or desc_en
 
 
+def _build_meal_resp(
+    m: object,
+    tr: Mapping[uuid.UUID, _RecipeData],
+    locale: Locale,
+) -> PlanMealResponse:
+    from app.plan.domain.entities import PlanMeal as _PlanMeal  # local to avoid cycle
+    assert isinstance(m, _PlanMeal)
+    return PlanMealResponse(
+        id=m.id,
+        meal_time=m.meal_time,
+        recipe_id=m.recipe_id,
+        name_localized=_localize_name(m.recipe_id, tr, locale),
+        description_localized=_localize_description(m.recipe_id, tr, locale),
+        kcal=m.kcal,
+        protein_g=m.protein_g,
+        carbs_g=m.carbs_g,
+        fat_g=m.fat_g,
+        scaled_factor=m.scaled_factor,
+        image_url=tr[m.recipe_id][4] if m.recipe_id and m.recipe_id in tr else None,
+        prep_min=tr[m.recipe_id][5] if m.recipe_id and m.recipe_id in tr else None,
+        instructions_localized=(
+            tr[m.recipe_id][7].get(locale)
+            or tr[m.recipe_id][6]
+            if m.recipe_id and m.recipe_id in tr
+            else []
+        ),
+        completed=m.completed,
+        swapped_from=m.swapped_from,
+    )
+
+
+def _slot(meals: list, slot: str, tr: Mapping[uuid.UUID, _RecipeData], locale: Locale) -> PlanMealResponse | None:
+    for m in meals:
+        if m.meal_time == slot:
+            return _build_meal_resp(m, tr, locale)
+    return None
+
+
 def _to_resp(
     p: Plan,
     translations: Mapping[uuid.UUID, _RecipeData] | None = None,
@@ -207,31 +245,10 @@ def _to_resp(
                 completed=d.completed,
                 kcal_actual=d.kcal_actual,
                 within_band=d.within_band,
-                meals=[
-                    PlanMealResponse(
-                        id=m.id,
-                        meal_time=m.meal_time,
-                        recipe_id=m.recipe_id,
-                        name_localized=_localize_name(m.recipe_id, tr, locale),
-                        description_localized=_localize_description(m.recipe_id, tr, locale),
-                        kcal=m.kcal,
-                        protein_g=m.protein_g,
-                        carbs_g=m.carbs_g,
-                        fat_g=m.fat_g,
-                        scaled_factor=m.scaled_factor,
-                        image_url=tr[m.recipe_id][4] if m.recipe_id and m.recipe_id in tr else None,
-                        prep_min=tr[m.recipe_id][5] if m.recipe_id and m.recipe_id in tr else None,
-                        instructions_localized=(
-                            tr[m.recipe_id][7].get(locale)
-                            or tr[m.recipe_id][6]
-                            if m.recipe_id and m.recipe_id in tr
-                            else []
-                        ),
-                        completed=m.completed,
-                        swapped_from=m.swapped_from,
-                    )
-                    for m in d.meals
-                ],
+                breakfast=_slot(d.meals, "breakfast", tr, locale),
+                lunch=_slot(d.meals, "lunch", tr, locale),
+                dinner=_slot(d.meals, "dinner", tr, locale),
+                snack=_slot(d.meals, "snack", tr, locale),
             )
             for d in p.days
         ],

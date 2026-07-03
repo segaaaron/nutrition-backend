@@ -141,15 +141,17 @@ def test_to_resp_projects_recipe_name_per_locale(locale: str, expected_name: str
         ),
     }
     resp = _to_resp(plan, translations=translations, locale=locale)  # type: ignore[arg-type]
-    assert resp.days[0].meals[0].name_localized == expected_name
+    assert resp.days[0].lunch is not None
+    assert resp.days[0].lunch.name_localized == expected_name
 
 
 def test_to_resp_handles_missing_translations_gracefully() -> None:
     plan, _ = _make_plan()
     empty: dict[UUID, _Entry] = {}
     resp = _to_resp(plan, translations=empty, locale="es")
-    assert resp.days[0].meals[0].name_localized is None
-    assert resp.days[0].meals[0].description_localized is None
+    assert resp.days[0].lunch is not None
+    assert resp.days[0].lunch.name_localized is None
+    assert resp.days[0].lunch.description_localized is None
 
 
 def test_to_resp_default_locale_is_spanish() -> None:
@@ -159,4 +161,5 @@ def test_to_resp_default_locale_is_spanish() -> None:
         rid: _entry("Grilled Chicken", {"es": "Pollo a la Plancha", "en": "Grilled Chicken"}),
     }
     resp = _to_resp(plan, translations=translations)
-    assert resp.days[0].meals[0].name_localized == "Pollo a la Plancha"
+    assert resp.days[0].lunch is not None
+    assert resp.days[0].lunch.name_localized == "Pollo a la Plancha"

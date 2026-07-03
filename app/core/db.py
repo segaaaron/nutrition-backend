@@ -6,6 +6,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -31,6 +32,20 @@ def get_engine() -> AsyncEngine:
             pool_recycle=s.db_pool_recycle_seconds,
             future=True,
         )
+
+        # Register the pgvector asyncpg codec on every new connection.
+        # Without this, `SELECT embedding FROM recipes` via raw SQL returns
+        # the vector as the string "[0.1,...]" instead of a float sequence,
+        # and Layer3 ranking's `list(emb)` yields characters → crashes plan
+        # generation once recipe embeddings are non-NULL. The vision/coach
+        # paths are unaffected (they compute cosine in SQL via `<=>` and
+        # never read a raw vector column into Python).
+        @event.listens_for(_engine.sync_engine, "connect")
+        def _register_pgvector(dbapi_connection, _record):  # type: ignore[no-untyped-def]
+            from pgvector.asyncpg import register_vector
+
+            dbapi_connection.run_async(register_vector)
+
     return _engine
 
 
