@@ -365,7 +365,10 @@ class _Layer3PassThrough:
 
 
 def _pool_uc(
-    *, pool_size: int = 40, targets: dict[str, Any] | None = None
+    *,
+    pool_size: int = 40,
+    targets: dict[str, Any] | None = None,
+    profile: dict[str, Any] | None = None,
 ) -> tuple[CreatePlan, _StubPlans, _Layer1Pool, _Layer2Filter]:
     pool = {
         mt: [uuid4() for _ in range(pool_size)]
@@ -374,8 +377,9 @@ def _pool_uc(
     plans = _StubPlans()
     layer1 = _Layer1Pool(pool)
     layer2 = _Layer2Filter()
+    # `goal` is read from the profile snapshot (not targets) — mirror prod.
     ctx = _StubUserContext(
-        targets=targets or _valid_targets(), profile={"locale": "es"}
+        targets=targets or _valid_targets(), profile=profile or {"locale": "es"}
     )
     uc = CreatePlan(
         plans=plans,  # type: ignore[arg-type]
@@ -501,8 +505,11 @@ async def test_weight_gain_spreads_intake_and_forces_snack() -> None:
     occasions with no slot >30 % of the day, so a high surplus target stays
     reachable by scaling a normal recipe within bounds instead of an uneatable
     giant plate. The snack slot is forced in even at the default meals_per_day."""
-    targets = {**_valid_targets(), "goal": "weight_gain"}
-    uc, _, _, layer2 = _pool_uc(targets=targets)
+    # goal lives on the profile snapshot (prod reads profile.get("goal")).
+    targets = _valid_targets()
+    uc, _, _, layer2 = _pool_uc(
+        targets=targets, profile={"locale": "es", "goal": "weight_gain"}
+    )
     plan = await uc(user_id=uuid4(), plan_type="day", seed=3)  # type: ignore[arg-type]
 
     assert plan.meals_per_day == 4, "weight_gain must force the snack occasion in"

@@ -23,12 +23,12 @@ from app.plan.domain.entities import Plan, PlanDay, PlanMeal
 from app.plan.presentation.router import (
     _localize_description,
     _localize_name,
+    _RecipeData,
     _to_resp,
 )
 
-# Local alias mirroring the full 8-tuple returned by _load_recipe_translations:
-# (name_en, name_map, desc_en, desc_map, image_url, prep_min, instructions_en, instructions_translations)
-_Entry = tuple[str, dict[str, str], str | None, dict[str, str], str | None, int | None, list[str], dict[str, list[str]]]
+# Local alias mirroring the _RecipeData record returned by _load_recipe_translations.
+_Entry = _RecipeData
 
 
 def _entry(
@@ -37,7 +37,23 @@ def _entry(
     desc_en: str | None = None,
     desc_map: dict[str, str] | None = None,
 ) -> _Entry:
-    return (name_en, name_map or {}, desc_en, desc_map or {}, None, None, [], {})
+    return _RecipeData(
+        name_en=name_en,
+        name_translations=name_map or {},
+        description_en=desc_en,
+        description_translations=desc_map or {},
+        image_url=None,
+        prep_min=None,
+        instructions_en=[],
+        instructions_translations={},
+        fiber_g=None,
+        sugar_g=None,
+        sodium_mg=None,
+        sat_fat_g=None,
+        tags=[],
+        allergens=[],
+        components=[],
+    )
 
 
 def _make_plan() -> tuple[Plan, list[UUID]]:

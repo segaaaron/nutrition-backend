@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import uuid
+from collections import defaultdict
 from collections.abc import Mapping
+from dataclasses import dataclass, field
+from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Header, Path, Request, Response, status
@@ -44,6 +47,7 @@ from app.plan.presentation.schemas import (
     CreatePlanResponse,
     PlanDayResponse,
     PlanJobRef,
+    PlanMealIngredient,
     PlanMealResponse,
     PlanResponse,
     SwapMealRequest,
@@ -55,7 +59,7 @@ from app.profile.application.use_cases import CompleteOnboarding
 from app.profile.domain.entities import UserProfile
 from app.profile.infrastructure.repositories import SqlProfileRepository
 from app.profile.presentation.schemas import ProfileResponse
-from app.recipes.infrastructure.models import RecipeModel
+from app.recipes.infrastructure.models import RecipeComponentModel, RecipeModel
 from app.shared.i18n import Locale, LocaleDep
 
 log = get_logger("plan.router")
@@ -84,18 +88,36 @@ async def _hydrate_water_view(plan: Plan, session: AsyncSession, locale: Locale)
     )
 
 
+@dataclass(frozen=True)
+class _RecipeData:
+    """Display + full detail for one recipe, embedded into plan meals."""
+
+    name_en: str
+    name_translations: dict[str, str]
+    description_en: str | None
+    description_translations: dict[str, str]
+    image_url: str | None
+    prep_min: int | None
+    instructions_en: list[str]
+    instructions_translations: dict[str, list[str]]
+    fiber_g: int | None
+    sugar_g: int | None
+    sodium_mg: int | None
+    sat_fat_g: int | None
+    tags: list[str]
+    allergens: list[str]
+    # (free_text_name, amount_g, position) ordered by position — native amounts.
+    components: list[tuple[str | None, Decimal | None, int]] = field(default_factory=list)
+
+
 async def _load_recipe_translations(
     plan: Plan,
     session: AsyncSession,
-) -> dict[
-    uuid.UUID,
-    tuple[str, dict[str, str], str | None, dict[str, str], str | None, int | None, list[str], dict[str, list[str]]],
-]:
-    """Batched fetch of display fields for every distinct recipe_id in plan.
+) -> dict[uuid.UUID, _RecipeData]:
+    """Batched fetch of display + full detail for every recipe_id in plan.
 
-    Returns per recipe_id:
-      (name_en, name_translations, description_en, description_translations,
-       image_url, prep_min, instructions_en, instructions_translations)
+    Embeds micros, tags, allergens and ingredients so iOS renders a meal
+    without a follow-up ``GET /recipes/{id}``.
     """
     recipe_ids: set[uuid.UUID] = {
         m.recipe_id
@@ -115,27 +137,49 @@ async def _load_recipe_translations(
         RecipeModel.prep_min,
         RecipeModel.instructions_en,
         RecipeModel.instructions_translations,
+        RecipeModel.fiber_g,
+        RecipeModel.sugar_g,
+        RecipeModel.sodium_mg,
+        RecipeModel.sat_fat_g,
+        RecipeModel.tags,
+        RecipeModel.allergens,
     ).where(RecipeModel.id.in_(recipe_ids))
     rows = (await session.execute(stmt)).all()
+
+    comp_stmt = (
+        select(
+            RecipeComponentModel.recipe_id,
+            RecipeComponentModel.free_text_name,
+            RecipeComponentModel.amount_g,
+            RecipeComponentModel.position,
+        )
+        .where(RecipeComponentModel.recipe_id.in_(recipe_ids))
+        .order_by(RecipeComponentModel.recipe_id, RecipeComponentModel.position)
+    )
+    comps: dict[uuid.UUID, list[tuple[str | None, Decimal | None, int]]] = defaultdict(list)
+    for cr in (await session.execute(comp_stmt)).all():
+        comps[cr[0]].append((cr[1], cr[2], cr[3]))
+
     return {
-        row[0]: (
-            row[1],
-            dict(row[2] or {}),
-            row[3],
-            dict(row[4] or {}),
-            row[5],
-            row[6],
-            list(row[7] or []),
-            dict(row[8] or {}),
+        row[0]: _RecipeData(
+            name_en=row[1],
+            name_translations=dict(row[2] or {}),
+            description_en=row[3],
+            description_translations=dict(row[4] or {}),
+            image_url=row[5],
+            prep_min=row[6],
+            instructions_en=list(row[7] or []),
+            instructions_translations=dict(row[8] or {}),
+            fiber_g=row[9],
+            sugar_g=row[10],
+            sodium_mg=row[11],
+            sat_fat_g=row[12],
+            tags=list(row[13] or []),
+            allergens=[str(a) for a in (row[14] or [])],
+            components=comps.get(row[0], []),
         )
         for row in rows
     }
-
-
-_RecipeData = tuple[
-    str, dict[str, str], str | None, dict[str, str],
-    str | None, int | None, list[str], dict[str, list[str]],
-]
 
 
 def _localize_name(
@@ -148,8 +192,7 @@ def _localize_name(
     entry = translations.get(rid)
     if entry is None:
         return None
-    name_en, name_map = entry[0], entry[1]
-    return name_map.get(locale) or name_en
+    return entry.name_translations.get(locale) or entry.name_en
 
 
 def _localize_description(
@@ -162,8 +205,7 @@ def _localize_description(
     entry = translations.get(rid)
     if entry is None:
         return None
-    desc_en, desc_map = entry[2], entry[3]
-    return desc_map.get(locale) or desc_en
+    return entry.description_translations.get(locale) or entry.description_en
 
 
 def _build_meal_resp(
@@ -173,6 +215,16 @@ def _build_meal_resp(
 ) -> PlanMealResponse:
     from app.plan.domain.entities import PlanMeal as _PlanMeal  # local to avoid cycle
     assert isinstance(m, _PlanMeal)
+    data = tr.get(m.recipe_id) if m.recipe_id is not None else None
+    if data is not None:
+        instructions = data.instructions_translations.get(locale) or data.instructions_en
+        ingredients = [
+            PlanMealIngredient(name=name, amount_g=amount, position=pos)
+            for (name, amount, pos) in data.components
+        ]
+    else:
+        instructions = []
+        ingredients = []
     return PlanMealResponse(
         id=m.id,
         meal_time=m.meal_time,
@@ -184,14 +236,16 @@ def _build_meal_resp(
         carbs_g=m.carbs_g,
         fat_g=m.fat_g,
         scaled_factor=m.scaled_factor,
-        image_url=tr[m.recipe_id][4] if m.recipe_id and m.recipe_id in tr else None,
-        prep_min=tr[m.recipe_id][5] if m.recipe_id and m.recipe_id in tr else None,
-        instructions_localized=(
-            tr[m.recipe_id][7].get(locale)
-            or tr[m.recipe_id][6]
-            if m.recipe_id and m.recipe_id in tr
-            else []
-        ),
+        image_url=data.image_url if data is not None else None,
+        prep_min=data.prep_min if data is not None else None,
+        instructions_localized=instructions,
+        fiber_g=data.fiber_g if data is not None else None,
+        sugar_g=data.sugar_g if data is not None else None,
+        sodium_mg=data.sodium_mg if data is not None else None,
+        sat_fat_g=data.sat_fat_g if data is not None else None,
+        tags=data.tags if data is not None else [],
+        allergens=data.allergens if data is not None else [],
+        ingredients=ingredients,
         completed=m.completed,
         swapped_from=m.swapped_from,
     )

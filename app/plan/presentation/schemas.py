@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
@@ -65,6 +66,18 @@ class CreatePlanResponse(_Strict):
     plan_job: PlanJobRef | None = None
 
 
+class PlanMealIngredient(_Strict):
+    """One recipe component (ingredient) embedded in a plan meal.
+
+    ``amount_g`` is the recipe's *native* gram amount. iOS MUST multiply it
+    by the meal's ``scaled_factor`` to show the portion actually served.
+    """
+
+    name: str | None
+    amount_g: Decimal | None
+    position: int
+
+
 class PlanMealResponse(_Strict):
     id: UUID
     meal_time: MealTime
@@ -81,6 +94,15 @@ class PlanMealResponse(_Strict):
     image_url: str | None = None
     prep_min: int | None = None
     instructions_localized: list[str] = Field(default_factory=list)
+    # Full recipe detail embedded so iOS needs no extra GET /recipes/{id}.
+    # Micros mirror the recipe's native (unscaled) values.
+    fiber_g: int | None = None
+    sugar_g: int | None = None
+    sodium_mg: int | None = None
+    sat_fat_g: int | None = None
+    tags: list[str] = Field(default_factory=list)
+    allergens: list[str] = Field(default_factory=list)
+    ingredients: list[PlanMealIngredient] = Field(default_factory=list)
     completed: bool
     swapped_from: UUID | None
 
