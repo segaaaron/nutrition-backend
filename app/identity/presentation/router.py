@@ -273,6 +273,11 @@ async def otp_verify(
     body: VerifyOtpRequest,
     session: SessionDep,
 ) -> TokenPairResponse:
+    await rate_limit(
+        scope="auth",
+        identifier=f"otpverify:{body.email}",
+        limit_per_min=get_settings().rate_limit_auth_per_min,
+    )
     uc: VerifyOtp = make_verify_otp(session)
     pair = await uc(email=body.email, purpose=body.purpose, code=body.code)
     return _token_resp(pair)

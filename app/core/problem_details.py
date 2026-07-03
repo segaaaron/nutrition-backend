@@ -284,6 +284,14 @@ def _problem_response(
 
 async def _problem_details_handler(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, ProblemDetails)
+    _log.warning(
+        "problem_details",
+        status=exc.status,
+        type=exc.type,
+        detail=exc.detail,
+        path=request.url.path,
+        method=request.method,
+    )
     locale = _request_locale(request)
     translator = _translator(request)
     title = exc.title
@@ -301,6 +309,7 @@ async def _problem_details_handler(request: Request, exc: Exception) -> JSONResp
     body["title"] = title
     if detail is not None:
         body["detail"] = detail
+    body["message"] = detail if detail is not None else title
     return JSONResponse(
         status_code=exc.status,
         content=body,
@@ -310,6 +319,13 @@ async def _problem_details_handler(request: Request, exc: Exception) -> JSONResp
 
 async def _business_rule_handler(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, BusinessRuleViolation)
+    _log.warning(
+        "business_rule_violation",
+        detail=exc.detail,
+        path=request.url.path,
+        method=request.method,
+        **(exc.extra or {}),
+    )
     suffix, en_title, classified_key, classified_extras = _classify_business_rule(
         exc.detail
     )
@@ -344,6 +360,13 @@ async def _business_rule_handler(request: Request, exc: Exception) -> JSONRespon
 
 async def _not_found_handler(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, NotFoundError)
+    _log.info(
+        "not_found",
+        detail=exc.detail,
+        path=request.url.path,
+        method=request.method,
+        **(exc.extra or {}),
+    )
     locale = _request_locale(request)
     translator = _translator(request)
     title, detail = await _translate_pair(

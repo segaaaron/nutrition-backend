@@ -10,6 +10,10 @@ from typing import Any
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from app.core.logging import get_logger
+
+_log = get_logger("errors")
+
 PROBLEM_TYPE_BASE = "https://ms-tech-stack.cloud/errors/"
 
 
@@ -205,6 +209,20 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(DomainError)
     async def _domain_handler(request: Request, exc: DomainError) -> JSONResponse:
+        # Log every domain error so failures are always traceable server-side.
+        # 5xx = ERROR (unexpected); 4xx = WARNING (client mistake).
+        log_fn = _log.error if exc.http_status >= 500 else _log.warning
+        _RESERVED = frozenset({"type", "status", "detail", "path", "method", "retry_after", "retry_after_s"})
+        log_fn(
+            "domain_error",
+            exc_type=type(exc).__name__,
+            status=exc.http_status,
+            detail=exc.detail,
+            path=request.url.path,
+            method=request.method,
+            extra={k: v for k, v in exc.extra.items() if k not in _RESERVED},
+        )
+
         headers: dict[str, str] | None = None
         # RFC 6585 §4 / RFC 7231 §7.1.3: Retry-After on 429/503 when
         # the domain layer signalled a bounded retry window.

@@ -14,6 +14,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, status
 
+from decimal import Decimal
+
 from app.core.event_bus import get_event_bus
 from app.core.logging import get_logger
 from app.identity.presentation.dependencies import CurrentUserDep, SessionDep
@@ -42,14 +44,47 @@ _log = get_logger("profile.router")
 router = APIRouter(tags=["profile"])
 
 
+def _display_fields(p: UserProfile) -> dict:
+    """Compute pre-converted display values based on the user's unit preference."""
+    if p.units == "imperial":
+        weight_display = (
+            (p.weight_kg / Decimal("0.45359237")).quantize(Decimal("0.1"))
+            if p.weight_kg is not None
+            else None
+        )
+        if p.height_cm is not None:
+            total_inches = p.height_cm / Decimal("2.54")
+            ft = int(total_inches // 12)
+            inch = int(total_inches % 12)
+        else:
+            ft = inch = None
+        return {
+            "weight_display": weight_display,
+            "weight_unit": "lb",
+            "height_display_primary": ft,
+            "height_display_secondary": inch,
+            "height_unit": "ft_in",
+        }
+    # metric
+    return {
+        "weight_display": p.weight_kg,
+        "weight_unit": "kg",
+        "height_display_primary": int(p.height_cm) if p.height_cm is not None else None,
+        "height_display_secondary": None,
+        "height_unit": "cm",
+    }
+
+
 def _to_resp(p: UserProfile, *, plan_job: PlanJobInfo | None = None) -> ProfileResponse:
     return ProfileResponse(
         user_id=p.user_id,
         name=p.name,
         age=p.age,
         sex=p.sex,
+        units=p.units,
         weight_kg=p.weight_kg,
         height_cm=p.height_cm,
+        **_display_fields(p),
         goal=p.goal,
         activity_level=p.activity_level,
         medical_conditions=p.medical_conditions,

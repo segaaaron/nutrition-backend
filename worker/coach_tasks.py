@@ -1,16 +1,15 @@
-"""Arq cron + ad-hoc tasks for the coach.
+"""Legacy coach cron functions — NOT REGISTERED in worker/main.py.
 
-Cron jobs (all registered with backoff + max_retries 3, dead-lettered):
-  - coach_macro_repair_cron      : per user, 19:00 user-locale-time
-  - coach_proactive_alert_cron   : per user, 18:00 user-locale-time
-  - coach_weekly_review_cron     : Sundays 18:00 user-locale-time
-  - coach_recipe_story_backfill  : nightly 03:00 UTC, batch 20 recipes
-  - cleanup_expired_sse_tickets  : every 5 min
-  - cleanup_expired_otp_lockouts : every 5 min
+These functions are superseded:
+  - coach_macro_repair_cron      → FoodLogged event handler (tracking/event_handlers.py)
+  - coach_proactive_alert_cron   → FoodLogged event handler (tracking/event_handlers.py)
+  - coach_weekly_review_cron     → nightly_maintenance_cron (Sundays only)
+  - coach_recipe_story_backfill  → nightly_maintenance_cron
+  - cleanup_expired_sse_tickets  → nightly_maintenance_cron
+  - cleanup_expired_otp_lockouts → nightly_maintenance_cron
 
-Locale-aware scheduling: the cron runs hourly UTC and inspects each user
-profile's locale → UTC offset, only firing for users whose local clock is
-within the target hour. Cheap query — no per-user job in the queue.
+Kept as callable functions so nightly_maintenance and event handlers can
+import the underlying logic without duplicating it.
 """
 from __future__ import annotations
 

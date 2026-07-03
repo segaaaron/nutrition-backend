@@ -269,17 +269,17 @@ class OnboardingRequest(_Strict):
 
 
 class ProfilePatch(_Strict):
-    name: str | None = None
-    age: int | None = Field(default=None, ge=12, le=100)
+    name: str | None = Field(default=None, max_length=120)
+    age: int | None = Field(default=None, ge=18, le=80)
     sex: Sex | None = None
     weight_kg: Decimal | None = Field(default=None, gt=Decimal("20"), lt=Decimal("300"))
     height_cm: Decimal | None = Field(default=None, gt=Decimal("50"), lt=Decimal("250"))
     goal: Goal | None = None
     activity_level: ActivityLevel | None = None
-    medical_conditions: list[str] | None = None
-    other_condition: str | None = None
-    allergies: list[str] | None = None
-    other_allergy: str | None = None
+    medical_conditions: list[MobileCondition] | None = Field(default=None, max_length=6)
+    other_condition: str | None = Field(default=None, max_length=200)
+    allergies: list[MobileAllergen] | None = Field(default=None, max_length=7)
+    other_allergy: str | None = Field(default=None, max_length=200)
     country: str | None = Field(default=None, min_length=2, max_length=2)
 
 
@@ -306,8 +306,17 @@ class ProfileResponse(_Strict):
     name: str | None
     age: int | None
     sex: Sex | None
+    units: Units
     weight_kg: Decimal | None
     height_cm: Decimal | None
+    # Pre-converted display values — iOS reads these directly, no client math needed.
+    # Imperial: weight_display = lbs (1 decimal), height_ft + height_in (integers).
+    # Metric: weight_display = kg (1 decimal), height_ft/height_in = None.
+    weight_display: Decimal | None = None
+    weight_unit: str | None = None
+    height_display_primary: int | None = None
+    height_display_secondary: int | None = None
+    height_unit: str | None = None
     goal: Goal | None
     activity_level: ActivityLevel | None
     medical_conditions: list[str]

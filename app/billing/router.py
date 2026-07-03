@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from urllib.parse import urlparse
+
 from fastapi import APIRouter, Header, Query, Request, status
 from pydantic import BaseModel, ConfigDict
 
@@ -16,18 +18,55 @@ from app.billing.use_cases import (
     StartTrial,
 )
 from app.core.config import get_settings
+from app.core.errors import ValidationError
 from app.core.event_bus import get_event_bus
+from app.core.logging import get_logger
 from app.identity.presentation.dependencies import CurrentUserDep, SessionDep
 
+_log = get_logger("billing.router")
+
 router = APIRouter(tags=["billing"])
+
+
+def _allowed_redirect_url(url: str, canonical: str) -> str:
+    """Validate that a client-supplied redirect URL shares the same origin
+    as the configured canonical URL. Prevents open-redirect attacks.
+
+    Raises ValidationError (422) if the origins do not match or the scheme
+    is not https.
+    """
+    parsed = urlparse(url)
+    if parsed.scheme != "https":
+        raise ValidationError(
+            "billing_redirect_url_must_be_https",
+            field="success_url",
+            supplied=url[:80],
+            reason="URL scheme must be https, got: " + (parsed.scheme or "empty"),
+        )
+    canon = urlparse(canonical)
+    if parsed.netloc.lower() != canon.netloc.lower():
+        _log.warning(
+            "billing.redirect_url_rejected",
+            supplied=url[:80],
+            allowed_host=canon.netloc,
+        )
+        raise ValidationError(
+            "billing_redirect_url_domain_not_allowed",
+            field="success_url",
+            supplied=url[:80],
+            allowed_host=canon.netloc,
+        )
+    return url
 
 
 class CheckoutBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     plan: Plan = Plan.PREMIUM
-    # Optional client overrides; falls back to Settings.billing_*_url when
-    # omitted. Hardcoded hostname defaults removed 2026-06-04 (env-driven).
+    # Optional client overrides for deep-link routing (e.g. iOS universal
+    # links with session-specific query params). Must share the same https
+    # origin as the configured BILLING_SUCCESS_URL / BILLING_CANCEL_URL —
+    # validated server-side to prevent open-redirect abuse.
     success_url: str | None = None
     cancel_url: str | None = None
 
@@ -39,8 +78,16 @@ async def checkout(
     session: SessionDep,
 ) -> dict:
     settings = get_settings()
-    success_url = body.success_url or settings.billing_success_url
-    cancel_url = body.cancel_url or settings.billing_cancel_url
+    success_url = (
+        _allowed_redirect_url(body.success_url, settings.billing_success_url)
+        if body.success_url
+        else settings.billing_success_url
+    )
+    cancel_url = (
+        _allowed_redirect_url(body.cancel_url, settings.billing_cancel_url)
+        if body.cancel_url
+        else settings.billing_cancel_url
+    )
     uc = CreateCheckout(session=session)
     return await uc(
         user_id=current_user,

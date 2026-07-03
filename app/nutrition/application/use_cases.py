@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Protocol
+from typing import Optional, Protocol
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
@@ -84,7 +84,7 @@ _ACTIVITY_FACTOR = {
 
 class NutritionalGoalsRepository(Protocol):
     async def get_current(self, user_id: UUID) -> NutritionalGoals | None: ...
-    async def list_history(self, user_id: UUID, limit: int) -> list[NutritionalGoals]: ...
+    async def list_history(self, user_id: UUID, limit: int, *, cursor: Optional[datetime] = None) -> list[NutritionalGoals]: ...
     async def expire_current_and_insert(
         self,
         user_id: UUID,
@@ -442,5 +442,11 @@ class GetCurrentGoals:
 class GetGoalsHistory:
     goals_repo: NutritionalGoalsRepository
 
-    async def __call__(self, *, user_id: UUID, limit: int = 20) -> list[NutritionalGoals]:
-        return await self.goals_repo.list_history(user_id, limit)
+    async def __call__(
+        self,
+        *,
+        user_id: UUID,
+        limit: int = 20,
+        cursor: Optional[datetime] = None,
+    ) -> list[NutritionalGoals]:
+        return await self.goals_repo.list_history(user_id, limit, cursor=cursor)

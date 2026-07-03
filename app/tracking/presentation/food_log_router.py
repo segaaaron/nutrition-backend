@@ -15,7 +15,7 @@ from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Query, Response, status
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.event_bus import get_event_bus
 from app.core.redis import get_redis
@@ -110,7 +110,7 @@ async def query_food_logs(
 class DeleteReason(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    reason: str | None = None
+    reason: str | None = Field(default=None, max_length=500)
 
 
 @router.delete("/logs/food/{log_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -168,9 +168,9 @@ class MacrosTrendOut(BaseModel):
 async def totals_trend(
     current_user: CurrentUserDep,
     session: SessionDep,
-    window: str = Query(default="30d", pattern=r"^\d+d$"),
+    window: str = Query(default="30d", pattern=r"^\d{1,3}d$"),
 ) -> MacrosTrendOut:
-    days = int(window.rstrip("d"))
+    days = min(int(window.rstrip("d")), 365)
     uc = GetMacrosTrend(repo=SqlFoodLogRepository(session))
     out = await uc(user_id=current_user, window_days=days)
     return MacrosTrendOut(**out)

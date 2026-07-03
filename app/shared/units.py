@@ -50,9 +50,28 @@ def f_to_c(f: Decimal) -> Decimal:
     return ((f - Decimal("32")) / Decimal("1.8")).quantize(Decimal("0.1"))
 
 
+_IMPERIAL_COUNTRIES: frozenset[str] = frozenset({"US", "LR", "MM"})
+
+
+def default_units_for_country(country: str | None) -> Literal["metric", "imperial"]:
+    """Derive unit default from ISO 3166-1 alpha-2 country code.
+
+    Only US, Liberia (LR), and Myanmar (MM) use imperial officially.
+    locale=="en" is intentionally NOT used — UK/AU/NZ also have locale en
+    but are metric.
+    """
+    if country is not None and country.upper() in _IMPERIAL_COUNTRIES:
+        return "imperial"
+    return "metric"
+
+
 def default_units_for_locale(locale: Locale) -> Literal["metric", "imperial"]:
-    # US is the only mainstream imperial market in our supported set.
-    return "imperial" if locale == "en" else "metric"
+    """Deprecated: use default_units_for_country(country) instead.
+
+    Kept for backward-compat but always returns metric to avoid the
+    locale=="en" bug (UK is en but metric). Call sites should pass country.
+    """
+    return "metric"
 
 
 def format_for_locale(value: Decimal, unit: Unit, locale: Locale) -> str:

@@ -6,7 +6,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Query, Response, status
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.grocery.domain import GroceryCategory, GroceryList
 from app.grocery.repository import SqlGroceryRepository
@@ -95,7 +95,7 @@ class PatchItemBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     purchased: bool | None = None
-    amount: str | None = None
+    amount: str | None = Field(default=None, max_length=100)
 
 
 @router.patch("/grocery-items/{item_id}", response_model=GroceryItemOut)
@@ -145,8 +145,8 @@ class AddItemBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     list_id: UUID
-    name: str
-    amount: str | None = None
+    name: str = Field(..., min_length=1, max_length=200)
+    amount: str | None = Field(default=None, max_length=100)
     category: GroceryCategory | None = None
 
 

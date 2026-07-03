@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from typing import Optional
 from uuid import UUID
 
 from sqlalchemy import select, text, update
@@ -62,13 +63,20 @@ class SqlNutritionalGoalsRepository:
         m = (await self.s.execute(stmt)).scalar_one_or_none()
         return _from_model(m) if m else None
 
-    async def list_history(self, user_id: UUID, limit: int) -> list[NutritionalGoals]:
-        stmt = (
-            select(NutritionalGoalsModel)
-            .where(NutritionalGoalsModel.user_id == user_id)
-            .order_by(NutritionalGoalsModel.valid_from.desc())
-            .limit(limit)
+    async def list_history(
+        self,
+        user_id: UUID,
+        limit: int,
+        *,
+        cursor: Optional[datetime] = None,
+    ) -> list[NutritionalGoals]:
+        stmt = select(NutritionalGoalsModel).where(
+            NutritionalGoalsModel.user_id == user_id
         )
+        if cursor is not None:
+            # cursor is the valid_from of the last seen item (exclusive)
+            stmt = stmt.where(NutritionalGoalsModel.valid_from < cursor)
+        stmt = stmt.order_by(NutritionalGoalsModel.valid_from.desc()).limit(limit)
         rows = (await self.s.execute(stmt)).scalars().all()
         return [_from_model(m) for m in rows]
 

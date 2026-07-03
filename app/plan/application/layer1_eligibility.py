@@ -52,6 +52,10 @@ _TREE_NUT_PATTERN = (
     r"brazil\s*nut|nuez\s*de\s*brasil|pine\s*nut|pinon|piñon|chestnut|castana|castaña)\M"
 )
 
+# CLAUDE.md §REGLA PAÍSES SIN MAR — Bolivia (BO) and Paraguay (PY) have no sea access.
+# Frozenset: immutable, O(1) lookup, GC-free — created once at import.
+_LANDLOCKED_COUNTRIES: frozenset[str] = frozenset({"BO", "PY"})
+
 
 class _ProfileReader(Protocol):
     async def get_eligibility_profile(
@@ -132,6 +136,16 @@ class Layer1Eligibility:
             # `IS FALSE` is NULL-safe: NULL IS FALSE → FALSE → excluded.
             # `IS NOT TRUE` would include NULL (NULL IS NOT TRUE → TRUE) — wrong.
             where.append("r.contains_meat IS FALSE")
+
+        if country in _LANDLOCKED_COUNTRIES:
+            where.append(
+                "NOT (r.allergens && ARRAY['shellfish','molluscs']::allergen_enum[])"
+            )
+            where.append(
+                "NOT (r.tags && ARRAY['shellfish','molluscs','camarones','langosta','cangrejo',"
+                "'mariscos','sea_fish','pescado_mar']::text[])"
+            )
+            _log.info("layer1.landlocked_filter_applied", country=country)
 
         if allergies:
             # Defensive: cast both sides to text so we never trip enum-vs-text

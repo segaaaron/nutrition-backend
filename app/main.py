@@ -14,6 +14,7 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from starlette.middleware.contentsize import ContentSizeLimitMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -27,9 +28,12 @@ from app.core.error_tracker import ErrorTrackerMiddleware
 from app.core.errors import register_exception_handlers
 from app.core.ip_rate_limit import IpRateLimitMiddleware
 from app.core.logging import configure_logging, get_logger
+
+_catch_log = get_logger("errors.unhandled")
 from app.core.metrics import ARQ_QUEUE_DEPTH, HttpMetricsMiddleware, get_arq_queue_depth
 from app.core.problem_details import register_problem_handlers
 from app.core.redis import close_redis, get_redis
+from app.core.response_envelope import ResponseEnvelopeMiddleware
 from app.core.security_headers import SecurityHeadersMiddleware
 from app.gamification.presentation.router import router as gamification_router
 from app.grocery.router import router as grocery_router
@@ -140,10 +144,15 @@ def create_app() -> FastAPI:
         expose_headers=["x-request-id"],
         max_age=600,
     )
+    app.add_middleware(ContentSizeLimitMiddleware, max_content_size=10 * 1024 * 1024)  # 10 MB hard cap — rejects before buffering
     app.add_middleware(SecurityHeadersMiddleware, is_production=is_prod)
     app.add_middleware(AntiSniffMiddleware, enforce=is_prod)
     app.add_middleware(IpRateLimitMiddleware, limit_per_minute=settings.ip_rate_limit_per_minute)
     app.add_middleware(ErrorTrackerMiddleware)
+    # Envelope wraps raw JSON first; GZip then compresses the envelope.
+    # Starlette middleware order: first-added = innermost in response path.
+    # Response chain: app → ErrorTracker → Envelope → GZip → RequestId → client
+    app.add_middleware(ResponseEnvelopeMiddleware)
     app.add_middleware(GZipMiddleware, minimum_size=512)
     app.add_middleware(RequestIdMiddleware)
     app.add_middleware(HttpMetricsMiddleware)
@@ -153,6 +162,35 @@ def create_app() -> FastAPI:
     # BusinessRuleViolation / NotFoundError / RequestValidationError with the
     # mobile-contract URN scheme.
     register_problem_handlers(app)
+
+    # Catch-all for any exception that escapes all other handlers.
+    # Starlette's default returns {"detail":"Internal Server Error"} with no
+    # type/slug — impossible to debug from the client side.
+    @app.exception_handler(Exception)
+    async def _unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+        from app.core.error_tracker import record_error  # local import — avoids circular at module level
+
+        _catch_log.error(
+            "unhandled_exception",
+            exc_type=type(exc).__name__,
+            exc_msg=str(exc)[:500],
+            path=request.url.path,
+            method=request.method,
+        )
+        record_error(exc=exc, path=request.url.path)
+        # Never expose exception internals to the client — SQL errors leak table names,
+        # file paths, and internal state. Full details are in server logs.
+        return JSONResponse(
+            status_code=500,
+            content={
+                "type": "urn:nova:problem:internal",
+                "title": "Internal server error",
+                "status": 500,
+                "detail": "An unexpected error occurred. See server logs.",
+                "message": "An unexpected error occurred. See server logs.",
+            },
+            media_type="application/problem+json",
+        )
 
     # --- Bounded-context routers ---
     app.include_router(identity_router)

@@ -334,6 +334,8 @@ def _profile_to_resp(p: UserProfile) -> ProfileResponse:
         country=p.country,
         region=p.region,
         locale=p.locale,
+        units=p.units,
+        dietary_pattern=p.dietary_pattern,
         onboarding_completed=p.onboarding_completed,
         updated_at=p.updated_at,
         plan_job=None,
@@ -383,7 +385,12 @@ async def create_plan(
             body=raw_body,
         )
     except IdempotencyConflict as exc:
-        raise ConflictError("idempotency_body_mismatch") from exc
+        raise ConflictError(
+            "idempotency_body_mismatch",
+            field="Idempotency-Key",
+            key=key,
+            reason="Same Idempotency-Key was used with a different request body",
+        ) from exc
     if cached is not None:
         return cached_to_response(cached)
 

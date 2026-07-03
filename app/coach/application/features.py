@@ -31,6 +31,7 @@ from app.coach.infrastructure.repositories import SqlConversationRepository
 from app.core.circuit_breaker import CircuitBreaker
 from app.core.config import get_settings
 from app.core.cost_cap import estimate_input_cost, pre_check, record_usage
+from app.core.db import session_scope
 from app.core.logging import get_logger
 from app.vision.application.reconcile_with_plan import ReconcileWithPlan
 
@@ -46,7 +47,8 @@ async def _mini_completion(prompt: str, *, user_id: UUID | None, max_tokens: int
     est = estimate_input_cost(model, prompt) + 0.0003
     try:
         await pre_check(user_id=user_id, estimate_usd=est)
-    except Exception:  # noqa: BLE001 — cap blocked → skip silently
+    except Exception as _cap_exc:  # noqa: BLE001
+        _log.info("coach.feature.cost_cap_blocked", user_id=str(user_id)[:8] if user_id else "anon", err=str(_cap_exc)[:120])
         return ""
 
     async def _call() -> str:
@@ -286,17 +288,24 @@ async def recipe_story_backfill(session: AsyncSession, *, batch: int = 20) -> in
         msg = await _mini_completion(prompt, user_id=None, max_tokens=60)
         if not msg:
             continue
-        await session.execute(
-            text(
-                """
-            UPDATE recipes
-               SET coach_story_translations = jsonb_build_object('es', :es, 'en', :en)
-             WHERE id = :id
-        """
-            ),
-            {"id": r[0], "es": msg, "en": msg},
-        )
-        n_done += 1
+        # Open a fresh session per recipe so each UPDATE is committed
+        # independently.  A failure (or exception) in one iteration does NOT
+        # roll back the stories already written for earlier recipes.
+        try:
+            async with session_scope() as inner:
+                await inner.execute(
+                    text(
+                        """
+                UPDATE recipes
+                   SET coach_story_translations = jsonb_build_object('es', :es, 'en', :en)
+                 WHERE id = :id
+            """
+                    ),
+                    {"id": r[0], "es": msg, "en": msg},
+                )
+            n_done += 1
+        except Exception as exc:  # noqa: BLE001
+            log.warning("recipe_story.update_failed", recipe_id=r[0], err=str(exc))
     return n_done
 
 

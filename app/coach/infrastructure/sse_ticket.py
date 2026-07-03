@@ -26,6 +26,8 @@ def _hash(token: str) -> str:
 
 
 async def mint(session: AsyncSession, *, user_id: UUID, conv_id: UUID) -> str:
+    # Lazy cleanup: purge old expired tickets on each mint. Table is tiny (30s TTL).
+    await session.execute(text("DELETE FROM coach_sse_tickets WHERE expires_at < now()"))
     token = secrets.token_urlsafe(32)
     expires = datetime.now(UTC) + timedelta(seconds=TICKET_TTL_S)
     await session.execute(

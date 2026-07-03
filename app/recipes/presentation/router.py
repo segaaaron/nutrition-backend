@@ -14,7 +14,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Header, Path, Query
 
-from app.identity.presentation.dependencies import SessionDep
+from app.identity.presentation.dependencies import CurrentUserDep, SessionDep
 from app.recipes.application.use_cases import (
     GetFoodByBarcode,
     GetRecipe,
@@ -180,6 +180,7 @@ async def get_recipe(
 @router.post("/recipes/search/semantic", response_model=RecipeListResponse)
 async def search_semantic(
     body: RecipeSemanticSearchRequest,
+    _current_user: CurrentUserDep,
     session: SessionDep,
     accept_language: Annotated[str | None, Header(alias="Accept-Language")] = None,
 ) -> RecipeListResponse:

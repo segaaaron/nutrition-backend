@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class _Strict(BaseModel):
@@ -23,7 +23,7 @@ class SseTicketResponse(BaseModel):
 
 class ChatRequest(_Strict):
     conv_id: UUID | None = None
-    message: str
+    message: str = Field(min_length=1, max_length=2000)
     # DEPRECATED — locale is now resolved server-side from the
     # ``Accept-Language`` header (Phase 3 of the i18n runtime propagation
     # plan). Field kept for one release cycle to avoid breaking older mobile
@@ -59,4 +59,4 @@ class MessagesList(BaseModel):
 
 class SwapProposalRequest(_Strict):
     plan_meal_id: UUID
-    top_k: int = 3
+    top_k: int = Field(default=3, ge=1, le=10)

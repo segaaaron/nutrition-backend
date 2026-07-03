@@ -266,6 +266,11 @@ class SqlOtpRepository:
         await self.s.flush()
 
     async def get_active(self, user_id: UUID, purpose: OtpPurpose) -> OtpCode | None:
+        # Lazy lockout expiry: clear expired lock inline, no cron needed.
+        await self.s.execute(
+            text("UPDATE otp_codes SET locked_until=NULL, attempts=0 WHERE user_id=:uid AND purpose=:p AND locked_until IS NOT NULL AND locked_until < now()"),
+            {"uid": str(user_id), "p": purpose.value if hasattr(purpose, "value") else purpose},
+        )
         stmt = (
             select(OtpCodeModel)
             .where(
@@ -279,6 +284,11 @@ class SqlOtpRepository:
         return _otp_from_model(m) if m else None
 
     async def get_active_by_email(self, email: str, purpose: OtpPurpose) -> OtpCode | None:
+        # Lazy lockout expiry: clear expired lock inline, no cron needed.
+        await self.s.execute(
+            text("UPDATE otp_codes SET locked_until=NULL, attempts=0 WHERE email=:em AND purpose=:p AND locked_until IS NOT NULL AND locked_until < now()"),
+            {"em": email, "p": purpose.value if hasattr(purpose, "value") else purpose},
+        )
         stmt = (
             select(OtpCodeModel)
             .where(

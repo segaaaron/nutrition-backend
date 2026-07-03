@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError as _IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.billing.domain import (
@@ -52,7 +53,12 @@ class StartTrial:
             cancel_at_period_end=False,
             trial_end=trial_end,
         )
-        await self.repo.upsert_subscription(sub)
+        try:
+            await self.repo.upsert_subscription(sub)
+        except _IntegrityError:
+            # Concurrent request beat us to it — partial unique index
+            # uq_subscriptions_one_live_per_user fired. Treat as idempotent.
+            raise ConflictError(detail="already_subscribed") from None
         await self.bus.publish(
             TrialStarted(
                 user_id=user_id,
@@ -118,6 +124,8 @@ class CancelSubscription:
         if sub.status == SubscriptionStatus.CANCELLED:
             raise ConflictError(detail="already_cancelled")
         if sub.provider_subscription_id:
+            # Stripe is global — any country routes to the same Stripe endpoint.
+            # MercadoPago requires "MX" as the regional dispatch key for LATAM.
             gw = gateway_for_country("US" if sub.provider == BillingProvider.STRIPE else "MX")
             await gw.cancel_subscription(provider_sub_id=sub.provider_subscription_id)
         sub.cancel_at_period_end = True
@@ -212,8 +220,6 @@ class HandleWebhook:
                 cancel_at_period_end=False,
                 trial_end=None,
             )
-            from sqlalchemy.exc import IntegrityError as _IntegrityError
-
             try:
                 await self.repo.upsert_subscription(sub)
             except _IntegrityError:

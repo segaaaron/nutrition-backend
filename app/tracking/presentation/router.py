@@ -60,9 +60,9 @@ async def log_weight(
 async def get_weight_trend(
     current_user: CurrentUserDep,
     session: SessionDep,
-    window: str = Query(default="30d", pattern=r"^\d+d$"),
+    window: str = Query(default="30d", pattern=r"^\d{1,3}d$"),
 ) -> WeightTrendResponse:
-    days = int(window.rstrip("d"))
+    days = min(int(window.rstrip("d")), 365)
     uc = GetWeightTrend(repo=SqlWeightLogRepository(session))
     series = await uc(user_id=current_user, window_days=days)
     return WeightTrendResponse(

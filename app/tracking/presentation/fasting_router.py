@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Query, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.event_bus import get_event_bus
@@ -85,8 +85,8 @@ async def active_fasting(current_user: CurrentUserDep, session: SessionDep) -> d
 async def fasting_history(
     current_user: CurrentUserDep,
     session: SessionDep,
-    cursor: str | None = None,
-    limit: int = 30,
+    cursor: str | None = Query(default=None, max_length=500),
+    limit: int = Query(default=30, ge=1, le=100),
 ) -> dict:
     uc = GetFastingHistory(repo=SqlFastingRepository(session))
     return await uc(user_id=current_user, cursor=cursor, limit=limit)

@@ -21,7 +21,7 @@ from typing import Annotated, Literal
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Header, Request, Response, status
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import text
 
 from app.core.errors import ConflictError, ValidationError
@@ -45,9 +45,11 @@ router = APIRouter(tags=["voice"])
 class TextLogRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    text: str
+    # max_length guards against cost/DoS attacks — a realistic STT transcript
+    # of a full meal description is well under 500 chars; 2000 is generous.
+    text: str = Field(..., min_length=1, max_length=2000)
     meal_time: Literal["breakfast", "lunch", "dinner", "snack"] = "lunch"
-    locale: str = "es"
+    locale: Literal["es", "en", "pt", "fr", "de"] = "es"
 
 
 class ManualLogRequest(BaseModel):
@@ -55,7 +57,7 @@ class ManualLogRequest(BaseModel):
 
     meal_time: Literal["breakfast", "lunch", "dinner", "snack"]
     food_id: UUID | None = None
-    free_text_name: str | None = None
+    free_text_name: str | None = Field(default=None, max_length=200)
     amount_g: Decimal
 
 

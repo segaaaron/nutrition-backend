@@ -215,12 +215,15 @@ async def anomaly_score_task(ctx: dict[str, Any]) -> dict[str, int]:  # noqa: AR
         user_ids: list[UUID] = [UUID(str(r[0])) for r in rows]
 
         for uid in user_ids:
-            score, signals, available = await _score_one_user(session, uid)
-            action = await _apply_action(session, uid, score, signals, available)
-            stats["scored"] += 1
-            stats[action] = stats.get(action, 0) + 1
-
-        await session.commit()
+            try:
+                score, signals, available = await _score_one_user(session, uid)
+                action = await _apply_action(session, uid, score, signals, available)
+                await session.commit()
+                stats["scored"] += 1
+                stats[action] = stats.get(action, 0) + 1
+            except Exception as exc:  # noqa: BLE001
+                await session.rollback()
+                logger.warning("anomaly.user_score_failed", uid=str(uid)[:8], err=str(exc))
 
     logger.info(
         "anomaly.cycle_complete",
@@ -232,3 +235,8 @@ async def anomaly_score_task(ctx: dict[str, Any]) -> dict[str, int]:  # noqa: AR
         window_days=WINDOW_DAYS,
     )
     return stats
+
+
+# Callable alias for nightly_maintenance without the Arq ctx signature.
+async def _run_anomaly_scoring() -> dict[str, int]:
+    return await anomaly_score_task({})

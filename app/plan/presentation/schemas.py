@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -19,6 +19,9 @@ class _Strict(BaseModel):
 PlanType = Literal["day", "week", "month"]
 PlanStatus = Literal["active", "completed", "cancelled"]
 MealTime = Literal["breakfast", "lunch", "dinner", "snack"]
+
+# Preference tag: max 64 chars each, max 20 tags per request.
+_PrefItem = Annotated[str, Field(min_length=1, max_length=64)]
 
 
 class PlanJobRef(BaseModel):
@@ -48,8 +51,8 @@ class CreatePlanRequest(_Strict):
     """
 
     type: PlanType = "week"
-    preferences: list[str] = Field(default_factory=list)
-    seed: int | None = None
+    preferences: list[_PrefItem] = Field(default_factory=list, max_length=20)
+    seed: int | None = Field(default=None, ge=0, le=2_147_483_647)
     profile: OnboardingRequest | None = None
 
 

@@ -13,6 +13,7 @@ Rate limit: 30/min/user via Redis counter.
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from typing import Annotated
@@ -50,6 +51,9 @@ router = APIRouter(prefix="/coach", tags=["coach"])
 SSE_MAX_CONCURRENT = 50
 SSE_COUNTER_KEY = "coach:sse:active"
 RATE_LIMIT_PER_MIN = 30
+# Maximum wall-clock seconds an SSE stream may stay open. Guards against hung
+# OpenAI connections holding the SSE counter slot indefinitely.
+SSE_TIMEOUT_S = 300
 
 
 async def _check_rate(user_id: UUID) -> None:
@@ -109,19 +113,24 @@ async def chat(
 
     async def _gen() -> AsyncIterator[bytes]:
         try:
-            # Locale resolution: Accept-Language header (via LocaleDep) is the
-            # canonical source. ``body.locale`` is DEPRECATED (kept for one
-            # release cycle for backward compat); the header always wins.
-            async for chunk in chat_uc.stream(
-                user_id=user_id,
-                conv_id=conv_id,
-                user_message=body.message,
-                locale=locale,
-            ):
-                # Format as SSE data event.
-                payload = chunk.replace("\n", " ")
-                yield f"data: {payload}\n\n".encode()
-            yield b"event: done\ndata: 1\n\n"
+            # Hard wall-clock timeout prevents a hung OpenAI connection from
+            # holding the SSE counter slot indefinitely (SSE_TIMEOUT_S = 5 min).
+            async with asyncio.timeout(SSE_TIMEOUT_S):
+                # Locale resolution: Accept-Language header (via LocaleDep) is the
+                # canonical source. ``body.locale`` is DEPRECATED (kept for one
+                # release cycle for backward compat); the header always wins.
+                async for chunk in chat_uc.stream(
+                    user_id=user_id,
+                    conv_id=conv_id,
+                    user_message=body.message,
+                    locale=locale,
+                ):
+                    # Format as SSE data event.
+                    payload = chunk.replace("\n", " ")
+                    yield f"data: {payload}\n\n".encode()
+                yield b"event: done\ndata: 1\n\n"
+        except asyncio.TimeoutError:
+            yield b"event: error\ndata: stream_timeout\n\n"
         finally:
             await r.decr(SSE_COUNTER_KEY)
 

@@ -308,6 +308,11 @@ class SqlIdempotencyRepo:
                 "fingerprint": cached.fingerprint,
             }
         )
+        # Lazy cleanup: delete a small batch of expired rows on each store.
+        # No cron needed — table stays bounded without any scheduled job.
+        await self._session.execute(
+            text("DELETE FROM idempotency_keys WHERE ctid IN (SELECT ctid FROM idempotency_keys WHERE expires_at < now() LIMIT 50)")
+        )
         await self._session.execute(
             text(
                 "INSERT INTO idempotency_keys (key, response_body, expires_at) "

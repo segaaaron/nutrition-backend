@@ -1,19 +1,46 @@
-"""Tracking event handlers — invalidate per-day totals cache on writes."""
+"""Tracking event handlers — cache invalidation + coach triggers on food logs."""
 
 from __future__ import annotations
 
+from app.core.db import session_scope
 from app.core.event_bus import EventBus
+from app.core.logging import get_logger
 from app.core.redis import get_redis
 from app.shared.domain.time import utc_today
 from app.tracking.application.food_log_uc import _cache_key_totals
 from app.tracking.domain.events import FoodLogged
 
+_log = get_logger("tracking.event_handlers")
+
 
 def register(bus: EventBus) -> None:
     async def _on_food_logged(evt: FoodLogged) -> None:
+        # 1. Invalidate daily totals cache
         try:
             await get_redis().delete(_cache_key_totals(evt.user_id, utc_today()))
-        except Exception:  # noqa: BLE001,S110 — cache miss is acceptable
+        except Exception:  # noqa: BLE001,S110
             pass
+
+        # 2. Coach: proactive deviation check — writes assistant message to
+        #    coach_messages table. iOS reads it on next conversation open.
+        #    Push delivery added when FCM is wired (token registered by iOS).
+        try:
+            from app.coach.application.features import proactive_deviation
+
+            async with session_scope() as session:
+                await proactive_deviation(session, user_id=evt.user_id)
+        except Exception as exc:  # noqa: BLE001
+            _log.warning("coach.proactive_deviation.fail", user_id=str(evt.user_id)[:8], err=str(exc))
+
+        # 3. Coach: macro repair — only after dinner, when full day is known.
+        #    Writes assistant message to coach_messages. Same delivery model.
+        if evt.meal_time == "dinner":
+            try:
+                from app.coach.application.features import macro_repair
+
+                async with session_scope() as session:
+                    await macro_repair(session, user_id=evt.user_id)
+            except Exception as exc:  # noqa: BLE001
+                _log.warning("coach.macro_repair.fail", user_id=str(evt.user_id)[:8], err=str(exc))
 
     bus.subscribe(FoodLogged, _on_food_logged)

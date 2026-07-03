@@ -51,13 +51,11 @@ class SendNotification:
                     ),
                     {"id": r[0]},
                 )
-            else:
-                await self.session.execute(
-                    text(
-                        """
-                    UPDATE push_tokens SET invalid_at = now() WHERE id = :id
-                """
-                    ),
-                    {"id": r[0]},
-                )
+            # NOTE: when ok is False we intentionally do NOT mark the token
+            # invalid.  FcmClient.send() is a Phase-2 stub that always returns
+            # False; marking every token invalid on every call would permanently
+            # destroy the user's push registration before FCM is wired up.
+            # Token invalidation will be re-enabled once the real FCM HTTP call
+            # is implemented and we can distinguish a real 404/410 response
+            # from a "not yet implemented" no-op.
         return n_sent
