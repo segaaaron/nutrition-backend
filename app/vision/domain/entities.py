@@ -50,6 +50,8 @@ class DetectedFoodItem:
     kcal_min: int | None = None
     kcal_max: int | None = None
     inferred: bool = False  # True = added by hidden-calorie post-pass, not detected by the LLM
+    fiber_g: int = 0  # dietary fiber — critical for diabetes_t2 / digestive-health users
+    sugar_g: int = 0  # total sugars — critical for diabetes_t2 / hypertension users
 
 
 @dataclass(slots=True)

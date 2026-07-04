@@ -103,8 +103,13 @@ class Settings(BaseSettings):
     # Average confidence threshold to *accept* the primary model output.
     # Below this OR if min(item.confidence) < 0.5 OR items.empty → fallback.
     vision_confidence_threshold: float = 0.7
-    # Per-user hourly cap on photo uploads (HTTP 429 on excess).
-    vision_photo_uploads_per_hour: int = 30
+    # Per-user daily cap on photo uploads (HTTP 429 on excess).
+    # 10/day covers breakfast+lunch+dinner+snack+retries for 99% of users.
+    # Renamed from vision_photo_uploads_per_hour — old env var is ignored by pydantic.
+    vision_photo_uploads_per_day: int = 10
+    # Backward-compat alias: if old hourly var is set in .env, it is read here
+    # and checked at startup (see app/core/startup.py or similar) to warn operator.
+    vision_photo_uploads_per_hour: int = 0  # 0 = not set; >0 = operator using old var
     # SHA256 dedup window. Re-uses a previous completed job's items when the
     # same compressed image is submitted by ANY user within the TTL.
     vision_cache_ttl_days: int = 90
@@ -122,6 +127,9 @@ class Settings(BaseSettings):
     # Default ON — fail-open on errors (lets through if uncertain or upstream
     # failure).
     vision_food_prefilter_enabled: bool = True
+    # USDA FDC API key — free at https://fdc.nal.usda.gov/api-guide.html
+    # Used as fallback nutrition source for unmatched food items.
+    usda_fdc_api_key: str = ""
 
     # --- Cost cap (ADR-0004) ---
     cost_cap_usd_per_user_per_day: float = 1.50

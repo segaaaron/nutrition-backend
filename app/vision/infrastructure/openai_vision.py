@@ -138,6 +138,8 @@ VISION_SCHEMA: dict[str, Any] = {
                     "protein_g": {"type": "integer"},
                     "carbs_g": {"type": "integer"},
                     "fat_g": {"type": "integer"},
+                    "fiber_g": {"type": "integer"},
+                    "sugar_g": {"type": "integer"},
                     "confidence": {"type": "number"},
                     "food_group": {
                         "type": "string",
@@ -191,6 +193,8 @@ VISION_SCHEMA: dict[str, Any] = {
                     "protein_g",
                     "carbs_g",
                     "fat_g",
+                    "fiber_g",
+                    "sugar_g",
                     "confidence",
                     "food_group",
                     "role",
@@ -208,35 +212,22 @@ def _system_prompt(locale: str, region: str) -> str:
     # Any wording change here changes prompt_sha256 → SHA dedup cache
     # self-invalidates (by design).
     return (
-        "Eres un nutricionista clínico experto en cocina LatAm/US/EU que "
-        "descompone platos a partir de una foto. Devuelve TODOS los "
-        "componentes del plato o bebida, no solo los visibles:\n"
-        "1) Componentes visibles: principal, guarniciones, salsas, "
-        "aderezos, condimentos, toppings, bebida.\n"
-        "2) Componentes INVISIBLES inferidos por el método de preparación: "
-        "aceite absorbido en frituras y salteados, mantequilla en purés, "
-        "crema en sopas cremosas, azúcar en jugos/refrescos/postres, "
-        "aderezo en ensaladas que se ven aliñadas.\n"
-        "3) Condimentos: DIFERENCIA especias secas (comino, pimienta, "
-        "orégano, ají seco molido — kcal 0-5, cantidades de 1-3 g) de "
-        "condimentos calóricos (ají en aceite, salsa criolla, mayonesa, "
-        "chimichurri, ketchup, crema — kcal reales con su gramaje).\n"
-        "Por cada ítem: role (main|side|sauce|condiment|cooking_fat|"
-        "garnish|sweetener|beverage_base), prep_method (deep_fried|fried|"
-        "sauteed|grilled|boiled|steamed|baked|stewed|raw|unknown), "
-        "estimated_amount_g (mejor estimación), kcal para esa cantidad, y "
-        "kcal_min/kcal_max como rango honesto según tu incertidumbre de "
-        "porción (kcal_min <= kcal <= kcal_max). Macros para la mejor "
-        "estimación. Usa USDA FDC como referencia. Confidence en 0..1. "
-        "Clasifica food_group: vegetable|fruit|grain|protein|dairy|fat|"
-        "sweet|beverage|other. "
-        "ESCALA DE PORCIONES: usa objetos de referencia en la foto para "
-        "calibrar gramos — plato estándar Ø26cm, plato hondo ~400ml, "
-        "cuchara sopera 15ml, tenedor 18cm, vaso 250ml, taza 240ml, lata "
-        "355ml, mano/dedos si aparecen. Estima la profundidad del montículo "
-        "de comida, no solo el área. "
-        f"Locale={locale}. Region={region}. "
-        "Devuelve estricto JSON conforme al esquema; nunca texto libre."
+        "Eres un experto en nutrición, planes alimenticios y cocina de LatAm/US/EU. "
+        "Descompone TODO lo que hay en la foto — visible e inferido:\n"
+        "1) Visibles: principal, guarniciones, salsas, aderezos, condimentos, toppings, bebida.\n"
+        "2) INVISIBLES: aceite en frituras/salteados, mantequilla en purés, "
+        "crema en sopas, azúcar en jugos/postres, aderezo en ensaladas aliñadas.\n"
+        "3) Especias secas (comino, pimienta, orégano) ≤5 kcal y 1-3 g. "
+        "Condimentos calóricos (mayonesa, crema, chimichurri, ketchup) con gramaje real.\n"
+        "Por ítem: name, estimated_amount_g, kcal, kcal_min, kcal_max, "
+        "protein_g, carbs_g, fat_g, fiber_g, sugar_g, confidence (0-1), "
+        "food_group (vegetable|fruit|grain|protein|dairy|fat|sweet|beverage|other), "
+        "role (main|side|sauce|condiment|cooking_fat|garnish|sweetener|beverage_base), "
+        "prep_method (deep_fried|fried|sauteed|grilled|boiled|steamed|baked|stewed|raw|unknown).\n"
+        "PORCIONES: usa referencias visibles — plato Ø26cm, plato hondo 400ml, "
+        "cuchara sopera 15ml, vaso 250ml, taza 240ml, lata 355ml, mano si aparece. "
+        "Estima profundidad del montículo, no solo área.\n"
+        f"Locale={locale}. Region={region}. JSON estricto, nunca texto libre."
     )
 
 
@@ -636,7 +627,7 @@ class OpenAIVisionProvider:
                         "schema": VISION_SCHEMA,
                     },
                 },
-                temperature=0.1,
+                temperature=0.0,
                 max_tokens=max_output_tokens,
             )
             content = resp.choices[0].message.content or "{}"
@@ -710,6 +701,95 @@ _PREP_METHODS: frozenset[str] = frozenset(
     }
 )
 
+# Atwater: if |llm_kcal - macro_kcal| / max(both) > threshold, trust macros.
+# 15% is tight enough to catch arithmetic errors while allowing rounding noise.
+_ATWATER_THRESHOLD = 0.15
+
+# USDA oil absorption coefficients by prep method.
+# Source: USDA FDC fat retention studies (deep-fry 8-15%, pan-fry 3-7%, sauté 1-5%).
+_OIL_ABSORPTION_PCT: dict[str, float] = {
+    "deep_fried": 0.11,
+    "fried": 0.05,
+    "sauteed": 0.03,
+}
+_OIL_KCAL_PER_G = 9  # fat = 9 kcal/g (Atwater)
+
+
+def _atwater_correct(
+    kcal_llm: int,
+    protein_g: int,
+    carbs_g: int,
+    fat_g: int,
+) -> tuple[int, bool]:
+    """Return (best_kcal, was_corrected).
+
+    If macros sum to zero (water, pure spices) trust LLM kcal as-is.
+    Otherwise use Atwater (4/4/9) when discrepancy exceeds threshold.
+    """
+    macro_kcal = protein_g * 4 + carbs_g * 4 + fat_g * 9
+    if macro_kcal == 0:
+        return kcal_llm, False
+    if kcal_llm == 0:
+        return macro_kcal, True
+    discrepancy = abs(kcal_llm - macro_kcal) / max(kcal_llm, macro_kcal)
+    if discrepancy > _ATWATER_THRESHOLD:
+        return macro_kcal, True
+    return kcal_llm, False
+
+
+def _hidden_calorie_post_pass(items: list[DetectedFoodItem]) -> list[DetectedFoodItem]:
+    """Inject inferred cooking-fat item for fried/sauteed foods.
+
+    Skips if LLM already detected a cooking_fat role item — no double-counting.
+    Aggregates absorbed oil across all fried items into one inferred entry.
+    Absorption uncertainty: -20% / +40% (asymmetric — easier to absorb more).
+    """
+    if any(i.role == "cooking_fat" for i in items):
+        return items
+
+    total_oil_g = 0.0
+    for item in items:
+        pct = _OIL_ABSORPTION_PCT.get(item.prep_method or "")
+        if pct is None:
+            continue
+        amount_g = float(item.estimated_amount_g)
+        if amount_g <= 0:
+            continue
+        total_oil_g += amount_g * pct
+
+    if total_oil_g < 1.0:
+        return items
+
+    oil_g = round(total_oil_g)
+    oil_kcal = round(total_oil_g * _OIL_KCAL_PER_G)
+    oil_kcal_min = round(total_oil_g * 0.8 * _OIL_KCAL_PER_G)
+    oil_kcal_max = round(total_oil_g * 1.4 * _OIL_KCAL_PER_G)
+
+    log.info(
+        "vision.hidden_calorie.cooking_fat_injected",
+        oil_g=oil_g,
+        oil_kcal=oil_kcal,
+    )
+
+    inferred = DetectedFoodItem(
+        name="Aceite de cocción (inferido)",
+        estimated_amount_g=Decimal(str(oil_g)),
+        kcal=oil_kcal,
+        kcal_min=oil_kcal_min,
+        kcal_max=oil_kcal_max,
+        protein_g=0,
+        carbs_g=0,
+        fat_g=oil_g,
+        fiber_g=0,
+        sugar_g=0,
+        confidence=0.7,
+        food_group="fat",
+        role="cooking_fat",
+        prep_method=None,
+        inferred=True,
+    )
+    return [*items, inferred]
+
 
 def _parse_items(raw: dict[str, Any]) -> list[DetectedFoodItem]:
     out: list[DetectedFoodItem] = []
@@ -718,22 +798,43 @@ def _parse_items(raw: dict[str, Any]) -> list[DetectedFoodItem]:
             group = str(r.get("food_group", "other"))
             role = str(r.get("role") or "") or None
             prep = str(r.get("prep_method") or "") or None
-            kcal_best = max(0, int(r["kcal"]))
-            # Optional range (v2 prompt always sends it; old cache rows and
-            # degraded responses may not). Sanity-bracket around the best
-            # estimate so a confused LLM can't emit min > best.
-            kcal_min = r.get("kcal_min")
-            kcal_max = r.get("kcal_max")
-            kcal_min = min(max(0, int(kcal_min)), kcal_best) if kcal_min is not None else None
-            kcal_max = max(int(kcal_max), kcal_best) if kcal_max is not None else None
+
+            protein_g = max(0, int(r["protein_g"]))
+            carbs_g = max(0, int(r["carbs_g"]))
+            fat_g = max(0, int(r["fat_g"]))
+            kcal_raw = max(0, int(r["kcal"]))
+
+            kcal_best, corrected = _atwater_correct(kcal_raw, protein_g, carbs_g, fat_g)
+            if corrected:
+                log.info(
+                    "vision.parse.atwater_correction",
+                    name=str(r.get("name", "?"))[:60],
+                    kcal_llm=kcal_raw,
+                    kcal_atwater=kcal_best,
+                )
+
+            # kcal_min/max: widen range to encompass both LLM estimate and
+            # Atwater correction so uncertainty is honestly represented.
+            kcal_min_raw = r.get("kcal_min")
+            kcal_max_raw = r.get("kcal_max")
+            kcal_min: int | None = None
+            kcal_max: int | None = None
+            if kcal_min_raw is not None:
+                kcal_min = min(max(0, int(kcal_min_raw)), kcal_best, kcal_raw)
+            if kcal_max_raw is not None:
+                kcal_max = max(int(kcal_max_raw), kcal_best, kcal_raw)
+
             out.append(
                 DetectedFoodItem(
                     name=str(r["name"])[:120],
                     estimated_amount_g=Decimal(str(r["estimated_amount_g"])),
                     kcal=kcal_best,
-                    protein_g=max(0, int(r["protein_g"])),
-                    carbs_g=max(0, int(r["carbs_g"])),
-                    fat_g=max(0, int(r["fat_g"])),
+                    protein_g=protein_g,
+                    carbs_g=carbs_g,
+                    fat_g=fat_g,
+                    # fiber_g/sugar_g: new in schema v3; old cached rows return 0 (safe default).
+                    fiber_g=max(0, int(r.get("fiber_g") or 0)),
+                    sugar_g=max(0, int(r.get("sugar_g") or 0)),
                     confidence=max(0.0, min(1.0, float(r["confidence"]))),
                     food_group=group if group in _FOOD_GROUPS else "other",  # type: ignore[arg-type]
                     role=role if role in _ITEM_ROLES else None,
@@ -755,4 +856,4 @@ def _parse_items(raw: dict[str, Any]) -> list[DetectedFoodItem]:
                 name=str(r.get("name", "?"))[:60],
             )
             continue
-    return out
+    return _hidden_calorie_post_pass(out)

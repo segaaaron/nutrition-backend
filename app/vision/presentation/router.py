@@ -19,6 +19,7 @@ from uuid import UUID
 
 from arq.connections import ArqRedis, create_pool
 from fastapi import APIRouter, File, Form, Header, Response, UploadFile, status
+from sqlalchemy import text
 
 from app.core.config import get_settings
 from app.core.errors import ValidationError
@@ -169,6 +170,51 @@ async def get_job_status(
         except Exception:  # noqa: BLE001 — explanation is decorative; never break the poll (items must still reach the client)
             _log.warning("vision.plate_explainer_failed", job_id=str(job_id))
             groups, total_kcal, summary = [], None, None
+
+    # Macro totals — computed from items directly so they're available even
+    # when the plate explainer fails. kcal_min/max fall back to the point
+    # estimate (kcal) for older cached items that predate Decomposition 2.0.
+    total_protein_g: int | None = None
+    total_carbs_g: int | None = None
+    total_fat_g: int | None = None
+    total_fiber_g: int | None = None
+    total_sugar_g: int | None = None
+    total_kcal_min: int | None = None
+    total_kcal_max: int | None = None
+    if job.detected_items:
+        total_protein_g = sum(i.protein_g for i in job.detected_items)
+        total_carbs_g = sum(i.carbs_g for i in job.detected_items)
+        total_fat_g = sum(i.fat_g for i in job.detected_items)
+        total_fiber_g = sum(i.fiber_g for i in job.detected_items)
+        total_sugar_g = sum(i.sugar_g for i in job.detected_items)
+        total_kcal_min = sum(
+            i.kcal_min if i.kcal_min is not None else i.kcal for i in job.detected_items
+        )
+        total_kcal_max = sum(
+            i.kcal_max if i.kcal_max is not None else i.kcal for i in job.detected_items
+        )
+
+    # % of daily kcal goal — single cheap query, fail-silently so a missing
+    # nutritional_goals row never breaks the poll response.
+    pct_daily_kcal: float | None = None
+    if total_kcal is not None and total_kcal > 0:
+        try:
+            row = (
+                await session.execute(
+                    text(
+                        "SELECT kcal_min, kcal_max FROM nutritional_goals "
+                        "WHERE user_id = :uid AND valid_to IS NULL LIMIT 1"
+                    ),
+                    {"uid": str(current_user)},
+                )
+            ).first()
+            if row and row[0] and row[1]:
+                kcal_target = (int(row[0]) + int(row[1])) // 2
+                if kcal_target > 0:
+                    pct_daily_kcal = round(total_kcal / kcal_target * 100, 1)
+        except Exception:  # noqa: BLE001 — decorative field; never break the poll
+            _log.warning("vision.pct_daily_kcal.query_failed", job_id=str(job_id))
+
     return JobStatusResponse(
         job_id=job.id,
         status=job.status,
@@ -177,11 +223,18 @@ async def get_job_status(
                 name=i.name,
                 estimated_amount_g=i.estimated_amount_g,
                 kcal=i.kcal,
+                kcal_min=i.kcal_min,
+                kcal_max=i.kcal_max,
                 protein_g=i.protein_g,
                 carbs_g=i.carbs_g,
                 fat_g=i.fat_g,
+                fiber_g=i.fiber_g,
+                sugar_g=i.sugar_g,
                 confidence=i.confidence,
                 food_group=i.food_group,
+                role=i.role,
+                prep_method=i.prep_method,
+                inferred=i.inferred,
                 matched_food_id=i.matched_food_id,
                 match_method=i.match_method,
             )
@@ -189,6 +242,14 @@ async def get_job_status(
         ],
         groups=groups,
         total_kcal=total_kcal,
+        total_kcal_min=total_kcal_min,
+        total_kcal_max=total_kcal_max,
+        total_protein_g=total_protein_g,
+        total_carbs_g=total_carbs_g,
+        total_fat_g=total_fat_g,
+        total_fiber_g=total_fiber_g,
+        total_sugar_g=total_sugar_g,
+        pct_daily_kcal=pct_daily_kcal,
         summary=summary,
         error_code=job.error_code,
         created_at=job.created_at,

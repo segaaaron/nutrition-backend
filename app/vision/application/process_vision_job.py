@@ -51,30 +51,42 @@ log = get_logger("vision.process")
 # requires an ADR amendment.
 FOOD_LOG_AUTO_INSERT_CONFIDENCE = 0.7
 
-# Grounded escalation thresholds (2026-06-11). After catalog grounding,
-# the cheap model's output is escalated to the heavy model only when the
-# catalog could not vouch for it: any item with truly unusable confidence,
-# or low average confidence COMBINED with a mostly-unmatched plate. A
-# low-confidence but well-matched plate keeps the cheap result — grounding
-# already replaced its macros with audited per-100g values.
+# Escalation floor: only call gpt-4o when detection itself is too uncertain.
+# Nutrition uncertainty for unmatched items is now handled by _apply_group_fallback
+# (USDA per-group averages) — no longer a reason to pay for the heavy model.
 _ESCALATE_MIN_ITEM_CONF = 0.35
-_ESCALATE_UNMATCHED_RATIO = 0.4
+
+# USDA FDC average macros per 100g by food_group.
+# Fallback for items the catalog couldn't match — algorithm covers nutrition,
+# LLM covers detection.  Source: USDA FDC SR Legacy averages per category.
+# Tuple: (kcal, protein_g, carbs_g, fat_g)
+_USDA_FALLBACK_PER_100G: dict[str, tuple[int, int, int, int]] = {
+    "protein":   (165, 25,  0,  7),
+    "grain":     (350,  8, 72,  3),
+    "vegetable": ( 35,  2,  7,  0),
+    "fruit":     ( 60,  1, 15,  0),
+    "dairy":     (150,  8, 12,  8),
+    "fat":       (720,  0,  0, 80),
+    "sweet":     (400,  2, 92,  5),
+    "beverage":  ( 45,  0, 11,  0),
+    "other":     (150,  5, 20,  5),
+}
 
 
 def needs_full_model(
-    items: list[DetectedFoodItem], *, conf_threshold: float
+    items: list[DetectedFoodItem], *, conf_threshold: float = 0.0
 ) -> tuple[bool, str]:
-    """Pipeline-level escalation decision (pure). Returns (escalate, reason)."""
+    """Pipeline-level escalation decision (pure). Returns (escalate, reason).
+
+    Only escalates when detection confidence is too low to trust the item
+    identification itself. conf_threshold retained in signature for call-site
+    compat but no longer drives escalation — USDA fallback covers nutrition
+    uncertainty for unmatched items.
+    """
     if not items:
         return True, "empty"
-    confidences = [i.confidence for i in items]
-    if min(confidences) < _ESCALATE_MIN_ITEM_CONF:
+    if min(i.confidence for i in items) < _ESCALATE_MIN_ITEM_CONF:
         return True, "very_low_item_confidence"
-    unmatched = [i for i in items if i.matched_food_id is None]
-    unmatched_ratio = len(unmatched) / len(items)
-    avg_conf = sum(confidences) / len(confidences)
-    if avg_conf < conf_threshold and unmatched_ratio > _ESCALATE_UNMATCHED_RATIO:
-        return True, "low_confidence_unmatched"
     return False, ""
 
 
@@ -537,6 +549,8 @@ class ProcessVisionJob:
         Matching ALWAYS reruns per user (CRITICAL-2: cached items arrive
         with matcher fields stripped). Grounding replaces the LLM's kcal
         arithmetic with audited foods-per-100g × estimated grams.
+        Unmatched items get USDA group-average fallback so the algorithm
+        covers nutrition for every item — not the LLM.
         """
         for it in items:
             # Defensive: ensure any leaking personal field is wiped.
@@ -553,6 +567,75 @@ class ProcessVisionJob:
             it.matched_name_norm = name_norm
             it.match_method = method
         await self._ground_matched_macros(items)
+        await self._apply_group_fallback(items)
+
+    async def _apply_group_fallback(self, items: list[DetectedFoodItem]) -> None:
+        """Apply USDA FDC lookup then static per-group averages for unmatched items.
+
+        Resolution order:
+          1. USDA FDC API search (real per-food nutrition data, free) — concurrent
+          2. Static USDA group-average table (last resort)
+
+        Runs after _ground_matched_macros. Matched items are already grounded
+        from the audited foods table — this only touches unmatched ones.
+        A >5× gap between any fallback kcal and the LLM estimate signals a
+        wrong food_group classification; trust the LLM in that case.
+        """
+        from app.vision.infrastructure import usda_fdc
+
+        unmatched = [
+            it for it in items
+            if it.matched_food_id is None and not it.inferred
+            and float(it.estimated_amount_g) > 0
+        ]
+        if not unmatched:
+            return
+
+        # Fan-out all USDA lookups concurrently — avoids serial 4s×N latency.
+        fdc_results = await asyncio.gather(
+            *[usda_fdc.search(it.name) for it in unmatched],
+            return_exceptions=True,
+        )
+
+        for it, fdc in zip(unmatched, fdc_results):
+            factor = float(it.estimated_amount_g) / 100.0
+
+            # --- Level 1: USDA FDC API ---
+            if isinstance(fdc, Exception):
+                fdc = None  # gather returns exceptions as values when return_exceptions=True
+            if fdc is not None and fdc.kcal_per_100g > 0:
+                kcal_fb = round(fdc.kcal_per_100g * factor)
+                if it.kcal <= 0 or (it.kcal / 5 <= kcal_fb <= it.kcal * 5):
+                    it.kcal = kcal_fb
+                    it.protein_g = round(fdc.protein_per_100g * factor)
+                    it.carbs_g = round(fdc.carbs_per_100g * factor)
+                    it.fat_g = round(fdc.fat_per_100g * factor)
+                    it.fiber_g = round(fdc.fiber_per_100g * factor)
+                    it.sugar_g = round(fdc.sugar_per_100g * factor)
+                    it.kcal_min = round(kcal_fb * 0.80)
+                    it.kcal_max = round(kcal_fb * 1.20)
+                    it.match_method = "usda_fdc"
+                    continue
+
+            # --- Level 2: static group-average table ---
+            group = it.food_group or "other"
+            macro = _USDA_FALLBACK_PER_100G.get(group, _USDA_FALLBACK_PER_100G["other"])
+            kcal_fb = round(macro[0] * factor)
+            if it.kcal > 0 and not (it.kcal / 5 <= kcal_fb <= it.kcal * 5):
+                continue  # food_group mismatch — keep LLM estimate
+            it.kcal = kcal_fb
+            it.protein_g = round(macro[1] * factor)
+            it.carbs_g = round(macro[2] * factor)
+            it.fat_g = round(macro[3] * factor)
+            it.kcal_min = round(kcal_fb * 0.75)
+            it.kcal_max = round(kcal_fb * 1.25)
+            it.match_method = "group_fallback"
+            log.info(
+                "vision.ground.group_fallback",
+                name=it.name[:60],
+                food_group=group,
+                kcal_fb=kcal_fb,
+            )
 
     async def _triangulate_mains(self, items: list[DetectedFoodItem]) -> None:
         """Top-down catalog anchor + physics arbiter for main dishes.

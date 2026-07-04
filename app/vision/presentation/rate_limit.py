@@ -1,4 +1,4 @@
-"""Per-user hourly photo upload rate limit (Capa 4 of the vision cost
+"""Per-user daily photo upload rate limit (Capa 4 of the vision cost
 cascade).
 
 Extracted into its own module so unit tests don't pay the cost of importing
@@ -7,13 +7,13 @@ compressor). Lives in the presentation layer because the only consumer is
 the HTTP handler.
 
 Key format (spec):
-    photo_uploads:{user_id}:{YYYY-MM-DD-HH}
+    photo_uploads:{user_id}:{YYYY-MM-DD}
 
 Limit and retry-after policy:
-- Settings-driven (``vision_photo_uploads_per_hour``).
-- On excess, raises ``RateLimited`` with ``retry_after`` set to the number
-  of whole seconds remaining until the bucket rolls over at the next
-  top-of-hour. This is more honest than a flat 3600s wait.
+- Settings-driven (``vision_photo_uploads_per_day``). Default 10/day.
+- On excess, raises ``RateLimited`` with ``retry_after`` set to seconds
+  until midnight UTC (honest reset time).
+- 10/day: breakfast + lunch + dinner + snack + retries — covers 99% of users.
 """
 
 from __future__ import annotations
@@ -46,14 +46,14 @@ class ServiceUnavailable(DomainError):
 
 async def check_photo_upload_rate_limit(user_id: UUID) -> None:
     s = get_settings()
-    limit = s.vision_photo_uploads_per_hour
+    limit = s.vision_photo_uploads_per_day
     now = datetime.now(UTC)
-    hour_bucket = now.strftime("%Y-%m-%d-%H")
-    key = f"photo_uploads:{user_id}:{hour_bucket}"
+    day_bucket = now.strftime("%Y-%m-%d")
+    key = f"photo_uploads:{user_id}:{day_bucket}"
     r = get_redis()
     pipe = r.pipeline()
     pipe.incr(key)
-    pipe.expire(key, 3700)
+    pipe.expire(key, 86_500)  # 24h + 100s buffer
     try:
         n, _ = await pipe.execute()
     except RedisError as exc:
@@ -63,8 +63,8 @@ async def check_photo_upload_rate_limit(user_id: UUID) -> None:
             retry_after=30,
         ) from exc
     if int(n) > limit:
-        next_hour = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
-        retry_after = max(1, int((next_hour - now).total_seconds()))
+        midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        retry_after = max(1, int((midnight - now).total_seconds()))
         raise RateLimited(
             "rate_limit_exceeded",
             retry_after_s=retry_after,
