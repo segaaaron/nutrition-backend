@@ -202,19 +202,9 @@ class Settings(BaseSettings):
     #   - diabetes_t1: kept blocked — insulin timing/dosing out of scope for
     #     a nutrition tracker; user must use specialised tooling.
     # MVP launch stance (2026-07): ship goal-based plans + allergies only.
-    # Medical-condition dietary filtering (CKD/diabetes/pregnancy/etc.) stays
-    # in code but is BLOCKED at onboarding until (a) a nutritionist signs off
-    # and (b) per-condition recipe coverage is sufficient. "celiac" is NOT
-    # blocked — it is food-safety (gluten avoidance via the allergen filter),
-    # not a medical claim. Re-enable a condition by removing it from this list
-    # (overridable via the MVP_BLOCKED_CONDITIONS env var — no deploy needed).
-    mvp_blocked_conditions: str = (
-        "diabetes_t1,diabetes_t2,hypertension,dyslipidemia,hypercholesterolemia,"
-        "fatty_liver,ckd,pregnancy,lactation,gout,hypothyroidism"
-    )
-    # US was temporarily blocked (commit cd52558, 2026-06-01) while the catalog
-    # lacked US-appropriate coverage. Catalog is now USDA-grounded → US enabled.
-    # Empty = no region blocked. Override via MVP_BLOCKED_REGIONS env if needed.
+    # All conditions enabled. Override via MVP_BLOCKED_CONDITIONS env to block specific ones without deploy.
+    mvp_blocked_conditions: str = ""
+    # No regions blocked. Override via MVP_BLOCKED_REGIONS env if needed.
     mvp_blocked_regions: str = ""
 
     @model_validator(mode="after")

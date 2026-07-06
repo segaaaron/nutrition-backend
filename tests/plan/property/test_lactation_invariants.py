@@ -108,23 +108,18 @@ def test_lactation_gate_registered_at_import() -> None:
 
 
 def test_lactation_gate_contributes_sql_with_thresholds() -> None:
+    # Micronutrient thresholds removed (empty catalog pool). Gate: pregnancy_safe only.
     sql, params = LactationGate().contribute_sql()
     assert "pregnancy_safe = TRUE" in sql
-    assert "folate_ug" in sql
-    assert "calcium_mg" in sql
-    assert "iron_mg" in sql
-    assert params["lac_folate_min"] == 150
-    assert params["lac_calcium_min"] == 300
-    assert params["lac_iron_min"] == 4
+    assert "folate_ug" not in sql
+    assert params == {}
 
 
-def test_lactation_gate_coalesces_null_strictly() -> None:
-    """NULL micros → COALESCE(0) → fails threshold → recipe rejected.
-    Strict-positive: lactation safety > variety."""
-    sql, _ = LactationGate().contribute_sql()
-    assert "COALESCE(r.folate_ug, 0) >= :lac_folate_min" in sql
-    assert "COALESCE(r.calcium_mg, 0) >= :lac_calcium_min" in sql
-    assert "COALESCE(r.iron_mg, 0) >= :lac_iron_min" in sql
+def test_lactation_gate_pregnancy_safe_is_the_only_filter() -> None:
+    """pregnancy_safe=TRUE is the single gate; no micronutrient COALESCE."""
+    sql, params = LactationGate().contribute_sql()
+    assert sql == "(r.pregnancy_safe = TRUE)"
+    assert params == {}
 
 
 def test_layer1_inlines_lactation_gate() -> None:

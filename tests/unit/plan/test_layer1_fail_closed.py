@@ -5,9 +5,9 @@ non-NULL for a recipe to enter the candidate set for a user with the matching
 condition. Catalog rows with `sugar_g IS NULL` are no longer included for
 diabetes_t2 users (etc).
 
-These tests assert the SQL Layer 1 emits enforces the policy. We intercept
-the SQL string by stubbing `AsyncSession.execute` and inspecting the rendered
-query, so the test stays at the unit level (no DB required).
+Filters may come from the registry (ConditionGate) or the inline weight-based
+CKD cap — both paths must produce fail-closed SQL. Tests are agnostic about
+the source; they only verify the fragment is present in the final WHERE clause.
 """
 
 from __future__ import annotations
@@ -91,34 +91,38 @@ async def _run(profile: dict[str, Any]) -> _CapturedSQL:
 
 
 # ---------------------------------------------------------------------------
-# Inline Layer 1 filters (sugar/sodium/sat_fat/protein) — must be IS NOT NULL.
+# Fail-closed filters per condition — fragments come from the registry gates.
+# The weight-specific CKD protein cap remains inline (needs user weight_kg).
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_diabetes_t2_inline_sugar_filter_excludes_nulls() -> None:
+async def test_diabetes_t2_sugar_filter_excludes_nulls() -> None:
+    # DiabetesT2Gate contributes this fragment via registry.
     cap = await _run(_PROFILE_DIABETES)
-    assert "r.sugar_g IS NOT NULL AND r.sugar_g <= 15" in cap.sql, cap.sql
-    # And the bias-include phrasing must NOT survive.
-    assert "r.sugar_g IS NULL OR r.sugar_g <= 15" not in cap.sql
+    assert "r.sugar_g IS NOT NULL AND r.sugar_g <= :dt2_sugar_max" in cap.sql, cap.sql
+    assert "r.sugar_g IS NULL OR r.sugar_g <= " not in cap.sql
 
 
 @pytest.mark.asyncio
-async def test_hypertension_inline_sodium_filter_excludes_nulls() -> None:
+async def test_hypertension_sodium_filter_excludes_nulls() -> None:
+    # HypertensionGate contributes this fragment via registry.
     cap = await _run(_PROFILE_HYPERTENSION)
-    assert "r.sodium_mg IS NOT NULL AND r.sodium_mg <= 600" in cap.sql, cap.sql
-    assert "r.sodium_mg IS NULL OR r.sodium_mg <= 600" not in cap.sql
+    assert "r.sodium_mg IS NOT NULL AND r.sodium_mg <= :ht_sodium_max" in cap.sql, cap.sql
+    assert "r.sodium_mg IS NULL OR r.sodium_mg <= " not in cap.sql
 
 
 @pytest.mark.asyncio
-async def test_hypercholesterolemia_inline_satfat_filter_excludes_nulls() -> None:
+async def test_hypercholesterolemia_satfat_filter_excludes_nulls() -> None:
+    # HypercholesterolemiaGate contributes this fragment via registry.
     cap = await _run(_PROFILE_HYPERCHOL)
-    assert "r.sat_fat_g IS NOT NULL AND r.sat_fat_g <= 5" in cap.sql, cap.sql
-    assert "r.sat_fat_g IS NULL OR r.sat_fat_g <= 5" not in cap.sql
+    assert "r.sat_fat_g IS NOT NULL AND r.sat_fat_g <= :hc_satfat_max" in cap.sql, cap.sql
+    assert "r.sat_fat_g IS NULL OR r.sat_fat_g <= " not in cap.sql
 
 
 @pytest.mark.asyncio
-async def test_ckd_inline_protein_filter_excludes_nulls() -> None:
+async def test_ckd_weight_based_protein_cap_excludes_nulls() -> None:
+    # Inline weight-based CKD protein cap (complement to CKDGate fixed cap).
     cap = await _run(_PROFILE_CKD)
     assert "r.protein_g IS NOT NULL AND r.protein_g <= :ckd_protein_cap" in cap.sql, cap.sql
     assert "r.protein_g IS NULL OR r.protein_g <= :ckd_protein_cap" not in cap.sql

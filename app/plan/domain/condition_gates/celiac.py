@@ -26,5 +26,5 @@ class CeliacGate:
     condition: str = "celiac"
 
     def contribute_sql(self) -> tuple[str, dict[str, object]]:
-        sql = "(NOT (r.allergens && ARRAY['gluten']::text[]))"
+        sql = "(NOT (r.allergens && ARRAY['gluten']::allergen_enum[]))"
         return sql, {}

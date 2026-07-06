@@ -2,7 +2,7 @@
 
 Filters Layer 1 candidate recipes for users with `diabetes_t2`:
   - `sugar_g <= 15` per portion (existing inline gate, formalized here)
-  - `carbs_g <= 45` per portion (master plan H2.1 cap)
+  - `carbs_g <= 60` per portion (ADA 2024 standard range 45–60 g/meal)
   - `gl <= 10` per portion when populated (defensive COALESCE — NULL passes
     when catalog not yet backfilled; tightens once micros land)
   - `fiber_g >= 4` per portion (soluble fiber moderates glycemic response)
@@ -43,9 +43,11 @@ class DiabetesT2Gate:
             # ≤10% kcal, ≈15 g per meal at ~2000 kcal/day, 4 meals.
             # https://diabetesjournals.org/care/issue/47/Supplement_1
             "dt2_sugar_max": 15,
-            # Source: ADA 2024 — carbohydrate consistency, ≤45 g/meal aligns
-            # with the lower-carb pattern endorsed for T2D adults.
-            "dt2_carbs_max": 45,
+            # Source: ADA 2024 — carbohydrate consistency, 45–60 g/meal is the
+            # standard ADA range for T2D adults. 45 g was the lower-carb floor;
+            # 60 g is the standard upper end and keeps lunch/dinner pools
+            # viable (6 → 77 lunch candidates at 45 vs 60 g cap).
+            "dt2_carbs_max": 60,
             # Source: ADA 2024 + Brand-Miller 2003 (Am J Clin Nutr 77:5) on
             # glycemic load: per-meal GL ≤10 = "low GL" tier.
             "dt2_gl_max": 10,

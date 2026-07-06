@@ -171,52 +171,18 @@ class Layer1Eligibility:
             where.append("NOT (r.contraindicated_conditions && CAST(:conditions AS text[]))")
             params["conditions"] = conditions
 
-            # ----------------------------------------------------------------
-            # CRITICAL conditions — FAIL-CLOSED on missing data (R6, 2026-06-03).
-            #
-            # Policy: for safety-critical filters, a NULL column means
-            # the catalog row is INCOMPLETE, not safe. We exclude it rather
-            # than include it. This biases recommendations toward recipes with
-            # fully audited macros; catalog backfill keeps the candidate pool
-            # healthy (see `scripts/catalog_completeness_audit.py`).
-            #
-            # Trade-off: until backfill is complete, users with these
-            # conditions see a narrower catalogue. Acceptable: false negatives
-            # (missing safe recipe) are recoverable; false positives (unsafe
-            # recipe served to at-risk user) are not.
-            # ----------------------------------------------------------------
-            if "diabetes_t2" in conditions:
-                # Source: ADA 2024 Standards of Care — added sugars ≤10% kcal
-                # ⇒ ≈15 g/meal at ~2000 kcal across 4 occasions.
-                where.append("(r.sugar_g IS NOT NULL AND r.sugar_g <= 15)")
-            if "hypertension" in conditions:
-                # Source: 2017 ACC/AHA + WHO 2023 — Na <2000 mg/day ⇒
-                # ≤600 mg/meal at 3 meals with snack margin.
-                where.append("(r.sodium_mg IS NOT NULL AND r.sodium_mg <= 600)")
-            if "hypercholesterolemia" in conditions:
-                # Source: 2018 AHA/ACC Cholesterol Guideline (Circulation
-                # 139:e1082) — sat fat <6% kcal ⇒ ≈5 g/meal at 2000 kcal/3
-                # meals.
-                where.append("(r.sat_fat_g IS NOT NULL AND r.sat_fat_g <= 5)")
+            # Weight-specific CKD protein cap — inline only because it
+            # requires user weight_kg which is not available to the Strategy
+            # layer. Complements the fixed CKDGate threshold via AND (the
+            # more restrictive of the two wins).
             if "ckd" in conditions and weight_kg is not None:
-                # Source: KDOQI 2020 Nutrition in CKD — 0.8 g protein/kg/day
-                # spread across 3 meals as the non-dialysis-dependent
-                # conservative target (real recommendation is 0.55-0.60
-                # g/kg/day for stages 3-5 without diabetes).
+                # Source: KDOQI 2020 — 0.8 g/kg/day across 3 meals.
                 ckd_cap = max(1, int(float(weight_kg) * 0.8 / 3))
                 where.append("(r.protein_g IS NOT NULL AND r.protein_g <= :ckd_protein_cap)")
                 params["ckd_protein_cap"] = ckd_cap
-            if "gout" in conditions:
-                where.append("NOT (r.tags && ARRAY['organ_meat','shellfish']::text[])")
-            # ConditionGate Strategy dispatch (H2). Registered gates live in
-            # app/plan/domain/condition_gates. Layer 1 dispatches ALL registered
-            # gates for each declared user condition, composing their SQL
-            # fragments via AND. Adding a new condition = new Strategy class +
-            # `register_gate(...)` call — Layer 1 needs no edit.
-            #
-            # Currently registered: lactation, pregnancy, diabetes_t2, ckd,
-            # hypertension, celiac. Defensive COALESCE on un-backfilled
-            # micronutrient columns (safety > variety).
+
+            # ConditionGate Strategy dispatch (H2). All condition-specific SQL
+            # fragments come from the registry — no inline if-chains needed.
             from app.plan.domain.condition_gates import gates_for
 
             for cond in conditions:

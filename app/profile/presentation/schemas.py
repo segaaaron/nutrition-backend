@@ -319,6 +319,7 @@ class ProfileResponse(_Strict):
     height_unit: str | None = None
     goal: Goal | None
     activity_level: ActivityLevel | None
+    dietary_pattern: DietaryPattern | None = None
     medical_conditions: list[str]
     other_condition: str | None
     allergies: list[str]
