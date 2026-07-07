@@ -14,7 +14,6 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from starlette.middleware.contentsize import ContentSizeLimitMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -50,6 +49,24 @@ from app.tracking.presentation.progress_router import router as progress_router
 from app.tracking.presentation.router import router as tracking_router
 from app.vision.presentation.router import router as vision_router
 from app.voice.presentation.router import router as voice_router
+
+
+_MAX_CONTENT_SIZE = 10 * 1024 * 1024  # 10 MB
+
+
+class ContentSizeLimitMiddleware(BaseHTTPMiddleware):
+    async def dispatch(
+        self,
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
+        content_length = request.headers.get("content-length")
+        if content_length and int(content_length) > _MAX_CONTENT_SIZE:
+            return JSONResponse(
+                {"success": False, "code": 413, "error": {"message": "Request too large"}},
+                status_code=413,
+            )
+        return await call_next(request)
 
 
 class RequestIdMiddleware(BaseHTTPMiddleware):
@@ -144,7 +161,7 @@ def create_app() -> FastAPI:
         expose_headers=["x-request-id"],
         max_age=600,
     )
-    app.add_middleware(ContentSizeLimitMiddleware, max_content_size=10 * 1024 * 1024)  # 10 MB hard cap — rejects before buffering
+    app.add_middleware(ContentSizeLimitMiddleware)
     app.add_middleware(SecurityHeadersMiddleware, is_production=is_prod)
     app.add_middleware(AntiSniffMiddleware, enforce=is_prod)
     app.add_middleware(IpRateLimitMiddleware, limit_per_minute=settings.ip_rate_limit_per_minute)

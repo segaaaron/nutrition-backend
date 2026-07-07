@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from urllib.parse import urlparse
+from uuid import UUID
 
 from fastapi import APIRouter, Header, Query, Request, status
 from pydantic import BaseModel, ConfigDict
@@ -26,6 +28,49 @@ from app.identity.presentation.dependencies import CurrentUserDep, SessionDep
 _log = get_logger("billing.router")
 
 router = APIRouter(tags=["billing"])
+
+
+class CheckoutResponse(BaseModel):
+    checkout_url: str
+    session_id: str | None = None
+    provider: str | None = None
+
+
+class TrialResponse(BaseModel):
+    id: str
+    trial_end: str | None
+
+
+class SubscriptionResponse(BaseModel):
+    id: str | None = None
+    plan: str | None = None
+    status: str | None = None
+    trial_end: str | None = None
+    current_period_end: str | None = None
+    cancel_at_period_end: bool = False
+
+
+class CancelResponse(BaseModel):
+    id: str
+    cancel_at_period_end: bool
+
+
+class InvoiceOut(BaseModel):
+    id: str
+    created_at: str
+    paid_at: str | None
+    amount: float | None = None
+    currency: str | None = None
+    status: str | None = None
+
+
+class InvoiceListResponse(BaseModel):
+    items: list[InvoiceOut]
+    next_cursor: str | None
+
+
+class WebhookAckResponse(BaseModel):
+    received: bool = True
 
 
 def _allowed_redirect_url(url: str, canonical: str) -> str:
@@ -71,12 +116,12 @@ class CheckoutBody(BaseModel):
     cancel_url: str | None = None
 
 
-@router.post("/billing/checkout", status_code=status.HTTP_200_OK)
+@router.post("/billing/checkout", status_code=status.HTTP_200_OK, response_model=CheckoutResponse)
 async def checkout(
     body: CheckoutBody,
     current_user: CurrentUserDep,
     session: SessionDep,
-) -> dict:
+) -> CheckoutResponse:
     settings = get_settings()
     success_url = (
         _allowed_redirect_url(body.success_url, settings.billing_success_url)
@@ -89,72 +134,78 @@ async def checkout(
         else settings.billing_cancel_url
     )
     uc = CreateCheckout(session=session)
-    return await uc(
+    result = await uc(
         user_id=current_user,
         plan=body.plan,
         success_url=success_url,
         cancel_url=cancel_url,
     )
+    return CheckoutResponse(**result) if isinstance(result, dict) else result
 
 
-@router.post("/billing/trial", status_code=status.HTTP_201_CREATED)
-async def start_trial(current_user: CurrentUserDep, session: SessionDep) -> dict:
+@router.post("/billing/trial", status_code=status.HTTP_201_CREATED, response_model=TrialResponse)
+async def start_trial(current_user: CurrentUserDep, session: SessionDep) -> TrialResponse:
     uc = StartTrial(repo=SqlBillingRepository(session), bus=get_event_bus())
     sub = await uc(user_id=current_user)
-    return {"id": str(sub.id), "trial_end": sub.trial_end.isoformat() if sub.trial_end else None}
+    return TrialResponse(
+        id=str(sub.id),
+        trial_end=sub.trial_end.isoformat() if sub.trial_end else None,
+    )
 
 
-@router.get("/billing/subscription")
-async def get_subscription(current_user: CurrentUserDep, session: SessionDep) -> dict:
+@router.get("/billing/subscription", response_model=SubscriptionResponse)
+async def get_subscription(current_user: CurrentUserDep, session: SessionDep) -> SubscriptionResponse:
     uc = GetSubscription(repo=SqlBillingRepository(session))
-    return await uc(current_user)
+    result = await uc(current_user)
+    return SubscriptionResponse(**result) if isinstance(result, dict) else result
 
 
-@router.get("/me/subscription")
-async def get_my_subscription(current_user: CurrentUserDep, session: SessionDep) -> dict:
+@router.get("/me/subscription", response_model=SubscriptionResponse)
+async def get_my_subscription(current_user: CurrentUserDep, session: SessionDep) -> SubscriptionResponse:
     uc = GetSubscription(repo=SqlBillingRepository(session))
-    return await uc(current_user)
+    result = await uc(current_user)
+    return SubscriptionResponse(**result) if isinstance(result, dict) else result
 
 
-@router.post("/billing/cancel")
-async def cancel(current_user: CurrentUserDep, session: SessionDep) -> dict:
+@router.post("/billing/cancel", response_model=CancelResponse)
+async def cancel(current_user: CurrentUserDep, session: SessionDep) -> CancelResponse:
     uc = CancelSubscription(repo=SqlBillingRepository(session), bus=get_event_bus())
     sub = await uc(user_id=current_user)
-    return {"id": str(sub.id), "cancel_at_period_end": sub.cancel_at_period_end}
+    return CancelResponse(id=str(sub.id), cancel_at_period_end=sub.cancel_at_period_end)
 
 
-@router.get("/billing/invoices")
+@router.get("/billing/invoices", response_model=InvoiceListResponse)
 async def list_invoices(
     current_user: CurrentUserDep,
     session: SessionDep,
     cursor: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
-) -> dict:
+) -> InvoiceListResponse:
     repo = SqlBillingRepository(session)
     items, nxt = await repo.list_invoices(user_id=current_user, cursor=cursor, limit=limit)
-    return {
-        "items": [
-            {
-                **i,
-                "id": str(i["id"]),
-                "created_at": i["created_at"].isoformat(),
-                "paid_at": i["paid_at"].isoformat() if i["paid_at"] else None,
-            }
+    return InvoiceListResponse(
+        items=[
+            InvoiceOut(
+                **{k: v for k, v in i.items() if k not in ("id", "created_at", "paid_at")},
+                id=str(i["id"]),
+                created_at=i["created_at"].isoformat(),
+                paid_at=i["paid_at"].isoformat() if i["paid_at"] else None,
+            )
             for i in items
         ],
-        "next_cursor": nxt,
-    }
+        next_cursor=nxt,
+    )
 
 
 # --- Webhooks (provider-signed) ---
 
 
-@router.post("/webhooks/stripe")
+@router.post("/webhooks/stripe", response_model=WebhookAckResponse)
 async def stripe_webhook(
     request: Request,
     session: SessionDep,
     stripe_signature: str = Header(default="", alias="Stripe-Signature"),
-) -> dict:
+) -> WebhookAckResponse:
     payload = await request.body()
     gw = StripeGateway()
     event = await gw.verify_webhook(payload=payload, signature=stripe_signature)
@@ -163,16 +214,17 @@ async def stripe_webhook(
         bus=get_event_bus(),
         provider=BillingProvider.STRIPE,
     )
-    return await uc(event=event)
+    await uc(event=event)
+    return WebhookAckResponse()
 
 
-@router.post("/webhooks/mercadopago")
+@router.post("/webhooks/mercadopago", response_model=WebhookAckResponse)
 async def mercadopago_webhook(
     request: Request,
     session: SessionDep,
     x_signature: str = Header(default="", alias="X-Signature"),
     x_request_id: str = Header(default="", alias="X-Request-Id"),
-) -> dict:
+) -> WebhookAckResponse:
     payload = await request.body()
     gw = MercadoPagoGateway()
     event = await gw.verify_webhook(
@@ -185,4 +237,5 @@ async def mercadopago_webhook(
         bus=get_event_bus(),
         provider=BillingProvider.MERCADOPAGO,
     )
-    return await uc(event=event)
+    await uc(event=event)
+    return WebhookAckResponse()

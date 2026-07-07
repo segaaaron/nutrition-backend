@@ -68,7 +68,7 @@ async def _check_rate(user_id: UUID) -> None:
         raise RateLimited("coach_per_min_cap", retry_after_s=60)
 
 
-@router.post("/sse-ticket", response_model=SseTicketResponse)
+@router.post("/sse-ticket", response_model=SseTicketResponse, status_code=status.HTTP_201_CREATED)
 async def sse_ticket(
     body: SseTicketRequest,
     current_user: CurrentUserDep,
