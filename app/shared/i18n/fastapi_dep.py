@@ -101,20 +101,22 @@ async def get_locale(
     accept_language: Annotated[str | None, Header()] = None,
     user_id: Annotated[UUID | None, Depends(_current_user_optional)] = None,
 ) -> Locale:
-    """Resolve the effective locale for the current request (D1 + D4).
+    """Resolve the effective locale for the current request.
 
-    Args:
-        session: Async DB session (used only if ``user_id`` is set).
-        accept_language: Raw ``Accept-Language`` HTTP header.
-        user_id: Authenticated user id when present.
+    Priority for authenticated users: profile.locale > Accept-Language > "es".
+    Priority for anonymous users: Accept-Language > "es".
 
-    Returns:
-        One of the supported MVP locales (``"es"`` or ``"en"``).
+    profile.locale wins for authenticated users so that a LATAM user with
+    an English-language device still receives Spanish content.
     """
-    profile_locale: str | None = None
     if user_id is not None:
         profile_locale = await _lookup_profile_locale(session, user_id)
-    return resolve_locale(accept_language, profile_locale)
+        if profile_locale is not None:
+            from app.shared.i18n.locale_resolver import _coerce_supported
+            coerced = _coerce_supported(profile_locale)
+            if coerced is not None:
+                return coerced
+    return resolve_locale(accept_language, None)
 
 
 LocaleDep = Annotated[Locale, Depends(get_locale)]

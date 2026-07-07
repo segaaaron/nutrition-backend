@@ -12,9 +12,10 @@ import base64
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Header, Path, Query
+from fastapi import APIRouter, Path, Query
 
 from app.identity.presentation.dependencies import CurrentUserDep, SessionDep
+from app.shared.i18n import LocaleDep
 from app.recipes.application.use_cases import (
     GetFoodByBarcode,
     GetRecipe,
@@ -39,12 +40,6 @@ router = APIRouter(tags=["recipes"])
 # reads — no user_id column exists on these tables and no ownership check applies.
 # Any authenticated (or unauthenticated in future) user may read them.
 
-
-def _accept_lang(accept_language: str | None) -> str:
-    if not accept_language:
-        return "en"
-    primary = accept_language.split(",")[0].strip().split("-")[0].lower()
-    return primary if primary in ("en", "es", "pt", "fr", "de") else "en"
 
 
 def _encode_cursor(score: float, recipe_id: UUID) -> str:
@@ -127,7 +122,7 @@ def _to_food_resp(f: Food, locale: str, score: float | None = None) -> FoodRespo
 @router.get("/recipes", response_model=RecipeListResponse)
 async def list_recipes(
     session: SessionDep,
-    accept_language: Annotated[str | None, Header(alias="Accept-Language")] = None,
+    locale: LocaleDep,
     q: str | None = Query(default=None, max_length=200),
     meal_time: Literal["breakfast", "lunch", "dinner", "snack"] | None = None,
     region: list[str] = Query(default_factory=list),
@@ -140,7 +135,6 @@ async def list_recipes(
     limit: int = Query(default=20, ge=1, le=100),
     cursor: str | None = None,
 ) -> RecipeListResponse:
-    locale = _accept_lang(accept_language)
     last_score, last_id = _decode_cursor(cursor)
     query = RecipeSearchQuery(
         q=q,
@@ -169,9 +163,8 @@ async def list_recipes(
 async def get_recipe(
     session: SessionDep,
     recipe_id: Annotated[UUID, Path()],
-    accept_language: Annotated[str | None, Header(alias="Accept-Language")] = None,
+    locale: LocaleDep,
 ) -> RecipeResponse:
-    locale = _accept_lang(accept_language)
     uc = GetRecipe(recipes=SqlRecipeRepository(session))
     rec = await uc(recipe_id=recipe_id, locale=locale)
     return _to_recipe_resp(rec, locale)
@@ -182,9 +175,8 @@ async def search_semantic(
     body: RecipeSemanticSearchRequest,
     _current_user: CurrentUserDep,
     session: SessionDep,
-    accept_language: Annotated[str | None, Header(alias="Accept-Language")] = None,
+    locale: LocaleDep,
 ) -> RecipeListResponse:
-    locale = _accept_lang(accept_language)
     last_score, last_id = _decode_cursor(body.cursor)
     query = RecipeSearchQuery(
         q=body.q,
@@ -212,14 +204,13 @@ async def search_semantic(
 @router.get("/foods", response_model=FoodListResponse)
 async def list_foods(
     session: SessionDep,
-    accept_language: Annotated[str | None, Header(alias="Accept-Language")] = None,
+    locale: LocaleDep,
     q: str | None = Query(default=None, max_length=200),
     country: str | None = Query(default=None, max_length=2),
     verified_only: bool = False,
     limit: int = Query(default=20, ge=1, le=100),
     cursor: str | None = None,
 ) -> FoodListResponse:
-    locale = _accept_lang(accept_language)
     last_score, last_id = _decode_cursor(cursor)
     query = FoodSearchQuery(
         q=q,
@@ -242,9 +233,8 @@ async def list_foods(
 async def get_food_barcode(
     session: SessionDep,
     ean: Annotated[str, Path(min_length=8, max_length=14)],
-    accept_language: Annotated[str | None, Header(alias="Accept-Language")] = None,
+    locale: LocaleDep,
 ) -> FoodResponse:
-    locale = _accept_lang(accept_language)
     uc = GetFoodByBarcode(foods=SqlFoodRepository(session))
     f = await uc(ean=ean)
     return _to_food_resp(f, locale)
