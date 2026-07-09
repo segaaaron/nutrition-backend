@@ -101,6 +101,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--hard", type=float, default=float(_HARD_THRESHOLD_DEFAULT), help="Hard threshold"
     )
+    parser.add_argument(
+        "--boot-guard", action="store_true", help="Boot guard mode (entrypoint label, no-op)"
+    )
     args = parser.parse_args(argv)
 
     db_url = os.environ.get("DATABASE_URL", "")
