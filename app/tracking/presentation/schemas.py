@@ -18,6 +18,7 @@ class LogWaterRequest(_Strict):
 
 class LogWaterResponse(_Strict):
     total_today_ml: int
+    goal_ml: int | None = None  # populated by GET /logs/water/today; omitted on POST
 
 
 class LogWeightRequest(_Strict):

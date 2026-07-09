@@ -131,6 +131,7 @@ VISION_SCHEMA: dict[str, Any] = {
                 "additionalProperties": False,
                 "properties": {
                     "name": {"type": "string"},
+                    "count": {"type": "integer", "minimum": 1},
                     "estimated_amount_g": {"type": "number"},
                     "kcal": {"type": "integer"},
                     "kcal_min": {"type": "integer"},
@@ -186,6 +187,7 @@ VISION_SCHEMA: dict[str, Any] = {
                 },
                 "required": [
                     "name",
+                    "count",
                     "estimated_amount_g",
                     "kcal",
                     "kcal_min",
@@ -207,12 +209,24 @@ VISION_SCHEMA: dict[str, Any] = {
 }
 
 
-def _system_prompt(locale: str, region: str) -> str:
+def _system_prompt(
+    locale: str,
+    region: str,
+    plan_context: str | None = None,
+    user_profile: dict | None = None,
+    portion_history: list[str] | None = None,
+) -> str:
     # Plate Decomposition 2.0 — full decomposition, not just visible items.
     # Any wording change here changes prompt_sha256 → SHA dedup cache
     # self-invalidates (by design).
-    return (
+    # plan_context, user_profile, and portion_history are intentionally
+    # EXCLUDED from the hash (they are user-specific and change per request;
+    # hashing them would defeat the cross-user SHA cache). Injected at call time only.
+    base = (
         "Eres un experto en nutrición, planes alimenticios y cocina de LatAm/US/EU. "
+        "PROCESO por ítem: (1) identifica el alimento, (2) busca un objeto de referencia "
+        "de tamaño conocido en la imagen para anclar la escala, (3) estima el volumen 3D "
+        "(área × profundidad), (4) asigna macros basado en peso real estimado.\n"
         "Descompone TODO lo que hay en la foto — visible e inferido:\n"
         "1) Visibles: principal, guarniciones, salsas, aderezos, condimentos, toppings, bebida.\n"
         "2) INVISIBLES: aceite en frituras/salteados, mantequilla en purés, "
@@ -224,11 +238,41 @@ def _system_prompt(locale: str, region: str) -> str:
         "food_group (vegetable|fruit|grain|protein|dairy|fat|sweet|beverage|other), "
         "role (main|side|sauce|condiment|cooking_fat|garnish|sweetener|beverage_base), "
         "prep_method (deep_fried|fried|sauteed|grilled|boiled|steamed|baked|stewed|raw|unknown).\n"
-        "PORCIONES: usa referencias visibles — plato Ø26cm, plato hondo 400ml, "
-        "cuchara sopera 15ml, vaso 250ml, taza 240ml, lata 355ml, mano si aparece. "
+        "PORCIONES: si hay mano, moneda, cubierto u otro objeto conocido → úsalo como "
+        "calibrador PRINCIPAL. Otras referencias: plato Ø26cm, plato hondo 400ml, "
+        "cuchara sopera 15ml, vaso 250ml, taza 240ml, lata 355ml. "
         "Estima profundidad del montículo, no solo área.\n"
+        "CONTEO CRÍTICO: si hay MÚLTIPLES unidades idénticas visibles "
+        "(2 carnes de hamburguesa, 3 albóndigas, 2 tacos, 4 pancakes apilados, "
+        "3 rebanadas de pizza), usa `count`=N y `estimated_amount_g`= peso de UNA "
+        "unidad. Jamás multipliques tú mismo — la app lo hace. "
+        "Si es 1 unidad, `count`=1. Para salsas/condimentos/aceites, siempre `count`=1.\n"
         f"Locale={locale}. Region={region}. JSON estricto, nunca texto libre."
     )
+    if user_profile:
+        sex = user_profile.get("sex", "")
+        age = user_profile.get("age", "")
+        weight = user_profile.get("weight_kg", "")
+        base += (
+            f"\nPERFIL DEL USUARIO: {sex}, {age} años, {weight}kg. "
+            "Calibra las porciones típicas para este perfil — una persona más grande "
+            "generalmente sirve porciones más grandes."
+        )
+    if plan_context:
+        base += (
+            f"\nCONTEXTO DEL PLAN: El usuario planificó comer: {plan_context}. "
+            "Úsalo como referencia para calibrar porciones — si ves los mismos "
+            "ingredientes, estima qué fracción del plan está en el plato. "
+            "No inventes ítems que no estén visibles."
+        )
+    if portion_history:
+        anchors = ", ".join(portion_history)
+        base += (
+            f"\nHISTORIAL DE PORCIONES: Este usuario suele servirse: {anchors}. "
+            "Si reconoces los mismos alimentos, ajusta el gramaje estimado al patrón "
+            "histórico de este usuario."
+        )
+    return base
 
 
 def _get_client() -> AsyncOpenAI:
@@ -276,6 +320,42 @@ def _detect_detail_level(image_bytes: bytes, threshold_px: int) -> DetailLevel:
 
 def _image_token_estimate(detail: DetailLevel) -> int:
     return IMAGE_TOKEN_LOW if detail == "low" else IMAGE_TOKEN_HIGH
+
+
+_DARK_BRIGHTNESS_THRESHOLD = 80  # mean RGB < 80/255 → enhance
+
+
+def _enhance_if_dark(image_bytes: bytes, mime: str) -> tuple[bytes, str]:
+    """Apply autocontrast to dark food photos before sending to the VLM.
+
+    Dark images cause the model to underestimate portion sizes and miss
+    low-contrast items (sauces, garnishes). This raises overall confidence
+    without touching API pricing (local CPU-only operation).
+
+    Returns (possibly_enhanced_bytes, corrected_mime). On any error returns
+    the originals unchanged — enhancement is purely best-effort.
+    """
+    try:
+        from PIL import Image as _PILImage, ImageEnhance, ImageOps, ImageStat  # noqa: PLC0415
+
+        with _PILImage.open(io.BytesIO(image_bytes)) as img:
+            rgb = img.convert("RGB")
+            mean_brightness = sum(ImageStat.Stat(rgb).mean) / 3
+            if mean_brightness >= _DARK_BRIGHTNESS_THRESHOLD:
+                return image_bytes, mime
+            # Clip 1% extremes + stretch histogram, then mild contrast boost.
+            enhanced = ImageOps.autocontrast(rgb, cutoff=1)
+            enhanced = ImageEnhance.Contrast(enhanced).enhance(1.25)
+            out = io.BytesIO()
+            enhanced.save(out, format="JPEG", quality=85)
+            log.debug(
+                "vision.enhance.applied",
+                original_mime=mime,
+                mean_brightness=round(mean_brightness, 1),
+            )
+            return out.getvalue(), "image/jpeg"
+    except Exception:  # noqa: BLE001 — OK4: enhancement is best-effort; originals returned on any error
+        return image_bytes, mime
 
 
 def _should_fallback(items: list[DetectedFoodItem], threshold: float) -> tuple[bool, str]:
@@ -441,10 +521,26 @@ class OpenAIVisionProvider:
         locale: str,
         region: str,
         stage: str = "auto",
+        plan_context: str | None = None,
+        user_profile: dict | None = None,
+        portion_history: list[str] | None = None,
     ) -> tuple[list[DetectedFoodItem], str]:
         s = get_settings()
-        sys_prompt = _system_prompt(locale, region)
-        prompt_sha = hashlib.sha256(sys_prompt.encode()).hexdigest()
+        # prompt_sha uses only stable parts (locale, region) — plan_context,
+        # user_profile, and portion_history are per-user and must not enter
+        # the cross-user cache key.
+        prompt_sha = hashlib.sha256(_system_prompt(locale, region).encode()).hexdigest()
+        sys_prompt = _system_prompt(
+            locale,
+            region,
+            plan_context=plan_context,
+            user_profile=user_profile,
+            portion_history=portion_history,
+        )
+
+        # Enhance dark food photos before sending to the VLM (best-effort,
+        # local CPU — zero API cost). Run in thread: PIL is sync CPU-bound.
+        image_bytes, mime = await asyncio.to_thread(_enhance_if_dark, image_bytes, mime)
 
         # MEDIUM-1: Pillow decode is sync CPU-bound — offload to a thread to
         # avoid blocking the event loop on large JPEGs.
@@ -799,10 +895,16 @@ def _parse_items(raw: dict[str, Any]) -> list[DetectedFoodItem]:
             role = str(r.get("role") or "") or None
             prep = str(r.get("prep_method") or "") or None
 
-            protein_g = max(0, int(r["protein_g"]))
-            carbs_g = max(0, int(r["carbs_g"]))
-            fat_g = max(0, int(r["fat_g"]))
-            kcal_raw = max(0, int(r["kcal"]))
+            # count: number of identical visible units (2 patties, 3 pancakes…).
+            # LLM returns per-unit amounts; we multiply deterministically here
+            # so the rest of the pipeline always works with totals.
+            count = max(1, int(r.get("count") or 1))
+
+            protein_g = max(0, int(r["protein_g"])) * count
+            carbs_g = max(0, int(r["carbs_g"])) * count
+            fat_g = max(0, int(r["fat_g"])) * count
+            kcal_raw = max(0, int(r["kcal"])) * count
+            amount_g = float(r["estimated_amount_g"]) * count
 
             kcal_best, corrected = _atwater_correct(kcal_raw, protein_g, carbs_g, fat_g)
             if corrected:
@@ -811,6 +913,15 @@ def _parse_items(raw: dict[str, Any]) -> list[DetectedFoodItem]:
                     name=str(r.get("name", "?"))[:60],
                     kcal_llm=kcal_raw,
                     kcal_atwater=kcal_best,
+                    count=count,
+                )
+            if count > 1:
+                log.info(
+                    "vision.parse.count_multiplied",
+                    name=str(r.get("name", "?"))[:60],
+                    count=count,
+                    amount_g_per_unit=float(r["estimated_amount_g"]),
+                    amount_g_total=amount_g,
                 )
 
             # kcal_min/max: widen range to encompass both LLM estimate and
@@ -820,27 +931,28 @@ def _parse_items(raw: dict[str, Any]) -> list[DetectedFoodItem]:
             kcal_min: int | None = None
             kcal_max: int | None = None
             if kcal_min_raw is not None:
-                kcal_min = min(max(0, int(kcal_min_raw)), kcal_best, kcal_raw)
+                kcal_min = min(max(0, int(kcal_min_raw)) * count, kcal_best, kcal_raw)
             if kcal_max_raw is not None:
-                kcal_max = max(int(kcal_max_raw), kcal_best, kcal_raw)
+                kcal_max = max(int(kcal_max_raw) * count, kcal_best, kcal_raw)
 
             out.append(
                 DetectedFoodItem(
                     name=str(r["name"])[:120],
-                    estimated_amount_g=Decimal(str(r["estimated_amount_g"])),
+                    estimated_amount_g=Decimal(str(amount_g)),
                     kcal=kcal_best,
                     protein_g=protein_g,
                     carbs_g=carbs_g,
                     fat_g=fat_g,
                     # fiber_g/sugar_g: new in schema v3; old cached rows return 0 (safe default).
-                    fiber_g=max(0, int(r.get("fiber_g") or 0)),
-                    sugar_g=max(0, int(r.get("sugar_g") or 0)),
+                    fiber_g=max(0, int(r.get("fiber_g") or 0)) * count,
+                    sugar_g=max(0, int(r.get("sugar_g") or 0)) * count,
                     confidence=max(0.0, min(1.0, float(r["confidence"]))),
                     food_group=group if group in _FOOD_GROUPS else "other",  # type: ignore[arg-type]
                     role=role if role in _ITEM_ROLES else None,
                     prep_method=prep if prep in _PREP_METHODS else None,
                     kcal_min=kcal_min,
                     kcal_max=kcal_max,
+                    count=count,
                 )
             )
         except (KeyError, ValueError, TypeError, InvalidOperation) as exc:

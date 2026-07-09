@@ -1,7 +1,7 @@
 """Unit — HybridFoodMatcher resolution precedence.
 
 Precedence:
-  1. personal corrections (vision_user_corrections)
+  1. personal corrections (vision_user_corrections) — returns corrected_amount_g
   2. trigram on foods.name_norm (sim >= 0.45)
   3. pgvector cosine fallback (dist <= 0.30)
   4. unmatched
@@ -52,24 +52,25 @@ async def test_empty_name_returns_unmatched_without_db():
     session.execute = AsyncMock()
     matcher = HybridFoodMatcher(session=session, embedder=MagicMock())
 
-    food_id, name_norm, method = await matcher.match(
+    food_id, name_norm, method, corrected_g = await matcher.match(
         name="!!",
         amount_g=100,
         locale="es",
         user_id=uuid4(),
     )
 
-    assert (food_id, name_norm, method) == (None, None, "unmatched")
+    assert (food_id, name_norm, method, corrected_g) == (None, None, "unmatched", None)
     session.execute.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_personal_correction_hit_short_circuits():
     food_uuid = uuid4()
-    session = _stub_session([(str(food_uuid),)])
+    # personal row: (corrected_food_id, corrected_amount_g)
+    session = _stub_session([(str(food_uuid), None)])
     matcher = HybridFoodMatcher(session=session, embedder=MagicMock())
 
-    food_id, name_norm, method = await matcher.match(
+    food_id, name_norm, method, corrected_g = await matcher.match(
         name="arroz",
         amount_g=100,
         locale="es",
@@ -78,8 +79,27 @@ async def test_personal_correction_hit_short_circuits():
 
     assert food_id == food_uuid
     assert method == "personal"
+    assert corrected_g is None
     # Only one query (personal correction) — no trigram or embedding fired.
     assert session.execute.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_personal_correction_returns_corrected_amount():
+    food_uuid = uuid4()
+    session = _stub_session([(str(food_uuid), 175.0)])
+    matcher = HybridFoodMatcher(session=session, embedder=MagicMock())
+
+    food_id, _, method, corrected_g = await matcher.match(
+        name="pollo",
+        amount_g=120,
+        locale="es",
+        user_id=uuid4(),
+    )
+
+    assert food_id == food_uuid
+    assert method == "personal"
+    assert corrected_g == 175.0
 
 
 @pytest.mark.asyncio
@@ -89,7 +109,7 @@ async def test_no_personal_lookup_when_user_id_is_none():
     session = _stub_session([(str(food_uuid), "arroz blanco", 0.9)])
     matcher = HybridFoodMatcher(session=session, embedder=MagicMock())
 
-    food_id, name_norm, method = await matcher.match(
+    food_id, name_norm, method, corrected_g = await matcher.match(
         name="Arroz",
         amount_g=100,
         locale="es",
@@ -98,6 +118,7 @@ async def test_no_personal_lookup_when_user_id_is_none():
 
     assert food_id == food_uuid
     assert method == "trigram"
+    assert corrected_g is None
     assert session.execute.await_count == 1
 
 
@@ -113,7 +134,7 @@ async def test_trigram_hit_above_threshold():
     )
     matcher = HybridFoodMatcher(session=session, embedder=MagicMock())
 
-    food_id, name_norm, method = await matcher.match(
+    food_id, name_norm, method, corrected_g = await matcher.match(
         name="manzana",
         amount_g=80,
         locale="es",
@@ -122,6 +143,7 @@ async def test_trigram_hit_above_threshold():
 
     assert food_id == food_uuid
     assert method == "trigram"
+    assert corrected_g is None
 
 
 @pytest.mark.asyncio
@@ -138,7 +160,7 @@ async def test_trigram_below_threshold_falls_through_to_embedding():
     )
     matcher = HybridFoodMatcher(session=session, embedder=embedder)
 
-    food_id, name_norm, method = await matcher.match(
+    food_id, name_norm, method, corrected_g = await matcher.match(
         name="pear",
         amount_g=120,
         locale="en",
@@ -147,6 +169,7 @@ async def test_trigram_below_threshold_falls_through_to_embedding():
 
     assert food_id == fallback_uuid
     assert method == "embedding"
+    assert corrected_g is None
 
 
 @pytest.mark.asyncio
@@ -161,14 +184,14 @@ async def test_embedding_skipped_on_embedder_error_returns_unmatched():
     )
     matcher = HybridFoodMatcher(session=session, embedder=embedder)
 
-    food_id, name_norm, method = await matcher.match(
+    food_id, name_norm, method, corrected_g = await matcher.match(
         name="quinoa",
         amount_g=80,
         locale="en",
         user_id=uuid4(),
     )
 
-    assert (food_id, method) == (None, "unmatched")
+    assert (food_id, method, corrected_g) == (None, "unmatched", None)
 
 
 @pytest.mark.asyncio
@@ -184,14 +207,14 @@ async def test_embedding_above_distance_threshold_returns_unmatched():
     )
     matcher = HybridFoodMatcher(session=session, embedder=embedder)
 
-    food_id, name_norm, method = await matcher.match(
+    food_id, name_norm, method, corrected_g = await matcher.match(
         name="batatas fritas",
         amount_g=100,
         locale="es",
         user_id=uuid4(),
     )
 
-    assert (food_id, method) == (None, "unmatched")
+    assert (food_id, method, corrected_g) == (None, "unmatched", None)
     assert name_norm == "batatas fritas"
 
 
@@ -200,13 +223,13 @@ async def test_personal_row_with_null_food_id_falls_through():
     food_uuid = uuid4()
     session = _stub_session(
         [
-            (None,),  # personal row exists but corrected_food_id is null
+            (None, None),  # personal row exists but corrected_food_id is null
             (str(food_uuid), "x", 0.7),  # trigram catches it
         ]
     )
     matcher = HybridFoodMatcher(session=session, embedder=MagicMock())
 
-    food_id, name_norm, method = await matcher.match(
+    food_id, name_norm, method, corrected_g = await matcher.match(
         name="x",
         amount_g=50,
         locale="es",
@@ -215,3 +238,4 @@ async def test_personal_row_with_null_food_id_falls_through():
 
     assert food_id == food_uuid
     assert method == "trigram"
+    assert corrected_g is None

@@ -70,12 +70,14 @@ class LogFoodText:
         food_log_ids: list[UUID] = []
         total_kcal = 0
         for it in items:
-            food_id, name_norm, method_match = await self.matcher.match(
+            food_id, name_norm, method_match, corrected_g = await self.matcher.match(
                 name=it.name,
                 amount_g=it.quantity_g,
                 locale=locale,
                 user_id=user_id,
             )
+            # F1.1 parity: if user previously corrected this portion, apply it.
+            effective_g = corrected_g if (corrected_g is not None and corrected_g > 0) else it.quantity_g
             # If matched, fetch macros per 100g and scale; else free_text only.
             kcal = protein = carbs = fat = 0
             if food_id is not None:
@@ -95,7 +97,7 @@ class LogFoodText:
                     # CLAUDE.md non-negotiable #2 — Decimal for nutrition macro math.
                     # Scale per-100g foods by amount_g/100 with banker's rounding;
                     # only cast to int at the storage boundary.
-                    factor = Decimal(str(it.quantity_g)) / Decimal("100")
+                    factor = Decimal(str(effective_g)) / Decimal("100")
 
                     # Bind `factor` as default arg to silence B023 (loop closure):
                     # the call site is synchronous within the iteration, but ruff
@@ -135,7 +137,7 @@ class LogFoodText:
                     "mt": meal_time,
                     "fid": str(food_id) if food_id else None,
                     "ftn": it.name if food_id is None else None,
-                    "ag": it.quantity_g,
+                    "ag": effective_g,
                     "kc": kcal,
                     "pg": protein,
                     "cg": carbs,

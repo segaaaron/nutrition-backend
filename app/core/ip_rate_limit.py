@@ -44,16 +44,29 @@ BYPASS_PATH_PREFIXES = (
     "/webhooks/mercadopago",
 )
 
-# Parse trusted proxy CIDRs once at import time.
-# Set TRUSTED_PROXY_IPS="103.21.244.0/22,103.22.200.0/22,..." in env
-# (Cloudflare IPv4 ranges: https://www.cloudflare.com/ips-v4)
+# RFC 1918 private ranges + loopback are always trusted — they can only
+# originate from your own infrastructure (internal LB, Docker network, etc.).
+# External clients never present these addresses at the TCP layer.
+_ALWAYS_TRUSTED: tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...] = (
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),  # IPv6 ULA
+)
+
+# Additional CIDRs from env (e.g., Cloudflare egress ranges).
+# Set TRUSTED_PROXY_IPS="103.21.244.0/22,103.22.200.0/22,..." in env.
 _raw = os.getenv("TRUSTED_PROXY_IPS", "")
-_TRUSTED_PROXY_NETS: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = []
+_EXTRA_TRUSTED: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = []
 for _cidr in filter(None, _raw.split(",")):
     try:
-        _TRUSTED_PROXY_NETS.append(ipaddress.ip_network(_cidr.strip(), strict=False))
+        _EXTRA_TRUSTED.append(ipaddress.ip_network(_cidr.strip(), strict=False))
     except ValueError:
         pass
+
+_TRUSTED_PROXY_NETS = list(_ALWAYS_TRUSTED) + _EXTRA_TRUSTED
 
 
 def _is_trusted_proxy(host: str) -> bool:

@@ -162,6 +162,8 @@ class PlanResponse(_Strict):
     # Per-slot kcal/protein targets so iOS can show the distribution breakdown.
     # {"breakfast": {"kcal": 475, "protein_g": 33}, "lunch": {...}, ...}
     slot_targets: dict | None = None
+    # True only on the user's very first completed plan (free tier). iOS shows paywall modal.
+    paywall_signal: bool = False
 
 
 class AdvanceRequest(_Strict):

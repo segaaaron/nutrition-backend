@@ -48,10 +48,12 @@ def test_low_confidence_but_well_matched_does_not_escalate() -> None:
     assert needs_full_model(items, conf_threshold=THRESHOLD) == (False, "")
 
 
-def test_low_confidence_and_unmatched_escalates() -> None:
+def test_low_confidence_and_unmatched_does_not_escalate() -> None:
+    # Confidence 0.6 is above _ESCALATE_MIN_ITEM_CONF=0.35.
+    # Unmatched items at mid-confidence no longer escalate — USDA group-average
+    # fallback covers nutrition uncertainty without spending on gpt-4o.
     items = [_item(0.6, matched=False), _item(0.6, matched=False), _item(0.6, matched=True)]
-    escalate, reason = needs_full_model(items, conf_threshold=THRESHOLD)
-    assert escalate and reason == "low_confidence_unmatched"
+    assert needs_full_model(items, conf_threshold=THRESHOLD) == (False, "")
 
 
 def test_high_confidence_unmatched_does_not_escalate() -> None:

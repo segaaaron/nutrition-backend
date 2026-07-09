@@ -235,6 +235,9 @@ def create_app() -> FastAPI:
     from app.gamification.application.event_handlers import (
         register as register_gamification_handlers,
     )
+    from app.notifications.application.event_handlers import (
+        register as register_notification_handlers,
+    )
     from app.nutrition.event_handlers import register as register_nutrition_handlers
     from app.profile.application.event_handlers import (
         register as register_profile_handlers,
@@ -246,6 +249,7 @@ def create_app() -> FastAPI:
     register_coach_handlers(bus)
     register_gamification_handlers(bus)
     register_tracking_handlers(bus)
+    register_notification_handlers(bus, _profile_sessionmaker())
     # ADR-0028 — onboarding_completed flag flips on PlanCreated. MUST also
     # be registered in worker/main.py since plan generation runs there.
     register_profile_handlers(bus, _profile_sessionmaker())

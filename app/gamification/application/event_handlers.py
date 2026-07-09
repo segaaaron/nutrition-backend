@@ -359,10 +359,18 @@ def register(bus: EventBus) -> None:  # noqa: PLR0915 — closure-heavy registry
         async with session_scope() as session:
             repo = SqlGamificationRepository(session)
             redis = get_redis()
-            # first_meal_logged
+            # first_meal_logged — short-circuit: skip COUNT if already unlocked.
+            # has_achievement is a single indexed PK lookup (user_id, code).
+            if await repo.has_achievement(user_id=evt.user_id, code="first_meal_logged"):
+                return
+            # COUNT limited to 2 rows via subquery — stops scanning after finding
+            # 2 logs, so we never full-scan the user's entire history.
             n_logs = (
                 await session.execute(
-                    text("SELECT COUNT(*) FROM food_logs WHERE user_id = :uid"),
+                    text(
+                        "SELECT COUNT(*) FROM"
+                        " (SELECT 1 FROM food_logs WHERE user_id = :uid LIMIT 2) _c"
+                    ),
                     {"uid": str(evt.user_id)},
                 )
             ).scalar() or 0

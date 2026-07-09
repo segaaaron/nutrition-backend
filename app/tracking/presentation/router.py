@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from sqlalchemy import text
+
 from fastapi import APIRouter, Query, status
 
 from app.core.event_bus import get_event_bus
@@ -36,7 +38,20 @@ async def log_water(
 @router.get("/logs/water/today", response_model=LogWaterResponse)
 async def get_water_today(current_user: CurrentUserDep, session: SessionDep) -> LogWaterResponse:
     repo = SqlWaterLogRepository(session)
-    return LogWaterResponse(total_today_ml=await repo.total_today(current_user))
+    total = await repo.total_today(current_user)
+    goal_row = (
+        await session.execute(
+            text(
+                """
+                SELECT water_ml FROM nutritional_goals
+                 WHERE user_id = :uid ORDER BY valid_from DESC LIMIT 1
+            """
+            ),
+            {"uid": str(current_user)},
+        )
+    ).mappings().first()
+    goal_ml = int(goal_row["water_ml"]) if goal_row and goal_row["water_ml"] else None
+    return LogWaterResponse(total_today_ml=total, goal_ml=goal_ml)
 
 
 @router.post("/logs/weight", status_code=status.HTTP_201_CREATED)

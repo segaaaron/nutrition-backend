@@ -90,7 +90,7 @@ async def test_cache_hit_rematches_for_new_user() -> None:
 
     food_b_id = uuid4()
     matcher = MagicMock()
-    matcher.match = AsyncMock(return_value=(food_b_id, "AVENA-USER-B", "trigram"))
+    matcher.match = AsyncMock(return_value=(food_b_id, "AVENA-USER-B", "trigram", None))
 
     session = MagicMock()
     _exec_result = MagicMock()

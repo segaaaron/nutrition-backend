@@ -17,6 +17,8 @@ from uuid import UUID
 from fastapi import APIRouter, Body, Query, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
+from sqlalchemy import text
+
 from app.core.event_bus import get_event_bus
 from app.core.redis import get_redis
 from app.identity.presentation.dependencies import CurrentUserDep, SessionDep
@@ -42,6 +44,7 @@ class FoodLogOut(BaseModel):
     food_id: UUID | None = None
     recipe_id: UUID | None = None
     free_text_name: str | None = None
+    display_name: str | None = None  # resolved: food.name_es / recipe name / free_text_name
     amount_g: float | None = None
     kcal: int | None = None
     protein_g: int | None = None
@@ -83,6 +86,31 @@ async def query_food_logs(
             limit=limit,
         )
     )
+
+    # Batch-resolve display names for catalog logs (food_id / recipe_id).
+    food_ids = [i.food_id for i in items if i.food_id]
+    recipe_ids = [i.recipe_id for i in items if i.recipe_id]
+    food_names: dict[UUID, str] = {}
+    recipe_names: dict[UUID, str] = {}
+    if food_ids:
+        rows = (
+            await session.execute(
+                text("SELECT id, name_en, name_translations FROM foods WHERE id = ANY(:ids)"),
+                {"ids": food_ids},
+            )
+        ).all()
+        for row in rows:
+            food_names[row.id] = (row.name_translations or {}).get("es") or row.name_en
+    if recipe_ids:
+        rows = (
+            await session.execute(
+                text("SELECT id, name_en, name_translations FROM recipes WHERE id = ANY(:ids)"),
+                {"ids": recipe_ids},
+            )
+        ).all()
+        for row in rows:
+            recipe_names[row.id] = (row.name_translations or {}).get("es") or row.name_en
+
     out = [
         FoodLogOut(
             id=i.id,
@@ -93,6 +121,13 @@ async def query_food_logs(
             food_id=i.food_id,
             recipe_id=i.recipe_id,
             free_text_name=i.free_text_name,
+            display_name=(
+                food_names.get(i.food_id)
+                if i.food_id
+                else recipe_names.get(i.recipe_id)
+                if i.recipe_id
+                else i.free_text_name
+            ),
             amount_g=float(i.amount_g) if i.amount_g is not None else None,
             kcal=i.kcal,
             protein_g=i.protein_g,

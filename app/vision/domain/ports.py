@@ -44,6 +44,8 @@ class VisionProvider(Protocol):
         locale: str,
         region: str,
         stage: str = "auto",
+        plan_context: str | None = None,
+        user_profile: dict | None = None,
     ) -> tuple[list[DetectedFoodItem], str]:  # returns (items, prompt_sha256)
         """stage — "auto": provider-internal cascade (legacy behaviour);
         "primary_only": cheap model, NO internal escalation (the pipeline
@@ -91,7 +93,7 @@ class FoodMatcher(Protocol):
         amount_g: float,
         locale: str,
         user_id: UUID | None,
-    ) -> tuple[UUID | None, str | None, str]:  # (food_id, name_norm, method)
+    ) -> tuple[UUID | None, str | None, str, float | None]:  # (food_id, name_norm, method, corrected_amount_g)
         ...
 
 

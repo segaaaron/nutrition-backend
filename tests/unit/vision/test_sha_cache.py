@@ -57,7 +57,7 @@ async def test_cache_hit_skips_provider() -> None:
     provider.recognise = AsyncMock()  # must NOT be called
 
     matcher = MagicMock()
-    matcher.match = AsyncMock(return_value=(uuid4(), "avena", "trigram"))
+    matcher.match = AsyncMock(return_value=(uuid4(), "avena", "trigram", None))
 
     session = MagicMock()
     _exec_result = MagicMock()
@@ -119,7 +119,7 @@ async def test_cache_miss_calls_provider() -> None:
     provider.recognise = AsyncMock(return_value=(fresh, "promptsha123"))
 
     matcher = MagicMock()
-    matcher.match = AsyncMock(return_value=(uuid4(), "manzana", "trigram"))
+    matcher.match = AsyncMock(return_value=(uuid4(), "manzana", "trigram", None))
 
     session = MagicMock()
     _exec_result = MagicMock()

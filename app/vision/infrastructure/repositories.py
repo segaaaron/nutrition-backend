@@ -49,6 +49,10 @@ def _items_to_jsonb(items: list[DetectedFoodItem]) -> list[dict[str, Any]]:
             "kcal_min": i.kcal_min,
             "kcal_max": i.kcal_max,
             "inferred": i.inferred,
+            # v3 — multiplicity + micronutrients (critical for diabetes_t2/hypertension users).
+            "fiber_g": i.fiber_g,
+            "sugar_g": i.sugar_g,
+            "count": i.count,
         }
         for i in items
     ]
@@ -98,6 +102,10 @@ def _items_from_jsonb(raw: list[dict[str, Any]] | None) -> list[DetectedFoodItem
                 kcal_min=int(d["kcal_min"]) if d.get("kcal_min") is not None else None,
                 kcal_max=int(d["kcal_max"]) if d.get("kcal_max") is not None else None,
                 inferred=bool(d.get("inferred", False)),
+                # v3 — multiplicity + micronutrients; old JSONB rows default to 0/0/1.
+                fiber_g=int(d.get("fiber_g") or 0),
+                sugar_g=int(d.get("sugar_g") or 0),
+                count=int(d.get("count") or 1),
             )
         )
     return out

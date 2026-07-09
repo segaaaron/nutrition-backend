@@ -52,7 +52,9 @@ _TREE_NUT_PATTERN = (
     r"brazil\s*nut|nuez\s*de\s*brasil|pine\s*nut|pinon|piñon|chestnut|castana|castaña)\M"
 )
 
-# CLAUDE.md §REGLA PAÍSES SIN MAR — Bolivia (BO) and Paraguay (PY) have no sea access.
+# CLAUDE.md §REGLA PAÍSES SIN MAR — landlocked countries in current markets (LATAM).
+# Secondary defense-in-depth filter (allergen/tag blacklist) scoped to active markets.
+# Primary filter is the `excluded_countries` column — generic for any ISO code.
 # Frozenset: immutable, O(1) lookup, GC-free — created once at import.
 _LANDLOCKED_COUNTRIES: frozenset[str] = frozenset({"BO", "PY"})
 
@@ -136,6 +138,15 @@ class Layer1Eligibility:
             # `IS FALSE` is NULL-safe: NULL IS FALSE → FALSE → excluded.
             # `IS NOT TRUE` would include NULL (NULL IS NOT TRUE → TRUE) — wrong.
             where.append("r.contains_meat IS FALSE")
+
+        # Per-recipe country exclusion list (migration 0025, ADR §REGLA PAÍSES
+        # SIN MAR). Applied for EVERY user with a known country. The column
+        # defaults to '{}' for all existing recipes, so NOT (:country =
+        # ANY('{}')) always evaluates TRUE — no impact on current catalog.
+        # This is a HARD safety filter: never dropped in any fallback branch.
+        if country:
+            where.append("NOT (:country = ANY(r.excluded_countries))")
+            params["country"] = country
 
         if country in _LANDLOCKED_COUNTRIES:
             where.append(

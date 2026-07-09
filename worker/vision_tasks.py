@@ -15,7 +15,7 @@ from uuid import UUID
 
 from sqlalchemy import text
 
-from app.core.db import session_scope
+from app.core.db import get_sessionmaker, session_scope
 from app.core.event_bus import get_event_bus
 from app.core.logging import get_logger
 from app.vision.application.process_vision_job import ProcessVisionJob
@@ -50,7 +50,7 @@ async def vision_recognize_task(
             uc = ProcessVisionJob(
                 repo=SqlVisionJobRepository(session),
                 provider=OpenAIVisionProvider(),
-                matcher=HybridFoodMatcher(session),
+                matcher=HybridFoodMatcher(session_factory=get_sessionmaker()),
                 notifier=RedisJobNotifier(),
                 bus=get_event_bus(),
                 session=session,

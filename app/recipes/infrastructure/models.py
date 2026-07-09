@@ -128,6 +128,10 @@ class RecipeModel(Base):
     # pescatarian filter. NULL treated as True (fail-safe: exclude until
     # classified). Backfilled by migration 0022.
     contains_meat: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    # ISO-3166-1 alpha-2 codes of countries where this recipe must NOT be served
+    # (migration 0025). Empty array = available everywhere. Plan Layer 1 filters
+    # via NOT (:country = ANY(excluded_countries)). GIN-indexed for speed.
+    excluded_countries: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}", default=list)
     # v3 catalog fields (migration 0019). NULL for pre-v3 legacy recipes.
     cuisine: Mapped[str | None] = mapped_column(Text, nullable=True)
     dish_family: Mapped[str | None] = mapped_column(Text, nullable=True)

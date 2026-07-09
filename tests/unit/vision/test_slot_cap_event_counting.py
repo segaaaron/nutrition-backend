@@ -16,7 +16,7 @@ from uuid import uuid4
 
 import pytest
 
-import app.gamification.infrastructure.anti_cheat_caps as caps_module
+import app.vision.infrastructure.food_log_writer as food_log_writer_mod
 from app.vision.application.process_vision_job import ProcessVisionJob
 from app.vision.domain.entities import DetectedFoodItem, VisionJob
 
@@ -63,7 +63,7 @@ async def test_one_photo_with_8_items_counts_1_event_and_inserts_all(
     provider.recognise = AsyncMock(return_value=(_items(8), "sha-test"))
 
     matcher = MagicMock()
-    matcher.match = AsyncMock(return_value=(None, None, "unmatched"))
+    matcher.match = AsyncMock(return_value=(None, None, "unmatched", None))
 
     session = MagicMock()
     session.execute = AsyncMock()
@@ -80,7 +80,7 @@ async def test_one_photo_with_8_items_counts_1_event_and_inserts_all(
         return amount  # first event of the day: post-increment == amount
 
     monkeypatch.setattr(
-        caps_module, "check_and_increment_food_log_slot", _fake_slot_counter
+        food_log_writer_mod, "check_and_increment_food_log_slot", _fake_slot_counter
     )
 
     uc = ProcessVisionJob(

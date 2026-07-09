@@ -48,6 +48,7 @@ def _recipe_from_model(m: RecipeModel, components: list[RecipeComponent] | None 
         recommended_conditions=list(m.recommended_conditions or []),
         contraindicated_conditions=list(m.contraindicated_conditions or []),
         target_goals=list(m.target_goals or []),
+        excluded_countries=list(m.excluded_countries or []),
         components=(
             components
             if components is not None

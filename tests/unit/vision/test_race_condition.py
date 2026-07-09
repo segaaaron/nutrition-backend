@@ -13,6 +13,7 @@ from uuid import uuid4
 
 import pytest
 
+import app.vision.infrastructure.inflight_lock as inflight_lock_mod
 from app.vision.application import process_vision_job as pvj_mod
 from app.vision.application.process_vision_job import ProcessVisionJob
 from app.vision.domain.entities import DetectedFoodItem, VisionJob
@@ -36,7 +37,7 @@ async def test_concurrent_same_sha_provider_called_once(
     fake_redis,
 ) -> None:
     # Shrink the inflight poll budget so the test doesn't hang.
-    monkeypatch.setattr(pvj_mod, "_INFLIGHT_WAIT_S", 5)
+    monkeypatch.setattr(inflight_lock_mod, "_INFLIGHT_WAIT_S", 5)
     monkeypatch.setattr(pvj_mod, "get_redis", lambda: fake_redis)
 
     sha = "d" * 64
@@ -88,7 +89,7 @@ async def test_concurrent_same_sha_provider_called_once(
     provider.recognise = AsyncMock(side_effect=recognise)
 
     matcher = MagicMock()
-    matcher.match = AsyncMock(return_value=(uuid4(), "x", "trigram"))
+    matcher.match = AsyncMock(return_value=(uuid4(), "x", "trigram", None))
 
     notifier = MagicMock()
     notifier.notify = AsyncMock()

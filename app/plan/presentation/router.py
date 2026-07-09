@@ -13,6 +13,7 @@ from fastapi import APIRouter, Header, Path, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache_keys import CacheKeys
 from app.core.errors import BusinessRuleViolation, ConflictError
 from app.core.event_bus import get_event_bus
 from app.core.idempotency import (
@@ -26,8 +27,10 @@ from app.core.logging import get_logger
 from app.core.redis import get_redis
 from app.identity.presentation.dependencies import CurrentUserDep, SessionDep, assert_owns
 from app.nutrition.infrastructure.compute_goals_adapter import InlineComputeGoals
+from app.plan.application.layer1_eligibility import Layer1Eligibility
 from app.plan.application.layer3_ranking import Layer3Ranking
 from app.plan.application.taste_profile import TasteProfileService
+from app.plan.infrastructure.profile_reader import SqlEligibilityProfileReader
 from app.plan.application.use_cases import (
     AdvancePlan,
     CompleteMeal,
@@ -376,6 +379,21 @@ async def create_plan(
 
     raw_body = await request.body()
     redis = get_redis()
+
+    # Per-user plan-generation rate limit: max 10 new plans per hour.
+    # Idempotency replays (same key, same body) bypass this gate via the
+    # cache check below — only genuinely new requests count toward the cap.
+    _plan_rl_key = CacheKeys.PLAN_GEN_RL.format(user_id=current_user)
+    try:
+        _plan_rl_count = await redis.incr(_plan_rl_key)
+        if _plan_rl_count == 1:
+            await redis.expire(_plan_rl_key, 3600)
+        if _plan_rl_count > 10:
+            raise BusinessRuleViolation("plan_generation_rate_exceeded")
+    except BusinessRuleViolation:
+        raise
+    except Exception:  # noqa: BLE001 — Redis down → fail-open, allow the request
+        pass
     try:
         skey, cached = await lookup_redis(
             redis=redis,
@@ -466,12 +484,42 @@ async def get_active_plan(
     session: SessionDep,
     locale: LocaleDep,
 ) -> PlanResponse:
+    from sqlalchemy import text as _text
+
     cache = ActivePlanCache(get_redis())
     uc = GetActivePlan(plans=SqlPlanRepository(session), cache=cache)
     plan = await uc(user_id=current_user)
     await _hydrate_water_view(plan, session, locale)
     translations = await _load_recipe_translations(plan, session)
-    return _to_resp(plan, translations=translations, locale=locale)
+
+    # Paywall signal: True only on first ever completed plan for free-tier users.
+    paywall_signal = False
+    plan_count_row = (
+        await session.execute(
+            _text("SELECT COUNT(*) FROM plans WHERE user_id = :uid"),
+            {"uid": str(current_user)},
+        )
+    ).scalar()
+    if int(plan_count_row or 0) == 1:
+        sub_row = (
+            await session.execute(
+                _text(
+                    """
+                    SELECT plan FROM subscriptions
+                     WHERE user_id = :uid
+                       AND status NOT IN ('cancelled','incomplete')
+                     ORDER BY created_at DESC LIMIT 1
+                """
+                ),
+                {"uid": str(current_user)},
+            )
+        ).mappings().first()
+        if sub_row is None or sub_row["plan"] == "free":
+            paywall_signal = True
+
+    resp = _to_resp(plan, translations=translations, locale=locale)
+    resp = resp.model_copy(update={"paywall_signal": paywall_signal})
+    return resp
 
 
 @router.post("/plans/{plan_id}/advance", response_model=PlanResponse)
@@ -519,9 +567,24 @@ async def swap_meal(
 ) -> SwapMealResponse:
     await assert_owns(session, table="plans", resource_id=plan_id, user_id=current_user)
     cache = ActivePlanCache(get_redis())
-    # Candidate pool: callers may pre-fetch via /recipes; here we pass empty
-    # and rely on the layer3 to rank an empty list → empty alternatives. The
-    # full swap-with-search workflow is the Sprint-5 enhancement.
+
+    # Load the meal to know its slot so Layer1 can filter the right candidates.
+    plan_repo = SqlPlanRepository(session)
+    plan = await plan_repo.get(plan_id)
+    meal = plan.find_meal(meal_id) if plan else None
+    meal_time = meal.meal_time if meal else "lunch"
+
+    # Layer1 — eligibility filter yields the full valid candidate pool for this slot.
+    layer1 = Layer1Eligibility(
+        session=session,
+        profile_reader=SqlEligibilityProfileReader(session),
+    )
+    candidate_ids = await layer1(user_id=current_user, meal_time=meal_time)
+
+    # Exclude the current recipe so the swap always picks something different.
+    if meal and meal.recipe_id and meal.recipe_id in candidate_ids:
+        candidate_ids.remove(meal.recipe_id)
+
     taste = await TasteProfileService(
         redis=get_redis(),
         fetcher=SqlEmbeddingFetcher(session),
@@ -538,6 +601,6 @@ async def swap_meal(
         plan_id=plan_id,
         meal_id=meal_id,
         reason_code=body.reason_code,
-        candidate_ids=[],
+        candidate_ids=candidate_ids,
     )
     return SwapMealResponse(alternatives=alts)

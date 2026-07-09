@@ -20,6 +20,7 @@ def _from_model(m: UserProfileModel) -> UserProfile:
         units=m.units,
         weight_kg=m.weight_kg,
         height_cm=m.height_cm,  # type: ignore[arg-type]
+        goal_weight_kg=m.goal_weight_kg,
         bodyfat_pct=m.bodyfat_pct,
         goal=m.goal,
         activity_level=m.activity_level,  # type: ignore[arg-type]
@@ -56,6 +57,7 @@ class SqlProfileRepository:
             "units": profile.units,
             "weight_kg": profile.weight_kg,
             "height_cm": profile.height_cm,
+            "goal_weight_kg": profile.goal_weight_kg,
             "bodyfat_pct": profile.bodyfat_pct,
             "goal": profile.goal,
             "activity_level": profile.activity_level,

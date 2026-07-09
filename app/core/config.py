@@ -201,11 +201,12 @@ class Settings(BaseSettings):
     #     + trimester field in form).
     #   - diabetes_t1: kept blocked — insulin timing/dosing out of scope for
     #     a nutrition tracker; user must use specialised tooling.
-    # MVP launch stance (2026-07): ship goal-based plans + allergies only.
-    # All conditions enabled. Override via MVP_BLOCKED_CONDITIONS env to block specific ones without deploy.
-    mvp_blocked_conditions: str = ""
-    # No regions blocked. Override via MVP_BLOCKED_REGIONS env if needed.
-    mvp_blocked_regions: str = ""
+    # MVP launch stance (2026-07): diabetes_t1 still gated (insulin timing
+    # out of scope). US region gated (catalog not localised for US market).
+    # Override via env to open or close additional segments without deploy.
+    mvp_blocked_conditions: str = "diabetes_t1"
+    # Regions blocked for MVP. Override via MVP_BLOCKED_REGIONS env.
+    mvp_blocked_regions: str = "us"
 
     @model_validator(mode="after")
     def _validate_prod_requirements(self) -> Settings:

@@ -25,6 +25,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache_keys import CacheKeys
 from app.core.db import get_sessionmaker
 from app.shared.i18n.locale_resolver import Locale, resolve_locale
 
@@ -78,11 +79,45 @@ async def _current_user_optional(
         return None
 
 
+_LOCALE_CACHE_TTL = 3600  # 1 h — invalidated on profile PATCH via locale_cache_invalidate()
+_LOCALE_NULL_SENTINEL = "__null__"
+
+
+def _locale_cache_key(user_id: UUID) -> str:
+    return CacheKeys.LOCALE_USER.format(user_id=user_id)
+
+
+# Wired from: app/profile/presentation/router.py patch_me (locale field only)
+async def locale_cache_invalidate(user_id: UUID) -> None:
+    """Call from profile PATCH handler so the next request re-reads from DB."""
+    from app.core.redis import get_redis
+    try:
+        await get_redis().delete(_locale_cache_key(user_id))
+    except Exception:  # noqa: BLE001
+        pass
+
+
 async def _lookup_profile_locale(
     session: AsyncSession,
     user_id: UUID,
 ) -> str | None:
-    """Best-effort single-row read of ``user_profiles.locale``."""
+    """Best-effort single-row read of ``user_profiles.locale``, Redis-cached.
+
+    Cache key: ``locale:user:{user_id}``  TTL: 1 h.
+    A sentinel value (``__null__``) caches confirmed-missing rows so that
+    users without a profile don't hit the DB on every request either.
+    """
+    from app.core.redis import get_redis
+
+    redis = get_redis()
+    cache_key = _locale_cache_key(user_id)
+    try:
+        cached = await redis.get(cache_key)
+        if cached is not None:
+            return None if cached == _LOCALE_NULL_SENTINEL else cached
+    except Exception:  # noqa: BLE001
+        pass  # Redis miss → fall through to DB
+
     try:
         row = (
             await session.execute(
@@ -93,7 +128,17 @@ async def _lookup_profile_locale(
     except Exception:  # noqa: BLE001 — translation must never break a request
         _log.warning("i18n.profile_lookup_failed", user_id=str(user_id))
         return None
-    return None if row is None else str(row[0])
+
+    locale = None if row is None else str(row[0])
+    try:
+        await redis.set(
+            cache_key,
+            locale if locale is not None else _LOCALE_NULL_SENTINEL,
+            ex=_LOCALE_CACHE_TTL,
+        )
+    except Exception:  # noqa: BLE001
+        pass
+    return locale
 
 
 async def get_locale(

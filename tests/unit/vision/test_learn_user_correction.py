@@ -66,10 +66,10 @@ async def test_executes_upsert_with_normalized_name():
         corrected_amount_g=Decimal("120.5"),
     )
 
-    session.execute.assert_awaited_once()
-    _, kwargs = session.execute.call_args
-    # kwargs[1] is the params dict
-    params = session.execute.call_args[0][1]
+    # __call__ makes 1 main upsert + up to 3 more for calibration/accuracy.
+    assert session.execute.await_count >= 1
+    # Verify the FIRST call (main upsert) has the correct params.
+    params = session.execute.call_args_list[0][0][1]
     assert params["uid"] == str(user_id)
     assert params["n"] == "platano"
     assert params["fid"] == str(food_id)
@@ -89,6 +89,7 @@ async def test_passes_none_when_no_correction_food():
         corrected_amount_g=None,
     )
 
-    params = session.execute.call_args[0][1]
+    # First call is always the main upsert regardless of calibration sub-calls.
+    params = session.execute.call_args_list[0][0][1]
     assert params["fid"] is None
     assert params["ag"] is None

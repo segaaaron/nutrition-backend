@@ -28,6 +28,7 @@ class UserProfile:
     units: Units = "metric"
     weight_kg: Decimal | None = None
     height_cm: Decimal | None = None
+    goal_weight_kg: Decimal | None = None
     bodyfat_pct: Decimal | None = None
     goal: Goal | None = None
     activity_level: ActivityLevel | None = None

@@ -60,6 +60,9 @@ class Recipe:
     recommended_conditions: list[str]
     contraindicated_conditions: list[str]
     target_goals: list[str]
+    # ISO-3166-1 alpha-2 codes of countries where this recipe must NOT be
+    # served (migration 0025). Empty list = available everywhere.
+    excluded_countries: list[str] = field(default_factory=list)
     components: list[RecipeComponent] = field(default_factory=list)
     created_at: datetime | None = None
 

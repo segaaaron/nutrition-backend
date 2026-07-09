@@ -1,4 +1,4 @@
-"""Nutrition router: GET /me/targets, GET /me/targets/history."""
+"""Nutrition router: GET /me/targets, GET /me/targets/history, GET /me/weekly-summary."""
 
 from __future__ import annotations
 
@@ -11,10 +11,11 @@ from app.identity.presentation.dependencies import CurrentUserDep, SessionDep
 from app.nutrition.application.use_cases import (
     GetCurrentGoals,
     GetGoalsHistory,
+    GetWeeklySummary,
 )
 from app.nutrition.domain.state_machine import NutritionalGoals
 from app.nutrition.infrastructure.repositories import SqlNutritionalGoalsRepository
-from app.nutrition.presentation.schemas import GoalsResponse
+from app.nutrition.presentation.schemas import GoalsResponse, WeeklySummaryResponse
 
 router = APIRouter(tags=["nutrition"])
 
@@ -24,6 +25,7 @@ def _to_resp(g: NutritionalGoals) -> GoalsResponse:
         id=g.id,
         kcal_min=g.kcal_min,
         kcal_max=g.kcal_max,
+        kcal_target=(g.kcal_min + g.kcal_max) // 2,
         protein_g=g.protein_g,
         carbs_g=g.carbs_g,
         fat_g=g.fat_g,
@@ -64,3 +66,13 @@ async def get_targets_history(
     if len(result) == limit:
         http_response.headers["X-Next-Cursor"] = result[-1].valid_from.isoformat()
     return result
+
+
+@router.get("/me/weekly-summary", response_model=WeeklySummaryResponse)
+async def get_weekly_summary(
+    current_user: CurrentUserDep,
+    session: SessionDep,
+) -> WeeklySummaryResponse:
+    uc = GetWeeklySummary(session=session)
+    data = await uc(user_id=current_user)
+    return WeeklySummaryResponse(**data)

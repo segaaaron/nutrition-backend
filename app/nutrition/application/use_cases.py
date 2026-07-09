@@ -15,6 +15,9 @@ from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
 
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.errors import BusinessRuleViolation, NotFoundError
 from app.core.event_bus import EventBus
 from app.core.logging import get_logger
@@ -450,3 +453,126 @@ class GetGoalsHistory:
         cursor: Optional[datetime] = None,
     ) -> list[NutritionalGoals]:
         return await self.goals_repo.list_history(user_id, limit, cursor=cursor)
+
+
+@dataclass(slots=True)
+class GetWeeklySummary:
+    """Aggregate the last 7 days of food + water logs vs nutritional targets.
+
+    Returns a dict ready for the weekly-summary endpoint schema. Uses
+    food_logs_aggregates_daily when available, falls back to raw food_logs.
+    All queries are read-only and share the caller's session.
+    """
+
+    session: AsyncSession
+
+    async def __call__(self, *, user_id: UUID) -> dict:
+        uid = str(user_id)
+
+        # --- targets ---
+        targets_row = (
+            await self.session.execute(
+                text(
+                    """
+                    SELECT kcal_min, kcal_max, protein_g, water_ml
+                      FROM nutritional_goals
+                     WHERE user_id = :uid
+                     ORDER BY valid_from DESC
+                     LIMIT 1
+                """
+                ),
+                {"uid": uid},
+            )
+        ).mappings().first()
+
+        kcal_target = int((targets_row["kcal_min"] + targets_row["kcal_max"]) / 2) if targets_row else 0
+        protein_target = int(targets_row["protein_g"]) if targets_row else 0
+        water_target_ml = int(targets_row["water_ml"]) if targets_row else 0
+
+        # --- daily food totals last 7 days ---
+        daily_rows = (
+            await self.session.execute(
+                text(
+                    """
+                    SELECT day::date AS day, kcal, protein_g
+                      FROM food_logs_aggregates_daily
+                     WHERE user_id = :uid AND day >= CURRENT_DATE - 6
+                    UNION ALL
+                    SELECT date AS day,
+                           COALESCE(SUM(kcal), 0)::int AS kcal,
+                           COALESCE(SUM(protein_g), 0)::int AS protein_g
+                      FROM food_logs
+                     WHERE user_id = :uid
+                       AND date >= CURRENT_DATE - 6
+                       AND date NOT IN (
+                           SELECT day FROM food_logs_aggregates_daily
+                            WHERE user_id = :uid AND day >= CURRENT_DATE - 6
+                       )
+                     GROUP BY date
+                     ORDER BY day ASC
+                """
+                ),
+                {"uid": uid},
+            )
+        ).mappings().all()
+
+        days_with_logs = {r["day"] for r in daily_rows if int(r["kcal"] or 0) > 0}
+        logged_days = len(days_with_logs)
+        avg_kcal = int(sum(int(r["kcal"] or 0) for r in daily_rows) / max(logged_days, 1))
+        avg_protein_g = int(sum(int(r["protein_g"] or 0) for r in daily_rows) / max(logged_days, 1))
+
+        # --- water today ---
+        water_row = (
+            await self.session.execute(
+                text(
+                    """
+                    SELECT COALESCE(SUM(ml), 0)::int AS total_ml
+                      FROM water_logs
+                     WHERE user_id = :uid AND logged_at::date = CURRENT_DATE
+                """
+                ),
+                {"uid": uid},
+            )
+        ).mappings().first()
+        water_today_ml = int(water_row["total_ml"]) if water_row else 0
+
+        # --- streak (consecutive days with food logs, ending today) ---
+        streak_row = (
+            await self.session.execute(
+                text(
+                    """
+                    WITH logged AS (
+                        SELECT DISTINCT date AS d
+                          FROM food_logs
+                         WHERE user_id = :uid
+                    ),
+                    series AS (
+                        SELECT d,
+                               d - ROW_NUMBER() OVER (ORDER BY d)::int * INTERVAL '1 day' AS grp
+                          FROM logged
+                    )
+                    SELECT COUNT(*) AS streak
+                      FROM series
+                     WHERE grp = (
+                         SELECT grp FROM series
+                          WHERE d = CURRENT_DATE
+                          LIMIT 1
+                     )
+                """
+                ),
+                {"uid": uid},
+            )
+        ).mappings().first()
+        streak_days = int(streak_row["streak"]) if streak_row and streak_row["streak"] else 0
+
+        return {
+            "logged_days": logged_days,
+            "window_days": 7,
+            "avg_kcal": avg_kcal,
+            "kcal_target": kcal_target,
+            "avg_protein_g": avg_protein_g,
+            "protein_target_g": protein_target,
+            "water_today_ml": water_today_ml,
+            "water_target_ml": water_target_ml,
+            "streak_days": streak_days,
+        }

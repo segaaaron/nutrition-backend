@@ -1,65 +1,159 @@
-"""USDA FoodData Central API client.
-
-Fallback nutrition source for food items not matched in the local catalog.
-Free API — 3,500 req/hour anonymous, unlimited with key.
-Key: https://fdc.nal.usda.gov/api-guide.html
+"""USDA local JSON lookup + Open Food Facts fallback.
 
 Resolution order in the vision pipeline:
   1. Local catalog (trigram/embedding) → grounded from foods DB
-  2. USDA FDC search (this module) → scales per-100g to estimated grams
-  3. USDA group-average fallback → _USDA_FALLBACK_PER_100G table
+  2. Redis cache (7-day TTL, key = nova:usda:<normalised_name>)
+  3. ES ingredient reference (data/usda/usda_ingredient_reference.json — 817 LATAM staples)
+  4. SR Legacy local (data/usda/usda_sr_legacy_per100g.json — 7,793 entries)
+  5. Open Food Facts (open API, no key, strong on packaged LATAM foods)
+  6. None → caller uses group-average fallback table
 
-The caller (process_vision_job._apply_group_fallback) invokes this before
-falling back to the static table so real nutrition data is used whenever
-the USDA API can match the food.
+No HTTP calls to USDA FDC API. Data is loaded from bundled JSON at startup.
 
 Name translation:
-  USDA FDC is English-only. Food names from the LLM arrive in Spanish.
+  USDA SR Legacy is English-only. Food names from the LLM arrive in Spanish.
   A lightweight normalisation (accent-strip + common-word dict) converts
-  the name before searching. This is intentionally small — the goal is a
-  best-effort lookup, not perfect translation.
+  the name before searching. Longest-match-first prevents partial substitutions.
+  The ingredient reference is searched first using the original Spanish name.
 """
 
 from __future__ import annotations
 
+import dataclasses
+import difflib
+import json
 import re
 import unicodedata
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import httpx
 
-from app.core.config import get_settings
 from app.core.logging import get_logger
+from app.core.redis import get_redis
 
 log = get_logger("vision.usda_fdc")
 
-_USDA_BASE = "https://api.nal.usda.gov/fdc/v1"
+_OFF_BASE = "https://world.openfoodfacts.org/cgi/search.pl"
 _TIMEOUT_S = 4.0
-# Prefer Foundation + SR Legacy — most complete nutrient coverage.
-_DATA_TYPES = "Foundation,SR Legacy"
 
-# Shared client — reuses TCP connections across calls within the same event loop.
-# Avoids opening a new connection per food item (critical: plates have 5-10 items).
+# 7-day Redis cache — nutritional data is stable.
+_REDIS_TTL_S = 86_400 * 7
+_REDIS_KEY_FMT = "nova:usda:{name}"
+
+# Path to bundled data files (copied into Docker image via COPY data ./data).
+_DATA_DIR = Path(__file__).parent.parent.parent.parent / "data" / "usda"
+
+# Shared httpx client for Open Food Facts only.
 _client: httpx.AsyncClient | None = None
 
 
 def _get_client() -> httpx.AsyncClient:
-    global _client  # noqa: PLW0603 — module-level singleton; reset only in tests
+    global _client  # noqa: PLW0603
     if _client is None or _client.is_closed:
         _client = httpx.AsyncClient(timeout=_TIMEOUT_S)
     return _client
 
 
-# Common Spanish → English food word map for LATAM staples.
-# IMPORTANT: multi-word phrases MUST appear before their single-word components
-# so longer matches fire first. _translate() sorts by key length desc — do NOT
-# rely on dict insertion order for correctness.
+# ── Local data (lazy-loaded once on first use) ────────────────────────────────
+
+# ingredient_reference: {es_name_norm: {kcal, protein_g, fat_g, carbs_g, ...}}
+_INGREDIENT_REF: dict[str, dict[str, Any]] | None = None
+# SR Legacy: list of {fdc_id, desc, kcal, protein_g, ...}
+_SR_LEGACY: list[dict[str, Any]] | None = None
+# Pre-normalised SR Legacy descriptions for fast token matching.
+_SR_DESC_NORM: list[list[str]] | None = None  # list of token lists
+
+
+def _norm_str(s: str) -> str:
+    """Lowercase ASCII-normalised string, punctuation → space."""
+    s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode().lower()
+    return re.sub(r"[^a-z0-9 ]+", " ", s).strip()
+
+
+def _norm_key(s: str) -> str:
+    """Normalize ES key: strip parenthetical suffixes, accent-strip, lowercase."""
+    s = re.sub(r"\(.*?\)", "", s)  # "(cruda)" → ""
+    return _norm_str(s).strip()
+
+
+def _tokens(s: str) -> list[str]:
+    return [t for t in _norm_str(s).split() if len(t) > 1]
+
+
+def _load_local_data() -> None:
+    global _INGREDIENT_REF, _SR_LEGACY, _SR_DESC_NORM  # noqa: PLW0603
+
+    ref_path = _DATA_DIR / "usda_ingredient_reference.json"
+    sr_path = _DATA_DIR / "usda_sr_legacy_per100g.json"
+
+    if ref_path.exists():
+        raw: dict[str, Any] = json.loads(ref_path.read_text(encoding="utf-8"))
+        _INGREDIENT_REF = {_norm_key(k): v for k, v in raw.items()}
+    else:
+        _INGREDIENT_REF = {}
+        log.warning("vision.usda_local.ref_missing", path=str(ref_path))
+
+    if sr_path.exists():
+        _SR_LEGACY = json.loads(sr_path.read_text(encoding="utf-8"))
+        _SR_DESC_NORM = [_tokens(item["desc"]) for item in _SR_LEGACY]
+    else:
+        _SR_LEGACY = []
+        _SR_DESC_NORM = []
+        log.warning("vision.usda_local.sr_missing", path=str(sr_path))
+
+
+def _ensure_loaded() -> None:
+    if _INGREDIENT_REF is None:
+        _load_local_data()
+
+
+# ── Translation dict (ES → EN for SR Legacy search) ──────────────────────────
+
 _ES_TO_EN: dict[str, str] = {
+    # --- Multi-word phrases first ---
     "platano maduro": "ripe plantain",
-    "camote": "sweet potato",
+    "platano verde": "green plantain",
+    "camote morado": "purple sweet potato",
     "a la plancha": "grilled",
     "al horno": "baked",
+    "al vapor": "steamed",
+    "al carbon": "charcoal grilled",
+    "carne molida": "ground beef",
+    "carne de res": "beef",
+    "pechuga de pollo": "chicken breast",
+    "muslo de pollo": "chicken thigh",
+    "filete de pescado": "fish fillet",
+    "jugo de naranja": "orange juice",
+    "agua de coco": "coconut water",
+    "leche descremada": "skim milk",
+    "leche entera": "whole milk",
+    "queso fresco": "fresh cheese",
+    "queso panela": "panela cheese",
+    "arroz integral": "brown rice",
+    "arroz blanco": "white rice",
+    "frijoles negros": "black beans",
+    "frijoles pintos": "pinto beans",
+    "frijoles refritos": "refried beans",
+    "papa cocida": "boiled potato",
+    "papa frita": "french fries",
+    "tortilla de maiz": "corn tortilla",
+    "tortilla de harina": "flour tortilla",
+    "sopa de verduras": "vegetable soup",
+    "ensalada verde": "green salad",
+    "aceite de oliva": "olive oil",
+    "aceite vegetal": "vegetable oil",
+    "crema agria": "sour cream",
+    "chile verde": "green chili pepper",
+    "chile rojo": "red chili pepper",
+    # --- Bolivia / Andes ---
+    "chuño cocido": "cooked freeze-dried potato",
+    "trucha del lago": "lake trout",
+    # --- Paraguay ---
+    "sopa paraguaya": "cornbread cheese cake",
+    # --- Single words ---
+    "camote": "sweet potato",
     "pollo": "chicken",
     "res": "beef",
     "cerdo": "pork",
@@ -77,8 +171,10 @@ _ES_TO_EN: dict[str, str] = {
     "lenteja": "lentil",
     "papa": "potato",
     "yuca": "cassava",
+    "mandioca": "cassava",
     "platano": "plantain",
     "maiz": "corn",
+    "elote": "corn",
     "tortilla": "tortilla",
     "pan": "bread",
     "avena": "oatmeal",
@@ -86,15 +182,20 @@ _ES_TO_EN: dict[str, str] = {
     "brocoli": "broccoli",
     "espinaca": "spinach",
     "tomate": "tomato",
+    "jitomate": "tomato",
     "cebolla": "onion",
     "ajo": "garlic",
     "aguacate": "avocado",
     "mango": "mango",
     "naranja": "orange",
     "manzana": "apple",
+    "pina": "pineapple",
+    "maracuya": "passion fruit",
+    "guayaba": "guava",
+    "papaya": "papaya",
     "aceite": "oil",
     "mantequilla": "butter",
-    "crema": "cream",
+    "crema": "sour cream",
     "mayonesa": "mayonnaise",
     "azucar": "sugar",
     "sal": "salt",
@@ -107,20 +208,41 @@ _ES_TO_EN: dict[str, str] = {
     "sopa": "soup",
     "ensalada": "salad",
     "guiso": "stew",
+    "caldo": "broth",
+    "tostada": "fried tortilla",
+    "ejote": "green beans",
+    "chayote": "chayote squash",
+    "nopales": "cactus pads",
+    "guacamole": "guacamole",
+    "mole": "mole sauce",
+    "piloncillo": "raw cane sugar",
+    "tamarindo": "tamarind",
+    "betabel": "beet",
+    "calabaza": "pumpkin",
+    "chile": "chili pepper",
+    "cilantro": "cilantro",
+    "acelga": "swiss chard",
+    "pepino": "cucumber",
+    "achiote": "annatto",
+    "chuño": "freeze-dried potato",
+    "quinoa": "quinoa",
+    "quinua": "quinoa",
+    "locro": "hominy stew",
+    "chipa": "cheese bread",
+    "mbejú": "starch flatbread",
+    "surubi": "river catfish",
+    "pacu": "river fish pacu",
+    "tilapia": "tilapia",
+    "trucha": "trout",
 }
 
-# Pre-sort by key length descending so multi-word phrases match before their parts.
 _ES_TO_EN_SORTED: list[tuple[str, str]] = sorted(
     _ES_TO_EN.items(), key=lambda kv: len(kv[0]), reverse=True
 )
 
 
 def _translate(name: str) -> str:
-    """Best-effort Spanish → English for USDA search.
-
-    Applies longest-match-first to avoid single words shadowing multi-word phrases
-    (e.g. 'platano' must not replace before 'platano maduro' is tried).
-    """
+    """Best-effort Spanish → English for SR Legacy / OFF search."""
     s = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode().lower()
     s = re.sub(r"[^a-z0-9 ]+", " ", s)
     s = re.sub(r"\s+", " ", s).strip()
@@ -128,6 +250,14 @@ def _translate(name: str) -> str:
         s = re.sub(rf"\b{re.escape(es)}\b", en, s)
     return s.strip()
 
+
+def _cache_key(name: str) -> str:
+    s = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode().lower()
+    s = re.sub(r"[^a-z0-9]+", "_", s).strip("_")
+    return _REDIS_KEY_FMT.format(name=s[:80])
+
+
+# ── Data types ────────────────────────────────────────────────────────────────
 
 @dataclass(frozen=True, slots=True)
 class UsdaNutrition:
@@ -141,73 +271,210 @@ class UsdaNutrition:
     description: str
 
 
-async def search(name: str) -> UsdaNutrition | None:
-    """Search USDA FDC for a food name, return per-100g macros or None.
+# ── Redis helpers ─────────────────────────────────────────────────────────────
 
-    Fail-open: any network/parse error returns None so the pipeline
-    falls through to the static group-average table.
-    """
-    api_key = get_settings().usda_fdc_api_key
-    query = _translate(name)
-    if not query:
-        return None
-
-    params: dict[str, Any] = {
-        "query": query,
-        "dataType": _DATA_TYPES,
-        "pageSize": 1,
-    }
-    if api_key:
-        params["api_key"] = api_key
-
+async def _redis_get(key: str) -> UsdaNutrition | None:
     try:
-        resp = await _get_client().get(f"{_USDA_BASE}/foods/search", params=params)
-        resp.raise_for_status()
-        data = resp.json()
-    except Exception as exc:  # noqa: BLE001 — fail-open by contract
-        log.debug("vision.usda_fdc.request_failed", err=str(exc)[:120], query=query)
+        raw = await get_redis().get(key)
+        if raw:
+            d = json.loads(raw)
+            return UsdaNutrition(**d)
+    except Exception as exc:  # noqa: BLE001  OK4: best-effort cache read
+        log.debug("vision.usda.cache_read_failed", err=str(exc)[:80])
+    return None
+
+
+async def _redis_set(key: str, result: UsdaNutrition) -> None:
+    try:
+        await get_redis().setex(key, _REDIS_TTL_S, json.dumps(dataclasses.asdict(result)))
+    except Exception as exc:  # noqa: BLE001  OK4: best-effort cache write
+        log.debug("vision.usda.cache_write_failed", err=str(exc)[:80])
+
+
+# ── Local search ──────────────────────────────────────────────────────────────
+
+def _search_ingredient_ref(name: str) -> UsdaNutrition | None:
+    """Direct ES-name lookup in usda_ingredient_reference.json (817 LATAM staples).
+
+    Tries exact normalised match first, then difflib on the key set for minor
+    spelling variations (e.g. "pechuga pollo" → "pechuga de pollo cruda").
+    """
+    if not _INGREDIENT_REF:
         return None
 
-    foods = data.get("foods") or []
-    if not foods:
-        log.debug("vision.usda_fdc.no_results", query=query, name=name[:60])
+    key = _norm_key(name)
+
+    entry = _INGREDIENT_REF.get(key)
+    if entry is None:
+        # Fuzzy match on ES keys — cheap (817 short strings).
+        matches = difflib.get_close_matches(key, _INGREDIENT_REF.keys(), n=1, cutoff=0.72)
+        if matches:
+            entry = _INGREDIENT_REF[matches[0]]
+
+    if entry is None:
         return None
 
-    food = foods[0]
-    nutrients = {n["nutrientName"]: n.get("value", 0.0) for n in food.get("foodNutrients", [])}
-
-    kcal = float(
-        nutrients.get("Energy")
-        or nutrients.get("Energy (Atwater General Factors)")
-        or nutrients.get("Energy (Atwater Specific Factors)")
-        or 0
-    )
-    protein = float(nutrients.get("Protein") or 0)
-    carbs = float(nutrients.get("Carbohydrate, by difference") or 0)
-    fat = float(nutrients.get("Total lipids (fat)") or 0)
-    fiber = float(nutrients.get("Fiber, total dietary") or 0)
-    sugar = float(nutrients.get("Sugars, total including NLEA") or nutrients.get("Sugars, total") or 0)
-
-    if kcal <= 0 and (protein + carbs + fat) <= 0:
-        log.debug("vision.usda_fdc.empty_nutrients", fdc_id=food.get("fdcId"), query=query)
+    kcal = float(entry.get("kcal") or 0)
+    if kcal <= 0:
         return None
 
-    result = UsdaNutrition(
+    return UsdaNutrition(
         kcal_per_100g=kcal,
-        protein_per_100g=protein,
-        carbs_per_100g=carbs,
-        fat_per_100g=fat,
-        fiber_per_100g=fiber,
-        sugar_per_100g=sugar,
-        fdc_id=int(food.get("fdcId", 0)),
-        description=str(food.get("description", ""))[:120],
+        protein_per_100g=float(entry.get("protein_g") or 0),
+        carbs_per_100g=float(entry.get("carbs_g") or 0),
+        fat_per_100g=float(entry.get("fat_g") or 0),
+        fiber_per_100g=float(entry.get("fiber_g") or 0),
+        sugar_per_100g=float(entry.get("sugar_g") or 0),
+        fdc_id=0,
+        description=str(entry.get("usda", name))[:120],
     )
-    log.info(
-        "vision.usda_fdc.match",
-        name=name[:60],
-        query=query,
-        fdc_id=result.fdc_id,
-        kcal=result.kcal_per_100g,
-        description=result.description[:60],
+
+
+def _token_recall(query_toks: list[str], desc_toks: list[str]) -> float:
+    """Fraction of query tokens found in desc tokens (recall score)."""
+    if not query_toks:
+        return 0.0
+    desc_set = set(desc_toks)
+    return sum(1 for t in query_toks if t in desc_set) / len(query_toks)
+
+
+def _search_sr_legacy(name_en: str) -> UsdaNutrition | None:
+    """Token-recall search over SR Legacy (7,793 entries).
+
+    Translates the ES name to EN via _translate() before matching.
+    Requires recall >= 0.75 (≥75% of query tokens present in the SR desc).
+    Takes the highest-recall match; ties broken by shorter description (more specific).
+    """
+    if not _SR_LEGACY or not _SR_DESC_NORM:
+        return None
+
+    query_toks = _tokens(name_en)
+    if not query_toks:
+        return None
+
+    best_score = 0.74  # minimum threshold
+    best_idx = -1
+    for i, desc_toks in enumerate(_SR_DESC_NORM):
+        score = _token_recall(query_toks, desc_toks)
+        if score > best_score or (score == best_score and best_idx >= 0 and len(desc_toks) < len(_SR_DESC_NORM[best_idx])):
+            best_score = score
+            best_idx = i
+
+    if best_idx < 0:
+        return None
+
+    item = _SR_LEGACY[best_idx]
+    kcal = float(item.get("kcal") or 0)
+    if kcal <= 0:
+        return None
+
+    return UsdaNutrition(
+        kcal_per_100g=kcal,
+        protein_per_100g=float(item.get("protein_g") or 0),
+        carbs_per_100g=float(item.get("carbs_g") or 0),
+        fat_per_100g=float(item.get("fat_g") or 0),
+        fiber_per_100g=float(item.get("fiber_g") or 0),
+        sugar_per_100g=float(item.get("sugar_g") or 0),
+        fdc_id=int(item.get("fdc_id") or 0),
+        description=str(item.get("desc", ""))[:120],
     )
+
+
+# ── Open Food Facts (packaged / branded products) ─────────────────────────────
+
+async def _search_off(query: str) -> UsdaNutrition | None:
+    """Open Food Facts fallback — open API, no key, strong on packaged LATAM products."""
+    try:
+        resp = await _get_client().get(
+            _OFF_BASE,
+            params={"search_terms": query, "json": 1, "page_size": 3, "action": "process"},
+        )
+        resp.raise_for_status()
+        products = resp.json().get("products") or []
+    except Exception as exc:  # noqa: BLE001  OK4: external API, fail-open
+        log.debug("vision.off.request_failed", err=str(exc)[:120], query=query)
+        return None
+
+    for p in products:
+        n = p.get("nutriments") or {}
+        kcal = float(n.get("energy-kcal_100g") or n.get("energy_100g", 0) or 0)
+        if kcal <= 0:
+            continue
+        protein = float(n.get("proteins_100g") or 0)
+        carbs = float(n.get("carbohydrates_100g") or 0)
+        fat = float(n.get("fat_100g") or 0)
+        fiber = float(n.get("fiber_100g") or 0)
+        sugar = float(n.get("sugars_100g") or 0)
+        if protein + carbs + fat <= 0:
+            continue
+        return UsdaNutrition(
+            kcal_per_100g=kcal,
+            protein_per_100g=protein,
+            carbs_per_100g=carbs,
+            fat_per_100g=fat,
+            fiber_per_100g=fiber,
+            sugar_per_100g=sugar,
+            fdc_id=0,
+            description=str(p.get("product_name") or "")[:120],
+        )
+    return None
+
+
+# ── Public API ────────────────────────────────────────────────────────────────
+
+async def search(name: str) -> UsdaNutrition | None:
+    """Search for food nutrition data, cache-first.
+
+    Resolution: Redis cache → ES ingredient ref → SR Legacy local → Open Food Facts → None.
+    Fail-open: any error returns None so the pipeline uses the group-average table.
+    """
+    _ensure_loaded()
+
+    key = _cache_key(name)
+
+    cached = await _redis_get(key)
+    if cached is not None:
+        log.debug("vision.usda.cache_hit", name=name[:60])
+        return cached
+
+    # 1. ES ingredient reference — direct LATAM staple lookup.
+    result = _search_ingredient_ref(name)
+    if result is not None:
+        log.info(
+            "vision.usda.ref_match",
+            name=name[:60],
+            kcal=result.kcal_per_100g,
+            description=result.description[:60],
+        )
+
+    # 2. SR Legacy local — translate ES→EN, token-recall fuzzy.
+    if result is None:
+        translated = _translate(name)
+        if translated:
+            result = _search_sr_legacy(translated)
+            if result is not None:
+                log.info(
+                    "vision.usda.sr_match",
+                    name=name[:60],
+                    translated=translated,
+                    fdc_id=result.fdc_id,
+                    kcal=result.kcal_per_100g,
+                    description=result.description[:60],
+                )
+
+    # 3. Open Food Facts — packaged / branded products.
+    if result is None:
+        query = _translate(name) or name
+        result = await _search_off(query)
+        if result is not None:
+            log.info(
+                "vision.off.match",
+                name=name[:60],
+                kcal=result.kcal_per_100g,
+                description=result.description[:60],
+            )
+
+    if result is not None:
+        await _redis_set(key, result)
+
     return result

@@ -274,6 +274,7 @@ class ProfilePatch(_Strict):
     sex: Sex | None = None
     weight_kg: Decimal | None = Field(default=None, gt=Decimal("20"), lt=Decimal("300"))
     height_cm: Decimal | None = Field(default=None, gt=Decimal("50"), lt=Decimal("250"))
+    goal_weight_kg: Decimal | None = Field(default=None, gt=Decimal("20"), lt=Decimal("300"))
     goal: Goal | None = None
     activity_level: ActivityLevel | None = None
     medical_conditions: list[MobileCondition] | None = Field(default=None, max_length=6)
@@ -307,12 +308,14 @@ class ProfileResponse(_Strict):
     age: int | None
     sex: Sex | None
     units: Units
-    weight_kg: Decimal | None
-    height_cm: Decimal | None
+    weight_kg: float | None
+    height_cm: float | None
+    goal_weight_kg: float | None = None
+    starting_weight_kg: float | None = None
     # Pre-converted display values — iOS reads these directly, no client math needed.
     # Imperial: weight_display = lbs (1 decimal), height_ft + height_in (integers).
     # Metric: weight_display = kg (1 decimal), height_ft/height_in = None.
-    weight_display: Decimal | None = None
+    weight_display: float | None = None
     weight_unit: str | None = None
     height_display_primary: int | None = None
     height_display_secondary: int | None = None

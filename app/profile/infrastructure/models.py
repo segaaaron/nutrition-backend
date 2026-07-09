@@ -71,6 +71,7 @@ class UserProfileModel(Base):
     units: Mapped[str] = mapped_column(_UNITS_ENUM, default="metric")
     weight_kg: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
     height_cm: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    goal_weight_kg: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
     goal: Mapped[str | None] = mapped_column(_GOAL_ENUM, nullable=True)
     activity_level: Mapped[str | None] = mapped_column(_ACTIVITY_LEVEL_ENUM, nullable=True)
     medical_conditions: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)

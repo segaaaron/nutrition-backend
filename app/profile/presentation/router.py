@@ -12,9 +12,10 @@ for clients that want to decouple profile updates from plan generation.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, status
-
 from decimal import Decimal
+
+from fastapi import APIRouter, status
+from sqlalchemy import text
 
 from app.core.event_bus import get_event_bus
 from app.core.logging import get_logger
@@ -38,6 +39,7 @@ from app.profile.presentation.schemas import (
     ProfileResponse,
 )
 from app.shared.i18n import LocaleDep
+from app.shared.i18n.fastapi_dep import locale_cache_invalidate
 
 _log = get_logger("profile.router")
 
@@ -75,15 +77,22 @@ def _display_fields(p: UserProfile) -> dict:
     }
 
 
-def _to_resp(p: UserProfile, *, plan_job: PlanJobInfo | None = None) -> ProfileResponse:
+def _to_resp(
+    p: UserProfile,
+    *,
+    plan_job: PlanJobInfo | None = None,
+    starting_weight_kg: float | None = None,
+) -> ProfileResponse:
     return ProfileResponse(
         user_id=p.user_id,
         name=p.name,
         age=p.age,
         sex=p.sex,
         units=p.units,
-        weight_kg=p.weight_kg,
-        height_cm=p.height_cm,
+        weight_kg=float(p.weight_kg) if p.weight_kg is not None else None,
+        height_cm=float(p.height_cm) if p.height_cm is not None else None,
+        goal_weight_kg=float(p.goal_weight_kg) if p.goal_weight_kg is not None else None,
+        starting_weight_kg=starting_weight_kg,
         **_display_fields(p),
         goal=p.goal,
         activity_level=p.activity_level,
@@ -103,7 +112,21 @@ def _to_resp(p: UserProfile, *, plan_job: PlanJobInfo | None = None) -> ProfileR
 @router.get("/me", response_model=ProfileResponse)
 async def get_me(current_user: CurrentUserDep, session: SessionDep) -> ProfileResponse:
     uc = GetProfile(profiles=SqlProfileRepository(session))
-    return _to_resp(await uc(user_id=current_user))
+    profile = await uc(user_id=current_user)
+    row = (
+        await session.execute(
+            text(
+                "SELECT weight_kg FROM weight_logs"
+                " WHERE user_id = :uid ORDER BY time ASC LIMIT 1"
+            ),
+            {"uid": current_user},
+        )
+    ).one_or_none()
+    starting = float(row.weight_kg) if row and row.weight_kg is not None else None
+    # Fall back to onboarding weight if no log exists yet.
+    if starting is None and profile and profile.weight_kg is not None:
+        starting = float(profile.weight_kg)
+    return _to_resp(profile, starting_weight_kg=starting)
 
 
 @router.patch("/me", response_model=ProfileResponse)
@@ -120,7 +143,10 @@ async def patch_me(
         region_audit=SqlRegionAudit(session=session),
     )
     patch = body.model_dump(exclude_unset=True)
-    return _to_resp(await uc(user_id=current_user, patch=patch))
+    result = _to_resp(await uc(user_id=current_user, patch=patch))
+    if "locale" in patch:
+        await locale_cache_invalidate(current_user)
+    return result
 
 
 @router.post("/me/onboarding", response_model=ProfileResponse, status_code=status.HTTP_201_CREATED)
