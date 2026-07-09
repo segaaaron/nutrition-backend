@@ -35,12 +35,11 @@ def upgrade() -> None:
             ON feature_flags (key)
             """
         )
-        # nutritional_goals: hot path is WHERE user_id = :uid AND is_active = true
+        # nutritional_goals: hot path is WHERE user_id = :uid — no is_active column in schema
         op.execute(
             """
             CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_nutritional_goals_user_active
             ON nutritional_goals (user_id)
-            WHERE is_active = true
             """
         )
         # food_logs: achievement subquery uses (user_id) with LIMIT 2 — make it index-only
