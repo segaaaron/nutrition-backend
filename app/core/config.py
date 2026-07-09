@@ -127,9 +127,6 @@ class Settings(BaseSettings):
     # Default ON — fail-open on errors (lets through if uncertain or upstream
     # failure).
     vision_food_prefilter_enabled: bool = True
-    # USDA FDC API key — free at https://fdc.nal.usda.gov/api-guide.html
-    # Used as fallback nutrition source for unmatched food items.
-    usda_fdc_api_key: str = ""
 
     # --- Cost cap (ADR-0004) ---
     cost_cap_usd_per_user_per_day: float = 1.50
@@ -187,26 +184,6 @@ class Settings(BaseSettings):
     # or .env). Hardcoded hostname removed 2026-06-04 — fail-closed posture.
     cors_allowed_origins: str = ""
     ip_rate_limit_per_minute: int = 600
-
-    # --- MVP segment gate ---
-    # Refuse onboarding/profile-update for segments where catalog + condition
-    # macros are not validated yet. Disable when catalog + condition macro
-    # overrides ship (see docs/algorithms/PRE_PROD_AUDIT.md).
-    mvp_segment_gate_enabled: bool = True
-    # MVP segment gate — current state (2026-06-01):
-    #   - lactation: enabled ADR-0016 (200 recipes + LactationGate)
-    #   - diabetes_t2: enabled ADR-0018 (974 recipes + DiabetesT2Gate)
-    #   - ckd: enabled ADR-0019 (313 recipes with K+P micros + CKDGate)
-    #   - pregnancy: enabled ADR-0020 (26,827 pregnancy_safe pool + PregnancyGate
-    #     + trimester field in form).
-    #   - diabetes_t1: kept blocked — insulin timing/dosing out of scope for
-    #     a nutrition tracker; user must use specialised tooling.
-    # MVP launch stance (2026-07): diabetes_t1 still gated (insulin timing
-    # out of scope). US region gated (catalog not localised for US market).
-    # Override via env to open or close additional segments without deploy.
-    mvp_blocked_conditions: str = "diabetes_t1"
-    # Regions blocked for MVP. Override via MVP_BLOCKED_REGIONS env.
-    mvp_blocked_regions: str = "us"
 
     @model_validator(mode="after")
     def _validate_prod_requirements(self) -> Settings:
@@ -289,14 +266,6 @@ class Settings(BaseSettings):
                 f"got '{scheme}://'."
             )
         return v
-
-    @property
-    def mvp_blocked_conditions_set(self) -> frozenset[str]:
-        return frozenset(s.strip() for s in self.mvp_blocked_conditions.split(",") if s.strip())
-
-    @property
-    def mvp_blocked_regions_set(self) -> frozenset[str]:
-        return frozenset(s.strip() for s in self.mvp_blocked_regions.split(",") if s.strip())
 
     @property
     def supported_locales_list(self) -> list[str]:

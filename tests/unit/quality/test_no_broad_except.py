@@ -106,7 +106,7 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # OK1: profile event handler boundary.
     "app/profile/application/event_handlers.py": {74},
     # OK4: profile use_case OpenAI wrappers.
-    "app/profile/application/use_cases.py": {160, 285},
+    "app/profile/application/use_cases.py": {135, 259},
     # OK4: recipes router fallback.
     "app/recipes/presentation/router.py": {58},
     # OK4: feature-flags Redis cache fail-open — leaderboard flag gate.

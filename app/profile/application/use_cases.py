@@ -7,7 +7,6 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
 from uuid import UUID
 
-from app.core.config import get_settings
 from app.core.errors import BusinessRuleViolation, LockedError, NotFoundError
 from app.core.event_bus import EventBus
 from app.core.logging import get_logger
@@ -22,29 +21,6 @@ _log = get_logger("profile.use_cases")
 
 def _now() -> datetime:
     return datetime.now(tz=UTC)
-
-
-def _enforce_mvp_segment_gate(profile: UserProfile) -> None:
-    """Refuse profiles outside the safe MVP segment.
-
-    Catalog audit 2026-06-01 found medical-risk gaps for diabetes_t2,
-    pregnancy, lactation, ckd; algorithms lack condition macro overrides.
-    US region disabled until catalog parched. Toggled via settings — disable
-    the gate when catalog + algorithm work lands.
-    """
-    settings = get_settings()
-    if not settings.mvp_segment_gate_enabled:
-        return
-    blocked_conditions = settings.mvp_blocked_conditions_set
-    blocked_regions = settings.mvp_blocked_regions_set
-    user_conditions = set(profile.medical_conditions or [])
-    hit_conditions = sorted(user_conditions & blocked_conditions)
-    if hit_conditions:
-        raise BusinessRuleViolation(
-            f"segment_unsupported_mvp:conditions:{','.join(hit_conditions)}"
-        )
-    if profile.region and profile.region in blocked_regions:
-        raise BusinessRuleViolation(f"segment_unsupported_mvp:region:{profile.region}")
 
 
 class ProfileRepository(Protocol):
@@ -133,7 +109,6 @@ class CompleteOnboarding:
                 profile.locale = country_to_locale(profile.country)
         if not profile.is_complete_enough_for_targets:
             raise BusinessRuleViolation("onboarding_incomplete")
-        _enforce_mvp_segment_gate(profile)
         # D5 (ADR-0028): flag flip moved to PlanCreated event handler.
         # Preserve the existing value so a user re-running onboarding
         # after a plan was generated does NOT regress to False.
@@ -265,7 +240,6 @@ class UpdateProfile:
             )
 
         biometrics_after = {f: getattr(profile, f) for f in _BIOMETRIC_FIELDS}
-        _enforce_mvp_segment_gate(profile)
         profile.updated_at = _now()
         await self.profiles.upsert(profile)
         # Same atomicity guarantee as CompleteOnboarding: recompute the

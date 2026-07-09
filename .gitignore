@@ -39,3 +39,23 @@ data/meals/liquid_batch_*.json
 .cache/
 data/meals/recipe_pexels_mapping.json
 scripts/sql/
+
+# ── AI assistant config + session notes — LOCAL ONLY (2026-07-09) ─────────────
+# Prod (git→CI→VPS) does NOT run these. Keeping them out of the repo avoids
+# leaking internal ops, strategy, and AI setup to anyone with repo access.
+/CLAUDE.md
+.claude/skills/
+.claude/napkin.md
+.claude/MEMORY.md
+.claude/settings.local.json
+
+# ── Internal docs — SENSITIVE (strategy, moat, competitive, QA, security) ─────
+# Contain competitive strategy, VPS details, security posture. NEVER to git.
+docs/product/
+docs/qa/
+docs/handoff/
+docs/security/
+docs/team/
+
+# ── Moat data — recipe catalog. Prod reads from the DB, not these files. ──────
+data/nova_catalog_v1.json

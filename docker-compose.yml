@@ -46,8 +46,10 @@ services:
       # OPTIONAL with non-empty fallback (safe — never resolves to "")
       JWT_PRIVATE_KEY_PATH: ${JWT_PRIVATE_KEY_PATH:-/secrets/jwt.pem}
       JWT_PUBLIC_KEY_PATH: ${JWT_PUBLIC_KEY_PATH:-/secrets/jwt.pub}
-      MVP_BLOCKED_CONDITIONS: ${MVP_BLOCKED_CONDITIONS:-diabetes_t1}
-      MVP_BLOCKED_REGIONS: ${MVP_BLOCKED_REGIONS:-us}
+      # MVP_BLOCKED_* removed 2026-07-09 (owner: block nobody). config.py now
+      # defaults both to "" — per the env policy above, optional knobs with a
+      # safe code default are NOT listed here (a compose `:-diabetes_t1`/`:-us`
+      # fallback was silently re-blocking diabetes_t1 + US in prod).
       EMAIL_ENABLED: ${EMAIL_ENABLED}
       # Secrets / panel-managed strings (empty "" is an acceptable Pydantic
       # value here — field type is `str` with default "").
@@ -72,8 +74,9 @@ services:
       - /var/dokploy/secrets/nova/jwt.pem:/secrets/jwt.pem:ro
       - /var/dokploy/secrets/nova/jwt.pub:/secrets/jwt.pub:ro
     depends_on:
-      db:
-        condition: service_healthy
+      # db intentionally NOT listed — it is profile "local" and prod uses the
+      # external managed Postgres. Locally, `restart: unless-stopped` self-heals
+      # the boot race if api starts before the db is ready (alembic retries).
       redis:
         condition: service_healthy
     # No host port publish: Traefik reaches api:8000 via dokploy-network.
@@ -132,8 +135,7 @@ services:
       # Hardcoded worker sizing for this VPS profile.
       ARQ_MAX_JOBS: "2"
     depends_on:
-      db:
-        condition: service_healthy
+      # db intentionally NOT listed (profile "local"; prod uses external Postgres).
       redis:
         condition: service_healthy
     networks:
@@ -157,10 +159,16 @@ services:
       retries: 3
 
   db:
+    # LOCAL-DEV ONLY (profile "local"). PROD does NOT run this service — in
+    # prod DATABASE_URL points to the Dokploy-managed external Postgres
+    # (mstechllc-novaappdb-fh5s05), so this compose db was a redundant ~3GB
+    # phantom (2026-07-09). Start locally with:
+    #     docker compose --profile local up
     # Custom image bootstraps timescaledb + vector + pgcrypto + pg_trgm +
     # unaccent + citext via docker/init.sql on first init. Must NOT be
     # swapped for vanilla pgvector — Alembic migrations assume all 6
     # extensions exist.
+    profiles: ["local"]
     build:
       context: ./docker
       dockerfile: db.Dockerfile

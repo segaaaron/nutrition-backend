@@ -17,7 +17,6 @@ from uuid import UUID, uuid4
 import pytest
 
 from app.core.errors import BusinessRuleViolation, LockedError
-from app.profile.application import use_cases as uc_mod
 from app.profile.application.use_cases import UpdateProfile
 from app.profile.domain.entities import UserProfile
 
@@ -82,11 +81,6 @@ def _build_profile(country: str, region: str) -> UserProfile:
         country=country,
         region=region,
     )
-
-
-@pytest.fixture(autouse=True)
-def _disable_segment_gate(monkeypatch):
-    monkeypatch.setattr(uc_mod, "_enforce_mvp_segment_gate", lambda *_a, **_k: None)
 
 
 async def test_region_change_with_no_prior_audit_succeeds():
