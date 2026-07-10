@@ -39,15 +39,19 @@ Trimester = Literal["first", "second", "third"]
 # Closed condition + allergen subsets the mobile UI uses (chips). The wider
 # vocabularies live in `app/shared/domain/vocabularies.py`; this short list is
 # what the iOS / Android chips actually render.
+# 2026-07-09: onboarding scope reduced to general nutrition (owner decision).
+# NOVA is a general LATAM nutrition app, NOT a clinical tool (project REGLA #1).
+# Accepted = one nutrition-managed situation (fatty_liver) + two life stages
+# (pregnancy, lactation). Medical conditions (diabetes_t2, hypertension,
+# dyslipidemia, hypothyroidism) are NO LONGER accepted — they need medical care
+# out of scope. Celiac / lactose intolerance are handled via ALLERGENS
+# (gluten / dairy), not as conditions. The DB `condition_enum` keeps all its
+# values (no migration); this API boundary is the enforcement point, and the
+# dormant medical condition gates simply never fire.
 MobileCondition = Literal[
-    "diabetes_t2",
-    "hypertension",
-    "celiac",
-    "dyslipidemia",  # mapped from UI chip "Colesterol alto"
-    "hypothyroidism",
-    "lactation",  # H2.1 lifted (ADR-0016)
-    "pregnancy",  # H2.2 — mobile may send even though server still gates
-    "fatty_liver",  # NAFLD/NASH — UI label: "Hígado graso (NAFLD/NASH)"
+    "fatty_liver",  # NAFLD/NASH — nutrition-managed (Mediterranean, low sugar/sat-fat)
+    "pregnancy",  # life stage — kcal surplus by trimester (+ trimester selector)
+    "lactation",  # life stage — kcal surplus (+ breastfeeding section)
 ]
 MobileAllergen = Literal[
     "dairy",
@@ -144,7 +148,7 @@ class OnboardingRequest(_Strict):
         default_factory=list,
         max_length=6,
         json_schema_extra={
-            "description": 'Closed enum. UI chip "Colesterol alto" → "dyslipidemia". UI chip "Celiaquía" → write BOTH "celiac" here AND "gluten" in allergies.'
+            "description": 'Closed enum (general nutrition only): "fatty_liver", "pregnancy", "lactation". Celiac → send "gluten" in allergies; lactose intolerance → send "dairy" in allergies. Medical conditions (diabetes, hypertension, etc.) are out of scope.'
         },
     )
     other_condition: str | None = Field(

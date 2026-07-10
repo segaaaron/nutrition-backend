@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from sqlalchemy import text
-
 from fastapi import APIRouter, Query, status
+from sqlalchemy import text
 
 from app.core.event_bus import get_event_bus
 from app.identity.presentation.dependencies import CurrentUserDep, SessionDep

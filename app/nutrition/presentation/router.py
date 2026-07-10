@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
 from fastapi import APIRouter, Query, Response
 
@@ -51,7 +50,7 @@ async def get_targets_history(
     session: SessionDep,
     http_response: Response,
     limit: int = Query(default=20, ge=1, le=100, description="Max items to return"),
-    cursor: Optional[datetime] = Query(
+    cursor: datetime | None = Query(
         default=None,
         description=(
             "Exclusive upper bound on valid_from (ISO-8601). "

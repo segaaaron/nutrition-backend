@@ -27,8 +27,6 @@ from app.core.error_tracker import ErrorTrackerMiddleware
 from app.core.errors import register_exception_handlers
 from app.core.ip_rate_limit import IpRateLimitMiddleware
 from app.core.logging import configure_logging, get_logger
-
-_catch_log = get_logger("errors.unhandled")
 from app.core.metrics import ARQ_QUEUE_DEPTH, HttpMetricsMiddleware, get_arq_queue_depth
 from app.core.problem_details import register_problem_handlers
 from app.core.redis import close_redis, get_redis
@@ -50,6 +48,7 @@ from app.tracking.presentation.router import router as tracking_router
 from app.vision.presentation.router import router as vision_router
 from app.voice.presentation.router import router as voice_router
 
+_catch_log = get_logger("errors.unhandled")
 
 _MAX_CONTENT_SIZE = 10 * 1024 * 1024  # 10 MB
 
@@ -185,7 +184,9 @@ def create_app() -> FastAPI:
     # type/slug — impossible to debug from the client side.
     @app.exception_handler(Exception)
     async def _unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-        from app.core.error_tracker import record_error  # local import — avoids circular at module level
+        from app.core.error_tracker import (
+            record_error,  # local import — avoids circular at module level
+        )
 
         _catch_log.error(
             "unhandled_exception",

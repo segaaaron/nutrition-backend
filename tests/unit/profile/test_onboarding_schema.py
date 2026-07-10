@@ -62,27 +62,18 @@ def test_all_dietary_patterns_accepted(pattern: str) -> None:
     OnboardingRequest(**_base_payload(dietary_pattern=pattern))  # type: ignore[arg-type]
 
 
-def test_celiac_writes_both_condition_and_gluten_allergen() -> None:
-    """UI chip "Celiaquía" → server expects BOTH 'celiac' in conditions AND
-    'gluten' in allergies. Mobile sends both."""
+def test_celiac_handled_via_gluten_allergen_not_condition() -> None:
+    """2026-07-09: celiac is no longer a medical condition. A celiac user just
+    sends 'gluten' in allergies — the allergen hard-exclude filter enforces the
+    exclusion. 'celiac' is rejected by the closed MobileCondition enum."""
     body = OnboardingRequest(
         **_base_payload(  # type: ignore[arg-type]
-            medical_conditions=["celiac"],
+            medical_conditions=[],
             allergies=["gluten"],
         )
     )
-    assert "celiac" in body.medical_conditions
     assert "gluten" in body.allergies
-
-
-def test_colesterol_alto_maps_to_dyslipidemia() -> None:
-    """UI chip "Colesterol alto" → backend enum 'dyslipidemia' (NOT hyperchol)."""
-    body = OnboardingRequest(
-        **_base_payload(  # type: ignore[arg-type]
-            medical_conditions=["dyslipidemia"],
-        )
-    )
-    assert "dyslipidemia" in body.medical_conditions
+    assert body.medical_conditions == []
 
 
 def test_lactation_with_breastfeeding_status_exclusive() -> None:

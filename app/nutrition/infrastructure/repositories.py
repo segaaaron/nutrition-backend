@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from typing import Optional
 from uuid import UUID
 
 from sqlalchemy import select, text, update
@@ -68,7 +67,7 @@ class SqlNutritionalGoalsRepository:
         user_id: UUID,
         limit: int,
         *,
-        cursor: Optional[datetime] = None,
+        cursor: datetime | None = None,
     ) -> list[NutritionalGoals]:
         stmt = select(NutritionalGoalsModel).where(
             NutritionalGoalsModel.user_id == user_id

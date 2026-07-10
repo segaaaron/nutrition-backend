@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from urllib.parse import urlparse
-from uuid import UUID
 
 from fastapi import APIRouter, Header, Query, Request, status
 from pydantic import BaseModel, ConfigDict

@@ -16,7 +16,6 @@ from uuid import UUID
 
 from fastapi import APIRouter, Body, Query, Response, status
 from pydantic import BaseModel, ConfigDict, Field
-
 from sqlalchemy import text
 
 from app.core.event_bus import get_event_bus

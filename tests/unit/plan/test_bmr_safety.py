@@ -322,6 +322,30 @@ class TestApplyGoalToTdee:
         wg = apply_goal_to_tdee(tdee_val=tdee_val, goal="weight_gain")
         assert wl < mt < mg < wg
 
+    @given(
+        tdee_val=st.decimals(
+            min_value=Decimal("1200"),
+            max_value=Decimal("4000"),
+            places=0,
+            allow_nan=False,
+            allow_infinity=False,
+        )
+    )
+    @settings(max_examples=50, suppress_health_check=[HealthCheck.too_slow])
+    def test_property_weight_loss_deficit_capped_at_25pct(self, tdee_val: Decimal) -> None:
+        """Regression guard (2026-07-09): the old flat −500 delta could cut
+        >25% of TDEE on small frames, over-deficiting them below the BMR
+        safety floor. The capped adjustment must NEVER cut more than
+        min(500, 25% TDEE). Since a sedentary weight_loss target equals
+        0.75*TDEE = 0.9*BMR (the floor), this cap is what keeps small users
+        at/above the floor.
+        """
+        result = apply_goal_to_tdee(tdee_val=tdee_val, goal="weight_loss")
+        deficit = tdee_val - result
+        cap = min(Decimal("500"), tdee_val * Decimal("0.25"))
+        # result is quantized to the nearest integer → allow ±1 kcal slack.
+        assert Decimal("0") <= deficit <= cap + 1
+
 
 # ---------------------------------------------------------------------------
 # enforce_bmr_safety_floor

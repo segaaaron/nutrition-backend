@@ -11,7 +11,6 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Final, Literal
 
-from app.nutrition.domain.adaptive_thermogenesis import at_correction
 from app.nutrition.domain.intake_bias import corrected_kcal_in
 from app.nutrition.domain.mifflin_st_jeor import compute_bmr
 
@@ -180,9 +179,11 @@ def _winsorise(values: list[float], p_low: float = 0.05, p_high: float = 0.95) -
 def _mad_filter(points: list[tuple[int, float]], k: float = 3.0) -> list[tuple[int, float]]:
     """Drop points whose absolute deviation exceeds k * MAD from the median.
 
-    MAD = median(|x_i − median(x)|). Default k=3 mirrors the conservative
-    rejection threshold recommended by Leys 2013 (J Exp Soc Psychol 49:764),
-    equivalent to ~3σ under Gaussian assumptions but robust to skew.
+    MAD = median(|x_i − median(x)|). Rejection threshold is `k * MAD` with
+    k=3 (NOTE: applied directly, WITHOUT the 1.4826 σ-scaling of Leys 2013,
+    so this is stricter — ~2σ-equivalent, not 3σ. Deliberately conservative:
+    on a 14-day weight series we prefer to drop borderline points than admit a
+    water-weight spike into the OLS slope).
 
     When MAD == 0 (degenerate identical series) → return all points unchanged
     so we don't drop legitimate steady-weight readings.
@@ -276,26 +277,16 @@ def recalibrate(inp: RecalibrationInput) -> RecalibrationResult | RecalibrationS
 
     blended = 0.5 * mifflin_recalc + 0.5 * observed_tdee
 
-    # R3 — adaptive thermogenesis (Müller 2015): subtract negative correction
-    # after blend so plateaued users see deeper TDEE reduction.
-    # D7 — use the BIAS-CORRECTED intake mean (same value feeding
-    # observed_tdee), not raw_mean. Using raw_mean double-counts the
-    # under-report bias: R2 already inflated intake, so the *true* deficit
-    # is smaller than (tdee - raw_mean); using raw drove AT to over-correct
-    # and re-reduce TDEE in a self-reinforcing loop.
-    # Decimal end-to-end: `corrected_mean_dec` is already Decimal; doing
-    # the subtraction in float and round-tripping through str degraded
-    # precision before the AT correction.
-    avg_deficit_dec = max(Decimal("0"), Decimal(inp.tdee_current) - corrected_mean_dec)
-    days_in_deficit = len(inp.kcal_in) if avg_deficit_dec > 0 else 0
-    at = float(
-        at_correction(
-            days_in_deficit=days_in_deficit,
-            avg_deficit_kcal=avg_deficit_dec,
-            tdee=Decimal(str(inp.tdee_current)),
-        )
-    )
-    blended = blended + at
+    # NOTE (2026-07-09): adaptive thermogenesis (Müller 2015) is intentionally
+    # NOT applied here. `observed_tdee` is derived from the actual weight slope
+    # via the energy-balance identity, so any metabolic adaptation the user
+    # experienced is ALREADY reflected in the observed value (they lost less
+    # than a static model predicts → slope less steep → observed_tdee lower).
+    # Subtracting a separate AT correction on top would DOUBLE-COUNT the
+    # adaptation. AT belongs in the FORWARD projection of a *new* deficit
+    # (no observed data yet), not in a data-driven recalibration. The prior
+    # wiring was also inert: it fed `days_in_deficit = len(kcal_in) ≤ 14`,
+    # below AT_MIN_DAYS = 21, so at_correction() always returned 0.
     tdee_new = int(
         round(
             max(
@@ -305,7 +296,11 @@ def recalibrate(inp: RecalibrationInput) -> RecalibrationResult | RecalibrationS
         )
     )
 
-    expected_kg_per_day = (raw_mean - inp.tdee_current) / KCAL_PER_KG
+    # Use the SAME bias-corrected intake that drives observed_tdee (D7 rationale):
+    # comparing the observed slope against an expectation built from RAW (under-
+    # reported) intake would let the reporting bias itself trigger recalibration,
+    # rather than a genuine metabolic divergence.
+    expected_kg_per_day = (corrected_mean - inp.tdee_current) / KCAL_PER_KG
     if abs(expected_kg_per_day) < 1e-4:
         # No expected change → can't compute meaningful ratio
         return RecalibrationSkipped("delta_below_threshold")

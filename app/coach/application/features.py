@@ -48,7 +48,7 @@ async def _mini_completion(prompt: str, *, user_id: UUID | None, max_tokens: int
     try:
         await pre_check(user_id=user_id, estimate_usd=est)
     except Exception as _cap_exc:  # noqa: BLE001
-        _log.info("coach.feature.cost_cap_blocked", user_id=str(user_id)[:8] if user_id else "anon", err=str(_cap_exc)[:120])
+        log.info("coach.feature.cost_cap_blocked", user_id=str(user_id)[:8] if user_id else "anon", err=str(_cap_exc)[:120])
         return ""
 
     async def _call() -> str:

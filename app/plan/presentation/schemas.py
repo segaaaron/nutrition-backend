@@ -108,6 +108,8 @@ class PlanMealResponse(_Strict):
     ingredients: list[PlanMealIngredient] = Field(default_factory=list)
     completed: bool
     swapped_from: UUID | None
+    # Sprint A1 — short fact-based "why this recipe" line (localized). Display only.
+    rationale_localized: str | None = None
 
 
 class PlanDayResponse(_Strict):
@@ -144,6 +146,14 @@ class WaterTargetResponse(_Strict):
     message: str
 
 
+class WeightProjectionResponse(_Strict):
+    """Expected weekly weight change (kg) with a ±25% confidence band."""
+
+    weekly_kg: float
+    ci_low_kg: float
+    ci_high_kg: float
+
+
 class PlanResponse(_Strict):
     id: UUID
     user_id: UUID
@@ -164,6 +174,9 @@ class PlanResponse(_Strict):
     slot_targets: dict | None = None
     # True only on the user's very first completed plan (free tier). iOS shows paywall modal.
     paywall_signal: bool = False
+    # Sprint A2 — expected weekly weight change from energy balance (kg/week,
+    # negative = loss) with a ±25% honesty band. None when TDEE is unavailable.
+    expected_weekly_change: WeightProjectionResponse | None = None
 
 
 class AdvanceRequest(_Strict):

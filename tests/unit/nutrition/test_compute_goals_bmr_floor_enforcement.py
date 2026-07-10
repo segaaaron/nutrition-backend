@@ -1,15 +1,18 @@
-"""H1.4 — `compute_initial_goals` must REFUSE to produce a plan whose
-kcal_target sits below the BMR * 0.9 safety floor (RED-S risk per
-AND/ACSM/Dietitians of Canada Joint Position 2016).
+"""H1.4 — BMR * 0.9 safety floor for `compute_initial_goals`
+(RED-S risk per AND/ACSM/Dietitians of Canada Joint Position 2016).
 
-Prior behaviour: telemetry-only `_bmr_safety_warn` logged a warning but
-the plan was still emitted with kcal_target clamped at the 800-kcal
-hard floor. Profiles such as small female users on aggressive
-weight_loss could land below the BMR * 0.9 floor and the system would
-still write the goals row.
+History:
+  - v1: telemetry-only warn; aggressive flat −500 deficit could push small
+    frames below the floor and still write the row (unsafe).
+  - v2: raise `BmrSafetyFloorViolated` (422) when target < floor.
+  - v3 (2026-07-09): goal adjustment capped at −min(500, 25% TDEE) via
+    `apply_goal_to_tdee`. Capped weight_loss lands at 0.9*BMR (the floor)
+    exactly at sedentary, never below — so the floor is now defense-in-depth,
+    unreachable via the normal goal pipeline. The raise path stays covered
+    directly at the pure-function level (test_bmr_safety / test_multi_condition).
 
-New contract: raise `BmrSafetyFloorViolated` (DomainError, 422). The
-warning helper remains as defense-in-depth telemetry.
+These tests assert the v3 contract: the cap PROTECTS small frames (no 422),
+and maintain/lactation paths stay above the floor.
 """
 
 from __future__ import annotations
@@ -24,7 +27,6 @@ from app.core.event_bus import EventBus  # noqa: F401  (typing only)
 from app.nutrition.application.use_cases import (
     ComputeInitialGoals,
 )
-from app.nutrition.domain.errors import BmrSafetyFloorViolated
 from app.nutrition.domain.state_machine import NutritionalGoals
 
 
@@ -93,37 +95,48 @@ def _bio(
 
 
 @pytest.mark.asyncio
-async def test_small_female_weight_loss_raises_when_below_floor() -> None:
-    """Small female on aggressive deficit lands below BMR*0.9.
+async def test_small_female_weight_loss_capped_protects_floor() -> None:
+    """Capped deficit PROTECTS small frames — it does NOT breach the floor.
 
-    Mifflin(female, 40kg, 150cm, 22y) = 10*40 + 6.25*150 - 5*22 - 161
-      = 400 + 937.5 - 110 - 161 = 1066.5 → 1066 (half-even)
-    Sedentary AF 1.2 → TDEE ≈ 1279
-    weight_loss cut = min(500, 25%*1279≈320) = 320 → kcal_target ≈ 959
-    BMR floor = 1066 * 0.9 ≈ 959.4 → 959 < 959.4 → violation
-    (margin is razor-thin; rounding may flip; use even smaller frame
-    below to be unambiguous.)
+    2026-07-09: goal adjustment wired to `apply_goal_to_tdee` (weight_loss =
+    −min(500, 25% TDEE)). At sedentary this lands at 0.75*TDEE = 0.9*BMR =
+    the floor exactly, never below. So a small female on aggressive
+    weight_loss is no longer over-deficited into a 422 — the cap guarantees
+    kcal_target ≥ floor.
+
+    Mifflin(female, 45kg, 155cm, 25y) = 450 + 968.75 − 125 − 161 = 1132.75 → 1133
+    Sedentary AF 1.2 → TDEE = 1360; cut = min(500, 25%*1360=340) = 340
+    kcal_target = 1020; floor = 1133*0.9 = 1019.7 → 1020 ≥ floor → no raise.
+
+    The floor's raise path is still covered directly at the pure-function
+    level (test_bmr_safety.py / test_multi_condition.py) — after this fix it
+    is defense-in-depth, unreachable via the normal goal pipeline.
     """
+    repo = _StubGoalsRepo()
     use_case = ComputeInitialGoals(
         profile_reader=_StubProfileReader(
             _bio(
                 sex="female",
-                weight_kg=Decimal("38"),
-                height_cm=Decimal("150"),
-                age=22,
+                weight_kg=Decimal("45"),
+                height_cm=Decimal("155"),
+                age=25,
                 goal="weight_loss",
                 activity_level="sedentary",
             )
         ),
-        goals_repo=_StubGoalsRepo(),
+        goals_repo=repo,
         bus=_StubBus(),  # type: ignore[arg-type]
     )
-    with pytest.raises(BmrSafetyFloorViolated) as exc:
-        await use_case(user_id=uuid4())
-    # Extra carries kcal_target and floor for API problem+json payload.
-    assert "kcal_target" in exc.value.extra
-    assert "floor" in exc.value.extra
-    assert exc.value.extra["kcal_target"] < exc.value.extra["floor"]
+    # Must NOT raise — the cap keeps the small female at/above the floor.
+    goals = await use_case(user_id=uuid4())
+    # kcal_target is the midpoint of the ±100 range (width 200 invariant).
+    kcal_target = goals.kcal_min + 100
+    floor = int(round(goals.bmr * 0.9))
+    assert kcal_target >= floor, (
+        f"capped weight_loss must not breach floor: {kcal_target} < {floor}"
+    )
+    # And the deficit must respect the 25% cap (never the old flat −500).
+    assert goals.tdee - kcal_target <= round(0.25 * goals.tdee) + 1
 
 
 @pytest.mark.asyncio

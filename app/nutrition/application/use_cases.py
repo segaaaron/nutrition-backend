@@ -10,12 +10,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Optional, Protocol
+from typing import Protocol
 from uuid import UUID
 
-from sqlalchemy.exc import IntegrityError
-
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import BusinessRuleViolation, NotFoundError
@@ -36,6 +35,7 @@ from app.nutrition.domain.state_machine import NutritionalGoals
 from app.nutrition.domain.tdee import compute_tdee
 from app.plan.domain.bmr_safety import (
     KcalTargetBelowSafetyFloor,
+    apply_goal_to_tdee,
     apply_lactation_adjustment,
     apply_trimester_adjustment,
     enforce_bmr_safety_floor,
@@ -68,14 +68,6 @@ def _now() -> datetime:
     return datetime.now(tz=UTC)
 
 
-_GOAL_KCAL_DELTA = {
-    "weight_loss": -500,
-    "maintain": 0,
-    "muscle_gain": +300,
-    "weight_gain": +500,
-    "health": 0,
-}
-
 _ACTIVITY_FACTOR = {
     "sedentary": Decimal("1.20"),
     "lightly_active": Decimal("1.375"),
@@ -87,7 +79,7 @@ _ACTIVITY_FACTOR = {
 
 class NutritionalGoalsRepository(Protocol):
     async def get_current(self, user_id: UUID) -> NutritionalGoals | None: ...
-    async def list_history(self, user_id: UUID, limit: int, *, cursor: Optional[datetime] = None) -> list[NutritionalGoals]: ...
+    async def list_history(self, user_id: UUID, limit: int, *, cursor: datetime | None = None) -> list[NutritionalGoals]: ...
     async def expire_current_and_insert(
         self,
         user_id: UUID,
@@ -235,7 +227,10 @@ def _build_goals(
     af = _ACTIVITY_FACTOR[activity_level]
     bmr = compute_bmr(sex=sex, weight_kg=weight_kg, height_cm=height_cm, age=age)  # type: ignore[arg-type]
     tdee_base = compute_tdee(bmr, af)
-    kcal_target = max(800, tdee_base + _GOAL_KCAL_DELTA.get(goal, 0))
+    # Goal adjustment: weight_loss capped at min(500, 25% TDEE); muscle_gain
+    # +250; weight_gain +300 (bmr_safety.apply_goal_to_tdee — sourced). The
+    # 0.9*BMR floor below is the real safety guard (raises 422 if breached).
+    kcal_target = int(apply_goal_to_tdee(tdee_val=Decimal(tdee_base), goal=goal))  # type: ignore[arg-type]
     # Apply lactation + pregnancy surpluses, then enforce BMR safety floor.
     # Order matters — see `_adjust_and_enforce_floor` docstring.
     kcal_target = _adjust_and_enforce_floor(
@@ -368,8 +363,8 @@ class RecalibrateGoals:
 
         # Rebuild full goals row using the new TDEE (rederive macros + water).
         af = current.activity_factor
-        # We back into kcal_target from new TDEE + goal delta.
-        kcal_target = max(800, result.tdee_new + _GOAL_KCAL_DELTA.get(bio["goal"], 0))
+        # Same capped goal adjustment as initial goals (bmr_safety.apply_goal_to_tdee).
+        kcal_target = int(apply_goal_to_tdee(tdee_val=Decimal(result.tdee_new), goal=bio["goal"]))
         # H1.4 — apply lactation/pregnancy surpluses + enforce BMR safety
         # floor on the FINAL target. Same precedence as `_build_goals`.
         kcal_target = _adjust_and_enforce_floor(
@@ -450,7 +445,7 @@ class GetGoalsHistory:
         *,
         user_id: UUID,
         limit: int = 20,
-        cursor: Optional[datetime] = None,
+        cursor: datetime | None = None,
     ) -> list[NutritionalGoals]:
         return await self.goals_repo.list_history(user_id, limit, cursor=cursor)
 

@@ -71,13 +71,18 @@ def compute_macros(
     # Fallback: if protein + fat already overshoot kcal_target (high g/kg protein
     # on a low kcal target), carbs cannot go negative to compensate. In that
     # case, trim fat first (more elastic, 9 kcal/g), then protein, until
-    # MACRO_TOLERANCE is satisfied. Protein has a floor of 1.2 g/kg to preserve
-    # lean mass (nutritional floor per protein RDA literature).
+    # MACRO_TOLERANCE is satisfied. Both macros carry a nutritional floor:
+    #   - fat 0.6 g/kg (hormone/steroidogenesis health — IOM AMDR floor rationale)
+    #   - protein 1.2 g/kg (lean-mass preservation per protein RDA literature)
+    # If the target is so low that even both floors overshoot tolerance, we stop
+    # at the floors and accept the slight overshoot — a safety floor must never
+    # be sacrificed to satisfy a soft ±2% kcal tolerance.
     derived = protein_g * 4 + carbs_g * 4 + fat_g * 9
     tolerance_kcal = float(kcal_target) * float(MACRO_TOLERANCE)
     protein_floor = int(round(1.2 * w))
+    fat_floor = int(round(0.6 * w))
     while derived - kcal_target > tolerance_kcal:
-        if fat_g > 0:
+        if fat_g > fat_floor:
             fat_g -= 1
         elif protein_g > protein_floor:
             protein_g -= 1

@@ -129,7 +129,7 @@ async def chat(
                     payload = chunk.replace("\n", " ")
                     yield f"data: {payload}\n\n".encode()
                 yield b"event: done\ndata: 1\n\n"
-        except asyncio.TimeoutError:
+        except TimeoutError:
             yield b"event: error\ndata: stream_timeout\n\n"
         finally:
             await r.decr(SSE_COUNTER_KEY)

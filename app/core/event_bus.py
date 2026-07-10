@@ -282,17 +282,17 @@ def event_payload(event: DomainEvent) -> dict[str, Any]:
         return {"repr": repr(event)}
 
     def _coerce(v: Any) -> Any:
-        if v is None or isinstance(v, (str, int, bool)):
+        if v is None or isinstance(v, str | int | bool):
             return v
         if isinstance(v, float):
             return v
         if isinstance(v, Decimal):
             return str(v)
-        if isinstance(v, (datetime, date)):
+        if isinstance(v, datetime | date):
             return v.isoformat()
         if isinstance(v, UUID):
             return str(v)
-        if isinstance(v, (list, tuple)):
+        if isinstance(v, list | tuple):
             return [_coerce(x) for x in v]
         if isinstance(v, dict):
             return {str(k): _coerce(x) for k, x in v.items()}

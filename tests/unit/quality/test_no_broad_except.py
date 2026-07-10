@@ -88,13 +88,13 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # OK3: identity rate-limit fail-open on infra surprise (logged).
     "app/identity/infrastructure/rate_limit.py": {53},
     # OK3: /readyz health probe — reports component status without 500.
-    "app/main.py": {269, 275, 283},
+    "app/main.py": {270, 276, 284},
     # OK1: nutrition event handlers — best-effort with explicit log.
     "app/nutrition/event_handlers.py": {76, 108},
     # OK4: ensure_goals fallback wrapper — logs and re-raises domain error.
     "app/plan/application/create_plan.py": {166, 406},
     # OK4: plan gen rate-limit Redis fail-open — Redis down must not block plan creation.
-    "app/plan/presentation/router.py": {395},
+    "app/plan/presentation/router.py": {442},
     # OK4: taste profile cache fetch — falls through on miss.
     "app/plan/application/taste_profile.py": {48},
     # OK4: plan cache best-effort.
@@ -139,7 +139,7 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     "app/vision/infrastructure/inflight_lock.py": {32, 42, 68},
     "app/vision/infrastructure/food_matcher.py": {124},
     # OK4: dark-image enhancement (best-effort PIL), prefilter fail-open, invoke retry.
-    "app/vision/infrastructure/openai_vision.py": {306, 312, 357, 469, 765},
+    "app/vision/infrastructure/openai_vision.py": {306, 312, 358, 470, 766},
     # OK4: plate explanation is decorative — poll must still serve items.
     "app/vision/presentation/router.py": {170, 215},
     # OK4: voice/food text parser — LLM best-effort.

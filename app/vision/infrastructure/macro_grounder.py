@@ -137,7 +137,7 @@ async def apply_group_fallback(items: list[DetectedFoodItem]) -> None:
         return_exceptions=True,
     )
 
-    for it, fdc in zip(unmatched, fdc_results):
+    for it, fdc in zip(unmatched, fdc_results, strict=False):
         factor = float(it.estimated_amount_g) / 100.0
 
         if isinstance(fdc, Exception):

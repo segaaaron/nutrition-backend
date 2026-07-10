@@ -336,7 +336,8 @@ def _enhance_if_dark(image_bytes: bytes, mime: str) -> tuple[bytes, str]:
     the originals unchanged — enhancement is purely best-effort.
     """
     try:
-        from PIL import Image as _PILImage, ImageEnhance, ImageOps, ImageStat  # noqa: PLC0415
+        from PIL import Image as _PILImage  # noqa: PLC0415
+        from PIL import ImageEnhance, ImageOps, ImageStat
 
         with _PILImage.open(io.BytesIO(image_bytes)) as img:
             rgb = img.convert("RGB")

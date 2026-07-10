@@ -15,7 +15,6 @@ from uuid import UUID
 from fastapi import APIRouter, Path, Query
 
 from app.identity.presentation.dependencies import CurrentUserDep, SessionDep
-from app.shared.i18n import LocaleDep
 from app.recipes.application.use_cases import (
     GetFoodByBarcode,
     GetRecipe,
@@ -34,6 +33,7 @@ from app.recipes.presentation.schemas import (
     RecipeResponse,
     RecipeSemanticSearchRequest,
 )
+from app.shared.i18n import LocaleDep
 
 router = APIRouter(tags=["recipes"])
 # BOLA EXEMPT: recipes, foods, and food-barcode endpoints are global catalog

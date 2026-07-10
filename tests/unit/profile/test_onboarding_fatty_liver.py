@@ -34,15 +34,16 @@ def test_fatty_liver_accepted_as_medical_condition() -> None:
     assert "fatty_liver" in body.medical_conditions
 
 
-def test_fatty_liver_combined_with_diabetes_t2_accepted() -> None:
-    """NAFLD frequently co-occurs with T2D in LatAm. Closed enum must allow
-    both in the same payload (subject to max_length=6)."""
+def test_fatty_liver_combined_with_lactation_accepted() -> None:
+    """A nutrition situation (fatty_liver) can co-exist with a life stage
+    (lactation) in the same payload (closed enum, max_length=6). Medical
+    conditions like diabetes_t2 are no longer accepted (2026-07-09 scope)."""
     body = OnboardingRequest(
         **_base_payload(  # type: ignore[arg-type]
-            medical_conditions=["fatty_liver", "diabetes_t2"],
+            medical_conditions=["fatty_liver", "lactation"],
         )
     )
-    assert set(body.medical_conditions) == {"fatty_liver", "diabetes_t2"}
+    assert set(body.medical_conditions) == {"fatty_liver", "lactation"}
 
 
 def test_fatty_liver_does_not_require_extra_fields() -> None:

@@ -98,7 +98,15 @@ ignore = [
     "PLR0913",  # too many args (>5) — pre-existing baseline, defer
     "PLR0915",  # too many statements (>50) — pre-existing baseline, defer
     "PLR0912",  # too many branches — pre-existing baseline, defer
+    "PLR0911",  # too many returns — dispatch/reconstruct fns, intentional
     "E501",     # line too long (>100) — formatter handles, defer manual fix
+    # S110 (try-except-pass): the codebase deliberately uses best-effort
+    # defensive reads (getattr on request.state, optional telemetry) that MUST
+    # NOT fail the request. Consistent with the BLE001-everywhere convention.
+    "S110",
+    # PLW2901 (loop var overwrite): used to normalise gather() Exception
+    # results to None in-loop (vision macro grounder). Intentional.
+    "PLW2901",
 ]
 
 # FastAPI dependency-injection markers MUST appear in argument defaults — that

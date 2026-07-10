@@ -12,8 +12,6 @@ from redis.exceptions import RedisError
 
 from app.core.event_bus import EventBus
 from app.core.logging import get_logger
-
-_log = get_logger("gamification.use_cases")
 from app.gamification.domain.catalog import AchievementDef
 from app.gamification.domain.entities import UserLevel
 from app.gamification.domain.events import (
@@ -24,6 +22,8 @@ from app.gamification.infrastructure.repository import (
     SqlGamificationRepository,
     leaderboard_key,
 )
+
+_log = get_logger("gamification.use_cases")
 
 CELEBRATION_QUEUE_KEY = "celebrations:queue:{user_id}"
 

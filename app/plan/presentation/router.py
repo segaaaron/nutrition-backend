@@ -26,11 +26,11 @@ from app.core.idempotency import (
 from app.core.logging import get_logger
 from app.core.redis import get_redis
 from app.identity.presentation.dependencies import CurrentUserDep, SessionDep, assert_owns
+from app.nutrition.domain.weight_projection import expected_weekly_change
 from app.nutrition.infrastructure.compute_goals_adapter import InlineComputeGoals
 from app.plan.application.layer1_eligibility import Layer1Eligibility
 from app.plan.application.layer3_ranking import Layer3Ranking
 from app.plan.application.taste_profile import TasteProfileService
-from app.plan.infrastructure.profile_reader import SqlEligibilityProfileReader
 from app.plan.application.use_cases import (
     AdvancePlan,
     CompleteMeal,
@@ -38,9 +38,11 @@ from app.plan.application.use_cases import (
     SwapMeal,
 )
 from app.plan.domain.entities import Plan
+from app.plan.domain.meal_rationale import build_meal_rationale
 from app.plan.domain.water_view import build_water_view
 from app.plan.infrastructure.cache import ActivePlanCache
 from app.plan.infrastructure.plan_enqueuer import enqueue_generate_plan
+from app.plan.infrastructure.profile_reader import SqlEligibilityProfileReader
 from app.plan.infrastructure.repositories import SqlPlanRepository
 from app.plan.infrastructure.taste_fetcher import SqlEmbeddingFetcher
 from app.plan.infrastructure.user_context import SqlUserContext
@@ -57,6 +59,7 @@ from app.plan.presentation.schemas import (
     SwapMealResponse,
     WaterSlotResponse,
     WaterTargetResponse,
+    WeightProjectionResponse,
 )
 from app.profile.application.use_cases import CompleteOnboarding
 from app.profile.domain.entities import UserProfile
@@ -215,6 +218,7 @@ def _build_meal_resp(
     m: object,
     tr: Mapping[uuid.UUID, _RecipeData],
     locale: Locale,
+    goal: str | None = None,
 ) -> PlanMealResponse:
     from app.plan.domain.entities import PlanMeal as _PlanMeal  # local to avoid cycle
     assert isinstance(m, _PlanMeal)
@@ -228,6 +232,14 @@ def _build_meal_resp(
     else:
         instructions = []
         ingredients = []
+    # Sprint A1 — fact-based rationale from the meal's real macros + user goal.
+    _rat = build_meal_rationale(
+        protein_g=m.protein_g,
+        fiber_g=data.fiber_g if data is not None else None,
+        meal_time=m.meal_time,
+        goal=goal,
+    )
+    rationale = _rat.get(locale) or _rat["es"]
     return PlanMealResponse(
         id=m.id,
         meal_time=m.meal_time,
@@ -251,22 +263,56 @@ def _build_meal_resp(
         ingredients=ingredients,
         completed=m.completed,
         swapped_from=m.swapped_from,
+        rationale_localized=rationale,
     )
 
 
-def _slot(meals: list, slot: str, tr: Mapping[uuid.UUID, _RecipeData], locale: Locale) -> PlanMealResponse | None:
+def _slot(
+    meals: list,
+    slot: str,
+    tr: Mapping[uuid.UUID, _RecipeData],
+    locale: Locale,
+    goal: str | None = None,
+) -> PlanMealResponse | None:
     for m in meals:
         if m.meal_time == slot:
-            return _build_meal_resp(m, tr, locale)
+            return _build_meal_resp(m, tr, locale, goal=goal)
     return None
+
+
+async def _fetch_latest_tdee(session: AsyncSession, user_id: uuid.UUID) -> int | None:
+    """Latest TDEE from nutritional_goals for the A2 weight-change projection."""
+    from sqlalchemy import text as _text
+
+    row = (
+        await session.execute(
+            _text(
+                "SELECT tdee FROM nutritional_goals WHERE user_id = :uid "
+                "ORDER BY created_at DESC LIMIT 1"
+            ),
+            {"uid": str(user_id)},
+        )
+    ).scalar()
+    return int(row) if row is not None else None
 
 
 def _to_resp(
     p: Plan,
     translations: Mapping[uuid.UUID, _RecipeData] | None = None,
     locale: Locale = "es",
+    tdee: int | None = None,
 ) -> PlanResponse:
     tr = translations or {}
+    # Sprint A2 — expected weekly weight change when we know the TDEE the plan
+    # was built against. Pure display; never gates or alters the plan.
+    projection: WeightProjectionResponse | None = None
+    if tdee is not None and p.kcal_target is not None:
+        wp = expected_weekly_change(kcal_target=p.kcal_target, tdee=tdee)
+        projection = WeightProjectionResponse(
+            weekly_kg=float(wp.weekly_kg),
+            ci_low_kg=float(wp.ci_low_kg),
+            ci_high_kg=float(wp.ci_high_kg),
+        )
     water_target = (
         WaterTargetResponse(
             total_ml=p.water_view.total_ml,
@@ -302,15 +348,16 @@ def _to_resp(
                 completed=d.completed,
                 kcal_actual=d.kcal_actual,
                 within_band=d.within_band,
-                breakfast=_slot(d.meals, "breakfast", tr, locale),
-                lunch=_slot(d.meals, "lunch", tr, locale),
-                dinner=_slot(d.meals, "dinner", tr, locale),
-                snack=_slot(d.meals, "snack", tr, locale),
+                breakfast=_slot(d.meals, "breakfast", tr, locale, goal=p.goal),
+                lunch=_slot(d.meals, "lunch", tr, locale, goal=p.goal),
+                dinner=_slot(d.meals, "dinner", tr, locale, goal=p.goal),
+                snack=_slot(d.meals, "snack", tr, locale, goal=p.goal),
             )
             for d in p.days
         ],
         water_target=water_target,
         slot_targets=p.slot_targets,
+        expected_weekly_change=projection,
     )
 
 
@@ -517,7 +564,9 @@ async def get_active_plan(
         if sub_row is None or sub_row["plan"] == "free":
             paywall_signal = True
 
-    resp = _to_resp(plan, translations=translations, locale=locale)
+    # Sprint A2 — expected-weight-change projection (display).
+    tdee = await _fetch_latest_tdee(session, current_user)
+    resp = _to_resp(plan, translations=translations, locale=locale, tdee=tdee)
     resp = resp.model_copy(update={"paywall_signal": paywall_signal})
     return resp
 
@@ -536,7 +585,8 @@ async def advance_plan(
     plan = await uc(plan_id=plan_id, event=body.event)
     await _hydrate_water_view(plan, session, locale)
     translations = await _load_recipe_translations(plan, session)
-    return _to_resp(plan, translations=translations, locale=locale)
+    tdee = await _fetch_latest_tdee(session, current_user)
+    return _to_resp(plan, translations=translations, locale=locale, tdee=tdee)
 
 
 @router.patch(
