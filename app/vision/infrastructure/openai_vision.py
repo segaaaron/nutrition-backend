@@ -412,6 +412,24 @@ def _should_fallback(items: list[DetectedFoodItem], threshold: float) -> tuple[b
     return False, ""
 
 
+def _model_is_gpt5_family(model: str) -> bool:
+    """GPT-5 and the o-series reasoning models reject legacy call params."""
+    m = model.lower()
+    return m.startswith(("gpt-5", "o1", "o3", "o4"))
+
+
+def _completion_kwargs(model: str, max_output_tokens: int) -> dict[str, Any]:
+    """Model-family-correct completion params for `chat.completions.create`.
+
+    GPT-5 / o-series reject `max_tokens` (require `max_completion_tokens`) and
+    reject any `temperature` other than the default 1. Older models (gpt-4o*)
+    still take `max_tokens` + `temperature=0.0` (kept for deterministic output).
+    """
+    if _model_is_gpt5_family(model):
+        return {"max_completion_tokens": max_output_tokens}
+    return {"max_tokens": max_output_tokens, "temperature": 0.0}
+
+
 @dataclass(slots=True)
 class OpenAIVisionProvider:
     """Implements VisionProvider port with hybrid cost cascade."""
@@ -486,8 +504,7 @@ class OpenAIVisionProvider:
                         "schema": PREFILTER_SCHEMA,
                     },
                 },
-                temperature=0.0,
-                max_tokens=PREFILTER_MAX_OUTPUT_TOKENS,
+                **_completion_kwargs(PREFILTER_MODEL, PREFILTER_MAX_OUTPUT_TOKENS),
             )
             content = resp.choices[0].message.content or "{}"
             usage = resp.usage
@@ -762,8 +779,7 @@ class OpenAIVisionProvider:
                         "schema": VISION_SCHEMA,
                     },
                 },
-                temperature=0.0,
-                max_tokens=max_output_tokens,
+                **_completion_kwargs(model, max_output_tokens),
             )
             content = resp.choices[0].message.content or "{}"
             usage = resp.usage
