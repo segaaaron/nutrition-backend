@@ -162,3 +162,21 @@ def omega3_fit(omega3_mg: int | None) -> float:
     if not omega3_mg or omega3_mg <= 0:
         return 0.0
     return min(1.0, omega3_mg / _OMEGA3_FULL_MG)
+
+
+# Glycemic-load bands (per-serving): low ≤10, medium 11-19, high ≥20
+# (standard GL classification). Refined-carb / high-fructose load is the main
+# dietary driver of hepatic fat in MASLD, so we push high-GL dishes down.
+_GL_LOW = 10.0
+_GL_HIGH = 25.0
+
+
+def gl_penalty(gl: float | None) -> float:
+    """0..1 penalty for glycemic load. ≤10 → 0 (low GL, fine); ramps to 1 at
+    ≥25 (high GL — the refined-carb/fructose load MASLD guidance limits).
+    NULL/unknown → 0 (no penalty, never fabricated)."""
+    if gl is None or gl <= _GL_LOW:
+        return 0.0
+    if gl >= _GL_HIGH:
+        return 1.0
+    return (gl - _GL_LOW) / (_GL_HIGH - _GL_LOW)

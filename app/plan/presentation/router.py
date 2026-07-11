@@ -7,7 +7,7 @@ from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Header, Path, Request, Response, status
 from sqlalchemy import select
@@ -41,7 +41,7 @@ from app.plan.domain.entities import Plan
 from app.plan.domain.meal_rationale import build_meal_rationale
 from app.plan.domain.water_view import build_water_view
 from app.plan.infrastructure.cache import ActivePlanCache
-from app.plan.infrastructure.plan_enqueuer import enqueue_generate_plan
+from app.plan.infrastructure.plan_enqueuer import enqueue_and_wait_plan
 from app.plan.infrastructure.profile_reader import SqlEligibilityProfileReader
 from app.plan.infrastructure.repositories import SqlPlanRepository
 from app.plan.infrastructure.taste_fetcher import SqlEmbeddingFetcher
@@ -198,7 +198,16 @@ def _localize_name(
     entry = translations.get(rid)
     if entry is None:
         return None
-    return entry.name_translations.get(locale) or entry.name_en
+    # BE-6 (2026-07-11): fall back to the Spanish translation (the catalog's
+    # authoritative language) BEFORE the raw name_en. name_en is clean English
+    # but description_en is Spanish for many rows, so falling to the *_en fields
+    # produced a mixed English-name / Spanish-description card. Falling both to
+    # the 'es' translation keeps name and description in the SAME language.
+    return (
+        entry.name_translations.get(locale)
+        or entry.name_translations.get("es")
+        or entry.name_en
+    )
 
 
 def _localize_description(
@@ -211,7 +220,11 @@ def _localize_description(
     entry = translations.get(rid)
     if entry is None:
         return None
-    return entry.description_translations.get(locale) or entry.description_en
+    return (
+        entry.description_translations.get(locale)
+        or entry.description_translations.get("es")
+        or entry.description_en
+    )
 
 
 def _build_meal_resp(
@@ -268,7 +281,7 @@ def _build_meal_resp(
 
 
 def _slot(
-    meals: list,
+    meals: list[Any],
     slot: str,
     tr: Mapping[uuid.UUID, _RecipeData],
     locale: Locale,
@@ -490,15 +503,21 @@ async def create_plan(
             # rather than a generic "not found" screen.
             raise BusinessRuleViolation("profile_not_found")
 
-    # BE-4a (2026-07-10): an explicit locale in the request body (the in-app
-    # language iOS sends inside `profile`) takes precedence over the
-    # Accept-Language header / device region, so the generated plan content
-    # (meal names, descriptions, instructions) matches the language the user
-    # actually sees in the app — not the phone's region.
+    # BE-4a/BE-6: plan content language = the user's app language, NEVER the
+    # device Accept-Language header (a Spanish user on an English phone must
+    # still get a Spanish plan). Precedence: explicit body locale > stored
+    # profile.locale (resolved in CreatePlan) > "es". The header (`locale`) is
+    # deliberately dropped here — passing None lets CreatePlan fall to the
+    # stored profile.locale.
     effective_locale = (
-        body.profile.locale if body.profile and body.profile.locale else locale
+        body.profile.locale if body.profile and body.profile.locale else None
     )
-    job_id = await enqueue_generate_plan(
+    # BE-7 (2026-07-11): block the request until the worker finishes and return
+    # status="ready" + plan_id, so iOS ties `loading` to the real completion
+    # (`loading → await → loaded`) with ZERO client-side polling. On timeout we
+    # degrade to the async 202 + queued so a slow generation still succeeds via
+    # the client's fallback path.
+    job_id, ready_plan_id = await enqueue_and_wait_plan(
         user_id=current_user,
         plan_type=body.type,
         preferences=body.preferences,
@@ -508,13 +527,26 @@ async def create_plan(
     )
     resolved_job_id = job_id or ""
     response.headers["x-job-id"] = resolved_job_id
+    # The worker returns plan_id as a str; CreatePlanResponse.plan_id is a
+    # strict UUID. Coerce here (malformed/None → treat as not-ready 202).
+    ready_plan_uuid: uuid.UUID | None = None
+    if ready_plan_id:
+        try:
+            ready_plan_uuid = uuid.UUID(ready_plan_id)
+        except ValueError:
+            ready_plan_uuid = None
+    is_ready = ready_plan_uuid is not None
+    out_status: Literal["queued", "generating", "ready"] = (
+        "ready" if is_ready else "queued"
+    )
+    http_status = status.HTTP_200_OK if is_ready else status.HTTP_202_ACCEPTED
 
     payload_out = CreatePlanResponse(
         job_id=resolved_job_id,
-        plan_id=None,
-        status="queued",
+        plan_id=ready_plan_uuid,
+        status=out_status,
         profile=profile_resp,
-        plan_job=PlanJobRef(job_id=resolved_job_id, status="queued")
+        plan_job=PlanJobRef(job_id=resolved_job_id, status=out_status)
         if resolved_job_id
         else None,
     )
@@ -523,12 +555,12 @@ async def create_plan(
         storage_key=skey,
         body=raw_body,
         response_body=payload_out.model_dump(mode="json"),
-        status_code=status.HTTP_202_ACCEPTED,
+        status_code=http_status,
     )
     return Response(
         content=payload_out.model_dump_json(),
         media_type="application/json",
-        status_code=status.HTTP_202_ACCEPTED,
+        status_code=http_status,
         headers={"x-job-id": resolved_job_id},
     )
 

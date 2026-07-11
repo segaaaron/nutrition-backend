@@ -243,7 +243,10 @@ class CreatePlan:
         # recipe_id and reused across all Layer3 calls. Month plan: up to
         # 120 calls sharing ~200-400 unique recipes → 99%+ cache hits after
         # day 1 per meal_time. Dict populated in-place by Layer3.__call__.
-        embedding_cache: dict[UUID, tuple[list[str], int | None, int | None, list[float]]] = {}
+        embedding_cache: dict[
+            UUID,
+            tuple[list[str], int | None, int | None, list[str], float | None, list[float]],
+        ] = {}
 
         for d in range(total_days):
             day_id = uuid4()
@@ -375,6 +378,42 @@ class CreatePlan:
         total_meals = sum(len(d.meals) for d in days)
         if total_meals == 0:
             raise BusinessRuleViolation("plan_generation_yielded_no_meals")
+
+        # Plan-quality telemetry: per-plan servings of the food classes the
+        # fatty_liver Mediterranean steer targets (fish, legumes, red meat,
+        # high glycemic-load), so we can MEASURE whether the Layer 3 ranking
+        # nudges produce the intended pattern (fish 2-3/wk, legumes >=3/wk,
+        # red meat <=1/wk, low GL). Read from cached ranking features — no
+        # extra query. Emitted for every plan; filter by `conditions` in
+        # analytics. Pure dict/set ops on our own well-formed cache → safe.
+        _legume = _red_meat = _fish = _high_gl = 0
+        for _dd in days:
+            for _m in _dd.meals:
+                _feat = embedding_cache.get(_m.recipe_id)
+                if _feat is None:
+                    continue
+                _tags = set(_feat[3] or [])
+                if "legumes" in _tags:
+                    _legume += 1
+                if _tags & {"beef", "pork"}:
+                    _red_meat += 1
+                if _feat[2] is not None and _feat[2] >= 150:  # omega3_mg → oily fish
+                    _fish += 1
+                if _feat[4] is not None and _feat[4] >= 20:  # high glycemic load
+                    _high_gl += 1
+        # Log a DERIVED boolean, never the raw medical-conditions list — health
+        # conditions are PII and must not land in logs (QA no-PII gate). The
+        # fatty_liver flag is all analytics needs to segment steered plans.
+        log.info(
+            "plan.quality",
+            plan_id=str(plan_id),
+            fatty_liver="fatty_liver" in (ranking_ctx.get("conditions") or []),
+            total_meals=total_meals,
+            fish_servings=_fish,
+            legume_servings=_legume,
+            red_meat_servings=_red_meat,
+            high_gl_servings=_high_gl,
+        )
 
         # Layer 4 — one LLM call over the whole plan.
         t0 = time.perf_counter()

@@ -80,8 +80,8 @@ class Settings(BaseSettings):
     # --- OpenAI ---
     openai_api_key: str = ""
     # Legacy single-model knob (kept for backward compat — if cascade vars
-    # are empty / equal, behaviour reduces to "always gpt-4o full").
-    openai_vision_model: str = "gpt-4o-2024-08-06"
+    # are empty / equal, behaviour reduces to "always this model").
+    openai_vision_model: str = "gpt-5-mini"
     openai_chat_model: str = "gpt-4o-mini"
     openai_embed_model: str = "text-embedding-3-large"
     openai_embed_dim: int = 1536
@@ -89,16 +89,19 @@ class Settings(BaseSettings):
     # --- Vision cost-cascade (hybrid pipeline, target -75-80% cost) ---
     # Primary cheap model attempted first; on low confidence we fall back to
     # the heavier, more accurate model. Set both equal to disable cascade.
-    openai_vision_model_primary: str = "gpt-4o-mini"
-    openai_vision_model_fallback: str = "gpt-4o-2024-08-06"
-    # MASTER feature flag for the hybrid cost cascade. ON by default since
-    # 2026-06-11 (owner decision): the DB macro grounding in
-    # process_vision_job compensates the cheap model's weak kcal
-    # arithmetic, so the historical reason to keep this OFF (pending
-    # golden-set calibration) no longer outweighs the ~65% cost saving.
-    # When False: every call goes straight to the fallback (gpt-4o full) —
-    # behaviour identical to the legacy single-model pipeline.
-    # See docs/algorithms/ for golden-set protocol.
+    # 2026-07-11 (owner): subimos la llamada de análisis a GPT-5 mini (gen 2026,
+    # con visión) para probar comportamiento real vs el gpt-4o-mini de 2024 que
+    # veía apilados como una sola pieza. primary == fallback → la cascada
+    # colapsa a un solo modelo (test limpio de gpt-5-mini). El pre-filtro
+    # binario food/no-food sigue en gpt-4o-mini (PREFILTER_MODEL, más barato).
+    openai_vision_model_primary: str = "gpt-5-mini"
+    openai_vision_model_fallback: str = "gpt-5-mini"
+    # MASTER feature flag for the hybrid cost cascade. Since 2026-07-11 the
+    # primary and fallback are BOTH gpt-5-mini, so the cascade collapses to a
+    # single model regardless of this flag (no cost gap to save between
+    # equal models). Kept ON for when primary/fallback diverge again (e.g.
+    # gpt-5-mini primary + gpt-5.1 fallback once the golden set justifies it).
+    # See docs/product/vision-recognition-improvement-2026-07-11.md.
     vision_cascade_enabled: bool = True
     # Average confidence threshold to *accept* the primary model output.
     # Below this OR if min(item.confidence) < 0.5 OR items.empty → fallback.
@@ -114,8 +117,9 @@ class Settings(BaseSettings):
     # same compressed image is submitted by ANY user within the TTL.
     vision_cache_ttl_days: int = 90
     # Hard cap on completion tokens for vision calls. Bumped 400 -> 1200 to
-    # avoid JSON truncation on dense buffet plates (HIGH-3 fix). At
-    # gpt-4o-mini output pricing (~$0.66/1M), ceiling per call is ~$0.0008.
+    # avoid JSON truncation on dense buffet plates (HIGH-3 fix). At gpt-5-mini
+    # output pricing (~$2/1M), the 1200-token ceiling is ~$0.0024/call; a
+    # typical plate (~500 out tok) lands ~$0.0014/photo incl. image input.
     vision_max_output_tokens: int = 1200
     # Pixel threshold (width AND height) — under this → detail="low" (85 tok
     # image cost), otherwise detail="high" (765 tok). OpenAI vision formula.

@@ -30,6 +30,7 @@ from app.plan.application.taste_profile import (
     adherence,
     cosine,
     cultural_fit,
+    gl_penalty,
     novelty,
     omega3_fit,
     prep_time_fit,
@@ -42,6 +43,19 @@ from app.plan.application.taste_profile import (
 # these conditions rank exactly as before.
 _OMEGA3_PROMOTE_CONDITIONS = frozenset({"fatty_liver"})
 _OMEGA3_BONUS_WEIGHT = 0.15
+
+# Mediterranean-pattern steer for the same fatty_liver cohort (EASL/DietMed
+# 2024): promote legumes (target ≥3 servings/week) and demote red meat
+# (target ≤1/week). Ranking-level nudge on top of the Layer 1 safety gate and
+# the omega-3 bonus — not a hard weekly quota. Condition-scoped: inert for
+# everyone else. Uses catalog tags (`legumes`, `beef`, `pork`).
+_LEGUME_TAG = "legumes"
+_RED_MEAT_TAGS = frozenset({"beef", "pork"})
+_LEGUME_BONUS_WEIGHT = 0.10
+_RED_MEAT_PENALTY_WEIGHT = 0.20
+# High glycemic-load penalty for the same fatty_liver cohort — targets the
+# refined-carb/fructose load MASLD guidance limits. Uses recipes.gl (94% pop).
+_GL_PENALTY_WEIGHT = 0.15
 
 
 class _ProfileCtx(Protocol):
@@ -63,7 +77,10 @@ class Layer3Ranking:
         novelty_counts: dict[UUID, int] | None = None,
         adherence_rates: dict[UUID, float] | None = None,
         ranking_context: dict | None = None,
-        embedding_cache: dict[UUID, tuple[list[str], int | None, int | None, list[float]]]
+        embedding_cache: dict[
+            UUID,
+            tuple[list[str], int | None, int | None, list[str], float | None, list[float]],
+        ]
         | None = None,
     ) -> list[tuple[UUID, float]]:
         if not candidate_ids:
@@ -78,7 +95,7 @@ class Layer3Ranking:
 
         _SQL = text(
             """
-            SELECT id, regions, prep_min, omega3_mg, embedding
+            SELECT id, regions, prep_min, omega3_mg, tags, gl, embedding
               FROM recipes
              WHERE id = ANY(CAST(:ids AS uuid[]))
         """
@@ -94,6 +111,8 @@ class Layer3Ranking:
                         list(row["regions"] or []),
                         row["prep_min"],
                         row["omega3_mg"],
+                        list(row["tags"] or []),
+                        float(row["gl"]) if row["gl"] is not None else None,
                         list(row["embedding"]) if row["embedding"] is not None else [],
                     )
             rows = [
@@ -101,7 +120,9 @@ class Layer3Ranking:
                  "regions": embedding_cache[cid][0],
                  "prep_min": embedding_cache[cid][1],
                  "omega3_mg": embedding_cache[cid][2],
-                 "embedding": embedding_cache[cid][3]}
+                 "tags": embedding_cache[cid][3],
+                 "gl": embedding_cache[cid][4],
+                 "embedding": embedding_cache[cid][5]}
                 for cid in candidate_ids
                 if cid in embedding_cache
             ]
@@ -143,6 +164,16 @@ class Layer3Ranking:
             # condition (promote_omega3 is False → no change to prior ranking).
             if promote_omega3:
                 total += _OMEGA3_BONUS_WEIGHT * omega3_fit(r["omega3_mg"])
+                # Mediterranean-pattern steer (same fatty_liver cohort):
+                # lift legume dishes, push red-meat dishes down. Nudge, not a
+                # hard weekly quota — measured post-deploy (see PRD).
+                _tags = set(r["tags"] or [])
+                if _LEGUME_TAG in _tags:
+                    total += _LEGUME_BONUS_WEIGHT
+                if _RED_MEAT_TAGS & _tags:
+                    total -= _RED_MEAT_PENALTY_WEIGHT
+                # Push down high glycemic-load dishes (refined carbs / fructose).
+                total -= _GL_PENALTY_WEIGHT * gl_penalty(r["gl"])
             scored.append((rid, total))
         # Stable tie-break by id: equal scores must rank identically
         # across runs for seeded reproducibility.

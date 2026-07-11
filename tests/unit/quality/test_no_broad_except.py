@@ -64,7 +64,7 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # OK6: circuit breaker wraps arbitrary callable.
     "app/core/circuit_breaker.py": {98},
     # OK4: tiktoken optional + fallback heuristic for token count.
-    "app/core/cost_cap.py": {96},
+    "app/core/cost_cap.py": {100},
     # OK5: session.commit() rollback wrapper — re-raises after rollback.
     "app/core/db.py": {92},
     # OK3: ErrorTracker boundary — tracker must NEVER raise; re-raises original.
@@ -92,13 +92,15 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # OK1: nutrition event handlers — best-effort with explicit log.
     "app/nutrition/event_handlers.py": {76, 108},
     # OK4: ensure_goals fallback wrapper — logs and re-raises domain error.
-    "app/plan/application/create_plan.py": {166, 406},
+    "app/plan/application/create_plan.py": {166, 445},
     # OK4: plan gen rate-limit Redis fail-open — Redis down must not block plan creation.
-    "app/plan/presentation/router.py": {442},
+    "app/plan/presentation/router.py": {455},
     # OK4: taste profile cache fetch — falls through on miss.
     "app/plan/application/taste_profile.py": {48},
     # OK4: plan cache best-effort.
     "app/plan/infrastructure/cache.py": {32},
+    # OK4: enqueue-and-wait — any wait failure (timeout/worker error) → async fallback (BE-7).
+    "app/plan/infrastructure/plan_enqueuer.py": {56},
     # OK4: OpenAI coherence client — structured fallback.
     "app/plan/infrastructure/openai_coherence_client.py": {107, 120, 137, 189, 228},
     # OK4: taste fetcher SQL best-effort.
@@ -139,7 +141,7 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     "app/vision/infrastructure/inflight_lock.py": {32, 42, 68},
     "app/vision/infrastructure/food_matcher.py": {124},
     # OK4: dark-image enhancement (best-effort PIL), prefilter fail-open, invoke retry.
-    "app/vision/infrastructure/openai_vision.py": {336, 342, 388, 500, 796},
+    "app/vision/infrastructure/openai_vision.py": {344, 350, 396, 508, 804},
     # OK4: plate explanation is decorative — poll must still serve items.
     "app/vision/presentation/router.py": {169, 214},
     # OK4: voice/food text parser — LLM best-effort.

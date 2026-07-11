@@ -228,7 +228,7 @@ def _system_prompt(
     locale: str,
     region: str,
     plan_context: str | None = None,
-    user_profile: dict | None = None,
+    user_profile: dict[str, Any] | None = None,
     portion_history: list[str] | None = None,
 ) -> str:
     # Plate Decomposition 2.0 — full decomposition, not just visible items.
@@ -262,11 +262,19 @@ def _system_prompt(
         "calibrador PRINCIPAL. Otras referencias: plato Ø26cm, plato hondo 400ml, "
         "cuchara sopera 15ml, vaso 250ml, taza 240ml, lata 355ml. "
         "Estima profundidad del montículo, no solo área.\n"
-        "CONTEO CRÍTICO: si hay MÚLTIPLES unidades idénticas visibles "
-        "(2 carnes de hamburguesa, 3 albóndigas, 2 tacos, 4 pancakes apilados, "
-        "3 rebanadas de pizza), usa `count`=N y `estimated_amount_g`= peso de UNA "
-        "unidad. Jamás multipliques tú mismo — la app lo hace. "
-        "Si es 1 unidad, `count`=1. Para salsas/condimentos/aceites, siempre `count`=1.\n"
+        "CONTEO CRÍTICO — LOCALIZA Y CUENTA ANTES DE RESPONDER: para CADA "
+        "alimento que pueda venir en unidades repetidas, primero ubica y numera "
+        "cada unidad individual una por una (unidad 1, unidad 2, …), incluyendo "
+        "las APILADAS, superpuestas o parcialmente ocultas detrás de otra "
+        "(ej. dos carnes de hamburguesa una sobre otra, tortas apiladas, huevos, "
+        "albóndigas, tacos, panqueques, empanadas, salchichas, rebanadas). "
+        "Reporta ese total en `count`=N y `estimated_amount_g`= peso de UNA sola "
+        "unidad. NUNCA multipliques tú — la app multiplica. 1 unidad → `count`=1. "
+        "Salsas/condimentos/aceites → `count`=1 siempre.\n"
+        "DESAMBIGUACIÓN de apilados: ante la duda de si es 1 pieza o 2+ apiladas, "
+        "mira el GROSOR (un alto doble = 2 unidades), los BORDES (dos contornos "
+        "separados = 2) y las SOMBRAS/líneas horizontales entre capas. Cuenta lo "
+        "que la evidencia visual soporta; no asumas 1 por defecto en montículos.\n"
         "IDIOMA DEL NOMBRE: escribe cada `name` en el idioma del Locale — "
         "Locale que empieza con 'en' → nombres en INGLÉS (ej: 'grilled chicken "
         "breast'); cualquier otro → ESPAÑOL (ej: 'pechuga de pollo a la plancha'). "
@@ -553,7 +561,7 @@ class OpenAIVisionProvider:
         region: str,
         stage: str = "auto",
         plan_context: str | None = None,
-        user_profile: dict | None = None,
+        user_profile: dict[str, Any] | None = None,
         portion_history: list[str] | None = None,
     ) -> tuple[list[DetectedFoodItem], str]:
         s = get_settings()

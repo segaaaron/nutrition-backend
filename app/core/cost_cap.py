@@ -41,6 +41,10 @@ _PRICING_PER_M: Final[dict[str, tuple[float, float]]] = {
     "gpt-4o-mini": (0.17, 0.66),
     "gpt-4o-2024-08-06": (2.75, 11.00),
     "gpt-4o": (2.75, 11.00),
+    # GPT-5 family (list prices July 2026 + ~10% conservative margin).
+    "gpt-5-mini": (0.275, 2.20),
+    "gpt-5.1": (1.375, 11.00),
+    "gpt-5.2": (1.925, 15.40),
     "text-embedding-3-large": (0.143, 0.0),
 }
 

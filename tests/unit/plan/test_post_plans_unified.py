@@ -30,8 +30,8 @@ from app.plan.presentation import router as plan_router_module
 from app.plan.presentation.router import router as plan_router
 from app.profile.domain.entities import UserProfile
 
-
 FAKE_USER_ID = UUID("22222222-2222-2222-2222-222222222222")
+FAKE_PLAN_ID = UUID("33333333-3333-3333-3333-333333333333")
 VALID_KEY = "550e8400-e29b-41d4-a716-446655440000"
 VALID_KEY_2 = "550e8400-e29b-41d4-a716-446655440099"
 
@@ -115,11 +115,15 @@ def app(
 
     monkeypatch.setattr(plan_router_module, "InlineComputeGoals", _NoopComputeGoals)
 
-    async def _fake_enqueue(**kwargs: Any) -> str:
+    async def _fake_enqueue(**kwargs: Any) -> tuple[str, str]:
+        # BE-7: enqueue_and_wait_plan returns (job_id, plan_id). A non-None
+        # plan_id simulates the worker finishing within the wait → 200 "ready".
+        # plan_id is a UUID string (CreatePlanResponse.plan_id is UUID-typed).
         enqueue_calls.append(kwargs)
-        return f"arq-job-{len(enqueue_calls)}"
+        n = len(enqueue_calls)
+        return f"arq-job-{n}", str(FAKE_PLAN_ID)
 
-    monkeypatch.setattr(plan_router_module, "enqueue_generate_plan", _fake_enqueue)
+    monkeypatch.setattr(plan_router_module, "enqueue_and_wait_plan", _fake_enqueue)
 
     fake_redis = _FakeRedis()
     monkeypatch.setattr(plan_router_module, "get_redis", lambda: fake_redis)
@@ -139,11 +143,13 @@ async def test_post_plans_with_profile_data_creates_profile_and_enqueues_plan(
         headers={"Idempotency-Key": VALID_KEY},
     )
 
-    assert resp.status_code == 202, resp.text
+    # BE-7: worker finished within the wait → synchronous 200 "ready" + plan_id.
+    assert resp.status_code == 200, resp.text
     body = resp.json()
-    assert body["status"] == "queued"
+    assert body["status"] == "ready"
     assert body["job_id"] == "arq-job-1"
-    assert body["plan_job"] == {"job_id": "arq-job-1", "status": "queued"}
+    assert body["plan_id"] == str(FAKE_PLAN_ID)
+    assert body["plan_job"] == {"job_id": "arq-job-1", "status": "ready"}
     # Profile echoed back so iOS can render home without a second GET.
     assert body["profile"] is not None
     assert body["profile"]["user_id"] == str(FAKE_USER_ID)
@@ -171,9 +177,9 @@ async def test_post_plans_without_profile_data_uses_existing_profile(
         headers={"Idempotency-Key": VALID_KEY},
     )
 
-    assert resp.status_code == 202, resp.text
+    assert resp.status_code == 200, resp.text
     body = resp.json()
-    assert body["status"] == "queued"
+    assert body["status"] == "ready"
     assert body["job_id"] == "arq-job-1"
     # No profile echo because the client didn't send one.
     assert body["profile"] is None
@@ -244,7 +250,7 @@ async def test_post_plans_legacy_body_without_profile_still_works(
         headers={"Idempotency-Key": VALID_KEY},
     )
 
-    assert resp.status_code == 202, resp.text
+    assert resp.status_code == 200, resp.text
     assert len(enqueue_calls) == 1
     assert enqueue_calls[0]["plan_type"] == "week"
 
@@ -253,8 +259,8 @@ async def test_post_plans_legacy_body_without_profile_still_works(
 async def test_post_plans_idempotent_replay_returns_cached_body(
     app: FastAPI, repo: _InMemRepo, enqueue_calls: list[dict[str, Any]]
 ) -> None:
-    """Same idempotency key + same body → second call returns cached
-    202 without re-enqueueing."""
+    """Same idempotency key + same body → second call returns the cached
+    200 body without re-enqueueing."""
     repo.store[FAKE_USER_ID] = UserProfile(user_id=FAKE_USER_ID)
 
     client = TestClient(app)
@@ -265,8 +271,8 @@ async def test_post_plans_idempotent_replay_returns_cached_body(
         "/plans", json={}, headers={"Idempotency-Key": VALID_KEY}
     )
 
-    assert r1.status_code == 202
-    assert r2.status_code == 202
+    assert r1.status_code == 200
+    assert r2.status_code == 200
     assert r1.json() == r2.json()
     # Only the first call hit the enqueuer.
     assert len(enqueue_calls) == 1
