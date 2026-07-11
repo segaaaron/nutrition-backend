@@ -32,7 +32,6 @@ best-effort: failures return the unmodified plan.
 
 from __future__ import annotations
 
-import asyncio
 import random
 import secrets
 import time
@@ -145,12 +144,16 @@ class CreatePlan:
         total_days = PLAN_TYPE_TO_DAYS[plan_type]
         seed = seed if seed is not None else secrets.randbits(63)
 
-        # Gather independent startup DB calls in a single round-trip.
-        targets, profile, ranking_ctx = await asyncio.gather(
-            self.user_ctx.get_user_targets(user_id),
-            self.user_ctx.get_user_profile_snapshot(user_id),
-            self.layer3.profile_ctx.get_ranking_context(user_id),
-        )
+        # Startup DB calls — MUST run sequentially. `user_ctx` and
+        # `layer3.profile_ctx` share ONE AsyncSession, and an async session
+        # (single DB connection) is NOT concurrency-safe: firing these via
+        # asyncio.gather interleaves queries on the same connection and raises
+        # IllegalStateChangeError ("close() can't be called here"). A shared
+        # connection serialises queries anyway, so gather bought no real
+        # parallelism — only the race. Sequential is same round-trips, correct.
+        targets = await self.user_ctx.get_user_targets(user_id)
+        profile = await self.user_ctx.get_user_profile_snapshot(user_id)
+        ranking_ctx = await self.layer3.profile_ctx.get_ranking_context(user_id)
         # Defense-in-depth invariant — NEVER generate a plan against the
         # 2000 kcal fallback. If `nutritional_goals` is missing, recover
         # by computing the baseline inline (idempotent); if that path is

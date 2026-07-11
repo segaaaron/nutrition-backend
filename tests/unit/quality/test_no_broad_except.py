@@ -92,15 +92,15 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # OK1: nutrition event handlers — best-effort with explicit log.
     "app/nutrition/event_handlers.py": {76, 108},
     # OK4: ensure_goals fallback wrapper — logs and re-raises domain error.
-    "app/plan/application/create_plan.py": {166, 445},
+    "app/plan/application/create_plan.py": {169, 448},
     # OK4: plan gen rate-limit Redis fail-open — Redis down must not block plan creation.
     "app/plan/presentation/router.py": {455},
     # OK4: taste profile cache fetch — falls through on miss.
     "app/plan/application/taste_profile.py": {48},
     # OK4: plan cache best-effort.
     "app/plan/infrastructure/cache.py": {32},
-    # OK4: enqueue-and-wait — any wait failure (timeout/worker error) → async fallback (BE-7).
-    "app/plan/infrastructure/plan_enqueuer.py": {56},
+    # OK4: enqueue-and-wait — wrap a terminal worker failure into 503 (BE-7).
+    "app/plan/infrastructure/plan_enqueuer.py": {68},
     # OK4: OpenAI coherence client — structured fallback.
     "app/plan/infrastructure/openai_coherence_client.py": {107, 120, 137, 189, 228},
     # OK4: taste fetcher SQL best-effort.
@@ -128,7 +128,7 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     "app/vision/infrastructure/usda_fdc.py": {282, 290, 394},
     # OK4: OpenAI vision wrappers with fallback contracts.
     "app/vision/application/learn_user_correction.py": {175},
-    "app/vision/application/process_vision_job.py": {175, 409, 454, 532, 546},
+    "app/vision/application/process_vision_job.py": {183, 417, 462, 540, 554},
     # OK4: macro grounding + USDA fallback — DB lookup best-effort.
     "app/vision/infrastructure/macro_grounder.py": {73},
     # OK4: plan context SQL — best-effort LLM hint.

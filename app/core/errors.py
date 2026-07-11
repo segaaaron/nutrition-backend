@@ -148,6 +148,18 @@ class UpstreamError(DomainError):
     title = "Upstream error"
 
 
+class PlanGenerationFailed(DomainError):
+    """The plan worker terminally failed (retries exhausted) while the
+    synchronous ``POST /plans`` (BE-7) was awaiting it. 503 + Retry-After
+    tells the client the plan did NOT generate and the request is RETRIABLE —
+    the client shows an error, not an eternal "queued" spinner.
+    """
+
+    http_status = 503
+    type_slug = "plan_generation_failed"
+    title = "Plan generation failed"
+
+
 class EXIFLeakError(DomainError):
     """Fail-closed: any image with surviving GPS EXIF after compression
     aborts the request with 500 rather than silently store a leaking blob.

@@ -109,10 +109,18 @@ class ProcessVisionJob:
                 locale=locale, region=region,
             )
 
-            plan_context, user_profile, portion_anchors = await asyncio.gather(
-                load_plan_context(user_id=user_id, meal_time=meal_time, session=self.session),
-                load_user_profile(user_id=user_id, session=self.session),
-                load_recent_portion_anchors(user_id=user_id, session=self.session),
+            # Sequential — MUST NOT gather: these three share `self.session`,
+            # and one async session (single connection) is not concurrency-safe.
+            # Firing them via asyncio.gather interleaves queries on the same
+            # connection → SQLAlchemy IllegalStateChangeError (the exact race
+            # that broke plan generation, create_plan.py). A shared connection
+            # serialises anyway, so gather bought no parallelism — only the race.
+            plan_context = await load_plan_context(
+                user_id=user_id, meal_time=meal_time, session=self.session
+            )
+            user_profile = await load_user_profile(user_id=user_id, session=self.session)
+            portion_anchors = await load_recent_portion_anchors(
+                user_id=user_id, session=self.session
             )
 
             items, prompt_sha, cache_hit = await self._recognise(
