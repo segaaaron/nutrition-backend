@@ -7,7 +7,7 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.vision.domain.entities import DetectedFoodItem, FoodGroup, VisionJob
@@ -113,7 +113,12 @@ def _items_from_jsonb(raw: list[dict[str, Any]] | None) -> list[DetectedFoodItem
                 # well-formed 4-tuple; anything else → None (defensive against
                 # corrupt cache rows so the DTO mapping never IndexErrors).
                 bbox=(
-                    tuple(float(v) for v in d["bbox"])  # type: ignore[assignment]
+                    (
+                        float(d["bbox"][0]),
+                        float(d["bbox"][1]),
+                        float(d["bbox"][2]),
+                        float(d["bbox"][3]),
+                    )
                     if isinstance(d.get("bbox"), list | tuple) and len(d["bbox"]) == 4
                     else None
                 ),
@@ -239,6 +244,8 @@ class SqlVisionJobRepository:
                 VisionJobModel.created_at >= cutoff,
                 VisionJobModel.phash_64.isnot(None),
                 VisionJobModel.detected_items.isnot(None),
+                # Same rule as SHA dedup: empty detections never serve as cache.
+                func.jsonb_array_length(VisionJobModel.detected_items) > 0,
             )
             .order_by(VisionJobModel.created_at.desc())
             .limit(200)  # per-user recent window; Hamming filter in Python
@@ -255,7 +262,7 @@ class SqlVisionJobRepository:
                         )
                     )
                 ).scalar_one_or_none()
-                if raw_items is None:
+                if not raw_items:  # None or empty list → treat as miss
                     return None
                 return _items_from_jsonb(raw_items), row_prompt_sha
         return None
@@ -296,6 +303,10 @@ class SqlVisionJobRepository:
                 VisionJobModel.status == "completed",
                 VisionJobModel.created_at >= cutoff,
                 VisionJobModel.detected_items.isnot(None),
+                # Never serve an EMPTY detection from cache: a 0-item result is
+                # a failed/edge scan, not food. Treating it as a miss re-runs
+                # the model instead of poisoning the cache for `ttl_days`.
+                func.jsonb_array_length(VisionJobModel.detected_items) > 0,
             )
             .order_by(VisionJobModel.created_at.desc())
             .limit(1)
@@ -307,7 +318,7 @@ class SqlVisionJobRepository:
         if row is None:
             return None
         raw_items, original_prompt_sha = row
-        if raw_items is None:
+        if not raw_items:  # None or empty list → treat as miss
             return None
         stripped = _strip_personal_fields(list(raw_items))
         return _items_from_jsonb(stripped), original_prompt_sha

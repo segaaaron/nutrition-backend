@@ -24,17 +24,17 @@ from app.vision.infrastructure.openai_vision import (
 )
 def test_gpt5_family_uses_max_completion_tokens_and_no_temperature(model: str) -> None:
     assert _model_is_gpt5_family(model) is True
-    kw = _completion_kwargs(model, 1200)
+    kw = _completion_kwargs(model, 4000)
     assert kw == {
-        "max_completion_tokens": 1200,
-        "extra_body": {"reasoning_effort": "minimal", "verbosity": "low"},
+        "max_completion_tokens": 4000,
+        "extra_body": {"reasoning_effort": "low"},
     }
     # Legacy params MUST be absent — their presence 400s on GPT-5.
     assert "max_tokens" not in kw
     assert "temperature" not in kw
-    # reasoning_effort MUST be minimal: max_completion_tokens is shared with
-    # reasoning tokens; a heavier budget starves the JSON output → empty scan.
-    assert kw["extra_body"]["reasoning_effort"] == "minimal"
+    # reasoning_effort MUST be "low": measured on the real vision prompt,
+    # "minimal" and "medium" both returned EMPTY items; "low" detects reliably.
+    assert kw["extra_body"]["reasoning_effort"] == "low"
 
 
 @pytest.mark.parametrize("model", ["gpt-4o-mini", "gpt-4o-2024-08-06", "gpt-4o"])

@@ -116,11 +116,14 @@ class Settings(BaseSettings):
     # SHA256 dedup window. Re-uses a previous completed job's items when the
     # same compressed image is submitted by ANY user within the TTL.
     vision_cache_ttl_days: int = 90
-    # Hard cap on completion tokens for vision calls. Bumped 400 -> 1200 to
-    # avoid JSON truncation on dense buffet plates (HIGH-3 fix). At gpt-5-mini
-    # output pricing (~$2/1M), the 1200-token ceiling is ~$0.0024/call; a
-    # typical plate (~500 out tok) lands ~$0.0014/photo incl. image input.
-    vision_max_output_tokens: int = 1200
+    # Hard cap on completion tokens for vision calls. For GPT-5 this budget is
+    # SHARED with reasoning tokens (reasoning_effort="low" spends ~500-960),
+    # and the raw item JSON alone is ~1800 tok on a normal plate. Measured
+    # 2026-07-11: a real scan uses ~2300-2800 completion tokens — the old 1200
+    # cap TRUNCATED the JSON → empty `items` → "no food found". Bumped to 4000
+    # for headroom. Cost: typical ~2500 out tok × $2.20/1M ≈ $0.0055 + input
+    # ≈ $0.006/photo at gpt-5-mini. Ceiling (4000) ≈ $0.0088/call.
+    vision_max_output_tokens: int = 4000
     # Pixel threshold (width AND height) — under this → detail="low" (85 tok
     # image cost), otherwise detail="high" (765 tok). OpenAI vision formula.
     vision_low_detail_max_dim: int = 500
