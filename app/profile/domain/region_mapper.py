@@ -10,11 +10,13 @@ from __future__ import annotations
 from typing import Final
 
 _COUNTRY_TO_REGION: Final[dict[str, str]] = {}
+# Supported regions: US, Canada, LATAM only (owner decision 2026-07-10).
+# EU/UK were removed — European/UK countries fall through to the "us" default
+# in country_to_region(). Revisit region expansion once the core markets are
+# proven.
 _REGION_DEFAULT_LOCALE: Final[dict[str, str]] = {
     "us": "en",
     "ca": "en",
-    "eu": "en",
-    "uk": "en",
     "latam": "es",
 }
 
@@ -22,39 +24,6 @@ _REGION_DEFAULT_LOCALE: Final[dict[str, str]] = {
 _COUNTRY_TO_REGION["US"] = "us"
 # CA
 _COUNTRY_TO_REGION["CA"] = "ca"
-# UK
-_COUNTRY_TO_REGION["GB"] = "uk"
-# EU
-for c in [
-    "DE",
-    "FR",
-    "IT",
-    "ES",
-    "PT",
-    "NL",
-    "BE",
-    "AT",
-    "IE",
-    "FI",
-    "SE",
-    "DK",
-    "PL",
-    "CZ",
-    "GR",
-    "RO",
-    "HU",
-    "BG",
-    "HR",
-    "SI",
-    "SK",
-    "LU",
-    "MT",
-    "CY",
-    "EE",
-    "LV",
-    "LT",
-]:
-    _COUNTRY_TO_REGION[c] = "eu"
 # LATAM
 for c in [
     "MX",
@@ -92,7 +61,8 @@ def region_default_locale(region: str) -> str:
 
 
 def country_to_locale(country: str | None) -> str:
-    """One-shot derivation. Brazil maps to 'pt' (overrides region 'es')."""
+    """One-shot derivation. Only es/en supported. LATAM → es, EXCEPT Brazil →
+    en (Portuguese is unsupported; English is the neutral default, not es)."""
     if country and country.upper() == "BR":
-        return "pt"
+        return "en"
     return region_default_locale(country_to_region(country))

@@ -46,10 +46,12 @@ class Recipe:
     protein_g: int | None
     carbs_g: int | None
     fat_g: int | None
-    fiber_g: int
-    sugar_g: int
-    sodium_mg: int
-    sat_fat_g: int
+    # Nullable since migration 0028: NULL = "not yet measured" (unknown),
+    # distinct from a genuine 0 g. Safety gates fail-closed on NULL.
+    fiber_g: int | None
+    sugar_g: int | None
+    sodium_mg: int | None
+    sat_fat_g: int | None
     tags: list[str]
     meal_time: MealTime | None
     prep_min: int | None

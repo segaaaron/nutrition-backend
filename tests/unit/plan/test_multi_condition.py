@@ -1,8 +1,8 @@
 """Multi-condition intersection invariants (property-based).
 
 NOVA scope: nutrition planning, not nutrition guidance. When a user declares
-several conditions at once (e.g. diabetes_t2 + ckd, pregnancy + lactation
-edge cases, ckd + lactation), Layer 1 eligibility composes ConditionGate
+several in-scope conditions at once (e.g. fatty_liver + pregnancy,
+fatty_liver + lactation), Layer 1 eligibility composes ConditionGate
 Strategy fragments via AND. The invariants asserted here:
 
   M1. `gates_for(cond)` returns the gate registered for each condition AND
@@ -16,7 +16,7 @@ Strategy fragments via AND. The invariants asserted here:
       gates independently and together — surfaces a regression if either
       adjustment silently drops the other.)
   M4. Per-condition kcal targets respect the BMR * 0.9 safety floor for any
-      diabetes_t2 / ckd / pregnancy combination.
+      realistic user across the fatty_liver / pregnancy / lactation combos.
 
 We do NOT exercise the SQL execution path here (Layer 1 is integration-tested
 elsewhere). We exercise the composition contract, which is where multi-
@@ -50,11 +50,10 @@ _SETTINGS = settings(
     suppress_health_check=[HealthCheck.too_slow, HealthCheck.filter_too_much],
 )
 
+# In-scope conditions with registered gates (owner decision 2026-07-09;
+# out-of-scope medical gates removed 2026-07-10).
 _CONDITIONS_WITH_GATES = (
-    "diabetes_t2",
-    "ckd",
-    "hypertension",
-    "celiac",
+    "fatty_liver",
     "pregnancy",
     "lactation",
 )
@@ -71,7 +70,7 @@ _CONDITIONS_WITH_GATES = (
     conditions=st.lists(
         st.sampled_from(_CONDITIONS_WITH_GATES),
         min_size=2,
-        max_size=4,
+        max_size=3,
         unique=True,
     ),
 )
@@ -98,7 +97,7 @@ def test_each_condition_contributes_at_least_one_gate(
     conditions=st.lists(
         st.sampled_from(_CONDITIONS_WITH_GATES),
         min_size=2,
-        max_size=4,
+        max_size=3,
         unique=True,
     ),
 )
@@ -126,7 +125,7 @@ def test_compose_no_param_collision_across_gates(
     conditions=st.lists(
         st.sampled_from(_CONDITIONS_WITH_GATES),
         min_size=2,
-        max_size=4,
+        max_size=3,
         unique=True,
     ),
 )
@@ -242,12 +241,12 @@ def test_kcal_target_above_bmr_safety_floor_for_realistic_users(  # noqa: PLR091
 
 
 _COMBOS: list[frozenset[str]] = [
-    frozenset({"diabetes_t2"}),
-    frozenset({"ckd"}),
-    frozenset({"diabetes_t2", "ckd"}),
-    frozenset({"diabetes_t2", "pregnancy"}),
-    frozenset({"ckd", "lactation"}),
-    frozenset({"diabetes_t2", "ckd", "pregnancy"}),
+    frozenset({"fatty_liver"}),
+    frozenset({"pregnancy"}),
+    frozenset({"lactation"}),
+    frozenset({"fatty_liver", "pregnancy"}),
+    frozenset({"fatty_liver", "lactation"}),
+    frozenset({"fatty_liver", "pregnancy", "lactation"}),
 ]
 
 

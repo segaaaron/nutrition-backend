@@ -287,7 +287,7 @@ class UpdateLocale:
         profile = await self.profiles.get(user_id)
         if profile is None:
             raise NotFoundError("profile_not_found")
-        if locale not in ("en", "es", "pt", "fr", "de"):
+        if locale not in ("en", "es"):
             raise BusinessRuleViolation("unsupported_locale")
         profile.locale = locale
         profile.updated_at = _now()

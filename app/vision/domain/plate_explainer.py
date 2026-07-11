@@ -109,7 +109,12 @@ def explain_plate(items: list[DetectedFoodItem], locale: str = "es") -> PlateExp
 
     parts: list[str] = []
     for gb in groups:
-        names = ", ".join(i.name for i in gb.items)
+        # Prefix each item with its unit count when >1 so the summary reads
+        # "2× carne, 4× rebanada de tomate" instead of a bare name — the
+        # per-item detail the user sees for a multi-unit plate.
+        names = ", ".join(
+            f"{i.count}× {i.name}" if i.count > 1 else i.name for i in gb.items
+        )
         parts.append(f"{len(gb.items)} {gb.label} ({names}: {gb.total_kcal} kcal)")
 
     if loc == "es":

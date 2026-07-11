@@ -53,6 +53,9 @@ def _items_to_jsonb(items: list[DetectedFoodItem]) -> list[dict[str, Any]]:
             "fiber_g": i.fiber_g,
             "sugar_g": i.sugar_g,
             "count": i.count,
+            # BE-5: normalized bounding box [x, y, w, h] or null. Image-bound,
+            # shareable via the SHA cache.
+            "bbox": list(i.bbox) if i.bbox else None,
         }
         for i in items
     ]
@@ -106,6 +109,14 @@ def _items_from_jsonb(raw: list[dict[str, Any]] | None) -> list[DetectedFoodItem
                 fiber_g=int(d.get("fiber_g") or 0),
                 sugar_g=int(d.get("sugar_g") or 0),
                 count=int(d.get("count") or 1),
+                # BE-5: old cached rows lack bbox → None. Accept only a
+                # well-formed 4-tuple; anything else → None (defensive against
+                # corrupt cache rows so the DTO mapping never IndexErrors).
+                bbox=(
+                    tuple(float(v) for v in d["bbox"])  # type: ignore[assignment]
+                    if isinstance(d.get("bbox"), list | tuple) and len(d["bbox"]) == 4
+                    else None
+                ),
             )
         )
     return out

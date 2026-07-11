@@ -94,9 +94,7 @@ _COUNTRY_TO_MARKET: dict[str, str] = {
     "HN": "latam", "PY": "latam", "SV": "latam", "UY": "latam",
     # North America
     "US": "us", "CA": "ca",
-    # Europe
-    "GB": "gb", "UK": "gb",
-    "ES": "eu", "FR": "eu", "DE": "eu", "IT": "eu", "PT": "eu",
+    # Europe/UK removed 2026-07-10 — only US, Canada, LATAM are supported.
 }
 
 
@@ -149,3 +147,18 @@ def adherence(completion_rate: float | None) -> float:
     if completion_rate is None:
         return 0.5
     return max(0.0, min(1.0, completion_rate))
+
+
+# Per-meal omega-3 (EPA+DHA) at which a recipe earns the full promotion bonus.
+# ~250-500 mg/day EPA+DHA is the general adult target (DGA); oily-fish meals
+# clear ~150 mg/portion, so 150 mg saturates the per-meal signal.
+_OMEGA3_FULL_MG = 150
+
+
+def omega3_fit(omega3_mg: int | None) -> float:
+    """0..1 promotion signal for omega-3 content. NULL/unknown → 0 (no boost,
+    never a penalty). Used only for conditions where oily fish is diet therapy
+    (e.g. fatty_liver/NAFLD)."""
+    if not omega3_mg or omega3_mg <= 0:
+        return 0.0
+    return min(1.0, omega3_mg / _OMEGA3_FULL_MG)

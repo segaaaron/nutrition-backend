@@ -184,6 +184,20 @@ VISION_SCHEMA: dict[str, Any] = {
                             "unknown",
                         ],
                     },
+                    # BE-5: normalized bounding box (0..1, origin top-left) so
+                    # iOS can annotate each item on the photo. null when the
+                    # model cannot locate the item (mixed dish / sauce).
+                    "bbox": {
+                        "type": ["object", "null"],
+                        "additionalProperties": False,
+                        "properties": {
+                            "x": {"type": "number"},
+                            "y": {"type": "number"},
+                            "w": {"type": "number"},
+                            "h": {"type": "number"},
+                        },
+                        "required": ["x", "y", "w", "h"],
+                    },
                 },
                 "required": [
                     "name",
@@ -201,6 +215,7 @@ VISION_SCHEMA: dict[str, Any] = {
                     "food_group",
                     "role",
                     "prep_method",
+                    "bbox",
                 ],
             },
         },
@@ -238,6 +253,11 @@ def _system_prompt(
         "food_group (vegetable|fruit|grain|protein|dairy|fat|sweet|beverage|other), "
         "role (main|side|sauce|condiment|cooking_fat|garnish|sweetener|beverage_base), "
         "prep_method (deep_fried|fried|sauteed|grilled|boiled|steamed|baked|stewed|raw|unknown).\n"
+        "COHERENCIA: `kcal`≈4·protein_g+4·carbs_g+9·fat_g (Atwater) — que cuadren. "
+        "`prep_method` afecta kcal (frito absorbe aceite; a la plancha no). "
+        "`kcal_min/kcal_max`=rango honesto de incertidumbre, más ancho si el ítem "
+        "está ocluido o el tamaño es ambiguo. `confidence`: alto SOLO si identidad "
+        "Y tamaño son claros; bajo si ocluido, borroso o dudoso.\n"
         "PORCIONES: si hay mano, moneda, cubierto u otro objeto conocido → úsalo como "
         "calibrador PRINCIPAL. Otras referencias: plato Ø26cm, plato hondo 400ml, "
         "cuchara sopera 15ml, vaso 250ml, taza 240ml, lata 355ml. "
@@ -247,6 +267,16 @@ def _system_prompt(
         "3 rebanadas de pizza), usa `count`=N y `estimated_amount_g`= peso de UNA "
         "unidad. Jamás multipliques tú mismo — la app lo hace. "
         "Si es 1 unidad, `count`=1. Para salsas/condimentos/aceites, siempre `count`=1.\n"
+        "IDIOMA DEL NOMBRE: escribe cada `name` en el idioma del Locale — "
+        "Locale que empieza con 'en' → nombres en INGLÉS (ej: 'grilled chicken "
+        "breast'); cualquier otro → ESPAÑOL (ej: 'pechuga de pollo a la plancha'). "
+        "Nombres genéricos y claros, sin marcas.\n"
+        "BBOX por ítem `{x,y,w,h}` en fracciones 0-1 de la imagen: `x,y`=esquina "
+        "SUPERIOR-IZQUIERDA (no el centro), `w,h`=ancho/alto, con `x+w`≤1 y "
+        "`y+h`≤1. Caja ajustada a la extensión visible del alimento; si "
+        "`count`>1 cubre el grupo entero. `bbox`:null OBLIGATORIO si no tiene "
+        "posición visible clara (inferidos/invisibles: aceite, mantequilla en "
+        "puré; salsa mezclada; ingrediente disperso). Nunca inventes coords.\n"
         f"Locale={locale}. Region={region}. JSON estricto, nunca texto libre."
     )
     if user_profile:
@@ -936,6 +966,27 @@ def _parse_items(raw: dict[str, Any]) -> list[DetectedFoodItem]:
             if kcal_max_raw is not None:
                 kcal_max = max(int(kcal_max_raw) * count, kcal_best, kcal_raw)
 
+            # BE-5: normalized bounding box. Accept only a complete, in-range,
+            # in-bounds box: each of x,y,w,h in [0,1], positive size, and the
+            # box must not exceed the image (x+w<=1, y+h<=1, small epsilon for
+            # rounding). Anything else → None (never fabricate a position).
+            bbox: tuple[float, float, float, float] | None = None
+            bbox_raw = r.get("bbox")
+            if isinstance(bbox_raw, dict):
+                try:
+                    bx, by, bw, bh = (float(bbox_raw[k]) for k in ("x", "y", "w", "h"))
+                    _eps = 0.01
+                    if (
+                        all(0.0 <= v <= 1.0 for v in (bx, by, bw, bh))
+                        and bw > 0.0
+                        and bh > 0.0
+                        and bx + bw <= 1.0 + _eps
+                        and by + bh <= 1.0 + _eps
+                    ):
+                        bbox = (bx, by, bw, bh)
+                except (KeyError, TypeError, ValueError):
+                    bbox = None
+
             out.append(
                 DetectedFoodItem(
                     name=str(r["name"])[:120],
@@ -954,6 +1005,7 @@ def _parse_items(raw: dict[str, Any]) -> list[DetectedFoodItem]:
                     kcal_min=kcal_min,
                     kcal_max=kcal_max,
                     count=count,
+                    bbox=bbox,
                 )
             )
         except (KeyError, ValueError, TypeError, InvalidOperation) as exc:

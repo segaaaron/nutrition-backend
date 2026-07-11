@@ -93,6 +93,6 @@ ACTIVITY_LEVELS_5: Final[frozenset[str]] = frozenset(
     }
 )
 
-LOCALES_5: Final[frozenset[str]] = frozenset({"en", "es", "pt", "fr", "de"})
+SUPPORTED_LOCALES: Final[frozenset[str]] = frozenset({"en", "es"})
 
-REGIONS_5: Final[frozenset[str]] = frozenset({"us", "ca", "eu", "uk", "latam"})
+SUPPORTED_REGIONS: Final[frozenset[str]] = frozenset({"us", "ca", "latam"})

@@ -20,8 +20,22 @@ FoodGroupDto = Literal[
 ]
 
 
+class BBoxDto(BaseModel):
+    """Normalized bounding box (0..1, origin top-left) for photo annotation."""
+
+    x: float
+    y: float
+    w: float
+    h: float
+
+
 class DetectedItemDto(BaseModel):
     name: str
+    # Number of identical visible units of this item (e.g. 2 beef patties,
+    # 4 tomato slices). estimated_amount_g / kcal / macros below are the TOTAL
+    # across all `count` units. Clients render "2× Carne — 400 kcal" for a
+    # per-item breakdown instead of only a plate total.
+    count: int = 1
     estimated_amount_g: Decimal
     kcal: int
     kcal_min: int | None = None
@@ -40,6 +54,9 @@ class DetectedItemDto(BaseModel):
     inferred: bool = False
     matched_food_id: UUID | None = None
     match_method: str | None = None
+    # BE-5: normalized bounding box for annotating the item on the photo.
+    # null when the model could not locate it (mixed dish / sauce).
+    bbox: BBoxDto | None = None
 
 
 class PlateGroupDto(BaseModel):
@@ -72,7 +89,9 @@ class JobStatusResponse(BaseModel):
     # Percentage of the user's daily kcal goal this plate represents.
     # Null when goals are not set or plate total is unavailable.
     pct_daily_kcal: float | None = None
-    summary: str | None = None
+    # NOTE: the prose `summary` field was removed 2026-07-10 (owner decision).
+    # It restated `items[]` / `groups[]` as bot-style text and duplicated the
+    # detail the client already renders. Clients build any prose from items[].
     error_code: str | None = None
     created_at: datetime | None = None
     completed_at: datetime | None = None

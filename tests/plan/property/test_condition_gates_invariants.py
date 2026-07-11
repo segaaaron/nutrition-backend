@@ -1,8 +1,19 @@
 """ConditionGate Strategy invariants (H2.2–H2.6).
 
-Covers the five new gates (PregnancyGate, DiabetesT2Gate, CKDGate,
-HypertensionGate, CeliacGate). Each gate is a frozen dataclass that
-contributes a parameterized SQL fragment to Layer 1 eligibility.
+Covers the three in-scope gates (owner decision 2026-07-09 — NOVA is a
+general LATAM nutrition app, not a medical tool):
+
+  - PregnancyGate  (life stage)
+  - LactationGate  (life stage)
+  - FattyLiverGate (the single nutrition-managed situation)
+
+Out-of-scope medical gates (diabetes_t2, hypertension, hypercholesterolemia,
+ckd, gout, ischemic_heart_disease) and the allergen-handled ones (celiac →
+gluten allergen, lactose_intolerance → dairy allergen) were removed
+2026-07-10; they no longer exist and are not exercised here.
+
+Each gate is a frozen dataclass that contributes a parameterized SQL fragment
+to Layer 1 eligibility.
 
 Invariants asserted:
 - Auto-registration at import time (registry contains the gate instance).
@@ -28,10 +39,7 @@ from hypothesis import strategies as st
 
 from app.plan.domain.condition_gates import (  # noqa: F401 — triggers registration
     CONDITION_GATES,
-    CeliacGate,
-    CKDGate,
-    DiabetesT2Gate,
-    HypertensionGate,
+    FattyLiverGate,
     LactationGate,
     PregnancyGate,
     gates_for,
@@ -60,7 +68,7 @@ def _as_gate(g: object) -> _GateProto:
 
 
 # ---------------------------------------------------------------------------
-# Registration: PregnancyGate
+# Registration: the three in-scope gates.
 # ---------------------------------------------------------------------------
 
 
@@ -69,44 +77,30 @@ def test_pregnancy_registered_at_import() -> None:
     assert any(isinstance(g, PregnancyGate) for g in gates)
 
 
-def test_diabetes_t2_registered_at_import() -> None:
-    gates = gates_for("diabetes_t2")
-    assert any(isinstance(g, DiabetesT2Gate) for g in gates)
+def test_lactation_registered_at_import() -> None:
+    gates = gates_for("lactation")
+    assert any(isinstance(g, LactationGate) for g in gates)
 
 
-def test_ckd_registered_at_import() -> None:
-    gates = gates_for("ckd")
-    assert any(isinstance(g, CKDGate) for g in gates)
-
-
-def test_hypertension_registered_at_import() -> None:
-    gates = gates_for("hypertension")
-    assert any(isinstance(g, HypertensionGate) for g in gates)
-
-
-def test_celiac_registered_at_import() -> None:
-    gates = gates_for("celiac")
-    assert any(isinstance(g, CeliacGate) for g in gates)
+def test_fatty_liver_registered_at_import() -> None:
+    gates = gates_for("fatty_liver")
+    assert any(isinstance(g, FattyLiverGate) for g in gates)
 
 
 # ---------------------------------------------------------------------------
-# Per-gate property suite (parametrised over the 5 new gates).
+# Per-gate property suite (parametrised over the 3 in-scope gates).
 # ---------------------------------------------------------------------------
 
 _GATE_INSTANCES: list[_GateProto] = [
     PregnancyGate(),
-    DiabetesT2Gate(),
-    CKDGate(),
-    HypertensionGate(),
-    CeliacGate(),
+    LactationGate(),
+    FattyLiverGate(),
 ]
 
 _GATE_EXPECTED_CONDITION: dict[str, str] = {
     "PregnancyGate": "pregnancy",
-    "DiabetesT2Gate": "diabetes_t2",
-    "CKDGate": "ckd",
-    "HypertensionGate": "hypertension",
-    "CeliacGate": "celiac",
+    "LactationGate": "lactation",
+    "FattyLiverGate": "fatty_liver",
 }
 
 
@@ -125,7 +119,7 @@ def test_gate_contributes_non_empty_sql(idx: int) -> None:
 def test_gate_params_referenced_in_sql(idx: int) -> None:
     """Every params key appears as `:key` in SQL; every `:key` in SQL has
     a matching params entry (no orphans either direction). Special case:
-    CeliacGate has zero params and zero placeholders."""
+    Pregnancy/Lactation gates have zero params and zero placeholders."""
     gate = _GATE_INSTANCES[idx]
     sql, params = gate.contribute_sql()
     placeholders = set(_PLACEHOLDER_RE.findall(sql))
@@ -183,12 +177,18 @@ def test_all_registered_gates_are_frozen_dataclasses() -> None:
             hash(gate)
 
 
+def test_only_in_scope_conditions_registered() -> None:
+    """Guard the scope contract: exactly the three in-scope conditions have
+    registered gates — no removed medical gate leaked back in."""
+    assert set(CONDITION_GATES.keys()) == {"pregnancy", "lactation", "fatty_liver"}
+
+
 @settings(max_examples=200, deadline=None)
 @given(
     conds=st.lists(
-        st.sampled_from(["lactation", "pregnancy", "ckd", "hypertension", "diabetes_t2", "celiac"]),
+        st.sampled_from(["lactation", "pregnancy", "fatty_liver"]),
         min_size=1,
-        max_size=4,
+        max_size=3,
         unique=True,
     ),
 )
@@ -217,16 +217,17 @@ def test_layer1_dispatch_multiset_invariant(conds: list[str]) -> None:
 @settings(max_examples=200, deadline=None)
 @given(
     conds=st.lists(
-        st.sampled_from(["lactation", "pregnancy", "ckd", "hypertension", "diabetes_t2", "celiac"]),
+        st.sampled_from(["lactation", "pregnancy", "fatty_liver"]),
         min_size=1,
-        max_size=4,
+        max_size=3,
         unique=True,
     ),
 )
 def test_layer1_dispatch_params_no_collision(conds: list[str]) -> None:
-    """Every gate uses a unique parameter-name prefix (lac_, preg_, dt2_,
-    ckd_, ht_, celiac has none). When Layer 1 merges params via dict.update
-    across multiple gates for a multi-condition user, no key should collide."""
+    """Each gate uses a unique parameter-name prefix (fatty_liver → fl_;
+    pregnancy/lactation have none). When Layer 1 merges params via
+    dict.update across multiple gates for a multi-condition user, no key
+    should collide."""
     seen: set[str] = set()
     for c in conds:
         for g in gates_for(c):

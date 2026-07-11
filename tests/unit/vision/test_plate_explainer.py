@@ -21,6 +21,35 @@ def _item(name: str, kcal: int, group: str | None) -> DetectedFoodItem:
     )
 
 
+def _item_n(name: str, kcal: int, group: str | None, count: int) -> DetectedFoodItem:
+    return DetectedFoodItem(
+        name=name,
+        estimated_amount_g=Decimal("100"),
+        kcal=kcal,
+        protein_g=0,
+        carbs_g=0,
+        fat_g=0,
+        confidence=0.9,
+        food_group=group,  # type: ignore[arg-type]
+        count=count,
+    )
+
+
+def test_summary_shows_unit_count_for_multi_unit_items() -> None:
+    # A triple-meat burger plate: the summary must surface "2× carne",
+    # "4× rebanada de tomate" — not bare names — and leave count=1 unprefixed.
+    items = [
+        _item_n("carne", 400, "protein", 2),
+        _item_n("rebanada de tomate", 20, "vegetable", 4),
+        _item_n("pan", 150, "grain", 1),
+    ]
+    out = explain_plate(items, locale="es")
+    assert "2× carne" in out.summary
+    assert "4× rebanada de tomate" in out.summary
+    assert "1× pan" not in out.summary  # count==1 stays unprefixed
+    assert "pan" in out.summary
+
+
 def test_groups_ordered_and_totalled() -> None:
     items = [
         _item("arroz blanco", 195, "grain"),

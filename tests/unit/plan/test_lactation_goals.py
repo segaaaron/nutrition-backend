@@ -52,7 +52,7 @@ def test_unknown_breastfeeding_flag_defaults_exclusive_500() -> None:
 def test_no_lactation_no_surplus_regardless_of_flag() -> None:
     out = apply_lactation_adjustment(
         kcal_target=Decimal("2000"),
-        conditions=frozenset({"diabetes_t2"}),
+        conditions=frozenset({"fatty_liver"}),
         is_exclusive=True,
     )
     assert out == Decimal("2000")

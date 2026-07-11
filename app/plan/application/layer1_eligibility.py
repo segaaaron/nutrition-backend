@@ -19,12 +19,12 @@ slot. **Hard** rules (no soft fallback), except region (see 1):
          (2026-06-01) found 37 such mistagged recipes.
   3. Contraindicated conditions: any recipe listing a user's condition in
      `contraindicated_conditions` is dropped.
-  4. Condition-specific gates (per spec §6 / ADR-0001):
-       diabetes_t2          → sugar_g/portion ≤ 15
-       hypertension         → sodium_mg/portion ≤ 600
-       ckd                  → protein_g/portion ≤ weight_kg * 0.8 / 3
-       hypercholesterolemia → sat_fat_g/portion ≤ 5
-       gout                 → no purine-heavy tag (organ_meat, shellfish)
+  4. Condition-specific gates (per spec §6 / ADR-0001). In-scope conditions
+     only (owner decision 2026-07-09 — NOVA is a general nutrition app, not a
+     medical tool):
+       fatty_liver → sugar_g ≤ 8 AND sat_fat_g ≤ 5 AND fiber_g ≥ 3
+       pregnancy   → pregnancy_safe = TRUE
+       lactation   → pregnancy_safe = TRUE
   5. Meal-time match.
 
 Budget: <50 ms (single round-trip indexed query, GIN-backed array ops).
@@ -33,7 +33,6 @@ Budget: <50 ms (single round-trip indexed query, GIN-backed array ops).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal
 from typing import Protocol
 from uuid import UUID
 
@@ -78,7 +77,6 @@ class Layer1Eligibility:
         country = (prof.get("country") or "").upper().strip()
         allergies: list[str] = prof.get("allergies") or []
         conditions: list[str] = prof.get("conditions") or []
-        weight_kg: Decimal | None = prof.get("weight_kg")
         dietary_pattern = (prof.get("dietary_pattern") or "").lower().strip()
 
         # Region-based filtering (post-2026-06-09 fix).
@@ -181,16 +179,6 @@ class Layer1Eligibility:
         if conditions:
             where.append("NOT (r.contraindicated_conditions && CAST(:conditions AS text[]))")
             params["conditions"] = conditions
-
-            # Weight-specific CKD protein cap — inline only because it
-            # requires user weight_kg which is not available to the Strategy
-            # layer. Complements the fixed CKDGate threshold via AND (the
-            # more restrictive of the two wins).
-            if "ckd" in conditions and weight_kg is not None:
-                # Source: KDOQI 2020 — 0.8 g/kg/day across 3 meals.
-                ckd_cap = max(1, int(float(weight_kg) * 0.8 / 3))
-                where.append("(r.protein_g IS NOT NULL AND r.protein_g <= :ckd_protein_cap)")
-                params["ckd_protein_cap"] = ckd_cap
 
             # ConditionGate Strategy dispatch (H2). All condition-specific SQL
             # fragments come from the registry — no inline if-chains needed.

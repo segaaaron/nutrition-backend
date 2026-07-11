@@ -139,9 +139,9 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     "app/vision/infrastructure/inflight_lock.py": {32, 42, 68},
     "app/vision/infrastructure/food_matcher.py": {124},
     # OK4: dark-image enhancement (best-effort PIL), prefilter fail-open, invoke retry.
-    "app/vision/infrastructure/openai_vision.py": {306, 312, 358, 470, 766},
+    "app/vision/infrastructure/openai_vision.py": {336, 342, 388, 500, 796},
     # OK4: plate explanation is decorative — poll must still serve items.
-    "app/vision/presentation/router.py": {170, 215},
+    "app/vision/presentation/router.py": {169, 214},
     # OK4: voice/food text parser — LLM best-effort.
     "app/voice/infrastructure/food_text_parser.py": {261},
     # OK2: worker task top-level boundaries (Arq retry control).

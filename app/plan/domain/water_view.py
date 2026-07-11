@@ -21,7 +21,7 @@ from typing import Literal
 from app.plan.domain.water_calculator import DEFAULT_GLASS_ML
 from app.plan.domain.water_schedule import WaterSlot, build_water_schedule
 
-Locale = Literal["es", "pt", "en", "fr", "de"]
+Locale = Literal["es", "en"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,10 +55,7 @@ def _format_litres(total_ml: int) -> str:
 _MESSAGES: dict[str, str] = {
     # COACH_TONE.md — encouraging, never nagging, never medical.
     "es": "Tu meta hoy: {litres} ({n} vasos). Vamos paso a paso.",
-    "pt": "Sua meta hoje: {litres} ({n} copos). Vamos passo a passo.",
     "en": "Today's goal: {litres} ({n} glasses). One sip at a time.",
-    "fr": "Objectif du jour : {litres} ({n} verres). On y va doucement.",
-    "de": "Heutiges Ziel: {litres} ({n} Gläser). Schritt für Schritt.",
 }
 
 

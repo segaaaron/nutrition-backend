@@ -16,10 +16,11 @@ from app.profile.domain.region_mapper import (
         ("US", "us"),
         ("us", "us"),
         ("CA", "ca"),
-        ("GB", "uk"),
-        ("DE", "eu"),
-        ("FR", "eu"),
-        ("PT", "eu"),
+        # EU/UK removed 2026-07-10 → unsupported countries default to "us".
+        ("GB", "us"),
+        ("DE", "us"),
+        ("FR", "us"),
+        ("PT", "us"),
         ("MX", "latam"),
         ("PE", "latam"),
         ("BR", "latam"),
@@ -41,7 +42,9 @@ def test_country_to_region(country, region):
         ("FR", "en"),
         ("MX", "es"),
         ("PE", "es"),
-        ("BR", "pt"),
+        # Only es/en supported → Brazil defaults to en (pt unsupported, and
+        # Brazilians don't speak Spanish, so en is the neutral default).
+        ("BR", "en"),
         (None, "en"),
     ],
 )

@@ -23,131 +23,122 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
-from typing import Iterable
+from collections.abc import Iterable
 
 from sqlalchemy import text
 
 from app.core.db import session_scope
 from app.gamification.domain.catalog import CATALOG
 
-LOCALES = ("en", "es", "pt", "fr", "de")
+LOCALES = ("en", "es")
 
 
-def _t(en: str, es: str, pt: str, fr: str, de: str) -> dict[str, str]:
-    return {"en": en, "es": es, "pt": pt, "fr": fr, "de": de}
+def _t(en: str, es: str) -> dict[str, str]:
+    # Only es/en are supported (owner decision 2026-07-10).
+    return {"en": en, "es": es}
 
 
 GROCERY_CATEGORIES = {
-    "fruits_vegetables": _t("Fruits & vegetables", "Frutas y verduras", "Frutas e legumes", "Fruits et légumes", "Obst & Gemüse"),
-    "proteins":          _t("Proteins", "Proteínas", "Proteínas", "Protéines", "Proteine"),
-    "dairy":             _t("Dairy", "Lácteos", "Laticínios", "Produits laitiers", "Milchprodukte"),
-    "pantry":            _t("Pantry", "Despensa", "Despensa", "Garde-manger", "Vorratskammer"),
-    "other":             _t("Other", "Otros", "Outros", "Autres", "Sonstige"),
+    "fruits_vegetables": _t("Fruits & vegetables", "Frutas y verduras"),
+    "proteins":          _t("Proteins", "Proteínas"),
+    "dairy":             _t("Dairy", "Lácteos"),
+    "pantry":            _t("Pantry", "Despensa"),
+    "other":             _t("Other", "Otros"),
 }
 
 LOG_METHODS = {
-    "photo":   _t("Photo", "Foto", "Foto", "Photo", "Foto"),
-    "voice":   _t("Voice", "Voz", "Voz", "Voix", "Sprache"),
-    "text":    _t("Text", "Texto", "Texto", "Texte", "Text"),
-    "barcode": _t("Barcode", "Código de barras", "Código de barras", "Code-barres", "Strichcode"),
-    "search":  _t("Search", "Búsqueda", "Pesquisa", "Recherche", "Suche"),
-    "manual":  _t("Manual", "Manual", "Manual", "Manuel", "Manuell"),
+    "photo":   _t("Photo", "Foto"),
+    "voice":   _t("Voice", "Voz"),
+    "text":    _t("Text", "Texto"),
+    "barcode": _t("Barcode", "Código de barras"),
+    "search":  _t("Search", "Búsqueda"),
+    "manual":  _t("Manual", "Manual"),
 }
 
 PLAN_STATUSES = {
-    "active":    _t("Active", "Activo", "Ativo", "Actif", "Aktiv"),
-    "completed": _t("Completed", "Completado", "Concluído", "Terminé", "Abgeschlossen"),
-    "cancelled": _t("Cancelled", "Cancelado", "Cancelado", "Annulé", "Storniert"),
-    "paused":    _t("Paused", "Pausado", "Pausado", "En pause", "Pausiert"),
-    "draft":     _t("Draft", "Borrador", "Rascunho", "Brouillon", "Entwurf"),
+    "active":    _t("Active", "Activo"),
+    "completed": _t("Completed", "Completado"),
+    "cancelled": _t("Cancelled", "Cancelado"),
+    "paused":    _t("Paused", "Pausado"),
+    "draft":     _t("Draft", "Borrador"),
 }
 
 # ~110 UI labels — curated, low ambiguity. Frontend keys mirror these codes.
 COMMON_LABELS: dict[str, dict[str, str]] = {
     # Buttons
-    "btn_save":          _t("Save", "Guardar", "Salvar", "Enregistrer", "Speichern"),
-    "btn_cancel":        _t("Cancel", "Cancelar", "Cancelar", "Annuler", "Abbrechen"),
-    "btn_delete":        _t("Delete", "Eliminar", "Excluir", "Supprimer", "Löschen"),
-    "btn_edit":          _t("Edit", "Editar", "Editar", "Modifier", "Bearbeiten"),
-    "btn_confirm":       _t("Confirm", "Confirmar", "Confirmar", "Confirmer", "Bestätigen"),
-    "btn_continue":      _t("Continue", "Continuar", "Continuar", "Continuer", "Weiter"),
-    "btn_back":          _t("Back", "Volver", "Voltar", "Retour", "Zurück"),
-    "btn_next":          _t("Next", "Siguiente", "Próximo", "Suivant", "Weiter"),
-    "btn_done":          _t("Done", "Listo", "Pronto", "Terminé", "Fertig"),
-    "btn_close":         _t("Close", "Cerrar", "Fechar", "Fermer", "Schließen"),
-    "btn_retry":         _t("Try again", "Reintentar", "Tentar novamente", "Réessayer", "Erneut versuchen"),
-    "btn_login":         _t("Log in", "Iniciar sesión", "Entrar", "Se connecter", "Anmelden"),
-    "btn_logout":        _t("Log out", "Cerrar sesión", "Sair", "Se déconnecter", "Abmelden"),
-    "btn_signup":        _t("Sign up", "Registrarse", "Cadastrar-se", "S'inscrire", "Registrieren"),
-    "btn_add":           _t("Add", "Añadir", "Adicionar", "Ajouter", "Hinzufügen"),
-    "btn_remove":        _t("Remove", "Quitar", "Remover", "Retirer", "Entfernen"),
-    "btn_share":         _t("Share", "Compartir", "Compartilhar", "Partager", "Teilen"),
-    "btn_upload":        _t("Upload", "Subir", "Enviar", "Téléverser", "Hochladen"),
-    "btn_take_photo":    _t("Take photo", "Tomar foto", "Tirar foto", "Prendre une photo", "Foto aufnehmen"),
-    "btn_start":         _t("Start", "Iniciar", "Iniciar", "Démarrer", "Starten"),
-    "btn_stop":          _t("Stop", "Detener", "Parar", "Arrêter", "Stoppen"),
-    "btn_subscribe":     _t("Subscribe", "Suscribirse", "Assinar", "S'abonner", "Abonnieren"),
+    "btn_save":          _t("Save", "Guardar"),
+    "btn_cancel":        _t("Cancel", "Cancelar"),
+    "btn_delete":        _t("Delete", "Eliminar"),
+    "btn_edit":          _t("Edit", "Editar"),
+    "btn_confirm":       _t("Confirm", "Confirmar"),
+    "btn_continue":      _t("Continue", "Continuar"),
+    "btn_back":          _t("Back", "Volver"),
+    "btn_next":          _t("Next", "Siguiente"),
+    "btn_done":          _t("Done", "Listo"),
+    "btn_close":         _t("Close", "Cerrar"),
+    "btn_retry":         _t("Try again", "Reintentar"),
+    "btn_login":         _t("Log in", "Iniciar sesión"),
+    "btn_logout":        _t("Log out", "Cerrar sesión"),
+    "btn_signup":        _t("Sign up", "Registrarse"),
+    "btn_add":           _t("Add", "Añadir"),
+    "btn_remove":        _t("Remove", "Quitar"),
+    "btn_share":         _t("Share", "Compartir"),
+    "btn_upload":        _t("Upload", "Subir"),
+    "btn_take_photo":    _t("Take photo", "Tomar foto"),
+    "btn_start":         _t("Start", "Iniciar"),
+    "btn_stop":          _t("Stop", "Detener"),
+    "btn_subscribe":     _t("Subscribe", "Suscribirse"),
     # Errors
-    "err_generic":       _t("Something went wrong.", "Algo salió mal.", "Algo deu errado.", "Une erreur s'est produite.", "Etwas ist schiefgelaufen."),
-    "err_network":       _t("Network error.", "Error de red.", "Erro de rede.", "Erreur réseau.", "Netzwerkfehler."),
-    "err_unauth":        _t("Please log in to continue.", "Inicia sesión para continuar.", "Faça login para continuar.", "Veuillez vous connecter.", "Bitte einloggen."),
-    "err_forbidden":     _t("You don't have access.", "No tienes acceso.", "Você não tem acesso.", "Vous n'avez pas accès.", "Kein Zugriff."),
-    "err_not_found":     _t("Not found.", "No encontrado.", "Não encontrado.", "Introuvable.", "Nicht gefunden."),
-    "err_conflict":      _t("Already exists.", "Ya existe.", "Já existe.", "Existe déjà.", "Existiert bereits."),
-    "err_rate_limited":  _t("Too many requests. Try again soon.", "Demasiadas solicitudes.", "Muitas solicitações.", "Trop de requêtes.", "Zu viele Anfragen."),
-    "err_validation":    _t("Please check your input.", "Revisa los datos ingresados.", "Verifique seus dados.", "Vérifiez vos données.", "Bitte Eingabe prüfen."),
-    "err_upstream":      _t("Service temporarily unavailable.", "Servicio no disponible.", "Serviço indisponível.", "Service indisponible.", "Dienst nicht verfügbar."),
+    "err_generic":       _t("Something went wrong.", "Algo salió mal."),
+    "err_network":       _t("Network error.", "Error de red."),
+    "err_unauth":        _t("Please log in to continue.", "Inicia sesión para continuar."),
+    "err_forbidden":     _t("You don't have access.", "No tienes acceso."),
+    "err_not_found":     _t("Not found.", "No encontrado."),
+    "err_conflict":      _t("Already exists.", "Ya existe."),
+    "err_rate_limited":  _t("Too many requests. Try again soon.", "Demasiadas solicitudes."),
+    "err_validation":    _t("Please check your input.", "Revisa los datos ingresados."),
+    "err_upstream":      _t("Service temporarily unavailable.", "Servicio no disponible."),
     # Success
-    "ok_saved":          _t("Saved.", "Guardado.", "Salvo.", "Enregistré.", "Gespeichert."),
-    "ok_deleted":        _t("Deleted.", "Eliminado.", "Excluído.", "Supprimé.", "Gelöscht."),
-    "ok_logged":         _t("Logged.", "Registrado.", "Registrado.", "Enregistré.", "Erfasst."),
-    "ok_updated":        _t("Updated.", "Actualizado.", "Atualizado.", "Mis à jour.", "Aktualisiert."),
-    "ok_copied":         _t("Copied to clipboard.", "Copiado.", "Copiado.", "Copié.", "Kopiert."),
+    "ok_saved":          _t("Saved.", "Guardado."),
+    "ok_deleted":        _t("Deleted.", "Eliminado."),
+    "ok_logged":         _t("Logged.", "Registrado."),
+    "ok_updated":        _t("Updated.", "Actualizado."),
+    "ok_copied":         _t("Copied to clipboard.", "Copiado."),
     # Domain labels
-    "label_kcal":        _t("Calories", "Calorías", "Calorias", "Calories", "Kalorien"),
-    "label_protein":     _t("Protein", "Proteína", "Proteína", "Protéine", "Eiweiß"),
-    "label_carbs":       _t("Carbs", "Carbohidratos", "Carboidratos", "Glucides", "Kohlenhydrate"),
-    "label_fat":         _t("Fat", "Grasa", "Gordura", "Lipides", "Fett"),
-    "label_fiber":       _t("Fiber", "Fibra", "Fibra", "Fibres", "Ballaststoffe"),
-    "label_water":       _t("Water", "Agua", "Água", "Eau", "Wasser"),
-    "label_weight":      _t("Weight", "Peso", "Peso", "Poids", "Gewicht"),
-    "label_today":       _t("Today", "Hoy", "Hoje", "Aujourd'hui", "Heute"),
-    "label_yesterday":   _t("Yesterday", "Ayer", "Ontem", "Hier", "Gestern"),
-    "label_this_week":   _t("This week", "Esta semana", "Esta semana", "Cette semaine", "Diese Woche"),
-    "label_streak":      _t("Streak", "Racha", "Sequência", "Série", "Serie"),
-    "label_level":       _t("Level", "Nivel", "Nível", "Niveau", "Stufe"),
-    "label_points":      _t("Points", "Puntos", "Pontos", "Points", "Punkte"),
-    "label_breakfast":   _t("Breakfast", "Desayuno", "Café da manhã", "Petit-déjeuner", "Frühstück"),
-    "label_lunch":       _t("Lunch", "Almuerzo", "Almoço", "Déjeuner", "Mittagessen"),
-    "label_dinner":      _t("Dinner", "Cena", "Jantar", "Dîner", "Abendessen"),
-    "label_snack":       _t("Snack", "Tentempié", "Lanche", "Collation", "Snack"),
-    "label_fasting":     _t("Fasting", "Ayuno", "Jejum", "Jeûne", "Fasten"),
-    "label_grocery":     _t("Grocery list", "Lista de compras", "Lista de compras", "Liste de courses", "Einkaufsliste"),
-    "label_coach":       _t("Coach", "Coach", "Coach", "Coach", "Coach"),
-    "label_plan":        _t("Plan", "Plan", "Plano", "Plan", "Plan"),
-    "label_profile":     _t("Profile", "Perfil", "Perfil", "Profil", "Profil"),
-    "label_settings":    _t("Settings", "Ajustes", "Configurações", "Paramètres", "Einstellungen"),
-    "label_goal":        _t("Goal", "Objetivo", "Meta", "Objectif", "Ziel"),
-    "label_progress":    _t("Progress", "Progreso", "Progresso", "Progrès", "Fortschritt"),
-    "label_achievements":_t("Achievements", "Logros", "Conquistas", "Réalisations", "Erfolge"),
-    "label_subscription":_t("Subscription", "Suscripción", "Assinatura", "Abonnement", "Abonnement"),
-    "label_trial":       _t("Trial", "Prueba", "Avaliação", "Essai", "Testphase"),
-    "label_premium":     _t("Premium", "Premium", "Premium", "Premium", "Premium"),
-    "label_family":      _t("Family", "Familia", "Família", "Famille", "Familie"),
-    "label_free":        _t("Free", "Gratis", "Grátis", "Gratuit", "Kostenlos"),
+    "label_kcal":        _t("Calories", "Calorías"),
+    "label_protein":     _t("Protein", "Proteína"),
+    "label_carbs":       _t("Carbs", "Carbohidratos"),
+    "label_fat":         _t("Fat", "Grasa"),
+    "label_fiber":       _t("Fiber", "Fibra"),
+    "label_water":       _t("Water", "Agua"),
+    "label_weight":      _t("Weight", "Peso"),
+    "label_today":       _t("Today", "Hoy"),
+    "label_yesterday":   _t("Yesterday", "Ayer"),
+    "label_this_week":   _t("This week", "Esta semana"),
+    "label_streak":      _t("Streak", "Racha"),
+    "label_level":       _t("Level", "Nivel"),
+    "label_points":      _t("Points", "Puntos"),
+    "label_breakfast":   _t("Breakfast", "Desayuno"),
+    "label_lunch":       _t("Lunch", "Almuerzo"),
+    "label_dinner":      _t("Dinner", "Cena"),
+    "label_snack":       _t("Snack", "Tentempié"),
+    "label_fasting":     _t("Fasting", "Ayuno"),
+    "label_grocery":     _t("Grocery list", "Lista de compras"),
+    "label_coach":       _t("Coach", "Coach"),
+    "label_plan":        _t("Plan", "Plan"),
+    "label_profile":     _t("Profile", "Perfil"),
+    "label_settings":    _t("Settings", "Ajustes"),
+    "label_goal":        _t("Goal", "Objetivo"),
+    "label_progress":    _t("Progress", "Progreso"),
+    "label_achievements":_t("Achievements", "Logros"),
+    "label_subscription":_t("Subscription", "Suscripción"),
+    "label_trial":       _t("Trial", "Prueba"),
+    "label_premium":     _t("Premium", "Premium"),
+    "label_family":      _t("Family", "Familia"),
+    "label_free":        _t("Free", "Gratis"),
     # Disclaimers (compliance)
-    "disclaimer_medical": _t(
-        "Information here is for general wellness and does not replace medical advice.",
-        "La información es de bienestar general y no sustituye el consejo médico.",
-        "As informações são para bem-estar geral e não substituem orientação médica.",
-        "Ces informations sont à but de bien-être et ne remplacent pas un avis médical.",
-        "Diese Informationen ersetzen keine medizinische Beratung."),
-    "disclaimer_estimate": _t(
-        "Nutrition values are estimates and may vary by brand and preparation.",
-        "Los valores nutricionales son estimaciones y pueden variar.",
-        "Os valores nutricionais são estimativas e podem variar.",
-        "Les valeurs nutritionnelles sont des estimations.",
-        "Nährwertangaben sind Schätzungen."),
+    "disclaimer_medical": _t("Information here is for general wellness and does not replace medical advice.", "La información es de bienestar general y no sustituye el consejo médico."),
+    "disclaimer_estimate": _t("Nutrition values are estimates and may vary by brand and preparation.", "Los valores nutricionales son estimaciones y pueden variar."),
 }
 
 

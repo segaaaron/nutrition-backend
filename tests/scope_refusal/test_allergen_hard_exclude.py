@@ -22,10 +22,21 @@ def test_layer1_source_filters_contraindications() -> None:
     assert "NOT (r.contraindicated_conditions && CAST(:conditions AS text[]))" in src
 
 
-def test_layer1_safety_gates_present() -> None:
+def test_layer1_dispatches_condition_safety_gates() -> None:
+    """Condition-specific safety caps live in the ConditionGate registry
+    (fatty_liver / pregnancy / lactation) since the 2026-07-09 scope
+    reduction — Layer 1 dispatches to them via `gates_for` for every user
+    condition rather than carrying inline macro literals. Assert the dispatch
+    wiring is present so no declared condition can bypass its safety gate.
+    """
     src = inspect.getsource(layer1_eligibility)
-    for fragment in ("sugar_g <= 15", "sodium_mg <= 600", "sat_fat_g <= 5", "organ_meat"):
-        assert fragment in src, f"missing safety gate: {fragment}"
+    for fragment in (
+        "from app.plan.domain.condition_gates import gates_for",
+        "for cond in conditions:",
+        "for gate in gates_for(cond):",
+        "gate.contribute_sql()",
+    ):
+        assert fragment in src, f"missing condition-gate dispatch: {fragment}"
 
 
 def test_layer1_treenut_defensive_ingredient_scan_present() -> None:

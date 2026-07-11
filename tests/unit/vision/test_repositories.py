@@ -72,6 +72,31 @@ def test_jsonb_roundtrip_preserves_values():
     assert restored[1].matched_food_id is None
 
 
+# BE-5 — bounding box serialization.
+def test_bbox_roundtrips_through_jsonb():
+    item = _item()
+    object.__setattr__(item, "bbox", (0.1, 0.2, 0.3, 0.4))
+    rows = _items_to_jsonb([item])
+    assert rows[0]["bbox"] == [0.1, 0.2, 0.3, 0.4]
+    restored = _items_from_jsonb(rows)
+    assert restored[0].bbox == (0.1, 0.2, 0.3, 0.4)
+
+
+def test_bbox_none_serialises_and_restores_as_none():
+    rows = _items_to_jsonb([_item()])  # default bbox=None
+    assert rows[0]["bbox"] is None
+    assert _items_from_jsonb(rows)[0].bbox is None
+
+
+def test_bbox_malformed_cache_row_restores_as_none():
+    # Defensive: a corrupt cache row (wrong length / non-list) must never
+    # crash the DTO mapping — it degrades to None.
+    base = _items_to_jsonb([_item()])[0]
+    for bad in ([0.1, 0.2, 0.3], "0.1,0.2", {"x": 0.1}, [0.1, 0.2, 0.3, 0.4, 0.5]):
+        row = {**base, "bbox": bad}
+        assert _items_from_jsonb([row])[0].bbox is None
+
+
 def test_items_from_jsonb_returns_empty_for_none():
     assert _items_from_jsonb(None) == []
 

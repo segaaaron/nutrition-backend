@@ -429,7 +429,7 @@ class TestApplyLactationAdjustment:
     def test_no_adjustment_when_unrelated_condition_present(self) -> None:
         assert apply_lactation_adjustment(
             kcal_target=Decimal("1800"),
-            conditions=frozenset({"diabetes_t2"}),
+            conditions=frozenset({"fatty_liver"}),
         ) == Decimal("1800")
 
     def test_adds_exactly_500_when_lactation_present(self) -> None:
@@ -451,7 +451,7 @@ class TestApplyLactationAdjustment:
     def test_handles_lactation_combined_with_other_conditions(self) -> None:
         assert apply_lactation_adjustment(
             kcal_target=Decimal("1800"),
-            conditions=frozenset({"lactation", "hypertension"}),
+            conditions=frozenset({"lactation", "fatty_liver"}),
         ) == Decimal("2300")
 
 

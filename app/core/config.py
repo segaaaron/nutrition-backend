@@ -159,7 +159,7 @@ class Settings(BaseSettings):
     default_locale: Literal["en", "es"] = "en"
 
     # --- Regions ---
-    default_region: Literal["us", "ca", "eu", "uk", "latam"] = "us"
+    default_region: Literal["us", "ca", "latam"] = "us"
 
     # --- Billing / Webhooks ---
     stripe_api_key: str = ""

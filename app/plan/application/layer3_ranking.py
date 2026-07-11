@@ -31,8 +31,17 @@ from app.plan.application.taste_profile import (
     cosine,
     cultural_fit,
     novelty,
+    omega3_fit,
     prep_time_fit,
 )
+
+# Conditions for which oily fish / omega-3 is first-line diet therapy get a
+# ranking bonus that lifts high-omega-3 recipes (so plans actually include the
+# 2-3 fish meals/week the NAFLD literature calls for), on top of the Layer 1
+# saturated-fat/sugar safety gate. Additive and condition-scoped: users without
+# these conditions rank exactly as before.
+_OMEGA3_PROMOTE_CONDITIONS = frozenset({"fatty_liver"})
+_OMEGA3_BONUS_WEIGHT = 0.15
 
 
 class _ProfileCtx(Protocol):
@@ -54,7 +63,8 @@ class Layer3Ranking:
         novelty_counts: dict[UUID, int] | None = None,
         adherence_rates: dict[UUID, float] | None = None,
         ranking_context: dict | None = None,
-        embedding_cache: dict[UUID, tuple[list[str], int | None, list[float]]] | None = None,
+        embedding_cache: dict[UUID, tuple[list[str], int | None, int | None, list[float]]]
+        | None = None,
     ) -> list[tuple[UUID, float]]:
         if not candidate_ids:
             return []
@@ -63,10 +73,12 @@ class Layer3Ranking:
             ranking_context = await self.profile_ctx.get_ranking_context(user_id)
         country = (ranking_context.get("country") or "").lower() or None
         prep_pref = ranking_context.get("prep_time_pref_min")
+        conditions = ranking_context.get("conditions") or []
+        promote_omega3 = bool(_OMEGA3_PROMOTE_CONDITIONS.intersection(conditions))
 
         _SQL = text(
             """
-            SELECT id, regions, prep_min, embedding
+            SELECT id, regions, prep_min, omega3_mg, embedding
               FROM recipes
              WHERE id = ANY(CAST(:ids AS uuid[]))
         """
@@ -81,13 +93,15 @@ class Layer3Ranking:
                     embedding_cache[rid] = (
                         list(row["regions"] or []),
                         row["prep_min"],
+                        row["omega3_mg"],
                         list(row["embedding"]) if row["embedding"] is not None else [],
                     )
             rows = [
                 {"id": cid,
                  "regions": embedding_cache[cid][0],
                  "prep_min": embedding_cache[cid][1],
-                 "embedding": embedding_cache[cid][2]}
+                 "omega3_mg": embedding_cache[cid][2],
+                 "embedding": embedding_cache[cid][3]}
                 for cid in candidate_ids
                 if cid in embedding_cache
             ]
@@ -123,6 +137,12 @@ class Layer3Ranking:
                 + 0.10 * s_nov
                 + 0.10 * s_adh
             )
+            # Condition-scoped omega-3 promotion (e.g. fatty_liver): additive
+            # bonus so oily-fish recipes surface into the plan. Never a penalty
+            # for low/unknown omega-3, and inert for users without the
+            # condition (promote_omega3 is False → no change to prior ranking).
+            if promote_omega3:
+                total += _OMEGA3_BONUS_WEIGHT * omega3_fit(r["omega3_mg"])
             scored.append((rid, total))
         # Stable tie-break by id: equal scores must rank identically
         # across runs for seeded reproducibility.

@@ -102,10 +102,14 @@ class RecipeModel(Base):
     protein_g: Mapped[int | None] = mapped_column(Integer, nullable=True)
     carbs_g: Mapped[int | None] = mapped_column(Integer, nullable=True)
     fat_g: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    fiber_g: Mapped[int] = mapped_column(Integer, default=0)
-    sugar_g: Mapped[int] = mapped_column(Integer, default=0)
-    sodium_mg: Mapped[int] = mapped_column(Integer, default=0)
-    sat_fat_g: Mapped[int] = mapped_column(Integer, default=0)
+    # Nullable since migration 0028. NULL = "not yet measured" (unknown);
+    # a real 0 is an explicit measured zero. No DEFAULT so an INSERT that
+    # omits the value stores NULL (unknown) rather than a fake 0 that would
+    # silently pass "<= max" safety gates. See condition_gates fail-closed.
+    fiber_g: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    sugar_g: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    sodium_mg: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    sat_fat_g: Mapped[int | None] = mapped_column(Integer, nullable=True)
     tags: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
     meal_time: Mapped[str | None] = mapped_column(_MEAL_TIME_ENUM, nullable=True)
     prep_min: Mapped[int | None] = mapped_column(Integer, nullable=True)

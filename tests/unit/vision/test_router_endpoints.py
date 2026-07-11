@@ -520,10 +520,13 @@ class TestGetJobStatus:
         veg = body["groups"][1]
         assert veg["item_names"] == ["tomate", "cebolla"]
         assert veg["total_kcal"] == 19
-        assert "Total estimado: 217 kcal" in body["summary"]
+        # Prose `summary` was removed (owner 2026-07-10) — detail lives in
+        # items[]/groups[]. The localized group label carries the language.
+        assert body["groups"][0]["label"] == "proteína"
+        assert "summary" not in body
         assert body["items"][0]["food_group"] == "protein"
 
-    def test_accept_language_en_switches_summary_language(
+    def test_accept_language_en_switches_group_label_language(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         job = self._grouped_job()
@@ -534,7 +537,7 @@ class TestGetJobStatus:
         )
 
         assert resp.status_code == 200
-        assert "Estimated total: 217 kcal" in resp.json()["summary"]
+        assert resp.json()["groups"][0]["label"] == "protein"
 
     def test_queued_job_has_no_plate_explanation(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
@@ -552,7 +555,7 @@ class TestGetJobStatus:
 
         assert body["groups"] == []
         assert body["total_kcal"] is None
-        assert body["summary"] is None
+        assert "summary" not in body
 
     def test_explainer_failure_degrades_without_breaking_poll(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
@@ -571,7 +574,7 @@ class TestGetJobStatus:
         body = resp.json()
         assert len(body["items"]) == 3  # items still served
         assert body["groups"] == []
-        assert body["summary"] is None
+        assert "summary" not in body
 
 
 # =========================================================================== #

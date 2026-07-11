@@ -31,7 +31,7 @@ ActivityLevel = Literal[
     "sedentary", "lightly_active", "moderately_active", "very_active", "extra_active"
 ]
 Theme = Literal["light", "dark"]
-Locale = Literal["en", "es", "pt", "fr", "de"]
+Locale = Literal["en", "es"]
 DietaryPattern = Literal["omnivore", "pescatarian", "vegetarian", "vegan"]
 Trimester = Literal["first", "second", "third"]
 
@@ -327,6 +327,11 @@ class ProfileResponse(_Strict):
     goal: Goal | None
     activity_level: ActivityLevel | None
     dietary_pattern: DietaryPattern | None = None
+    # BE-2 (2026-07-10): returned so iOS can prefill the plan form on
+    # re-create without the user re-entering saved data. null when not set.
+    bodyfat_pct: float | None = None
+    trimester: Trimester | None = None
+    is_exclusively_breastfeeding: bool | None = None
     medical_conditions: list[str]
     other_condition: str | None
     allergies: list[str]

@@ -53,6 +53,9 @@ class DetectedFoodItem:
     fiber_g: int = 0  # dietary fiber — critical for diabetes_t2 / digestive-health users
     sugar_g: int = 0  # total sugars — critical for diabetes_t2 / hypertension users
     count: int = 1  # number of identical visible units; all amounts already multiplied by this
+    # BE-5: normalized bounding box (x, y, w, h) in 0..1, origin top-left, so
+    # iOS can annotate the photo. None when the model can't locate the item.
+    bbox: tuple[float, float, float, float] | None = None
 
 
 @dataclass(slots=True)

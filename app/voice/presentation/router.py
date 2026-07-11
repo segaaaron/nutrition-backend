@@ -49,7 +49,7 @@ class TextLogRequest(BaseModel):
     # of a full meal description is well under 500 chars; 2000 is generous.
     text: str = Field(..., min_length=1, max_length=2000)
     meal_time: Literal["breakfast", "lunch", "dinner", "snack"] = "lunch"
-    locale: Literal["es", "en", "pt", "fr", "de"] = "es"
+    locale: Literal["es", "en"] = "es"
 
 
 class ManualLogRequest(BaseModel):

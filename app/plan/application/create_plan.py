@@ -243,7 +243,7 @@ class CreatePlan:
         # recipe_id and reused across all Layer3 calls. Month plan: up to
         # 120 calls sharing ~200-400 unique recipes → 99%+ cache hits after
         # day 1 per meal_time. Dict populated in-place by Layer3.__call__.
-        embedding_cache: dict[UUID, tuple[list[str], int | None, list[float]]] = {}
+        embedding_cache: dict[UUID, tuple[list[str], int | None, int | None, list[float]]] = {}
 
         for d in range(total_days):
             day_id = uuid4()

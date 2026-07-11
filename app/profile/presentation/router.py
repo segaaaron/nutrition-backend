@@ -82,6 +82,7 @@ def _to_resp(
     *,
     plan_job: PlanJobInfo | None = None,
     starting_weight_kg: float | None = None,
+    onboarding_completed: bool | None = None,
 ) -> ProfileResponse:
     return ProfileResponse(
         user_id=p.user_id,
@@ -96,6 +97,10 @@ def _to_resp(
         **_display_fields(p),
         goal=p.goal,
         activity_level=p.activity_level,
+        dietary_pattern=p.dietary_pattern,
+        bodyfat_pct=float(p.bodyfat_pct) if p.bodyfat_pct is not None else None,
+        trimester=p.trimester,
+        is_exclusively_breastfeeding=p.is_exclusively_breastfeeding,
         medical_conditions=p.medical_conditions,
         other_condition=p.other_condition,
         allergies=p.allergies,
@@ -103,7 +108,14 @@ def _to_resp(
         country=p.country,
         region=p.region,
         locale=p.locale,
-        onboarding_completed=p.onboarding_completed,
+        # BE-1 consistency: callers may pass a freshly recomputed value
+        # (profile + ≥1 plan) so GET /me agrees with the auth responses;
+        # falls back to the cached column when not provided.
+        onboarding_completed=(
+            p.onboarding_completed
+            if onboarding_completed is None
+            else onboarding_completed
+        ),
         updated_at=p.updated_at,
         plan_job=plan_job,
     )
@@ -126,7 +138,18 @@ async def get_me(current_user: CurrentUserDep, session: SessionDep) -> ProfileRe
     # Fall back to onboarding weight if no log exists yet.
     if starting is None and profile and profile.weight_kg is not None:
         starting = float(profile.weight_kg)
-    return _to_resp(profile, starting_weight_kg=starting)
+    # BE-1: recompute onboarding_completed LIVE (profile + ≥1 plan) so GET /me
+    # never disagrees with the auth responses. Matches identity's canonical def.
+    has_plan = (
+        await session.execute(
+            text("SELECT EXISTS(SELECT 1 FROM plans WHERE user_id = :uid)"),
+            {"uid": current_user},
+        )
+    ).scalar()
+    onboarding_completed = profile is not None and bool(has_plan)
+    return _to_resp(
+        profile, starting_weight_kg=starting, onboarding_completed=onboarding_completed
+    )
 
 
 @router.patch("/me", response_model=ProfileResponse)

@@ -35,6 +35,7 @@ from app.vision.domain.plate_explainer import explain_plate
 from app.vision.infrastructure.openai_vision import OpenAIVisionProvider
 from app.vision.infrastructure.repositories import SqlVisionJobRepository
 from app.vision.presentation.schemas import (
+    BBoxDto,
     DetectedItemDto,
     EditDetectedItemRequest,
     JobStatusResponse,
@@ -152,7 +153,6 @@ async def get_job_status(
     # the persisted items (no extra AI call, no schema migration).
     groups: list[PlateGroupDto] = []
     total_kcal: int | None = None
-    summary: str | None = None
     if job.status == "completed":
         try:
             explanation = explain_plate(job.detected_items, locale=locale)
@@ -166,10 +166,9 @@ async def get_job_status(
                 for g in explanation.groups
             ]
             total_kcal = explanation.total_kcal
-            summary = explanation.summary
         except Exception:  # noqa: BLE001 — explanation is decorative; never break the poll (items must still reach the client)
             _log.warning("vision.plate_explainer_failed", job_id=str(job_id))
-            groups, total_kcal, summary = [], None, None
+            groups, total_kcal = [], None
 
     # Macro totals — computed from items directly so they're available even
     # when the plate explainer fails. kcal_min/max fall back to the point
@@ -221,6 +220,7 @@ async def get_job_status(
         items=[
             DetectedItemDto(
                 name=i.name,
+                count=i.count,
                 estimated_amount_g=i.estimated_amount_g,
                 kcal=i.kcal,
                 kcal_min=i.kcal_min,
@@ -237,6 +237,9 @@ async def get_job_status(
                 inferred=i.inferred,
                 matched_food_id=i.matched_food_id,
                 match_method=i.match_method,
+                bbox=BBoxDto(x=i.bbox[0], y=i.bbox[1], w=i.bbox[2], h=i.bbox[3])
+                if i.bbox
+                else None,
             )
             for i in job.detected_items
         ],
@@ -250,7 +253,6 @@ async def get_job_status(
         total_fiber_g=total_fiber_g,
         total_sugar_g=total_sugar_g,
         pct_daily_kcal=pct_daily_kcal,
-        summary=summary,
         error_code=job.error_code,
         created_at=job.created_at,
         completed_at=job.completed_at,

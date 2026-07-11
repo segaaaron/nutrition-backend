@@ -490,12 +490,20 @@ async def create_plan(
             # rather than a generic "not found" screen.
             raise BusinessRuleViolation("profile_not_found")
 
+    # BE-4a (2026-07-10): an explicit locale in the request body (the in-app
+    # language iOS sends inside `profile`) takes precedence over the
+    # Accept-Language header / device region, so the generated plan content
+    # (meal names, descriptions, instructions) matches the language the user
+    # actually sees in the app — not the phone's region.
+    effective_locale = (
+        body.profile.locale if body.profile and body.profile.locale else locale
+    )
     job_id = await enqueue_generate_plan(
         user_id=current_user,
         plan_type=body.type,
         preferences=body.preferences,
         seed=body.seed,
-        locale=locale,
+        locale=effective_locale,
         job_id=f"plan:{current_user}:{key}",
     )
     resolved_job_id = job_id or ""

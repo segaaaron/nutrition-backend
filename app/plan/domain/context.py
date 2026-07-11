@@ -197,7 +197,10 @@ class DraftPlan:
             protein += slot.recipe.protein_g
             carbs += slot.recipe.carbs_g
             fat += slot.recipe.fat_g
-            fiber += slot.recipe.fiber_g
+            # fiber_g is nullable (migration 0028: NULL = unknown, not 0).
+            # A recipe with unknown fiber may still be selected for slots
+            # without a fiber gate (pregnancy/lactation), so coalesce to 0.
+            fiber += slot.recipe.fiber_g or 0
         return {
             "protein_g": protein,
             "carbs_g": carbs,

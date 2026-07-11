@@ -8,8 +8,8 @@ from typing import Final, Literal
 
 from app.shared.domain.macro_tolerance import MACRO_TOLERANCE
 
-Locale = Literal["en", "es", "pt", "fr", "de"]
-Region = Literal["us", "ca", "eu", "uk", "latam"]
+Locale = Literal["en", "es"]
+Region = Literal["us", "ca", "latam"]
 Sex = Literal["male", "female"]
 
 

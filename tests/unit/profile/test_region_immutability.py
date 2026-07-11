@@ -89,15 +89,16 @@ async def test_region_change_with_no_prior_audit_succeeds():
     bus = _StubBus()
     audit = _StubRegionAudit(last_change=None)
 
+    # ES (Spain) is no longer an EU market — unsupported → "us" default.
     await UpdateProfile(profiles=repo, bus=bus, region_audit=audit)(
         user_id=profile.user_id, patch={"country": "ES"}
     )
 
     assert repo.upserted is not None
-    assert repo.upserted.region == "eu"
+    assert repo.upserted.region == "us"
     assert len(audit.insert_calls) == 1
     assert audit.insert_calls[0]["old"] == "latam"
-    assert audit.insert_calls[0]["new"] == "eu"
+    assert audit.insert_calls[0]["new"] == "us"
 
 
 async def test_region_change_inside_30d_raises_locked():

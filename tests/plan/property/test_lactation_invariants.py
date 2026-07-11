@@ -24,9 +24,11 @@ from app.plan.domain.bmr_safety import (
 )
 from app.plan.domain.condition_gates import LactationGate, gates_for
 
+# In-scope non-lactation conditions — the lactation kcal adjustment must be a
+# no-op for any of them (owner scope 2026-07-09).
 _NON_LACTATION_CONDITIONS = st.sets(
-    st.sampled_from(["diabetes_t2", "hypertension", "hypercholesterolemia", "celiac"]),
-    max_size=3,
+    st.sampled_from(["fatty_liver", "pregnancy"]),
+    max_size=2,
 )
 
 

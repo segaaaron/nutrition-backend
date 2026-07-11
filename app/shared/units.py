@@ -76,6 +76,6 @@ def default_units_for_locale(locale: Locale) -> Literal["metric", "imperial"]:
 
 def format_for_locale(value: Decimal, unit: Unit, locale: Locale) -> str:
     """Lightweight formatter. Replace with Babel when ICU pluralisation lands."""
-    sep = "," if locale in {"es", "pt", "fr", "de"} else "."
+    sep = "," if locale == "es" else "."
     s = f"{value}".replace(".", sep)
     return f"{s} {unit.replace('_', ' ')}"

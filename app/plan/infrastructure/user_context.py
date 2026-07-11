@@ -51,4 +51,7 @@ class SqlUserContext:
         return {
             "country": p.country,
             "prep_time_pref_min": None,
+            # Conditions drive Layer3 nutrition bonuses (e.g. omega-3 promotion
+            # for fatty_liver — oily fish is first-line diet therapy in NAFLD).
+            "conditions": list(p.medical_conditions or []),
         }
