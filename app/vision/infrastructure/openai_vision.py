@@ -424,9 +424,21 @@ def _completion_kwargs(model: str, max_output_tokens: int) -> dict[str, Any]:
     GPT-5 / o-series reject `max_tokens` (require `max_completion_tokens`) and
     reject any `temperature` other than the default 1. Older models (gpt-4o*)
     still take `max_tokens` + `temperature=0.0` (kept for deterministic output).
+
+    For GPT-5 we also pin `reasoning_effort="minimal"` + `verbosity="low"`:
+    `max_completion_tokens` is SHARED with reasoning tokens, so a default
+    (medium) reasoning budget can starve the JSON output and truncate it to
+    empty items — and with primary==fallback there is no cascade to recover.
+    This is a structured-extraction task, not a reasoning task, so minimal
+    effort keeps the full token budget for the actual item list. Sent via
+    `extra_body` so it passes through regardless of the SDK version's typed
+    params.
     """
     if _model_is_gpt5_family(model):
-        return {"max_completion_tokens": max_output_tokens}
+        return {
+            "max_completion_tokens": max_output_tokens,
+            "extra_body": {"reasoning_effort": "minimal", "verbosity": "low"},
+        }
     return {"max_tokens": max_output_tokens, "temperature": 0.0}
 
 
