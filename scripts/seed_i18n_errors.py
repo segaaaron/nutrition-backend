@@ -160,6 +160,16 @@ ERROR_MESSAGES: Final[dict[str, _ErrorEntry]] = {
             "en": "An upstream service returned an error.",
         },
     },
+    "plan_generation_failed": {
+        "title": {
+            "es": "No se pudo crear tu plan",
+            "en": "Couldn't create your plan",
+        },
+        "detail": {
+            "es": "No pudimos generar tu plan en este momento. Vuelve a intentarlo.",
+            "en": "We couldn't generate your plan right now. Please try again.",
+        },
+    },
     "exif_leak": {
         "title": {
             "es": "Error al procesar la imagen",

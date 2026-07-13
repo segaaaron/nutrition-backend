@@ -112,7 +112,7 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # OK4: recipes router fallback.
     "app/recipes/presentation/router.py": {58},
     # OK4: feature-flags Redis cache fail-open — leaderboard flag gate.
-    "app/gamification/presentation/router.py": {181, 195},
+    "app/gamification/presentation/router.py": {179, 193},
     # OK4: i18n translation must never break a request + Redis locale cache fail-open.
     "app/shared/i18n/fastapi_dep.py": {71, 96, 118, 128, 139},
     # OK1: tracking event handler best-effort cache miss.

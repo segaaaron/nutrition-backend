@@ -76,7 +76,6 @@ async def get_streak(current_user: CurrentUserDep, session: SessionDep) -> Strea
                     SELECT DISTINCT date AS d
                     FROM food_logs
                     WHERE user_id = :uid
-                      AND deleted_at IS NULL
                       AND date >= CURRENT_DATE - INTERVAL '365 days'
                 ),
                 grp AS (
@@ -94,7 +93,6 @@ async def get_streak(current_user: CurrentUserDep, session: SessionDep) -> Strea
                         SELECT 1 FROM food_logs
                         WHERE user_id = :uid
                           AND date = CURRENT_DATE
-                          AND deleted_at IS NULL
                     ) AS logged_today
                 FROM runs
             """),
