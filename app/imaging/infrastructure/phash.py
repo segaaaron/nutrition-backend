@@ -47,8 +47,12 @@ def compute_phash_64(image_bytes: bytes) -> int | None:
         img = pyvips.Image.thumbnail_buffer(
             image_bytes, 8, height=8, size="force"
         ).colourspace("b-w")
-        # 8×8 single-band uchar buffer → 64 luma samples.
-        pixels = list(img.write_to_memory())[:64]
+        # 8×8 single-band uchar buffer → 64 luma samples. write_to_memory()
+        # returns a pyvips buffer whose iteration yields length-1 `bytes`
+        # (b'L'), not ints — wrap in bytes() so list() yields 0-255 ints and
+        # sum()/comparison work. Without this every hash raised TypeError and
+        # the near-dup cache silently never fired.
+        pixels = list(bytes(img.write_to_memory()))[:64]
         if len(pixels) < 64:
             return None
         mean = sum(pixels) / 64.0

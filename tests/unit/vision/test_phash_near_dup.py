@@ -7,6 +7,11 @@ Hamming/lookup logic is tested with synthetic hashes.
 
 from __future__ import annotations
 
+import sys
+import types
+
+import pytest
+
 from app.imaging.infrastructure.phash import (
     HAMMING_NEAR_DUP,
     compute_phash_64,
@@ -17,6 +22,41 @@ from app.imaging.infrastructure.phash import (
 def test_compute_phash_degrades_to_none_without_libvips_or_bad_bytes() -> None:
     # Must NEVER raise: pHash is an optimization, not a dependency.
     assert compute_phash_64(b"not an image at all") is None
+
+
+def test_compute_phash_handles_pyvips_byte_buffer(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Regression (2026-07-14): pyvips ``write_to_memory()`` returns a buffer
+    whose ITERATION yields length-1 ``bytes`` (b'L'), not ints — so the old
+    ``list(buf)`` produced ``[b'L', ...]`` and ``sum()`` raised ``TypeError``,
+    which the broad-except swallowed. Result: EVERY hash silently returned
+    None and the near-dup cache never fired. compute_phash_64 must produce a
+    valid 63-bit int from such a buffer (the fix wraps it in ``bytes()``)."""
+
+    class _FakeBuffer:
+        def __init__(self, data: bytes) -> None:
+            self._d = data
+
+        def __iter__(self):  # yields bytes, exactly like the real pyvips buffer
+            return (bytes([x]) for x in self._d)
+
+        def __bytes__(self) -> bytes:
+            return self._d
+
+    class _FakeImg:
+        def colourspace(self, _mode: str) -> _FakeImg:
+            return self
+
+        def write_to_memory(self) -> _FakeBuffer:
+            return _FakeBuffer(bytes(range(64)))
+
+    fake_pyvips = types.SimpleNamespace(
+        Image=types.SimpleNamespace(thumbnail_buffer=lambda *a, **k: _FakeImg())
+    )
+    monkeypatch.setitem(sys.modules, "pyvips", fake_pyvips)
+
+    h = compute_phash_64(b"whatever-bytes")
+    assert isinstance(h, int), "hash must be produced, not swallowed to None"
+    assert 0 <= h <= (1 << 63) - 1
 
 
 def test_hamming_identical_is_zero() -> None:
