@@ -424,6 +424,23 @@ def _model_is_gpt5_family(model: str) -> bool:
     return m.startswith(("gpt-5", "o1", "o3", "o4"))
 
 
+def _normalize_reasoning_effort(model: str, effort: str) -> str:
+    """Map the 'no reasoning' effort value to the one the model accepts.
+
+    Valid values DIFFER by family: gpt-5 / gpt-5-mini accept 'minimal' (reject
+    'none'); gpt-5.4 / nano accept 'none' (reject 'minimal' → HTTP 400). So a
+    stale env var (e.g. VISION_REASONING_EFFORT=minimal after switching to nano)
+    would 400 every vision call. Normalise here so config can't break the call.
+    """
+    m = model.lower()
+    is_54 = "5.4" in m or "nano" in m
+    if is_54 and effort == "minimal":
+        return "none"
+    if not is_54 and effort == "none":
+        return "minimal"
+    return effort
+
+
 def _completion_kwargs(model: str, max_output_tokens: int) -> dict[str, Any]:
     """Model-family-correct completion params for `chat.completions.create`.
 
@@ -449,7 +466,7 @@ def _completion_kwargs(model: str, max_output_tokens: int) -> dict[str, Any]:
             # "medium" → faster response, correct for an extraction task.
             # Both env-overridable (see config) for latency experiments.
             "extra_body": {
-                "reasoning_effort": s.vision_reasoning_effort,
+                "reasoning_effort": _normalize_reasoning_effort(model, s.vision_reasoning_effort),
                 "verbosity": s.vision_verbosity,
             },
         }
