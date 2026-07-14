@@ -2153,5 +2153,15 @@
     "protein_g": 1.6,
     "carbs_g": 14.7,
     "fat_g": 2.8
+  },
+  "jalapeno": {
+    "protein_g": 0.9,
+    "carbs_g": 6.5,
+    "fat_g": 0.4
+  },
+  "chile": {
+    "protein_g": 1.9,
+    "carbs_g": 8.8,
+    "fat_g": 0.4
   }
 }
