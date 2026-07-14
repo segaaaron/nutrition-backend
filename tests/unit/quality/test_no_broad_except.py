@@ -124,7 +124,7 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # OK1: notification handlers — fire-and-forget push, must not propagate.
     "app/notifications/application/event_handlers.py": {80, 116},
     # OK4: Redis cache helpers + Open Food Facts external API — best-effort, fail-open.
-    "app/vision/infrastructure/usda_fdc.py": {282, 290, 394},
+    "app/vision/infrastructure/usda_fdc.py": {288, 296, 400},
     # OK4: OpenAI vision wrappers with fallback contracts.
     "app/vision/application/learn_user_correction.py": {175},
     "app/vision/application/process_vision_job.py": {183, 417, 462, 540, 554},

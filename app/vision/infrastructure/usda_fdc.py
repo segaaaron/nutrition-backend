@@ -22,6 +22,7 @@ from __future__ import annotations
 import dataclasses
 import difflib
 import json
+import os
 import re
 import unicodedata
 from dataclasses import dataclass
@@ -37,6 +38,11 @@ log = get_logger("vision.usda_fdc")
 
 _OFF_BASE = "https://world.openfoodfacts.org/cgi/search.pl"
 _TIMEOUT_S = 4.0
+# Open Food Facts is DISABLED by default. The public endpoint is unreliable
+# (frequent 503s) and every lookup already falls back to the group-average
+# table, so calling it just adds ~4s of dead latency per vision scan. Re-enable
+# with VISION_OFF_ENABLED=1 only if the endpoint becomes reliable again.
+_OFF_ENABLED = os.getenv("VISION_OFF_ENABLED", "0") == "1"
 
 # 7-day Redis cache — nutritional data is stable.
 _REDIS_TTL_S = 86_400 * 7
@@ -462,8 +468,9 @@ async def search(name: str) -> UsdaNutrition | None:
                     description=result.description[:60],
                 )
 
-    # 3. Open Food Facts — packaged / branded products.
-    if result is None:
+    # 3. Open Food Facts — packaged / branded products. Disabled by default
+    #    (unreliable endpoint = dead latency); group-average fallback covers it.
+    if result is None and _OFF_ENABLED:
         query = _translate(name) or name
         result = await _search_off(query)
         if result is not None:
