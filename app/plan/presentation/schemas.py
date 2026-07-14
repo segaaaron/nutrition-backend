@@ -77,6 +77,10 @@ class PlanMealIngredient(_Strict):
     """
 
     name: str | None
+    # BE-9: localized ingredient name. Fallback chain: EN translation (when the
+    # request locale is English and a translation exists) → free_text_name
+    # (mostly ES). `name` keeps the raw free_text_name for backward compat.
+    name_localized: str | None = None
     amount_g: Decimal | None
     position: int
 

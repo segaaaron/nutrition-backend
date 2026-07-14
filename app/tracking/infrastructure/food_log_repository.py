@@ -117,8 +117,8 @@ class SqlFoodLogRepository:
         await self.s.execute(
             text(
                 """
-                INSERT INTO audit_log (actor_type, actor_id, action, target, payload)
-                VALUES ('user', :uid, 'food_log.delete', :tid, :payload::jsonb)
+                INSERT INTO audit_log (actor_type, user_id, action, target_type, target_id, metadata)
+                VALUES ('user', :uid::uuid, 'food_log.delete', 'food_log', :tid, :payload::jsonb)
             """
             ),
             {
@@ -135,57 +135,9 @@ class SqlFoodLogRepository:
         user_id: UUID,
         on: date,
     ) -> DailyTotals:
-        # Prefer the daily continuous aggregate (added in migration 0004) when
-        # it exists; fall back to a per-row sum otherwise.
-        sql_agg = text(
-            """
-            SELECT day, kcal, protein_g, carbs_g, fat_g
-              FROM food_logs_aggregates_daily
-             WHERE user_id = :uid AND day = :d
-        """
-        )
-        try:
-            r = (await self.s.execute(sql_agg, {"uid": str(user_id), "d": on})).mappings().first()
-            if r:
-                # Fiber/sugar/sodium are NOT in the continuous aggregate
-                # (kept narrow to bound storage). Fetch them via a quick scan.
-                extras = (
-                    (
-                        await self.s.execute(
-                            text(
-                                """
-                    SELECT
-                      COALESCE(SUM(CASE WHEN f.fiber_g IS NOT NULL
-                                        THEN (f.fiber_g * COALESCE(fl.amount_g,100) / 100.0) END),0)::int AS fiber_g,
-                      COALESCE(SUM(CASE WHEN f.sugar_g IS NOT NULL
-                                        THEN (f.sugar_g * COALESCE(fl.amount_g,100) / 100.0) END),0)::int AS sugar_g,
-                      COALESCE(SUM(CASE WHEN f.sodium_mg IS NOT NULL
-                                        THEN (f.sodium_mg * COALESCE(fl.amount_g,100) / 100.0) END),0)::int AS sodium_mg
-                      FROM food_logs fl
-                      LEFT JOIN foods f ON f.id = fl.food_id
-                     WHERE fl.user_id = :uid AND fl.date = :d
-                """
-                            ),
-                            {"uid": str(user_id), "d": on},
-                        )
-                    )
-                    .mappings()
-                    .first()
-                    or {}
-                )
-                return DailyTotals(
-                    date=on,
-                    kcal=int(r["kcal"] or 0),
-                    protein_g=int(r["protein_g"] or 0),
-                    carbs_g=int(r["carbs_g"] or 0),
-                    fat_g=int(r["fat_g"] or 0),
-                    fiber_g=int(extras.get("fiber_g") or 0),
-                    sugar_g=int(extras.get("sugar_g") or 0),
-                    sodium_mg=int(extras.get("sodium_mg") or 0),
-                )
-        except Exception:  # noqa: BLE001,S110 — aggregate may not exist yet (falls through)
-            pass
-
+        # Aggregate directly from food_logs. The former daily matview was
+        # unpopulated under the no-cron rule (REGLA #3) and raised on every
+        # SELECT, poisoning the session — dropped in migration 0029.
         sql = text(
             """
             SELECT
@@ -222,25 +174,8 @@ class SqlFoodLogRepository:
         user_id: UUID,
         window_days: int,
     ) -> list[dict]:
-        sql = text(
-            """
-            SELECT day, kcal, protein_g, carbs_g, fat_g
-              FROM food_logs_aggregates_daily
-             WHERE user_id = :uid AND day >= CURRENT_DATE - CAST(:n AS int)
-             ORDER BY day ASC
-        """
-        )
-        try:
-            rows = (
-                (await self.s.execute(sql, {"uid": str(user_id), "n": window_days}))
-                .mappings()
-                .all()
-            )
-            if rows:
-                return [dict(r) for r in rows]
-        except Exception:  # noqa: BLE001,S110 — aggregate table optional; fallback below
-            pass
-        # Fallback raw aggregation per date.
+        # Aggregate directly from food_logs (former daily matview dropped in
+        # migration 0029 — it was unpopulated and poisoned the session).
         sql2 = text(
             """
             SELECT date AS day,

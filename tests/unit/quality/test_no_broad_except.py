@@ -94,7 +94,7 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # OK4: ensure_goals fallback wrapper — logs and re-raises domain error.
     "app/plan/application/create_plan.py": {169, 448},
     # OK4: plan gen rate-limit Redis fail-open — Redis down must not block plan creation.
-    "app/plan/presentation/router.py": {455},
+    "app/plan/presentation/router.py": {468},
     # OK4: taste profile cache fetch — falls through on miss.
     "app/plan/application/taste_profile.py": {48},
     # OK4: plan cache best-effort.
@@ -118,7 +118,6 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # OK1: tracking event handler best-effort cache miss.
     "app/tracking/event_handlers.py": {21, 32, 43},
     # OK4: aggregate table optional — fallback path documented.
-    "app/tracking/infrastructure/food_log_repository.py": {186, 241},
     "app/tracking/infrastructure/repositories.py": {80, 108},
     # OK4: dish-anchor lookup is a best-effort second opinion (logged).
     "app/vision/infrastructure/dish_anchor.py": {53},

@@ -172,6 +172,10 @@ class RecipeComponentModel(Base):
         PG_UUID(as_uuid=True), ForeignKey("recipes.id", ondelete="RESTRICT"), nullable=True
     )
     free_text_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # English translation of free_text_name (BE-9). Backfilled from
+    # data/ingredient_translations_es_en.json in migration 0030; NULL when no
+    # translation exists → API falls back to free_text_name (mostly ES).
+    name_en: Mapped[str | None] = mapped_column(Text, nullable=True)
     amount_g: Mapped[Decimal | None] = mapped_column(Numeric, nullable=True)
     modifier: Mapped[str | None] = mapped_column(Text, nullable=True)
     position: Mapped[int] = mapped_column(Integer, default=0)

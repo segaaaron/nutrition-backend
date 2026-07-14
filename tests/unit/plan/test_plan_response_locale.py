@@ -15,6 +15,7 @@ that consumes the resolved locale.
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from uuid import UUID, uuid4
 
 import pytest
@@ -36,6 +37,7 @@ def _entry(
     name_map: dict[str, str] | None = None,
     desc_en: str | None = None,
     desc_map: dict[str, str] | None = None,
+    components: list | None = None,
 ) -> _Entry:
     return _RecipeData(
         name_en=name_en,
@@ -52,7 +54,7 @@ def _entry(
         sat_fat_g=None,
         tags=[],
         allergens=[],
-        components=[],
+        components=components or [],
     )
 
 
@@ -196,3 +198,33 @@ def test_to_resp_default_locale_is_spanish() -> None:
     resp = _to_resp(plan, translations=translations)
     assert resp.days[0].lunch is not None
     assert resp.days[0].lunch.name_localized == "Pollo a la Plancha"
+
+
+# --- BE-9: ingredient name localization ------------------------------------
+# components tuple = (free_text_name, name_en, amount_g, position)
+_COMPONENTS = [
+    ("Pechuga de pollo", "Chicken breast", Decimal("150"), 1),
+    ("Arroz", None, Decimal("100"), 2),
+]
+
+
+def test_ingredient_name_localized_en_uses_translation() -> None:
+    """locale='en' → ingredient.name_localized is the EN translation when present."""
+    plan, [rid] = _make_plan()
+    translations: dict[UUID, _Entry] = {rid: _entry("Chicken", components=_COMPONENTS)}
+    resp = _to_resp(plan, translations=translations, locale="en")
+    ings = resp.days[0].lunch.ingredients  # type: ignore[union-attr]
+    assert ings[0].name == "Pechuga de pollo"
+    assert ings[0].name_localized == "Chicken breast"
+    # No EN translation for this row → falls back to free_text_name.
+    assert ings[1].name_localized == "Arroz"
+
+
+def test_ingredient_name_localized_es_uses_free_text() -> None:
+    """locale='es' → name_localized stays the ES free_text_name, never the EN."""
+    plan, [rid] = _make_plan()
+    translations: dict[UUID, _Entry] = {rid: _entry("Chicken", components=_COMPONENTS)}
+    resp = _to_resp(plan, translations=translations, locale="es")
+    ings = resp.days[0].lunch.ingredients  # type: ignore[union-attr]
+    assert ings[0].name_localized == "Pechuga de pollo"
+    assert ings[1].name_localized == "Arroz"

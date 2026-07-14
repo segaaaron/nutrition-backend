@@ -112,8 +112,10 @@ class _RecipeData:
     sat_fat_g: int | None
     tags: list[str]
     allergens: list[str]
-    # (free_text_name, amount_g, position) ordered by position — native amounts.
-    components: list[tuple[str | None, Decimal | None, int]] = field(default_factory=list)
+    # (free_text_name, name_en, amount_g, position) ordered by position — native amounts.
+    components: list[tuple[str | None, str | None, Decimal | None, int]] = field(
+        default_factory=list
+    )
 
 
 async def _load_recipe_translations(
@@ -156,15 +158,18 @@ async def _load_recipe_translations(
         select(
             RecipeComponentModel.recipe_id,
             RecipeComponentModel.free_text_name,
+            RecipeComponentModel.name_en,
             RecipeComponentModel.amount_g,
             RecipeComponentModel.position,
         )
         .where(RecipeComponentModel.recipe_id.in_(recipe_ids))
         .order_by(RecipeComponentModel.recipe_id, RecipeComponentModel.position)
     )
-    comps: dict[uuid.UUID, list[tuple[str | None, Decimal | None, int]]] = defaultdict(list)
+    comps: dict[uuid.UUID, list[tuple[str | None, str | None, Decimal | None, int]]] = defaultdict(
+        list
+    )
     for cr in (await session.execute(comp_stmt)).all():
-        comps[cr[0]].append((cr[1], cr[2], cr[3]))
+        comps[cr[0]].append((cr[1], cr[2], cr[3], cr[4]))
 
     return {
         row[0]: _RecipeData(
@@ -238,9 +243,17 @@ def _build_meal_resp(
     data = tr.get(m.recipe_id) if m.recipe_id is not None else None
     if data is not None:
         instructions = data.instructions_translations.get(locale) or data.instructions_en
+        want_en = locale == "en"
         ingredients = [
-            PlanMealIngredient(name=name, amount_g=amount, position=pos)
-            for (name, amount, pos) in data.components
+            PlanMealIngredient(
+                name=name,
+                # BE-9: EN name when the request is English and a translation
+                # exists; otherwise the raw free_text_name (mostly ES).
+                name_localized=(name_en if (want_en and name_en) else name),
+                amount_g=amount,
+                position=pos,
+            )
+            for (name, name_en, amount, pos) in data.components
         ]
     else:
         instructions = []

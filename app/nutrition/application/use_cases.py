@@ -454,9 +454,11 @@ class GetGoalsHistory:
 class GetWeeklySummary:
     """Aggregate the last 7 days of food + water logs vs nutritional targets.
 
-    Returns a dict ready for the weekly-summary endpoint schema. Uses
-    food_logs_aggregates_daily when available, falls back to raw food_logs.
-    All queries are read-only and share the caller's session.
+    Returns a dict ready for the weekly-summary endpoint schema. Aggregates
+    directly from raw food_logs (the former daily-aggregate matview was
+    unpopulated under the no-cron rule, so querying it raised and poisoned
+    the session; dropped in migration 0029). All queries are read-only and
+    share the caller's session.
     """
 
     session: AsyncSession
@@ -489,20 +491,12 @@ class GetWeeklySummary:
             await self.session.execute(
                 text(
                     """
-                    SELECT day::date AS day, kcal, protein_g
-                      FROM food_logs_aggregates_daily
-                     WHERE user_id = :uid AND day >= CURRENT_DATE - 6
-                    UNION ALL
                     SELECT date AS day,
                            COALESCE(SUM(kcal), 0)::int AS kcal,
                            COALESCE(SUM(protein_g), 0)::int AS protein_g
                       FROM food_logs
                      WHERE user_id = :uid
                        AND date >= CURRENT_DATE - 6
-                       AND date NOT IN (
-                           SELECT day FROM food_logs_aggregates_daily
-                            WHERE user_id = :uid AND day >= CURRENT_DATE - 6
-                       )
                      GROUP BY date
                      ORDER BY day ASC
                 """

@@ -160,8 +160,8 @@ async def delete_progress_photo(
     await session.execute(
         text(
             """
-        INSERT INTO audit_log (actor_type, actor_id, action, target, payload)
-        VALUES ('user', :uid, 'progress_photo.delete', :tid, '{}'::jsonb)
+        INSERT INTO audit_log (actor_type, user_id, action, target_type, target_id, metadata)
+        VALUES ('user', :uid::uuid, 'progress_photo.delete', 'progress_photo', :tid, '{}'::jsonb)
     """
         ),
         {"uid": str(current_user), "tid": str(photo_id)},
@@ -217,8 +217,8 @@ async def progress_dashboard(
             await session.execute(
                 text(
                     """
-        SELECT goal, kcal_target FROM nutritional_goals
-         WHERE user_id = :uid AND valid_to IS NULL LIMIT 1
+        SELECT goal, kcal_target FROM plans
+         WHERE user_id = :uid::uuid AND status = 'active' LIMIT 1
     """
                 ),
                 {"uid": str(current_user)},
