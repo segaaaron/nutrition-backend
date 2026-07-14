@@ -96,6 +96,7 @@ class ProcessVisionJob:
         mime: str,
         locale: str,
         region: str,
+        user_context: str | None = None,
     ) -> None:
         """Orchestrate the full vision pipeline for one job."""
         start = datetime.now(UTC)
@@ -137,6 +138,7 @@ class ProcessVisionJob:
                 plan_context=plan_context,
                 user_profile=user_profile,
                 portion_anchors=portion_anchors,
+                user_context=user_context,
             )
 
             await self._match_and_ground(items, locale=locale, user_id=user_id)
@@ -154,6 +156,7 @@ class ProcessVisionJob:
                     user_profile=user_profile,
                     portion_anchors=portion_anchors,
                     settings=settings,
+                    user_context=user_context,
                 )
 
             await self._triangulate_mains(items)
@@ -204,6 +207,7 @@ class ProcessVisionJob:
         plan_context: str | None,
         user_profile: dict | None,
         portion_anchors: list[str] | None = None,
+        user_context: str | None = None,
     ) -> tuple[list[DetectedFoodItem], str, bool]:
         """SHA dedup → pHash near-dup → inflight lock → provider.
 
@@ -282,6 +286,7 @@ class ProcessVisionJob:
                 plan_context=plan_context,
                 user_profile=user_profile,
                 portion_history=portion_anchors or [],
+                user_context=user_context,
             )
             return items, prompt_sha, False
         finally:
@@ -363,6 +368,7 @@ class ProcessVisionJob:
         user_profile: dict | None,
         portion_anchors: list[str] | None = None,
         settings: object,
+        user_context: str | None = None,
     ) -> tuple[list[DetectedFoodItem], str]:
         """Post-catalog escalation: call full model only when catalog cannot vouch."""
         escalate, esc_reason = needs_full_model(
@@ -382,6 +388,7 @@ class ProcessVisionJob:
             plan_context=plan_context,
             user_profile=user_profile,
             portion_history=portion_anchors or [],
+            user_context=user_context,
         )
         await self._match_and_ground(new_items, locale=locale, user_id=user_id)
         return new_items, new_prompt_sha

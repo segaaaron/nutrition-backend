@@ -265,6 +265,91 @@ CALORIC_CONDIMENT_FLOORS: Final[dict[str, tuple[int, int]]] = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Staple-portion floor (2026-07-14) — chronic-underestimation guardrail.
+#
+# The single biggest calorie error is PORTION, and the LLM systematically
+# UNDER-estimates the grams of starchy sides (fries, rice, pasta, purée). This
+# floor raises an implausibly-low portion of a KNOWN staple to a conservative
+# minimum served weight (documented serving sizes, deliberately set BELOW the
+# typical serving so it only catches clear underestimates, never inflates a
+# normal one).
+#
+# Division of labour: USDA already grounds kcal PER GRAM (macro_grounder runs
+# before this pass); here we correct only the GRAMS and scale kcal/macros by
+# the same factor — the per-gram value stays exactly as USDA supplied it. Name-
+# keyed (not food_group) so it never touches a small protein like one fried egg.
+#   name marker → minimum served grams for a main/side portion.
+STAPLE_PORTION_FLOOR_G: Final[dict[str, int]] = {
+    # Fries — a McDonald's medium is 117 g, large 150 g; a restaurant side is
+    # 150-200 g. Floor at 130 g (below typical) → only lifts gross lows.
+    "papas fritas": 130,
+    "papa frita": 130,
+    "papas a la francesa": 130,
+    "french fries": 130,
+    "fries": 130,
+    # Cooked rice — 1 cup ≈ 158 g; typical serving 150-200 g. Floor 130 g.
+    "arroz": 130,
+    "rice": 130,
+    # Cooked pasta/noodles — 1 cup ≈ 140 g. Floor 130 g.
+    "fideos": 130,
+    "tallarin": 130,
+    "tallarines": 130,
+    "pasta": 130,
+    "spaghetti": 130,
+    "espagueti": 130,
+    "noodles": 130,
+    # Mashed potato — a serving is ~200 g. Floor 130 g.
+    "pure de papa": 130,
+    "mashed potato": 130,
+    "mashed potatoes": 130,
+}
+# Only lift the grams of a real portion, never a garnish/sauce/sweetener.
+_STAPLE_FLOOR_ROLES: Final[frozenset[str]] = frozenset({"main", "side"})
+# Cap the correction so a mislabeled 5 g blob can't balloon 30×.
+_STAPLE_FLOOR_MAX_FACTOR: Final[float] = 5.0
+
+
+def floor_staple_portions(items: list[DetectedFoodItem]) -> list[DetectedFoodItem]:
+    """Raise the grams of a known staple side/main whose estimated portion is
+    below a conservative documented minimum, scaling kcal + macros by the same
+    factor (USDA per-gram value preserved). Corrects the LLM's systematic
+    under-estimation of starchy portions without inflating normal ones."""
+    out: list[DetectedFoodItem] = []
+    for it in items:
+        grams = float(it.estimated_amount_g)
+        role = it.role or "main"  # legacy rows without role → treat as main
+        floor_g: int | None = None
+        if grams > 0 and role in _STAPLE_FLOOR_ROLES:
+            n = _norm(it.name)
+            for marker, mg in STAPLE_PORTION_FLOOR_G.items():
+                if marker in n:
+                    if grams < mg:
+                        floor_g = mg
+                    break
+        if floor_g is None:
+            out.append(it)
+            continue
+        factor = min(floor_g / grams, _STAPLE_FLOOR_MAX_FACTOR)
+        kmin = None if it.kcal_min is None else int(round(it.kcal_min * factor))
+        kmax = None if it.kcal_max is None else int(round(it.kcal_max * factor))
+        out.append(
+            replace(
+                it,
+                estimated_amount_g=Decimal(str(round(grams * factor, 1))),
+                kcal=int(round(it.kcal * factor)),
+                protein_g=int(round(it.protein_g * factor)),
+                carbs_g=int(round(it.carbs_g * factor)),
+                fat_g=int(round(it.fat_g * factor)),
+                fiber_g=int(round(it.fiber_g * factor)),
+                sugar_g=int(round(it.sugar_g * factor)),
+                kcal_min=kmin,
+                kcal_max=kmax,
+            )
+        )
+    return out
+
+
 def _scaled(base_kcal: int, base_g: int, actual_g: float) -> int:
     return int(round(base_kcal * max(actual_g, 1.0) / base_g))
 
@@ -424,12 +509,15 @@ def compute_totals(items: list[DetectedFoodItem]) -> PlateTotals:
 
 
 def decompose(items: list[DetectedFoodItem]) -> tuple[list[DetectedFoodItem], PlateTotals]:
-    """Full post-pass: spice clamp → condiment floors → hidden fat (fry) →
-    hidden dairy/oil v2 (cream soups, purées, LatAm rice) → beverage
-    refinement (container snap + curated table + alcohol formula) → totals."""
+    """Full post-pass: spice clamp → staple-portion floor → condiment floors →
+    hidden fat (fry) → hidden dairy/oil v2 (cream soups, purées, LatAm rice) →
+    beverage refinement (container snap + curated table + alcohol formula) →
+    totals. The staple-portion floor runs early so downstream grams-based
+    inferences (e.g. rice-oil per 150 g) use the corrected portion."""
     from app.vision.domain.beverage_engine import refine_beverages
 
     out = clamp_dry_spices(items)
+    out = floor_staple_portions(out)
     out = floor_caloric_condiments(out)
     out = infer_hidden_cooking_fat(out)
     out = infer_hidden_dairy_and_oil(out)

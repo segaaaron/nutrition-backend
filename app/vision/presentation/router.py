@@ -85,6 +85,10 @@ async def submit_food_photo(  # noqa: PLR0913 — FastAPI endpoint signature: de
     meal_time: Annotated[Literal["breakfast", "lunch", "dinner", "snack"], Form()] = "lunch",
     locale: Annotated[str, Form()] = "en",
     region: Annotated[str, Form()] = "us",
+    note: Annotated[
+        str | None,
+        Form(description="optional portion cue, e.g. 'plato familiar' / 'es individual'"),
+    ] = None,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> SubmitPhotoResponse:
     if not idempotency_key:
@@ -107,6 +111,7 @@ async def submit_food_photo(  # noqa: PLR0913 — FastAPI endpoint signature: de
         idempotency_key=idempotency_key,
         locale=locale,
         region=region,
+        user_context=note,
     )
     return SubmitPhotoResponse(job_id=job_id)
 

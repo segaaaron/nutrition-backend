@@ -29,6 +29,27 @@ log = get_logger("vision.submit")
 MAX_UPLOAD_BYTES = 8 * 1024 * 1024  # 8MB
 ALLOWED_MIME = ("image/jpeg", "image/png", "image/heic", "image/heif", "image/webp")
 
+# Free-text portion-calibration note from the user ("plato familiar",
+# "es individual"). The single biggest error source is portion size, and one
+# short phrase from the user measurably improves the estimate. Capped + cleaned
+# before it reaches the LLM prompt.
+MAX_USER_CONTEXT_LEN = 160
+
+
+def sanitize_user_context(text: str | None) -> str | None:
+    """Clean an optional user note for safe injection into the vision prompt:
+    strip control chars, collapse whitespace, cap length. Returns None when
+    empty so downstream simply omits the calibration line."""
+    if not text:
+        return None
+    cleaned = "".join(
+        ch if (ch.isprintable() and ch not in "\r\n\t") else " " for ch in text
+    )
+    cleaned = " ".join(cleaned.split()).strip()
+    if not cleaned:
+        return None
+    return cleaned[:MAX_USER_CONTEXT_LEN]
+
 
 @dataclass(slots=True)
 class SubmitPhoto:
@@ -51,6 +72,7 @@ class SubmitPhoto:
         idempotency_key: str | None,
         locale: str = "en",
         region: str = "us",
+        user_context: str | None = None,
     ) -> UUID:
         if len(raw_bytes) == 0:
             raise ValidationError("empty_upload")
@@ -58,6 +80,7 @@ class SubmitPhoto:
             raise ValidationError(f"upload_too_large:{len(raw_bytes)}")
         if mime not in ALLOWED_MIME:
             raise ValidationError(f"unsupported_mime:{mime}")
+        clean_context = sanitize_user_context(user_context)
         # OWASP ASVS V12 — verify declared MIME matches actual bytes
         # (anti-polyglot upload: PHP/SVG/EXE disguised as image).
         try:
@@ -114,6 +137,7 @@ class SubmitPhoto:
             mime=f"image/{compressed.format}",
             locale=locale,
             region=region,
+            user_context=clean_context,
         )
 
         await self.bus.publish(

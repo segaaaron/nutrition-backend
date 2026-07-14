@@ -41,6 +41,7 @@ async def vision_recognize_task(
     mime: str,
     locale: str = "en",
     region: str = "us",
+    user_context: str | None = None,
 ) -> dict[str, Any]:
     image_bytes = base64.b64decode(image_b64)
     job_uuid = UUID(job_id)
@@ -58,7 +59,7 @@ async def vision_recognize_task(
             await uc(
                 job_id=job_uuid, user_id=uid, meal_time=meal_time,  # type: ignore[arg-type]
                 image_bytes=image_bytes, mime=mime,
-                locale=locale, region=region,
+                locale=locale, region=region, user_context=user_context,
             )
             return {"job_id": job_id, "status": "completed"}
     except Exception as exc:  # noqa: BLE001

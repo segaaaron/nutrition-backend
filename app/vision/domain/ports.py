@@ -46,6 +46,7 @@ class VisionProvider(Protocol):
         stage: str = "auto",
         plan_context: str | None = None,
         user_profile: dict | None = None,
+        user_context: str | None = None,
     ) -> tuple[list[DetectedFoodItem], str]:  # returns (items, prompt_sha256)
         """stage — "auto": provider-internal cascade (legacy behaviour);
         "primary_only": cheap model, NO internal escalation (the pipeline

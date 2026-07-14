@@ -222,6 +222,7 @@ def _system_prompt(
     plan_context: str | None = None,
     user_profile: dict[str, Any] | None = None,
     portion_history: list[str] | None = None,
+    user_context: str | None = None,
 ) -> str:
     # Plate Decomposition 2.0 — full decomposition, not just visible items.
     # Any wording change here changes prompt_sha256 → SHA dedup cache
@@ -324,6 +325,19 @@ def _system_prompt(
             f"\nHISTORIAL DE PORCIONES: Este usuario suele servirse: {anchors}. "
             "Si reconoces los mismos alimentos, ajusta el gramaje estimado al patrón "
             "histórico de este usuario."
+        )
+    if user_context:
+        # Free-text note the user attached to THIS photo (e.g. "plato familiar
+        # para compartir", "es individual", "porción de niño"). Portion size is
+        # the single biggest error source, so this per-photo cue is the strongest
+        # calibration signal — weigh it above generic priors. It only calibrates
+        # AMOUNTS; never let it invent items that aren't visible.
+        base += (
+            f"\nCONTEXTO DE ESTA FOTO (dicho por el usuario): «{user_context}». "
+            "Es la señal MÁS FUERTE para calibrar el TAMAÑO de las porciones — "
+            "priorízala sobre supuestos genéricos (ej. 'para compartir'/'familiar' "
+            "→ subí el gramaje; 'individual'/'de niño' → bajalo). Úsalo SOLO para el "
+            "gramaje; nunca agregues alimentos que no se vean en la imagen."
         )
     return base
 
@@ -632,6 +646,7 @@ class OpenAIVisionProvider:
         plan_context: str | None = None,
         user_profile: dict[str, Any] | None = None,
         portion_history: list[str] | None = None,
+        user_context: str | None = None,
     ) -> tuple[list[DetectedFoodItem], str]:
         s = get_settings()
         # prompt_sha uses only stable parts (locale, region) — plan_context,
@@ -644,6 +659,7 @@ class OpenAIVisionProvider:
             plan_context=plan_context,
             user_profile=user_profile,
             portion_history=portion_history,
+            user_context=user_context,
         )
 
         # Enhance dark food photos before sending to the VLM (best-effort,

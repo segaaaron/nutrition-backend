@@ -109,6 +109,68 @@ def _tokens(s: str) -> list[str]:
     return [t for t in _norm_str(s).split() if len(t) > 1]
 
 
+# LATAM regional ingredient synonyms → a canonical term that already exists in the
+# reference tables. These are word-level dictionary equivalences (regional names
+# for the SAME food), NOT nutrition guesses: the target already carries verified
+# USDA/reference values — we only redirect the lookup so fewer real foods fall to
+# the group-average fallback. Applied only AFTER the original name fails to
+# resolve, so any food that has its own entry keeps its own values.
+_SYNONYMS: dict[str, str] = {
+    "palta": "aguacate",
+    "frejol": "frijoles",
+    "frejoles": "frijoles",
+    "poroto": "frijoles",
+    "porotos": "frijoles",
+    "caraota": "frijoles",
+    "caraotas": "frijoles",
+    "churrasco": "bistec de res",
+    "bife": "bistec de res",
+    "tallarin": "fideos",
+    "tallarines": "fideos",
+    "camote": "batata",
+    "boniato": "batata",
+    "guineo": "platano",
+    "banano": "platano",
+    "arveja": "guisantes",
+    "arvejas": "guisantes",
+    "frutilla": "fresa",
+    "frutillas": "fresas",
+    "betarraga": "remolacha",
+    "zapallo": "calabaza",
+    "durazno": "melocoton",
+    "jitomate": "tomate",
+    "elote": "maiz",
+}
+
+
+def _apply_synonyms(key: str) -> str:
+    """Replace whole-word LATAM synonyms in a normalised key. Returns the key
+    unchanged when no synonym applies."""
+    words = key.split()
+    changed = [_SYNONYMS.get(w, w) for w in words]
+    return " ".join(changed)
+
+
+def _subset_match(query_key: str, keys) -> str | None:
+    """Return the shortest reference key whose token set is a SUPERSET of every
+    query token — i.e. the query is a more-general form of a more-specific entry
+    (``bistec`` → ``bistec de res``, ``lentejas`` → ``lentejas cocidas``).
+
+    Direction is query⊆key ONLY: a short query never gets generalised to an
+    unrelated broad entry, and difflib's length penalty (which drops
+    ``bistec`` vs ``bistec de res`` below the 0.72 cutoff) is bypassed."""
+    qt = set(query_key.split())
+    if not qt:
+        return None
+    best: str | None = None
+    best_len = 10**6
+    for k in keys:
+        kt = k.split()
+        if len(kt) < best_len and qt.issubset(kt):
+            best, best_len = k, len(kt)
+    return best
+
+
 def _load_local_data() -> None:
     global _INGREDIENT_REF, _SR_LEGACY, _SR_DESC_NORM  # noqa: PLW0603
     global _NUTRITION_MACROS, _NUTRITION_MICROS  # noqa: PLW0603
@@ -348,8 +410,17 @@ def _search_ingredient_ref(name: str) -> UsdaNutrition | None:
 
     entry = _INGREDIENT_REF.get(key)
     if entry is None:
+        # Regional synonym applied BEFORE difflib (palta→aguacate). Doing it first
+        # prevents difflib from grabbing a spelling-similar but unrelated food
+        # (e.g. "arveja"→"avena"). Subset fuzzing is intentionally left to the
+        # cooked nutrition_reference — this is the raw/dry staples table.
+        alt = _apply_synonyms(key)
+        lookup = alt if alt != key else key
+        if alt != key:
+            entry = _INGREDIENT_REF.get(alt)
+    if entry is None:
         # Fuzzy match on ES keys — cheap (817 short strings).
-        matches = difflib.get_close_matches(key, _INGREDIENT_REF.keys(), n=1, cutoff=0.72)
+        matches = difflib.get_close_matches(lookup, _INGREDIENT_REF.keys(), n=1, cutoff=0.72)
         if matches:
             entry = _INGREDIENT_REF[matches[0]]
 
@@ -380,6 +451,27 @@ def _search_nutrition_reference(name: str) -> UsdaNutrition | None:
         return None
     key = _norm_key(name)
     macros = _NUTRITION_MACROS.get(key)
+    if macros is None:
+        sk = _subset_match(key, _NUTRITION_MACROS.keys())
+        if sk is not None:
+            key, macros = sk, _NUTRITION_MACROS[sk]
+    if macros is None:
+        # Regional synonym BEFORE original difflib (camote→batata, tallarin→
+        # fideos…): the canonical word is tried exact→subset→difflib first, so a
+        # spelling-similar wrong food (camote→chayote) can't win.
+        alt = _apply_synonyms(key)
+        if alt != key:
+            macros = _NUTRITION_MACROS.get(alt)
+            if macros is not None:
+                key = alt
+            else:
+                sk = _subset_match(alt, _NUTRITION_MACROS.keys())
+                if sk is not None:
+                    key, macros = sk, _NUTRITION_MACROS[sk]
+                else:
+                    m = difflib.get_close_matches(alt, _NUTRITION_MACROS.keys(), n=1, cutoff=0.72)
+                    if m:
+                        key, macros = m[0], _NUTRITION_MACROS[m[0]]
     if macros is None:
         matches = difflib.get_close_matches(key, _NUTRITION_MACROS.keys(), n=1, cutoff=0.72)
         if matches:
@@ -414,6 +506,33 @@ def _token_recall(query_toks: list[str], desc_toks: list[str]) -> float:
     return sum(1 for t in query_toks if t in desc_set) / len(query_toks)
 
 
+# SR desc words that signal a condiment/derived product rather than the food
+# itself. If the query didn't ask for them, the match is off-topic.
+_SR_OFFTOPIC_WORDS = frozenset(
+    {"dressing", "sauce", "gravy", "dip", "spread", "soup", "juice", "syrup", "powder"}
+)
+# SR categories that hold composite prepared dishes — a bare ingredient query
+# should never resolve to one of these.
+_SR_COMPOSITE_CATEGORIES = frozenset(
+    {"Restaurant Foods", "Fast Foods", "Meals, Entrees, and Side Dishes", "Baby Foods"}
+)
+
+
+def _sr_desc_is_offtopic(
+    desc_toks: list[str], query_set: set[str], bare: bool, idx: int
+) -> bool:
+    """True if this SR entry is a condiment/composite that a bare ingredient
+    query should not match."""
+    for w in _SR_OFFTOPIC_WORDS:
+        if w in desc_toks and w not in query_set:
+            return True
+    if bare and _SR_LEGACY is not None:
+        cat = str(_SR_LEGACY[idx].get("category") or "")
+        if cat in _SR_COMPOSITE_CATEGORIES:
+            return True
+    return False
+
+
 def _search_sr_legacy(name_en: str) -> UsdaNutrition | None:
     """Token-recall search over SR Legacy (7,793 entries).
 
@@ -428,9 +547,18 @@ def _search_sr_legacy(name_en: str) -> UsdaNutrition | None:
     if not query_toks:
         return None
 
+    query_set = set(query_toks)
+    bare = len(query_toks) <= 1  # bare single-ingredient query
+
     best_score = 0.74  # minimum threshold
     best_idx = -1
     for i, desc_toks in enumerate(_SR_DESC_NORM):
+        # Guard: a bare ingredient query must not grab a condiment or a composite
+        # prepared dish that merely mentions the ingredient (e.g. "salad" →
+        # "Salad dressing, coleslaw" 404kcal; "beans" → "pupusas con frijoles").
+        # The group-average fallback is closer than these mismatches.
+        if _sr_desc_is_offtopic(desc_toks, query_set, bare, i):
+            continue
         score = _token_recall(query_toks, desc_toks)
         if score > best_score or (score == best_score and best_idx >= 0 and len(desc_toks) < len(_SR_DESC_NORM[best_idx])):
             best_score = score
