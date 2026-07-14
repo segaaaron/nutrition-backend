@@ -58,6 +58,12 @@ services:
       APPLE_OAUTH_TEAM_ID: ${APPLE_OAUTH_TEAM_ID}
       APPLE_OAUTH_KEY_ID: ${APPLE_OAUTH_KEY_ID}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
+      # Vision model kept in sync with the worker (see worker service). The API
+      # doesn't call the vision model, but sharing config avoids drift.
+      OPENAI_VISION_MODEL: ${OPENAI_VISION_MODEL:-gpt-5-mini}
+      VISION_REASONING_EFFORT: ${VISION_REASONING_EFFORT:-low}
+      VISION_VERBOSITY: ${VISION_VERBOSITY:-low}
+      VISION_MAX_OUTPUT_TOKENS: ${VISION_MAX_OUTPUT_TOKENS:-4000}
       RESEND_API_KEY: ${RESEND_API_KEY}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
       STRIPE_API_KEY: ${STRIPE_API_KEY}
@@ -132,6 +138,15 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       EMAIL_ENABLED: ${EMAIL_ENABLED}
       RESEND_API_KEY: ${RESEND_API_KEY}
+      # Vision model tuning — panel-overridable. The vision OpenAI call runs in
+      # the WORKER, so these MUST be passed here (the compose forwards env
+      # EXPLICITLY, so a panel var not listed here never reaches the container).
+      # Defaults preserve current behaviour; set OPENAI_VISION_MODEL in the panel
+      # to switch models (e.g. gpt-5.4-nano) with no code change.
+      OPENAI_VISION_MODEL: ${OPENAI_VISION_MODEL:-gpt-5-mini}
+      VISION_REASONING_EFFORT: ${VISION_REASONING_EFFORT:-low}
+      VISION_VERBOSITY: ${VISION_VERBOSITY:-low}
+      VISION_MAX_OUTPUT_TOKENS: ${VISION_MAX_OUTPUT_TOKENS:-4000}
       # Hardcoded worker sizing for this VPS profile.
       ARQ_MAX_JOBS: "2"
     depends_on:
