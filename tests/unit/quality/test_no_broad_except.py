@@ -124,7 +124,7 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # OK1: notification handlers — fire-and-forget push, must not propagate.
     "app/notifications/application/event_handlers.py": {80, 116},
     # OK4: Redis cache helpers + Open Food Facts external API — best-effort, fail-open.
-    "app/vision/infrastructure/usda_fdc.py": {288, 296, 400},
+    "app/vision/infrastructure/usda_fdc.py": {305, 313, 417},
     # OK4: OpenAI vision wrappers with fallback contracts.
     "app/vision/application/learn_user_correction.py": {175},
     "app/vision/application/process_vision_job.py": {183, 417, 462, 540, 554},
@@ -140,7 +140,7 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     "app/vision/infrastructure/inflight_lock.py": {32, 42, 68},
     "app/vision/infrastructure/food_matcher.py": {124},
     # OK4: dark-image enhancement (best-effort PIL), prefilter fail-open, invoke retry.
-    "app/vision/infrastructure/openai_vision.py": {351, 357, 403, 552, 847},
+    "app/vision/infrastructure/openai_vision.py": {359, 365, 411, 560, 855},
     # OK4: plate explanation is decorative — poll must still serve items.
     "app/vision/presentation/router.py": {169, 214},
     # OK4: voice/food text parser — LLM best-effort.

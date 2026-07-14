@@ -45,6 +45,10 @@ _PRICING_PER_M: Final[dict[str, tuple[float, float]]] = {
     "gpt-5-mini": (0.275, 2.20),
     "gpt-5.1": (1.375, 11.00),
     "gpt-5.2": (1.925, 15.40),
+    # GPT-5.4 mini/nano (list $0.75/$4.50 and $0.20/$1.25 + ~10% margin).
+    # nano = low-latency vision tier; mini = heavier fallback.
+    "gpt-5.4-mini": (0.825, 4.95),
+    "gpt-5.4-nano": (0.22, 1.375),
     "text-embedding-3-large": (0.143, 0.0),
 }
 

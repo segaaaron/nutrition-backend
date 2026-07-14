@@ -48,8 +48,25 @@ _OFF_ENABLED = os.getenv("VISION_OFF_ENABLED", "0") == "1"
 _REDIS_TTL_S = 86_400 * 7
 _REDIS_KEY_FMT = "nova:usda:{name}"
 
-# Path to bundled data files (copied into Docker image via COPY data ./data).
-_DATA_DIR = Path(__file__).parent.parent.parent.parent / "data" / "usda"
+# Path to bundled USDA data files. The worker may import this module either
+# from the source tree (/app/app/...) OR from the pip-installed package
+# (site-packages/app/...); only the source tree has data/ alongside it, so a
+# __file__-relative path alone breaks when running from the installed package.
+# Resolve against several candidates and pick the one that actually exists.
+def _resolve_data_dir() -> Path:
+    src_relative = Path(__file__).resolve().parent.parent.parent.parent / "data" / "usda"
+    candidates = [
+        (Path(os.environ["VISION_DATA_DIR"]) / "usda") if os.environ.get("VISION_DATA_DIR") else None,
+        Path.cwd() / "data" / "usda",  # /app/data/usda — COPY data ./data lands here (WORKDIR /app)
+        src_relative,                  # source-tree layout
+    ]
+    for c in candidates:
+        if c is not None and (c / "usda_ingredient_reference.json").is_file():
+            return c
+    return src_relative  # last resort → logs ref_missing, falls back to group averages
+
+
+_DATA_DIR = _resolve_data_dir()
 
 # Shared httpx client for Open Food Facts only.
 _client: httpx.AsyncClient | None = None
