@@ -121,10 +121,11 @@ async def test_pre_check_uses_mini_pricing(
     est = Decimal(str(captured[0]))
     # Sanity: the pre-check estimate must stay cheap enough for thousands of
     # calls/day under the $1.50 cap — orders of magnitude above the real
-    # 10-photos/day rate cap. Floor lowered 3000 -> 2500 on 2026-07-11 after the
-    # counting-accuracy prompt grew ~200 input tokens (still ~2900 calls/day).
+    # 10-photos/day rate cap. Floor: 3000 -> 2500 (2026-07-11, counting-accuracy
+    # prompt) -> 2400 (2026-07-14, scope + anti-double-count + portion-bias
+    # prompt grew ~another 200 input tokens; still ~2490 calls/day, 249× the cap).
     cap = Decimal("1.50")
-    assert cap / est >= 2500, f"estimate={est} too high, only {cap/est:.0f} calls/day"
+    assert cap / est >= 2400, f"estimate={est} too high, only {cap/est:.0f} calls/day"
 
 
 @pytest.mark.asyncio

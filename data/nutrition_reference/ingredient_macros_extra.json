@@ -1,413 +1,2132 @@
 {
-  "ajo": {"protein_g": 6.4, "carbs_g": 33, "fat_g": 0.5},
-  "ajo picado fino": {"protein_g": 6.4, "carbs_g": 33, "fat_g": 0.5},
-  "ajo en polvo": {"protein_g": 16.5, "carbs_g": 73, "fat_g": 0.7},
-  "ajo fresco": {"protein_g": 6.4, "carbs_g": 33, "fat_g": 0.5},
-  "aceite vegetal": {"protein_g": 0, "carbs_g": 0, "fat_g": 100},
-  "aceite de coco": {"protein_g": 0, "carbs_g": 0, "fat_g": 99},
-  "aceite de coco (para sartén)": {"protein_g": 0, "carbs_g": 0, "fat_g": 99},
-  "aceite de coco en spray": {"protein_g": 0, "carbs_g": 0, "fat_g": 99},
-  "aceite de coco o aceite neutro": {"protein_g": 0, "carbs_g": 0, "fat_g": 99},
-  "aceite de sésamo": {"protein_g": 0, "carbs_g": 0, "fat_g": 100},
-  "aceite de ajonjolí": {"protein_g": 0, "carbs_g": 0, "fat_g": 100},
-  "jugo de limón": {"protein_g": 0.4, "carbs_g": 6.9, "fat_g": 0.2},
-  "jugo de limón verde": {"protein_g": 0.4, "carbs_g": 6.9, "fat_g": 0.2},
-  "limón": {"protein_g": 0.9, "carbs_g": 9, "fat_g": 0.3},
-  "garbanzos cocidos": {"protein_g": 9, "carbs_g": 27, "fat_g": 2.6},
-  "garbanzos cocidos (en lata, escurridos)": {"protein_g": 9, "carbs_g": 27, "fat_g": 2.6},
-  "garbanzos cocidos (de lata, escurridos)": {"protein_g": 9, "carbs_g": 27, "fat_g": 2.6},
-  "garbanzos cocidos en lata": {"protein_g": 9, "carbs_g": 27, "fat_g": 2.6},
-  "frijoles negros cocidos": {"protein_g": 8.9, "carbs_g": 24, "fat_g": 0.5},
-  "frijoles negros cocidos (en lata, escurridos)": {"protein_g": 8.9, "carbs_g": 24, "fat_g": 0.5},
-  "frijoles negros cocidos (de lata, escurridos)": {"protein_g": 8.9, "carbs_g": 24, "fat_g": 0.5},
-  "frijoles pintos cocidos": {"protein_g": 9, "carbs_g": 26, "fat_g": 0.7},
-  "frijoles blancos cocidos": {"protein_g": 9.7, "carbs_g": 25, "fat_g": 0.4},
-  "lentejas cocidas": {"protein_g": 9, "carbs_g": 20, "fat_g": 0.4},
-  "lentejas rojas cocidas": {"protein_g": 9, "carbs_g": 20, "fat_g": 0.4},
-  "lentejas rojas crudas": {"protein_g": 24, "carbs_g": 60, "fat_g": 1.5},
-  "lentejas naranjas (rojas) secas": {"protein_g": 24, "carbs_g": 60, "fat_g": 1.5},
-  "lentejas verdes secas": {"protein_g": 25, "carbs_g": 60, "fat_g": 1.1},
-  "pechuga de pavo": {"protein_g": 29, "carbs_g": 0, "fat_g": 1.5},
-  "pechuga de pavo sin piel": {"protein_g": 29, "carbs_g": 0, "fat_g": 1.5},
-  "pechuga de pavo en rebanadas": {"protein_g": 20, "carbs_g": 2, "fat_g": 3},
-  "pechuga de pavo en láminas": {"protein_g": 20, "carbs_g": 2, "fat_g": 3},
-  "pechuga de pavo cocida en cubos": {"protein_g": 29, "carbs_g": 0, "fat_g": 1.5},
-  "pechuga de pavo molida o en trozos pequeños": {"protein_g": 27, "carbs_g": 0, "fat_g": 8},
-  "pavo molido": {"protein_g": 27, "carbs_g": 0, "fat_g": 8},
-  "pavo molido bajo en grasa": {"protein_g": 27, "carbs_g": 0, "fat_g": 7},
-  "miel": {"protein_g": 0.3, "carbs_g": 82, "fat_g": 0},
-  "miel de abeja": {"protein_g": 0.3, "carbs_g": 82, "fat_g": 0},
-  "miel de abeja o azúcar morena": {"protein_g": 0.3, "carbs_g": 88, "fat_g": 0},
-  "calabacita": {"protein_g": 1.2, "carbs_g": 3.1, "fat_g": 0.3},
-  "calabacín": {"protein_g": 1.2, "carbs_g": 3.1, "fat_g": 0.3},
-  "calabacín (zucchini)": {"protein_g": 1.2, "carbs_g": 3.1, "fat_g": 0.3},
-  "zucchini": {"protein_g": 1.2, "carbs_g": 3.1, "fat_g": 0.3},
-  "zucchini (calabacín) en cubos": {"protein_g": 1.2, "carbs_g": 3.1, "fat_g": 0.3},
-  "zucchini en cubos pequeños": {"protein_g": 1.2, "carbs_g": 3.1, "fat_g": 0.3},
-  "zucchini en medias lunas": {"protein_g": 1.2, "carbs_g": 3.1, "fat_g": 0.3},
-  "zucchini en rodajas gruesas": {"protein_g": 1.2, "carbs_g": 3.1, "fat_g": 0.3},
-  "zucchini rallado": {"protein_g": 1.2, "carbs_g": 3.1, "fat_g": 0.3},
-  "chayote o calabacín en cubos": {"protein_g": 1, "carbs_g": 4, "fat_g": 0.2},
-  "sirloin de res magro": {"protein_g": 27, "carbs_g": 0, "fat_g": 10},
-  "bistec de res": {"protein_g": 26, "carbs_g": 0, "fat_g": 12},
-  "bistec de res (sirloin)": {"protein_g": 27, "carbs_g": 0, "fat_g": 10},
-  "bistec de res (falda o palomilla)": {"protein_g": 27, "carbs_g": 0, "fat_g": 13},
-  "carne molida de res": {"protein_g": 26, "carbs_g": 0, "fat_g": 15},
-  "carne molida de res (90% magra)": {"protein_g": 26, "carbs_g": 0, "fat_g": 11},
-  "carne molida de res magra": {"protein_g": 26, "carbs_g": 0, "fat_g": 9},
-  "lomo de res sin grasa visible": {"protein_g": 27, "carbs_g": 0, "fat_g": 8},
-  "lomo de res en medallones": {"protein_g": 27, "carbs_g": 0, "fat_g": 8},
-  "filete de res magro (lomo)": {"protein_g": 27, "carbs_g": 0, "fat_g": 8},
-  "carne de res (corte magro, sin grasa visible)": {"protein_g": 27, "carbs_g": 0, "fat_g": 8},
-  "carne de res (corte sin grasa visible)": {"protein_g": 27, "carbs_g": 0, "fat_g": 8},
-  "carne de res (sin grasa visible)": {"protein_g": 27, "carbs_g": 0, "fat_g": 8},
-  "carne de res en tiras delgadas": {"protein_g": 26, "carbs_g": 0, "fat_g": 12},
-  "carne de res para guisar": {"protein_g": 26, "carbs_g": 0, "fat_g": 12},
-  "carne de res para guisar en cubos": {"protein_g": 26, "carbs_g": 0, "fat_g": 12},
-  "carne de carne de res en cubos (carne de res para guisar)": {"protein_g": 26, "carbs_g": 0, "fat_g": 12},
-  "carne de carne de res en cubos (pulpa o lomo)": {"protein_g": 27, "carbs_g": 0, "fat_g": 9},
-  "granos de maíz": {"protein_g": 3.4, "carbs_g": 19, "fat_g": 1.5},
-  "maíz tierno": {"protein_g": 3.4, "carbs_g": 19, "fat_g": 1.5},
-  "maíz desgranado": {"protein_g": 3.4, "carbs_g": 19, "fat_g": 1.5},
-  "maíz (maíz) en rodajas": {"protein_g": 3.4, "carbs_g": 19, "fat_g": 1.5},
-  "elote": {"protein_g": 3.4, "carbs_g": 19, "fat_g": 1.5},
-  "filete de pescado blanco": {"protein_g": 22, "carbs_g": 0, "fat_g": 2},
-  "filete de pescado blanco (tilapia, corvina o similar)": {"protein_g": 22, "carbs_g": 0, "fat_g": 2},
-  "filete de pescado blanco fresco": {"protein_g": 22, "carbs_g": 0, "fat_g": 2},
-  "jitomate": {"protein_g": 0.9, "carbs_g": 3.9, "fat_g": 0.2},
-  "jitomates cherry": {"protein_g": 0.9, "carbs_g": 3.9, "fat_g": 0.2},
-  "ejotes": {"protein_g": 1.8, "carbs_g": 7, "fat_g": 0.1},
-  "judías verdes": {"protein_g": 1.8, "carbs_g": 7, "fat_g": 0.1},
-  "habichuelas (vainitas) verdes": {"protein_g": 1.8, "carbs_g": 7, "fat_g": 0.1},
-  "huevos enteros": {"protein_g": 13, "carbs_g": 1.1, "fat_g": 11},
-  "huevo duro (2 piezas)": {"protein_g": 13, "carbs_g": 1.1, "fat_g": 11},
-  "atún en agua": {"protein_g": 25, "carbs_g": 0, "fat_g": 1},
-  "atún en agua escurrido": {"protein_g": 25, "carbs_g": 0, "fat_g": 1},
-  "atún en agua, escurrido": {"protein_g": 25, "carbs_g": 0, "fat_g": 1},
-  "atún en agua (escurrido)": {"protein_g": 25, "carbs_g": 0, "fat_g": 1},
-  "atún en agua en lata": {"protein_g": 25, "carbs_g": 0, "fat_g": 1},
-  "atún en lata": {"protein_g": 25, "carbs_g": 0, "fat_g": 1},
-  "filete de atún fresco": {"protein_g": 23, "carbs_g": 0, "fat_g": 5},
-  "chayote": {"protein_g": 0.8, "carbs_g": 4.5, "fat_g": 0.1},
-  "sardinas en lata": {"protein_g": 24, "carbs_g": 0, "fat_g": 11},
-  "surubí": {"protein_g": 19, "carbs_g": 0, "fat_g": 4},
-  "pacú": {"protein_g": 19, "carbs_g": 0, "fat_g": 6},
-  "caldo de pollo bajo en sodio": {"protein_g": 1, "carbs_g": 0.5, "fat_g": 0.5},
-  "caldo de pollo": {"protein_g": 1, "carbs_g": 0.5, "fat_g": 0.5},
-  "caldo de pollo bajo en sal": {"protein_g": 1, "carbs_g": 0.5, "fat_g": 0.5},
-  "caldo de pollo o vegetales": {"protein_g": 1, "carbs_g": 0.5, "fat_g": 0.5},
-  "caldo de pollo o agua": {"protein_g": 0.6, "carbs_g": 0.3, "fat_g": 0.3},
-  "caldo de res bajo en sodio": {"protein_g": 1, "carbs_g": 0.5, "fat_g": 0.3},
-  "caldo de res": {"protein_g": 1, "carbs_g": 0.5, "fat_g": 0.3},
-  "caldo de verduras bajo en sodio": {"protein_g": 0.5, "carbs_g": 1, "fat_g": 0.2},
-  "caldo de vegetales bajo en sodio": {"protein_g": 0.5, "carbs_g": 1, "fat_g": 0.2},
-  "caldo de vegetales": {"protein_g": 0.5, "carbs_g": 1, "fat_g": 0.2},
-  "caldo de pescado o agua con sal": {"protein_g": 0.6, "carbs_g": 0.2, "fat_g": 0.2},
-  "claras de huevo": {"protein_g": 11, "carbs_g": 0.7, "fat_g": 0.2},
-  "claras de huevo pasteurizadas": {"protein_g": 11, "carbs_g": 0.7, "fat_g": 0.2},
-  "semillas de chía": {"protein_g": 17, "carbs_g": 42, "fat_g": 31},
-  "hielo": {"protein_g": 0, "carbs_g": 0, "fat_g": 0},
-  "sal": {"protein_g": 0, "carbs_g": 0, "fat_g": 0},
-  "agua": {"protein_g": 0, "carbs_g": 0, "fat_g": 0},
-  "agua fría": {"protein_g": 0, "carbs_g": 0, "fat_g": 0},
-  "agua o caldo bajo en sodio": {"protein_g": 0.4, "carbs_g": 0.3, "fat_g": 0.2},
-  "agua o caldo de res bajo en sodio": {"protein_g": 0.4, "carbs_g": 0.3, "fat_g": 0.2},
-  "queso cottage bajo en grasa": {"protein_g": 11, "carbs_g": 3.4, "fat_g": 1},
-  "queso cottage descremado": {"protein_g": 10, "carbs_g": 3.4, "fat_g": 0.3},
-  "yuca": {"protein_g": 1.4, "carbs_g": 38, "fat_g": 0.3},
-  "orégano seco": {"protein_g": 9, "carbs_g": 69, "fat_g": 4.3},
-  "plátano maduro": {"protein_g": 1.3, "carbs_g": 32, "fat_g": 0.4},
-  "plátano maduro en rodajas": {"protein_g": 1.3, "carbs_g": 32, "fat_g": 0.4},
-  "plátano maduro congelado": {"protein_g": 1.3, "carbs_g": 23, "fat_g": 0.3},
-  "plátano congelado": {"protein_g": 1.3, "carbs_g": 23, "fat_g": 0.3},
-  "salsa de soya baja en sodio": {"protein_g": 8, "carbs_g": 5, "fat_g": 0.1},
-  "salsa de soya": {"protein_g": 8, "carbs_g": 5, "fat_g": 0.1},
-  "jengibre fresco rallado": {"protein_g": 1.8, "carbs_g": 18, "fat_g": 0.8},
-  "jengibre fresco": {"protein_g": 1.8, "carbs_g": 18, "fat_g": 0.8},
-  "jengibre": {"protein_g": 1.8, "carbs_g": 18, "fat_g": 0.8},
-  "jengibre en polvo": {"protein_g": 9, "carbs_g": 72, "fat_g": 4.2},
-  "nopal": {"protein_g": 1.5, "carbs_g": 3.3, "fat_g": 0.1},
-  "nopales": {"protein_g": 1.5, "carbs_g": 3.3, "fat_g": 0.1},
-  "arroz blanco crudo": {"protein_g": 7, "carbs_g": 79, "fat_g": 0.7},
-  "arroz blanco de grano corto": {"protein_g": 6.5, "carbs_g": 79, "fat_g": 0.6},
-  "arroz integral crudo": {"protein_g": 8, "carbs_g": 77, "fat_g": 2.9},
-  "arroz jazmín cocido": {"protein_g": 2.9, "carbs_g": 28, "fat_g": 0.3},
-  "proteína en polvo sabor vainilla": {"protein_g": 80, "carbs_g": 8, "fat_g": 6},
-  "proteína en polvo sabor chocolate": {"protein_g": 80, "carbs_g": 8, "fat_g": 6},
-  "proteína en polvo sabor vainilla o coco": {"protein_g": 80, "carbs_g": 8, "fat_g": 6},
-  "proteína en polvo sabor vainilla o tropical": {"protein_g": 80, "carbs_g": 8, "fat_g": 6},
-  "proteína en polvo sabor chocolate o vainilla": {"protein_g": 80, "carbs_g": 8, "fat_g": 6},
-  "proteína en polvo": {"protein_g": 80, "carbs_g": 8, "fat_g": 6},
-  "proteína de suero sabor vainilla": {"protein_g": 82, "carbs_g": 7, "fat_g": 5},
-  "proteína de suero sabor chocolate": {"protein_g": 82, "carbs_g": 7, "fat_g": 5},
-  "proteína de suero sabor vainilla o coco": {"protein_g": 82, "carbs_g": 7, "fat_g": 5},
-  "proteína de suero sabor vainilla o neutro": {"protein_g": 82, "carbs_g": 7, "fat_g": 5},
-  "proteína de suero sabor chocolate o neutro": {"protein_g": 82, "carbs_g": 7, "fat_g": 5},
-  "proteína de suero sabor chocolate o vainilla": {"protein_g": 82, "carbs_g": 7, "fat_g": 5},
-  "proteína de suero sabor natural o vainilla": {"protein_g": 82, "carbs_g": 7, "fat_g": 5},
-  "proteína de suero sabor vainilla o caramelo": {"protein_g": 82, "carbs_g": 7, "fat_g": 5},
-  "tomate mediano": {"protein_g": 0.9, "carbs_g": 3.9, "fat_g": 0.2},
-  "tomate en cubos": {"protein_g": 0.9, "carbs_g": 3.9, "fat_g": 0.2},
-  "tomate cherry": {"protein_g": 0.9, "carbs_g": 3.9, "fat_g": 0.2},
-  "tomate cherry partido a la mitad": {"protein_g": 0.9, "carbs_g": 3.9, "fat_g": 0.2},
-  "tomate cherry cortado a la mitad": {"protein_g": 0.9, "carbs_g": 3.9, "fat_g": 0.2},
-  "tomate cherry cortado por la mitad": {"protein_g": 0.9, "carbs_g": 3.9, "fat_g": 0.2},
-  "tomates cherry": {"protein_g": 0.9, "carbs_g": 3.9, "fat_g": 0.2},
-  "tomate triturado": {"protein_g": 1.6, "carbs_g": 5.8, "fat_g": 0.3},
-  "tomate triturado natural": {"protein_g": 1.6, "carbs_g": 5.8, "fat_g": 0.3},
-  "tomate triturado en lata": {"protein_g": 1.6, "carbs_g": 5.8, "fat_g": 0.3},
-  "tomates triturados": {"protein_g": 1.6, "carbs_g": 5.8, "fat_g": 0.3},
-  "tomates triturados en lata": {"protein_g": 1.6, "carbs_g": 5.8, "fat_g": 0.3},
-  "tomates pera maduros triturados": {"protein_g": 1.6, "carbs_g": 5.8, "fat_g": 0.3},
-  "tomates pera triturados": {"protein_g": 1.6, "carbs_g": 5.8, "fat_g": 0.3},
-  "tomate picado": {"protein_g": 0.9, "carbs_g": 3.9, "fat_g": 0.2},
-  "tomate picado fino": {"protein_g": 0.9, "carbs_g": 3.9, "fat_g": 0.2},
-  "tomate maduro": {"protein_g": 0.9, "carbs_g": 3.9, "fat_g": 0.2},
-  "tomate maduro en rebanadas": {"protein_g": 0.9, "carbs_g": 3.9, "fat_g": 0.2},
-  "tomate en rodajas": {"protein_g": 0.9, "carbs_g": 3.9, "fat_g": 0.2},
-  "tomate en rebanadas": {"protein_g": 0.9, "carbs_g": 3.9, "fat_g": 0.2},
-  "tomates maduros": {"protein_g": 0.9, "carbs_g": 3.9, "fat_g": 0.2},
-  "tomates maduros en trozos": {"protein_g": 0.9, "carbs_g": 3.9, "fat_g": 0.2},
-  "tomates maduros picados": {"protein_g": 0.9, "carbs_g": 3.9, "fat_g": 0.2},
-  "tomate verde (tomatillo)": {"protein_g": 1, "carbs_g": 5.8, "fat_g": 1},
-  "tortilla de maíz": {"protein_g": 5.7, "carbs_g": 44, "fat_g": 2.5},
-  "tortillas de maíz": {"protein_g": 5.7, "carbs_g": 44, "fat_g": 2.5},
-  "tortillas de maíz pequeñas": {"protein_g": 5.7, "carbs_g": 44, "fat_g": 2.5},
-  "tortilla integral grande": {"protein_g": 8, "carbs_g": 46, "fat_g": 4},
-  "tortilla integral grande (30cm)": {"protein_g": 8, "carbs_g": 46, "fat_g": 4},
-  "tortilla de harina integral (30g c/u)": {"protein_g": 8, "carbs_g": 46, "fat_g": 4},
-  "tortilla de trigo integral": {"protein_g": 8, "carbs_g": 46, "fat_g": 4},
-  "tortilla integral de trigo": {"protein_g": 8, "carbs_g": 46, "fat_g": 4},
-  "tostadas de maíz": {"protein_g": 8, "carbs_g": 77, "fat_g": 5},
-  "cola de langosta": {"protein_g": 19, "carbs_g": 0, "fat_g": 1},
-  "pierna de cerdo": {"protein_g": 27, "carbs_g": 0, "fat_g": 10},
-  "chuleta de cerdo": {"protein_g": 27, "carbs_g": 0, "fat_g": 12},
-  "carne de cerdo en cubos": {"protein_g": 27, "carbs_g": 0, "fat_g": 12},
-  "carne de cerdo en cubos pequeños": {"protein_g": 27, "carbs_g": 0, "fat_g": 12},
-  "carne molida de cerdo": {"protein_g": 25, "carbs_g": 0, "fat_g": 18},
-  "cerdo molido magro": {"protein_g": 26, "carbs_g": 0, "fat_g": 13},
-  "perejil fresco": {"protein_g": 3, "carbs_g": 6, "fat_g": 0.8},
-  "perejil fresco picado": {"protein_g": 3, "carbs_g": 6, "fat_g": 0.8},
-  "perejil fresco picado fino": {"protein_g": 3, "carbs_g": 6, "fat_g": 0.8},
-  "trucha": {"protein_g": 20, "carbs_g": 0, "fat_g": 6},
-  "yogur griego sin grasa": {"protein_g": 10, "carbs_g": 4, "fat_g": 0},
-  "yogur griego descremado": {"protein_g": 10, "carbs_g": 4, "fat_g": 0},
-  "yogur griego natural sin azúcar": {"protein_g": 10, "carbs_g": 4, "fat_g": 0.4},
-  "yogur griego natural sin azúcar 0% grasa": {"protein_g": 10, "carbs_g": 4, "fat_g": 0},
-  "yogur griego natural sin azúcar 2% grasa": {"protein_g": 9, "carbs_g": 4, "fat_g": 2},
-  "yogur griego natural 0% grasa": {"protein_g": 10, "carbs_g": 4, "fat_g": 0},
-  "yogur bajo en grasa": {"protein_g": 5, "carbs_g": 7, "fat_g": 1.5},
-  "extracto de vainilla": {"protein_g": 0.1, "carbs_g": 13, "fat_g": 0.1},
-  "extracto de vainilla puro": {"protein_g": 0.1, "carbs_g": 13, "fat_g": 0.1},
-  "vainilla en extracto": {"protein_g": 0.1, "carbs_g": 13, "fat_g": 0.1},
-  "canela en polvo": {"protein_g": 4, "carbs_g": 81, "fat_g": 1.2},
-  "canela molida": {"protein_g": 4, "carbs_g": 81, "fat_g": 1.2},
-  "canela": {"protein_g": 4, "carbs_g": 81, "fat_g": 1.2},
-  "apio": {"protein_g": 0.7, "carbs_g": 3, "fat_g": 0.2},
-  "apio en rodajas": {"protein_g": 0.7, "carbs_g": 3, "fat_g": 0.2},
-  "apio en trozos": {"protein_g": 0.7, "carbs_g": 3, "fat_g": 0.2},
-  "cilantro fresco": {"protein_g": 2.1, "carbs_g": 3.7, "fat_g": 0.5},
-  "cilantro": {"protein_g": 2.1, "carbs_g": 3.7, "fat_g": 0.5},
-  "cilantro fresco picado": {"protein_g": 2.1, "carbs_g": 3.7, "fat_g": 0.5},
-  "cilantro o perejil fresco": {"protein_g": 2.5, "carbs_g": 5, "fat_g": 0.6},
-  "tomillo seco": {"protein_g": 9, "carbs_g": 64, "fat_g": 7},
-  "tomillo fresco": {"protein_g": 5.6, "carbs_g": 24, "fat_g": 1.7},
-  "yogur griego descremado ": {"protein_g": 10, "carbs_g": 4, "fat_g": 0},
-  "comino molido": {"protein_g": 18, "carbs_g": 44, "fat_g": 22},
-  "comino en polvo": {"protein_g": 18, "carbs_g": 44, "fat_g": 22},
-  "comino": {"protein_g": 18, "carbs_g": 44, "fat_g": 22},
-  "pimiento morrón": {"protein_g": 1, "carbs_g": 6, "fat_g": 0.3},
-  "pimiento verde": {"protein_g": 0.9, "carbs_g": 4.6, "fat_g": 0.2},
-  "pimiento verde picado": {"protein_g": 0.9, "carbs_g": 4.6, "fat_g": 0.2},
-  "pimiento verde en cubos": {"protein_g": 0.9, "carbs_g": 4.6, "fat_g": 0.2},
-  "pimiento amarillo": {"protein_g": 1, "carbs_g": 6.3, "fat_g": 0.2},
-  "pimiento amarillo picado": {"protein_g": 1, "carbs_g": 6.3, "fat_g": 0.2},
-  "leche de coco light": {"protein_g": 2, "carbs_g": 3, "fat_g": 6},
-  "leche de coco": {"protein_g": 2.3, "carbs_g": 3.3, "fat_g": 21},
-  "mostaza dijon": {"protein_g": 4, "carbs_g": 5, "fat_g": 4},
-  "mostaza": {"protein_g": 4, "carbs_g": 5, "fat_g": 4},
-  "nueces": {"protein_g": 15, "carbs_g": 14, "fat_g": 65},
-  "nueces picadas": {"protein_g": 15, "carbs_g": 14, "fat_g": 65},
-  "nueces de castilla": {"protein_g": 15, "carbs_g": 14, "fat_g": 65},
-  "queso parmesano rallado": {"protein_g": 38, "carbs_g": 4, "fat_g": 29},
-  "muslo de pollo sin piel": {"protein_g": 24, "carbs_g": 0, "fat_g": 9},
-  "queso mozzarella bajo en grasa rallado": {"protein_g": 24, "carbs_g": 3, "fat_g": 16},
-  "queso mozzarella bajo en grasa": {"protein_g": 24, "carbs_g": 3, "fat_g": 16},
-  "mozzarella light rallada": {"protein_g": 24, "carbs_g": 3, "fat_g": 16},
-  "chile en polvo": {"protein_g": 13, "carbs_g": 50, "fat_g": 14},
-  "chile guajillo": {"protein_g": 11, "carbs_g": 57, "fat_g": 8},
-  "semilla de linaza molida": {"protein_g": 18, "carbs_g": 29, "fat_g": 42},
-  "semillas de linaza": {"protein_g": 18, "carbs_g": 29, "fat_g": 42},
-  "semillas de lino molidas": {"protein_g": 18, "carbs_g": 29, "fat_g": 42},
-  "quinoa cruda": {"protein_g": 14, "carbs_g": 64, "fat_g": 6},
-  "quinua cocida": {"protein_g": 4.4, "carbs_g": 21, "fat_g": 1.9},
-  "jugo de naranja natural": {"protein_g": 0.7, "carbs_g": 10, "fat_g": 0.2},
-  "cacao en polvo sin azúcar": {"protein_g": 20, "carbs_g": 58, "fat_g": 14},
-  "cacao en polvo": {"protein_g": 20, "carbs_g": 58, "fat_g": 14},
-  "cúrcuma": {"protein_g": 8, "carbs_g": 65, "fat_g": 10},
-  "cúrcuma en polvo": {"protein_g": 8, "carbs_g": 65, "fat_g": 10},
-  "cúrcuma molida": {"protein_g": 8, "carbs_g": 65, "fat_g": 10},
-  "ralladura de limón": {"protein_g": 1.5, "carbs_g": 16, "fat_g": 0.3},
-  "ralladura de naranja": {"protein_g": 1.5, "carbs_g": 25, "fat_g": 0.2},
-  "albahaca fresca": {"protein_g": 3.2, "carbs_g": 2.7, "fat_g": 0.6},
-  "albahaca seca": {"protein_g": 23, "carbs_g": 48, "fat_g": 4},
-  "zucchini ": {"protein_g": 1.2, "carbs_g": 3.1, "fat_g": 0.3},
-  "coco rallado sin azúcar": {"protein_g": 3.3, "carbs_g": 24, "fat_g": 33},
-  "coco rallado": {"protein_g": 3.3, "carbs_g": 24, "fat_g": 33},
-  "semillas de sésamo": {"protein_g": 18, "carbs_g": 23, "fat_g": 50},
-  "semillas de ajonjolí": {"protein_g": 18, "carbs_g": 23, "fat_g": 50},
-  "semillas de ajonjolí tostadas": {"protein_g": 18, "carbs_g": 23, "fat_g": 50},
-  "chuño": {"protein_g": 4, "carbs_g": 80, "fat_g": 0.5},
-  "pulpo limpio cocido": {"protein_g": 30, "carbs_g": 4, "fat_g": 2},
-  "piña": {"protein_g": 0.5, "carbs_g": 13, "fat_g": 0.1},
-  "piña fresca en trozos": {"protein_g": 0.5, "carbs_g": 13, "fat_g": 0.1},
-  "piña fresca o en conserva sin azúcar": {"protein_g": 0.5, "carbs_g": 13, "fat_g": 0.1},
-  "cuscús": {"protein_g": 3.8, "carbs_g": 23, "fat_g": 0.2},
-  "cuscús integral": {"protein_g": 4.5, "carbs_g": 24, "fat_g": 0.3},
-  "calamar limpio en aros": {"protein_g": 16, "carbs_g": 3, "fat_g": 1.4},
-  "curry en polvo": {"protein_g": 14, "carbs_g": 56, "fat_g": 14},
-  "romero seco": {"protein_g": 4.9, "carbs_g": 64, "fat_g": 15},
-  "romero fresco o seco": {"protein_g": 3.3, "carbs_g": 21, "fat_g": 5.9},
-  "páprika ahumada": {"protein_g": 14, "carbs_g": 54, "fat_g": 13},
-  "páprika": {"protein_g": 14, "carbs_g": 54, "fat_g": 13},
-  "paprika": {"protein_g": 14, "carbs_g": 54, "fat_g": 13},
-  "pimentón dulce": {"protein_g": 14, "carbs_g": 54, "fat_g": 13},
-  "pimentón dulce (paprika)": {"protein_g": 14, "carbs_g": 54, "fat_g": 13},
-  "pimentón dulce en polvo": {"protein_g": 14, "carbs_g": 54, "fat_g": 13},
-  "pimentón ahumado": {"protein_g": 14, "carbs_g": 54, "fat_g": 13},
-  "muesli sin azúcar añadida": {"protein_g": 10, "carbs_g": 66, "fat_g": 6},
-  "cebollín picado fino": {"protein_g": 1.8, "carbs_g": 7.3, "fat_g": 0.7},
-  "cebollín picado": {"protein_g": 1.8, "carbs_g": 7.3, "fat_g": 0.7},
-  "cebollín": {"protein_g": 1.8, "carbs_g": 7.3, "fat_g": 0.7},
-  "cebollín fresco": {"protein_g": 1.8, "carbs_g": 7.3, "fat_g": 0.7},
-  "queso panela": {"protein_g": 18, "carbs_g": 3, "fat_g": 15},
-  "pan de centeno": {"protein_g": 9, "carbs_g": 48, "fat_g": 3.3},
-  "pan pita integral": {"protein_g": 9.8, "carbs_g": 50, "fat_g": 2.6},
-  "arroz integral crudo ": {"protein_g": 8, "carbs_g": 77, "fat_g": 2.9},
-  "frijoles pintos cocidos ": {"protein_g": 9, "carbs_g": 26, "fat_g": 0.7},
-  "batata en cubos": {"protein_g": 1.6, "carbs_g": 20, "fat_g": 0.1},
-  "batata (camote) en cubos": {"protein_g": 1.6, "carbs_g": 20, "fat_g": 0.1},
-  "batata (camote) en cubos de 2cm": {"protein_g": 1.6, "carbs_g": 20, "fat_g": 0.1},
-  "batata (camote) pelada": {"protein_g": 1.6, "carbs_g": 20, "fat_g": 0.1},
-  "mantequilla sin sal": {"protein_g": 0.9, "carbs_g": 0.1, "fat_g": 81},
-  "arroz blanco de grano corto ": {"protein_g": 6.5, "carbs_g": 79, "fat_g": 0.6},
-  "frambuesas": {"protein_g": 1.2, "carbs_g": 12, "fat_g": 0.7},
-  "frambuesa": {"protein_g": 1.2, "carbs_g": 12, "fat_g": 0.7},
-  "frambuesas frescas o congeladas": {"protein_g": 1.2, "carbs_g": 12, "fat_g": 0.7},
-  "frambuesas congeladas": {"protein_g": 1.2, "carbs_g": 12, "fat_g": 0.7},
-  "queso bajo en grasa rallado": {"protein_g": 24, "carbs_g": 3, "fat_g": 16},
-  "queso bajo en grasa en láminas": {"protein_g": 24, "carbs_g": 3, "fat_g": 16},
-  "rebanada de queso bajo en grasa": {"protein_g": 24, "carbs_g": 3, "fat_g": 16},
-  "kiwi": {"protein_g": 1.1, "carbs_g": 15, "fat_g": 0.5},
-  "kiwi pelado": {"protein_g": 1.1, "carbs_g": 15, "fat_g": 0.5},
-  "alcaparras en salmuera escurridas": {"protein_g": 2.4, "carbs_g": 5, "fat_g": 0.9},
-  "alcaparras": {"protein_g": 2.4, "carbs_g": 5, "fat_g": 0.9},
-  "leche entera": {"protein_g": 3.2, "carbs_g": 4.8, "fat_g": 3.3},
-  "leche entera o semidescremada": {"protein_g": 3.3, "carbs_g": 4.9, "fat_g": 2.4},
-  "leche semidescremada": {"protein_g": 3.4, "carbs_g": 5, "fat_g": 1.5},
-  "naranja": {"protein_g": 0.9, "carbs_g": 12, "fat_g": 0.1},
-  "queso cheddar bajo en grasa rallado": {"protein_g": 25, "carbs_g": 2, "fat_g": 7},
-  "hojas de menta": {"protein_g": 3.3, "carbs_g": 8, "fat_g": 0.7},
-  "hojas de menta fresca": {"protein_g": 3.3, "carbs_g": 8, "fat_g": 0.7},
-  "menta fresca": {"protein_g": 3.3, "carbs_g": 8, "fat_g": 0.7},
-  "menta fresca (opcional)": {"protein_g": 3.3, "carbs_g": 8, "fat_g": 0.7},
-  "pasta integral tipo espagueti": {"protein_g": 5.8, "carbs_g": 27, "fat_g": 0.5},
-  "pasta integral pequeña (coditos o ditalini)": {"protein_g": 5.8, "carbs_g": 27, "fat_g": 0.5},
-  "durazno": {"protein_g": 0.9, "carbs_g": 10, "fat_g": 0.3},
-  "durazno fresco": {"protein_g": 0.9, "carbs_g": 10, "fat_g": 0.3},
-  "durazno maduro pelado sin hueso": {"protein_g": 0.9, "carbs_g": 10, "fat_g": 0.3},
-  "arvejas": {"protein_g": 5.4, "carbs_g": 14, "fat_g": 0.4},
-  "arveja verde": {"protein_g": 5.4, "carbs_g": 14, "fat_g": 0.4},
-  "arveja (guisante) congelada": {"protein_g": 5.4, "carbs_g": 14, "fat_g": 0.4},
-  "arvejas (guisantes) frescos o congelados": {"protein_g": 5.4, "carbs_g": 14, "fat_g": 0.4},
-  "guisantes (arvejas) congelados": {"protein_g": 5.4, "carbs_g": 14, "fat_g": 0.4},
-  "queso crema bajo en grasa": {"protein_g": 5, "carbs_g": 6, "fat_g": 16},
-  "proteína de suero sabor chocolate ": {"protein_g": 82, "carbs_g": 7, "fat_g": 5},
-  "leche de coco ": {"protein_g": 2.3, "carbs_g": 3.3, "fat_g": 21},
-  "semillas de girasol": {"protein_g": 21, "carbs_g": 20, "fat_g": 51},
-  "jamón de pavo bajo en grasa en cubos": {"protein_g": 16, "carbs_g": 2, "fat_g": 4},
-  "sandía": {"protein_g": 0.6, "carbs_g": 8, "fat_g": 0.2},
-  "fideos de sopa medianos": {"protein_g": 5, "carbs_g": 25, "fat_g": 1},
-  "fideos finos": {"protein_g": 5, "carbs_g": 25, "fat_g": 1},
-  "fideos de trigo (tipo vermicelli)": {"protein_g": 5, "carbs_g": 25, "fat_g": 1},
-  "fideos de trigo delgados": {"protein_g": 5, "carbs_g": 25, "fat_g": 1},
-  "fideos de cabello de ángel o fideos finos": {"protein_g": 5, "carbs_g": 25, "fat_g": 1},
-  "fideos de arroz": {"protein_g": 3.4, "carbs_g": 25, "fat_g": 0.2},
-  "fideos de huevo cocidos": {"protein_g": 5, "carbs_g": 25, "fat_g": 2},
-  "berenjena": {"protein_g": 1, "carbs_g": 6, "fat_g": 0.2},
-  "berenjena en cubos": {"protein_g": 1, "carbs_g": 6, "fat_g": 0.2},
-  "granola sin azúcar añadida": {"protein_g": 11, "carbs_g": 60, "fat_g": 14},
-  "granola sin azúcar": {"protein_g": 11, "carbs_g": 60, "fat_g": 14},
-  "granola": {"protein_g": 10, "carbs_g": 64, "fat_g": 15},
-  "masa de pizza integral": {"protein_g": 8, "carbs_g": 45, "fat_g": 3},
-  "masa de pizza integral (base delgada comprada)": {"protein_g": 8, "carbs_g": 45, "fat_g": 3},
-  "queso feta desmenuzado": {"protein_g": 14, "carbs_g": 4, "fat_g": 21},
-  "semillas de calabaza": {"protein_g": 30, "carbs_g": 11, "fat_g": 49},
-  "pepitas de calabaza": {"protein_g": 30, "carbs_g": 11, "fat_g": 49},
-  "edamame": {"protein_g": 11, "carbs_g": 10, "fat_g": 5},
-  "edamame cocido": {"protein_g": 11, "carbs_g": 10, "fat_g": 5},
-  "edamame (habas de soya) cocidas": {"protein_g": 11, "carbs_g": 10, "fat_g": 5},
-  "habas de soya cocidas (edamame)": {"protein_g": 11, "carbs_g": 10, "fat_g": 5},
-  "habas de soya cocido sin vaina": {"protein_g": 11, "carbs_g": 10, "fat_g": 5},
-  "aceitunas negras sin hueso": {"protein_g": 0.8, "carbs_g": 6, "fat_g": 11},
-  "aceitunas negras sin hueso rebanadas": {"protein_g": 0.8, "carbs_g": 6, "fat_g": 11},
-  "aceitunas verdes o negras sin semilla": {"protein_g": 0.8, "carbs_g": 4, "fat_g": 12},
-  "aceitunas verdes sin semilla": {"protein_g": 0.8, "carbs_g": 4, "fat_g": 15},
-  "carne molida de res magra ": {"protein_g": 26, "carbs_g": 0, "fat_g": 9},
-  "aceite de ajonjolí ": {"protein_g": 0, "carbs_g": 0, "fat_g": 100},
-  "cebollín picado ": {"protein_g": 1.8, "carbs_g": 7.3, "fat_g": 0.7},
-  "coco rallado ": {"protein_g": 3.3, "carbs_g": 24, "fat_g": 33},
-  "calabaza": {"protein_g": 1, "carbs_g": 7, "fat_g": 0.1},
-  "cacahuates": {"protein_g": 26, "carbs_g": 16, "fat_g": 49},
-  "col blanca rallada": {"protein_g": 1.3, "carbs_g": 6, "fat_g": 0.1},
-  "col": {"protein_g": 1.3, "carbs_g": 6, "fat_g": 0.1},
-  "lechuga en trozos": {"protein_g": 1.4, "carbs_g": 2.9, "fat_g": 0.2},
-  "pasas": {"protein_g": 3.1, "carbs_g": 79, "fat_g": 0.5},
-  "pasas sin semillas": {"protein_g": 3.1, "carbs_g": 79, "fat_g": 0.5},
-  "salsa de tomate natural sin azúcar": {"protein_g": 1.3, "carbs_g": 5, "fat_g": 0.2},
-  "hierbas frescas": {"protein_g": 2.5, "carbs_g": 5, "fat_g": 0.6},
-  "semillas de lino molidas ": {"protein_g": 18, "carbs_g": 29, "fat_g": 42},
-  "caldo de pollo o vegetales ": {"protein_g": 1, "carbs_g": 0.5, "fat_g": 0.5},
-  "queso ricotta bajo en grasa": {"protein_g": 10, "carbs_g": 5, "fat_g": 5},
-  "queso de hebra": {"protein_g": 24, "carbs_g": 2, "fat_g": 16},
-  "queso de cabra desmenuzado": {"protein_g": 22, "carbs_g": 0.1, "fat_g": 30},
-  "vino tinto seco": {"protein_g": 0.1, "carbs_g": 2.6, "fat_g": 0},
-  "maíz (maíz) en rodajas ": {"protein_g": 3.4, "carbs_g": 19, "fat_g": 1.5},
-  "pera con cascara": {"protein_g": 0.4, "carbs_g": 15, "fat_g": 0.1},
-  "hummus": {"protein_g": 8, "carbs_g": 14, "fat_g": 10},
-  "hummus natural": {"protein_g": 8, "carbs_g": 14, "fat_g": 10},
-  "chorizo bajo en grasa en rodajas": {"protein_g": 20, "carbs_g": 1, "fat_g": 20},
-  "crema light": {"protein_g": 2.8, "carbs_g": 4, "fat_g": 15},
-  "crema ligera (15% grasa)": {"protein_g": 2.8, "carbs_g": 4, "fat_g": 15},
-  "mejillones limpios": {"protein_g": 24, "carbs_g": 7.4, "fat_g": 4.6},
-  "guayaba": {"protein_g": 2.6, "carbs_g": 14, "fat_g": 1},
-  "guayaba madura pelada": {"protein_g": 2.6, "carbs_g": 14, "fat_g": 1},
-  "melón verde tipo honeydew pelado sin semillas": {"protein_g": 0.5, "carbs_g": 9, "fat_g": 0.1},
-  "comino y orégano": {"protein_g": 14, "carbs_g": 56, "fat_g": 13},
-  "comino y cúrcuma": {"protein_g": 13, "carbs_g": 54, "fat_g": 16},
-  "frutos rojos mixtos (fresa, arándano, frambuesa)": {"protein_g": 1, "carbs_g": 12, "fat_g": 0.4},
-  "germen de trigo": {"protein_g": 23, "carbs_g": 51, "fat_g": 10},
-  "maicena (almidón de maíz)": {"protein_g": 0.3, "carbs_g": 91, "fat_g": 0.1},
-  "tortilla de trigo integral ": {"protein_g": 8, "carbs_g": 46, "fat_g": 4},
-  "tahini (pasta de sésamo)": {"protein_g": 17, "carbs_g": 21, "fat_g": 54},
-  "espirulina en polvo (alga verde)": {"protein_g": 57, "carbs_g": 24, "fat_g": 8},
-  "polvo para hornear": {"protein_g": 0, "carbs_g": 46, "fat_g": 0},
-  "jícama": {"protein_g": 0.7, "carbs_g": 9, "fat_g": 0.1},
-  "harina de maíz": {"protein_g": 7, "carbs_g": 76, "fat_g": 3.9},
-  "eneldo fresco picado fino": {"protein_g": 3.5, "carbs_g": 7, "fat_g": 1.1},
-  "eneldo fresco": {"protein_g": 3.5, "carbs_g": 7, "fat_g": 1.1},
-  "pollo cocido desmechado": {"protein_g": 29, "carbs_g": 0, "fat_g": 7},
-  "pulpa de maracuyá (maracuyá abierta y colada)": {"protein_g": 2.2, "carbs_g": 23, "fat_g": 0.7},
-  "rúcula fresca": {"protein_g": 2.6, "carbs_g": 3.7, "fat_g": 0.7},
-  "dátiles medjool sin semilla": {"protein_g": 1.8, "carbs_g": 75, "fat_g": 0.2},
-  "mayonesa light": {"protein_g": 0.9, "carbs_g": 9, "fat_g": 30},
-  "vinagre blanco (para pochar)": {"protein_g": 0, "carbs_g": 0.9, "fat_g": 0},
-  "frambuesas congeladas ": {"protein_g": 1.2, "carbs_g": 12, "fat_g": 0.7},
-  "cerezas congeladas sin hueso": {"protein_g": 1, "carbs_g": 16, "fat_g": 0.3},
-  "moras congeladas": {"protein_g": 1.4, "carbs_g": 10, "fat_g": 0.5},
-  "azúcar (para reducir acidez)": {"protein_g": 0, "carbs_g": 100, "fat_g": 0},
-  "acelgas": {"protein_g": 1.8, "carbs_g": 3.7, "fat_g": 0.2},
-  "cerdo molido magro ": {"protein_g": 26, "carbs_g": 0, "fat_g": 13},
-  "arroz blanco de grano corto  ": {"protein_g": 6.5, "carbs_g": 79, "fat_g": 0.6},
-  "aceite de coco (para sartén) ": {"protein_g": 0, "carbs_g": 0, "fat_g": 99}
+ "ajo": {
+  "protein_g": 6.4,
+  "carbs_g": 33,
+  "fat_g": 0.5
+ },
+ "ajo picado fino": {
+  "protein_g": 6.4,
+  "carbs_g": 33,
+  "fat_g": 0.5
+ },
+ "ajo en polvo": {
+  "protein_g": 16.5,
+  "carbs_g": 73,
+  "fat_g": 0.7
+ },
+ "ajo fresco": {
+  "protein_g": 6.4,
+  "carbs_g": 33,
+  "fat_g": 0.5
+ },
+ "aceite vegetal": {
+  "protein_g": 0,
+  "carbs_g": 0,
+  "fat_g": 100
+ },
+ "aceite de coco": {
+  "protein_g": 0,
+  "carbs_g": 0,
+  "fat_g": 99
+ },
+ "aceite de coco (para sartén)": {
+  "protein_g": 0,
+  "carbs_g": 0,
+  "fat_g": 99
+ },
+ "aceite de coco en spray": {
+  "protein_g": 0,
+  "carbs_g": 0,
+  "fat_g": 99
+ },
+ "aceite de coco o aceite neutro": {
+  "protein_g": 0,
+  "carbs_g": 0,
+  "fat_g": 99
+ },
+ "aceite de sésamo": {
+  "protein_g": 0,
+  "carbs_g": 0,
+  "fat_g": 100
+ },
+ "aceite de ajonjolí": {
+  "protein_g": 0,
+  "carbs_g": 0,
+  "fat_g": 100
+ },
+ "jugo de limón": {
+  "protein_g": 0.4,
+  "carbs_g": 6.9,
+  "fat_g": 0.2
+ },
+ "jugo de limón verde": {
+  "protein_g": 0.4,
+  "carbs_g": 6.9,
+  "fat_g": 0.2
+ },
+ "limón": {
+  "protein_g": 0.9,
+  "carbs_g": 9,
+  "fat_g": 0.3
+ },
+ "garbanzos cocidos": {
+  "protein_g": 9,
+  "carbs_g": 27,
+  "fat_g": 2.6
+ },
+ "garbanzos cocidos (en lata, escurridos)": {
+  "protein_g": 9,
+  "carbs_g": 27,
+  "fat_g": 2.6
+ },
+ "garbanzos cocidos (de lata, escurridos)": {
+  "protein_g": 9,
+  "carbs_g": 27,
+  "fat_g": 2.6
+ },
+ "garbanzos cocidos en lata": {
+  "protein_g": 9,
+  "carbs_g": 27,
+  "fat_g": 2.6
+ },
+ "frijoles negros cocidos": {
+  "protein_g": 8.9,
+  "carbs_g": 24,
+  "fat_g": 0.5
+ },
+ "frijoles negros cocidos (en lata, escurridos)": {
+  "protein_g": 8.9,
+  "carbs_g": 24,
+  "fat_g": 0.5
+ },
+ "frijoles negros cocidos (de lata, escurridos)": {
+  "protein_g": 8.9,
+  "carbs_g": 24,
+  "fat_g": 0.5
+ },
+ "frijoles pintos cocidos": {
+  "protein_g": 9,
+  "carbs_g": 26,
+  "fat_g": 0.7
+ },
+ "frijoles blancos cocidos": {
+  "protein_g": 9.7,
+  "carbs_g": 25,
+  "fat_g": 0.4
+ },
+ "lentejas cocidas": {
+  "protein_g": 9,
+  "carbs_g": 20,
+  "fat_g": 0.4
+ },
+ "lentejas rojas cocidas": {
+  "protein_g": 9,
+  "carbs_g": 20,
+  "fat_g": 0.4
+ },
+ "lentejas rojas crudas": {
+  "protein_g": 24,
+  "carbs_g": 60,
+  "fat_g": 1.5
+ },
+ "lentejas naranjas (rojas) secas": {
+  "protein_g": 24,
+  "carbs_g": 60,
+  "fat_g": 1.5
+ },
+ "lentejas verdes secas": {
+  "protein_g": 25,
+  "carbs_g": 60,
+  "fat_g": 1.1
+ },
+ "pechuga de pavo": {
+  "protein_g": 29,
+  "carbs_g": 0,
+  "fat_g": 1.5
+ },
+ "pechuga de pavo sin piel": {
+  "protein_g": 29,
+  "carbs_g": 0,
+  "fat_g": 1.5
+ },
+ "pechuga de pavo en rebanadas": {
+  "protein_g": 20,
+  "carbs_g": 2,
+  "fat_g": 3
+ },
+ "pechuga de pavo en láminas": {
+  "protein_g": 20,
+  "carbs_g": 2,
+  "fat_g": 3
+ },
+ "pechuga de pavo cocida en cubos": {
+  "protein_g": 29,
+  "carbs_g": 0,
+  "fat_g": 1.5
+ },
+ "pechuga de pavo molida o en trozos pequeños": {
+  "protein_g": 27,
+  "carbs_g": 0,
+  "fat_g": 8
+ },
+ "pavo molido": {
+  "protein_g": 27,
+  "carbs_g": 0,
+  "fat_g": 8
+ },
+ "pavo molido bajo en grasa": {
+  "protein_g": 27,
+  "carbs_g": 0,
+  "fat_g": 7
+ },
+ "miel": {
+  "protein_g": 0.3,
+  "carbs_g": 82,
+  "fat_g": 0
+ },
+ "miel de abeja": {
+  "protein_g": 0.3,
+  "carbs_g": 82,
+  "fat_g": 0
+ },
+ "miel de abeja o azúcar morena": {
+  "protein_g": 0.3,
+  "carbs_g": 88,
+  "fat_g": 0
+ },
+ "calabacita": {
+  "protein_g": 1.2,
+  "carbs_g": 3.1,
+  "fat_g": 0.3
+ },
+ "calabacín": {
+  "protein_g": 1.2,
+  "carbs_g": 3.1,
+  "fat_g": 0.3
+ },
+ "calabacín (zucchini)": {
+  "protein_g": 1.2,
+  "carbs_g": 3.1,
+  "fat_g": 0.3
+ },
+ "zucchini": {
+  "protein_g": 1.2,
+  "carbs_g": 3.1,
+  "fat_g": 0.3
+ },
+ "zucchini (calabacín) en cubos": {
+  "protein_g": 1.2,
+  "carbs_g": 3.1,
+  "fat_g": 0.3
+ },
+ "zucchini en cubos pequeños": {
+  "protein_g": 1.2,
+  "carbs_g": 3.1,
+  "fat_g": 0.3
+ },
+ "zucchini en medias lunas": {
+  "protein_g": 1.2,
+  "carbs_g": 3.1,
+  "fat_g": 0.3
+ },
+ "zucchini en rodajas gruesas": {
+  "protein_g": 1.2,
+  "carbs_g": 3.1,
+  "fat_g": 0.3
+ },
+ "zucchini rallado": {
+  "protein_g": 1.2,
+  "carbs_g": 3.1,
+  "fat_g": 0.3
+ },
+ "chayote o calabacín en cubos": {
+  "protein_g": 1,
+  "carbs_g": 4,
+  "fat_g": 0.2
+ },
+ "sirloin de res magro": {
+  "protein_g": 27,
+  "carbs_g": 0,
+  "fat_g": 10
+ },
+ "bistec de res": {
+  "protein_g": 27.6,
+  "carbs_g": 0.0,
+  "fat_g": 11.4
+ },
+ "bistec de res (sirloin)": {
+  "protein_g": 27,
+  "carbs_g": 0,
+  "fat_g": 10
+ },
+ "bistec de res (falda o palomilla)": {
+  "protein_g": 27,
+  "carbs_g": 0,
+  "fat_g": 13
+ },
+ "carne molida de res": {
+  "protein_g": 26,
+  "carbs_g": 0,
+  "fat_g": 15
+ },
+ "carne molida de res (90% magra)": {
+  "protein_g": 26,
+  "carbs_g": 0,
+  "fat_g": 11
+ },
+ "carne molida de res magra": {
+  "protein_g": 26,
+  "carbs_g": 0,
+  "fat_g": 9
+ },
+ "lomo de res sin grasa visible": {
+  "protein_g": 27,
+  "carbs_g": 0,
+  "fat_g": 8
+ },
+ "lomo de res en medallones": {
+  "protein_g": 27,
+  "carbs_g": 0,
+  "fat_g": 8
+ },
+ "filete de res magro (lomo)": {
+  "protein_g": 27,
+  "carbs_g": 0,
+  "fat_g": 8
+ },
+ "carne de res (corte magro, sin grasa visible)": {
+  "protein_g": 27,
+  "carbs_g": 0,
+  "fat_g": 8
+ },
+ "carne de res (corte sin grasa visible)": {
+  "protein_g": 27,
+  "carbs_g": 0,
+  "fat_g": 8
+ },
+ "carne de res (sin grasa visible)": {
+  "protein_g": 27,
+  "carbs_g": 0,
+  "fat_g": 8
+ },
+ "carne de res en tiras delgadas": {
+  "protein_g": 26,
+  "carbs_g": 0,
+  "fat_g": 12
+ },
+ "carne de res para guisar": {
+  "protein_g": 26,
+  "carbs_g": 0,
+  "fat_g": 12
+ },
+ "carne de res para guisar en cubos": {
+  "protein_g": 26,
+  "carbs_g": 0,
+  "fat_g": 12
+ },
+ "carne de carne de res en cubos (carne de res para guisar)": {
+  "protein_g": 26,
+  "carbs_g": 0,
+  "fat_g": 12
+ },
+ "carne de carne de res en cubos (pulpa o lomo)": {
+  "protein_g": 27,
+  "carbs_g": 0,
+  "fat_g": 9
+ },
+ "granos de maíz": {
+  "protein_g": 3.4,
+  "carbs_g": 19,
+  "fat_g": 1.5
+ },
+ "maíz tierno": {
+  "protein_g": 3.4,
+  "carbs_g": 19,
+  "fat_g": 1.5
+ },
+ "maíz desgranado": {
+  "protein_g": 3.4,
+  "carbs_g": 19,
+  "fat_g": 1.5
+ },
+ "maíz (maíz) en rodajas": {
+  "protein_g": 3.4,
+  "carbs_g": 19,
+  "fat_g": 1.5
+ },
+ "elote": {
+  "protein_g": 3.4,
+  "carbs_g": 19,
+  "fat_g": 1.5
+ },
+ "filete de pescado blanco": {
+  "protein_g": 22,
+  "carbs_g": 0,
+  "fat_g": 2
+ },
+ "filete de pescado blanco (tilapia, corvina o similar)": {
+  "protein_g": 22,
+  "carbs_g": 0,
+  "fat_g": 2
+ },
+ "filete de pescado blanco fresco": {
+  "protein_g": 22,
+  "carbs_g": 0,
+  "fat_g": 2
+ },
+ "jitomate": {
+  "protein_g": 0.9,
+  "carbs_g": 3.9,
+  "fat_g": 0.2
+ },
+ "jitomates cherry": {
+  "protein_g": 0.9,
+  "carbs_g": 3.9,
+  "fat_g": 0.2
+ },
+ "ejotes": {
+  "protein_g": 1.8,
+  "carbs_g": 7,
+  "fat_g": 0.1
+ },
+ "judías verdes": {
+  "protein_g": 1.8,
+  "carbs_g": 7,
+  "fat_g": 0.1
+ },
+ "habichuelas (vainitas) verdes": {
+  "protein_g": 1.8,
+  "carbs_g": 7,
+  "fat_g": 0.1
+ },
+ "huevos enteros": {
+  "protein_g": 13,
+  "carbs_g": 1.1,
+  "fat_g": 11
+ },
+ "huevo duro (2 piezas)": {
+  "protein_g": 13,
+  "carbs_g": 1.1,
+  "fat_g": 11
+ },
+ "atún en agua": {
+  "protein_g": 25,
+  "carbs_g": 0,
+  "fat_g": 1
+ },
+ "atún en agua escurrido": {
+  "protein_g": 25,
+  "carbs_g": 0,
+  "fat_g": 1
+ },
+ "atún en agua, escurrido": {
+  "protein_g": 25,
+  "carbs_g": 0,
+  "fat_g": 1
+ },
+ "atún en agua (escurrido)": {
+  "protein_g": 25,
+  "carbs_g": 0,
+  "fat_g": 1
+ },
+ "atún en agua en lata": {
+  "protein_g": 25,
+  "carbs_g": 0,
+  "fat_g": 1
+ },
+ "atún en lata": {
+  "protein_g": 25,
+  "carbs_g": 0,
+  "fat_g": 1
+ },
+ "filete de atún fresco": {
+  "protein_g": 23,
+  "carbs_g": 0,
+  "fat_g": 5
+ },
+ "chayote": {
+  "protein_g": 0.8,
+  "carbs_g": 4.5,
+  "fat_g": 0.1
+ },
+ "sardinas en lata": {
+  "protein_g": 24,
+  "carbs_g": 0,
+  "fat_g": 11
+ },
+ "surubí": {
+  "protein_g": 19,
+  "carbs_g": 0,
+  "fat_g": 4
+ },
+ "pacú": {
+  "protein_g": 19,
+  "carbs_g": 0,
+  "fat_g": 6
+ },
+ "caldo de pollo bajo en sodio": {
+  "protein_g": 1,
+  "carbs_g": 0.5,
+  "fat_g": 0.5
+ },
+ "caldo de pollo": {
+  "protein_g": 1,
+  "carbs_g": 0.5,
+  "fat_g": 0.5
+ },
+ "caldo de pollo bajo en sal": {
+  "protein_g": 1,
+  "carbs_g": 0.5,
+  "fat_g": 0.5
+ },
+ "caldo de pollo o vegetales": {
+  "protein_g": 1,
+  "carbs_g": 0.5,
+  "fat_g": 0.5
+ },
+ "caldo de pollo o agua": {
+  "protein_g": 0.6,
+  "carbs_g": 0.3,
+  "fat_g": 0.3
+ },
+ "caldo de res bajo en sodio": {
+  "protein_g": 1,
+  "carbs_g": 0.5,
+  "fat_g": 0.3
+ },
+ "caldo de res": {
+  "protein_g": 1,
+  "carbs_g": 0.5,
+  "fat_g": 0.3
+ },
+ "caldo de verduras bajo en sodio": {
+  "protein_g": 0.5,
+  "carbs_g": 1,
+  "fat_g": 0.2
+ },
+ "caldo de vegetales bajo en sodio": {
+  "protein_g": 0.5,
+  "carbs_g": 1,
+  "fat_g": 0.2
+ },
+ "caldo de vegetales": {
+  "protein_g": 0.5,
+  "carbs_g": 1,
+  "fat_g": 0.2
+ },
+ "caldo de pescado o agua con sal": {
+  "protein_g": 0.6,
+  "carbs_g": 0.2,
+  "fat_g": 0.2
+ },
+ "claras de huevo": {
+  "protein_g": 11,
+  "carbs_g": 0.7,
+  "fat_g": 0.2
+ },
+ "claras de huevo pasteurizadas": {
+  "protein_g": 11,
+  "carbs_g": 0.7,
+  "fat_g": 0.2
+ },
+ "semillas de chía": {
+  "protein_g": 17,
+  "carbs_g": 42,
+  "fat_g": 31
+ },
+ "hielo": {
+  "protein_g": 0,
+  "carbs_g": 0,
+  "fat_g": 0
+ },
+ "sal": {
+  "protein_g": 0,
+  "carbs_g": 0,
+  "fat_g": 0
+ },
+ "agua": {
+  "protein_g": 0,
+  "carbs_g": 0,
+  "fat_g": 0
+ },
+ "agua fría": {
+  "protein_g": 0,
+  "carbs_g": 0,
+  "fat_g": 0
+ },
+ "agua o caldo bajo en sodio": {
+  "protein_g": 0.4,
+  "carbs_g": 0.3,
+  "fat_g": 0.2
+ },
+ "agua o caldo de res bajo en sodio": {
+  "protein_g": 0.4,
+  "carbs_g": 0.3,
+  "fat_g": 0.2
+ },
+ "queso cottage bajo en grasa": {
+  "protein_g": 11,
+  "carbs_g": 3.4,
+  "fat_g": 1
+ },
+ "queso cottage descremado": {
+  "protein_g": 10,
+  "carbs_g": 3.4,
+  "fat_g": 0.3
+ },
+ "yuca": {
+  "protein_g": 1.4,
+  "carbs_g": 38.1,
+  "fat_g": 0.3
+ },
+ "orégano seco": {
+  "protein_g": 9,
+  "carbs_g": 69,
+  "fat_g": 4.3
+ },
+ "plátano maduro": {
+  "protein_g": 1.3,
+  "carbs_g": 32,
+  "fat_g": 0.4
+ },
+ "plátano maduro en rodajas": {
+  "protein_g": 1.3,
+  "carbs_g": 32,
+  "fat_g": 0.4
+ },
+ "plátano maduro congelado": {
+  "protein_g": 1.3,
+  "carbs_g": 23,
+  "fat_g": 0.3
+ },
+ "plátano congelado": {
+  "protein_g": 1.3,
+  "carbs_g": 23,
+  "fat_g": 0.3
+ },
+ "salsa de soya baja en sodio": {
+  "protein_g": 8,
+  "carbs_g": 5,
+  "fat_g": 0.1
+ },
+ "salsa de soya": {
+  "protein_g": 8,
+  "carbs_g": 5,
+  "fat_g": 0.1
+ },
+ "jengibre fresco rallado": {
+  "protein_g": 1.8,
+  "carbs_g": 18,
+  "fat_g": 0.8
+ },
+ "jengibre fresco": {
+  "protein_g": 1.8,
+  "carbs_g": 18,
+  "fat_g": 0.8
+ },
+ "jengibre": {
+  "protein_g": 1.8,
+  "carbs_g": 18,
+  "fat_g": 0.8
+ },
+ "jengibre en polvo": {
+  "protein_g": 9,
+  "carbs_g": 72,
+  "fat_g": 4.2
+ },
+ "nopal": {
+  "protein_g": 1.5,
+  "carbs_g": 3.3,
+  "fat_g": 0.1
+ },
+ "nopales": {
+  "protein_g": 1.5,
+  "carbs_g": 3.3,
+  "fat_g": 0.1
+ },
+ "arroz blanco crudo": {
+  "protein_g": 7,
+  "carbs_g": 79,
+  "fat_g": 0.7
+ },
+ "arroz blanco de grano corto": {
+  "protein_g": 6.5,
+  "carbs_g": 79,
+  "fat_g": 0.6
+ },
+ "arroz integral crudo": {
+  "protein_g": 8,
+  "carbs_g": 77,
+  "fat_g": 2.9
+ },
+ "arroz jazmín cocido": {
+  "protein_g": 2.9,
+  "carbs_g": 28,
+  "fat_g": 0.3
+ },
+ "proteína en polvo sabor vainilla": {
+  "protein_g": 80,
+  "carbs_g": 8,
+  "fat_g": 6
+ },
+ "proteína en polvo sabor chocolate": {
+  "protein_g": 80,
+  "carbs_g": 8,
+  "fat_g": 6
+ },
+ "proteína en polvo sabor vainilla o coco": {
+  "protein_g": 80,
+  "carbs_g": 8,
+  "fat_g": 6
+ },
+ "proteína en polvo sabor vainilla o tropical": {
+  "protein_g": 80,
+  "carbs_g": 8,
+  "fat_g": 6
+ },
+ "proteína en polvo sabor chocolate o vainilla": {
+  "protein_g": 80,
+  "carbs_g": 8,
+  "fat_g": 6
+ },
+ "proteína en polvo": {
+  "protein_g": 80,
+  "carbs_g": 8,
+  "fat_g": 6
+ },
+ "proteína de suero sabor vainilla": {
+  "protein_g": 82,
+  "carbs_g": 7,
+  "fat_g": 5
+ },
+ "proteína de suero sabor chocolate": {
+  "protein_g": 82,
+  "carbs_g": 7,
+  "fat_g": 5
+ },
+ "proteína de suero sabor vainilla o coco": {
+  "protein_g": 82,
+  "carbs_g": 7,
+  "fat_g": 5
+ },
+ "proteína de suero sabor vainilla o neutro": {
+  "protein_g": 82,
+  "carbs_g": 7,
+  "fat_g": 5
+ },
+ "proteína de suero sabor chocolate o neutro": {
+  "protein_g": 82,
+  "carbs_g": 7,
+  "fat_g": 5
+ },
+ "proteína de suero sabor chocolate o vainilla": {
+  "protein_g": 82,
+  "carbs_g": 7,
+  "fat_g": 5
+ },
+ "proteína de suero sabor natural o vainilla": {
+  "protein_g": 82,
+  "carbs_g": 7,
+  "fat_g": 5
+ },
+ "proteína de suero sabor vainilla o caramelo": {
+  "protein_g": 82,
+  "carbs_g": 7,
+  "fat_g": 5
+ },
+ "tomate mediano": {
+  "protein_g": 0.9,
+  "carbs_g": 3.9,
+  "fat_g": 0.2
+ },
+ "tomate en cubos": {
+  "protein_g": 0.9,
+  "carbs_g": 3.9,
+  "fat_g": 0.2
+ },
+ "tomate cherry": {
+  "protein_g": 0.9,
+  "carbs_g": 3.9,
+  "fat_g": 0.2
+ },
+ "tomate cherry partido a la mitad": {
+  "protein_g": 0.9,
+  "carbs_g": 3.9,
+  "fat_g": 0.2
+ },
+ "tomate cherry cortado a la mitad": {
+  "protein_g": 0.9,
+  "carbs_g": 3.9,
+  "fat_g": 0.2
+ },
+ "tomate cherry cortado por la mitad": {
+  "protein_g": 0.9,
+  "carbs_g": 3.9,
+  "fat_g": 0.2
+ },
+ "tomates cherry": {
+  "protein_g": 0.9,
+  "carbs_g": 3.9,
+  "fat_g": 0.2
+ },
+ "tomate triturado": {
+  "protein_g": 1.6,
+  "carbs_g": 5.8,
+  "fat_g": 0.3
+ },
+ "tomate triturado natural": {
+  "protein_g": 1.6,
+  "carbs_g": 5.8,
+  "fat_g": 0.3
+ },
+ "tomate triturado en lata": {
+  "protein_g": 1.6,
+  "carbs_g": 5.8,
+  "fat_g": 0.3
+ },
+ "tomates triturados": {
+  "protein_g": 1.6,
+  "carbs_g": 5.8,
+  "fat_g": 0.3
+ },
+ "tomates triturados en lata": {
+  "protein_g": 1.6,
+  "carbs_g": 5.8,
+  "fat_g": 0.3
+ },
+ "tomates pera maduros triturados": {
+  "protein_g": 1.6,
+  "carbs_g": 5.8,
+  "fat_g": 0.3
+ },
+ "tomates pera triturados": {
+  "protein_g": 1.6,
+  "carbs_g": 5.8,
+  "fat_g": 0.3
+ },
+ "tomate picado": {
+  "protein_g": 0.9,
+  "carbs_g": 3.9,
+  "fat_g": 0.2
+ },
+ "tomate picado fino": {
+  "protein_g": 0.9,
+  "carbs_g": 3.9,
+  "fat_g": 0.2
+ },
+ "tomate maduro": {
+  "protein_g": 0.9,
+  "carbs_g": 3.9,
+  "fat_g": 0.2
+ },
+ "tomate maduro en rebanadas": {
+  "protein_g": 0.9,
+  "carbs_g": 3.9,
+  "fat_g": 0.2
+ },
+ "tomate en rodajas": {
+  "protein_g": 0.9,
+  "carbs_g": 3.9,
+  "fat_g": 0.2
+ },
+ "tomate en rebanadas": {
+  "protein_g": 0.9,
+  "carbs_g": 3.9,
+  "fat_g": 0.2
+ },
+ "tomates maduros": {
+  "protein_g": 0.9,
+  "carbs_g": 3.9,
+  "fat_g": 0.2
+ },
+ "tomates maduros en trozos": {
+  "protein_g": 0.9,
+  "carbs_g": 3.9,
+  "fat_g": 0.2
+ },
+ "tomates maduros picados": {
+  "protein_g": 0.9,
+  "carbs_g": 3.9,
+  "fat_g": 0.2
+ },
+ "tomate verde (tomatillo)": {
+  "protein_g": 1,
+  "carbs_g": 5.8,
+  "fat_g": 1
+ },
+ "tortilla de maíz": {
+  "protein_g": 5.7,
+  "carbs_g": 44,
+  "fat_g": 2.5
+ },
+ "tortillas de maíz": {
+  "protein_g": 5.7,
+  "carbs_g": 44,
+  "fat_g": 2.5
+ },
+ "tortillas de maíz pequeñas": {
+  "protein_g": 5.7,
+  "carbs_g": 44,
+  "fat_g": 2.5
+ },
+ "tortilla integral grande": {
+  "protein_g": 8,
+  "carbs_g": 46,
+  "fat_g": 4
+ },
+ "tortilla integral grande (30cm)": {
+  "protein_g": 8,
+  "carbs_g": 46,
+  "fat_g": 4
+ },
+ "tortilla de harina integral (30g c/u)": {
+  "protein_g": 8,
+  "carbs_g": 46,
+  "fat_g": 4
+ },
+ "tortilla de trigo integral": {
+  "protein_g": 8,
+  "carbs_g": 46,
+  "fat_g": 4
+ },
+ "tortilla integral de trigo": {
+  "protein_g": 8,
+  "carbs_g": 46,
+  "fat_g": 4
+ },
+ "tostadas de maíz": {
+  "protein_g": 8,
+  "carbs_g": 77,
+  "fat_g": 5
+ },
+ "cola de langosta": {
+  "protein_g": 19,
+  "carbs_g": 0,
+  "fat_g": 1
+ },
+ "pierna de cerdo": {
+  "protein_g": 27,
+  "carbs_g": 0,
+  "fat_g": 10
+ },
+ "chuleta de cerdo": {
+  "protein_g": 27,
+  "carbs_g": 0,
+  "fat_g": 12
+ },
+ "carne de cerdo en cubos": {
+  "protein_g": 27,
+  "carbs_g": 0,
+  "fat_g": 12
+ },
+ "carne de cerdo en cubos pequeños": {
+  "protein_g": 27,
+  "carbs_g": 0,
+  "fat_g": 12
+ },
+ "carne molida de cerdo": {
+  "protein_g": 25,
+  "carbs_g": 0,
+  "fat_g": 18
+ },
+ "cerdo molido magro": {
+  "protein_g": 26,
+  "carbs_g": 0,
+  "fat_g": 13
+ },
+ "perejil fresco": {
+  "protein_g": 3,
+  "carbs_g": 6,
+  "fat_g": 0.8
+ },
+ "perejil fresco picado": {
+  "protein_g": 3,
+  "carbs_g": 6,
+  "fat_g": 0.8
+ },
+ "perejil fresco picado fino": {
+  "protein_g": 3,
+  "carbs_g": 6,
+  "fat_g": 0.8
+ },
+ "trucha": {
+  "protein_g": 20,
+  "carbs_g": 0,
+  "fat_g": 6
+ },
+ "yogur griego sin grasa": {
+  "protein_g": 10,
+  "carbs_g": 4,
+  "fat_g": 0
+ },
+ "yogur griego descremado": {
+  "protein_g": 10,
+  "carbs_g": 4,
+  "fat_g": 0
+ },
+ "yogur griego natural sin azúcar": {
+  "protein_g": 10,
+  "carbs_g": 4,
+  "fat_g": 0.4
+ },
+ "yogur griego natural sin azúcar 0% grasa": {
+  "protein_g": 10,
+  "carbs_g": 4,
+  "fat_g": 0
+ },
+ "yogur griego natural sin azúcar 2% grasa": {
+  "protein_g": 9,
+  "carbs_g": 4,
+  "fat_g": 2
+ },
+ "yogur griego natural 0% grasa": {
+  "protein_g": 10,
+  "carbs_g": 4,
+  "fat_g": 0
+ },
+ "yogur bajo en grasa": {
+  "protein_g": 5,
+  "carbs_g": 7,
+  "fat_g": 1.5
+ },
+ "extracto de vainilla": {
+  "protein_g": 0.1,
+  "carbs_g": 13,
+  "fat_g": 0.1
+ },
+ "extracto de vainilla puro": {
+  "protein_g": 0.1,
+  "carbs_g": 13,
+  "fat_g": 0.1
+ },
+ "vainilla en extracto": {
+  "protein_g": 0.1,
+  "carbs_g": 13,
+  "fat_g": 0.1
+ },
+ "canela en polvo": {
+  "protein_g": 4,
+  "carbs_g": 81,
+  "fat_g": 1.2
+ },
+ "canela molida": {
+  "protein_g": 4,
+  "carbs_g": 81,
+  "fat_g": 1.2
+ },
+ "canela": {
+  "protein_g": 4,
+  "carbs_g": 81,
+  "fat_g": 1.2
+ },
+ "apio": {
+  "protein_g": 0.7,
+  "carbs_g": 3,
+  "fat_g": 0.2
+ },
+ "apio en rodajas": {
+  "protein_g": 0.7,
+  "carbs_g": 3,
+  "fat_g": 0.2
+ },
+ "apio en trozos": {
+  "protein_g": 0.7,
+  "carbs_g": 3,
+  "fat_g": 0.2
+ },
+ "cilantro fresco": {
+  "protein_g": 2.1,
+  "carbs_g": 3.7,
+  "fat_g": 0.5
+ },
+ "cilantro": {
+  "protein_g": 2.1,
+  "carbs_g": 3.7,
+  "fat_g": 0.5
+ },
+ "cilantro fresco picado": {
+  "protein_g": 2.1,
+  "carbs_g": 3.7,
+  "fat_g": 0.5
+ },
+ "cilantro o perejil fresco": {
+  "protein_g": 2.5,
+  "carbs_g": 5,
+  "fat_g": 0.6
+ },
+ "tomillo seco": {
+  "protein_g": 9,
+  "carbs_g": 64,
+  "fat_g": 7
+ },
+ "tomillo fresco": {
+  "protein_g": 5.6,
+  "carbs_g": 24,
+  "fat_g": 1.7
+ },
+ "yogur griego descremado ": {
+  "protein_g": 10,
+  "carbs_g": 4,
+  "fat_g": 0
+ },
+ "comino molido": {
+  "protein_g": 18,
+  "carbs_g": 44,
+  "fat_g": 22
+ },
+ "comino en polvo": {
+  "protein_g": 18,
+  "carbs_g": 44,
+  "fat_g": 22
+ },
+ "comino": {
+  "protein_g": 18,
+  "carbs_g": 44,
+  "fat_g": 22
+ },
+ "pimiento morrón": {
+  "protein_g": 1,
+  "carbs_g": 6,
+  "fat_g": 0.3
+ },
+ "pimiento verde": {
+  "protein_g": 0.9,
+  "carbs_g": 4.6,
+  "fat_g": 0.2
+ },
+ "pimiento verde picado": {
+  "protein_g": 0.9,
+  "carbs_g": 4.6,
+  "fat_g": 0.2
+ },
+ "pimiento verde en cubos": {
+  "protein_g": 0.9,
+  "carbs_g": 4.6,
+  "fat_g": 0.2
+ },
+ "pimiento amarillo": {
+  "protein_g": 1,
+  "carbs_g": 6.3,
+  "fat_g": 0.2
+ },
+ "pimiento amarillo picado": {
+  "protein_g": 1,
+  "carbs_g": 6.3,
+  "fat_g": 0.2
+ },
+ "leche de coco light": {
+  "protein_g": 2,
+  "carbs_g": 3,
+  "fat_g": 6
+ },
+ "leche de coco": {
+  "protein_g": 2.3,
+  "carbs_g": 3.3,
+  "fat_g": 21
+ },
+ "mostaza dijon": {
+  "protein_g": 4,
+  "carbs_g": 5,
+  "fat_g": 4
+ },
+ "mostaza": {
+  "protein_g": 4,
+  "carbs_g": 5,
+  "fat_g": 4
+ },
+ "nueces": {
+  "protein_g": 15,
+  "carbs_g": 14,
+  "fat_g": 65
+ },
+ "nueces picadas": {
+  "protein_g": 15,
+  "carbs_g": 14,
+  "fat_g": 65
+ },
+ "nueces de castilla": {
+  "protein_g": 15,
+  "carbs_g": 14,
+  "fat_g": 65
+ },
+ "queso parmesano rallado": {
+  "protein_g": 38,
+  "carbs_g": 4,
+  "fat_g": 29
+ },
+ "muslo de pollo sin piel": {
+  "protein_g": 24,
+  "carbs_g": 0,
+  "fat_g": 9
+ },
+ "queso mozzarella bajo en grasa rallado": {
+  "protein_g": 24,
+  "carbs_g": 3,
+  "fat_g": 16
+ },
+ "queso mozzarella bajo en grasa": {
+  "protein_g": 24,
+  "carbs_g": 3,
+  "fat_g": 16
+ },
+ "mozzarella light rallada": {
+  "protein_g": 24,
+  "carbs_g": 3,
+  "fat_g": 16
+ },
+ "chile en polvo": {
+  "protein_g": 13,
+  "carbs_g": 50,
+  "fat_g": 14
+ },
+ "chile guajillo": {
+  "protein_g": 11,
+  "carbs_g": 57,
+  "fat_g": 8
+ },
+ "semilla de linaza molida": {
+  "protein_g": 18,
+  "carbs_g": 29,
+  "fat_g": 42
+ },
+ "semillas de linaza": {
+  "protein_g": 18,
+  "carbs_g": 29,
+  "fat_g": 42
+ },
+ "semillas de lino molidas": {
+  "protein_g": 18,
+  "carbs_g": 29,
+  "fat_g": 42
+ },
+ "quinoa cruda": {
+  "protein_g": 14,
+  "carbs_g": 64,
+  "fat_g": 6
+ },
+ "quinua cocida": {
+  "protein_g": 4.4,
+  "carbs_g": 21,
+  "fat_g": 1.9
+ },
+ "jugo de naranja natural": {
+  "protein_g": 0.7,
+  "carbs_g": 10,
+  "fat_g": 0.2
+ },
+ "cacao en polvo sin azúcar": {
+  "protein_g": 20,
+  "carbs_g": 58,
+  "fat_g": 14
+ },
+ "cacao en polvo": {
+  "protein_g": 20,
+  "carbs_g": 58,
+  "fat_g": 14
+ },
+ "cúrcuma": {
+  "protein_g": 8,
+  "carbs_g": 65,
+  "fat_g": 10
+ },
+ "cúrcuma en polvo": {
+  "protein_g": 8,
+  "carbs_g": 65,
+  "fat_g": 10
+ },
+ "cúrcuma molida": {
+  "protein_g": 8,
+  "carbs_g": 65,
+  "fat_g": 10
+ },
+ "ralladura de limón": {
+  "protein_g": 1.5,
+  "carbs_g": 16,
+  "fat_g": 0.3
+ },
+ "ralladura de naranja": {
+  "protein_g": 1.5,
+  "carbs_g": 25,
+  "fat_g": 0.2
+ },
+ "albahaca fresca": {
+  "protein_g": 3.2,
+  "carbs_g": 2.7,
+  "fat_g": 0.6
+ },
+ "albahaca seca": {
+  "protein_g": 23,
+  "carbs_g": 48,
+  "fat_g": 4
+ },
+ "zucchini ": {
+  "protein_g": 1.2,
+  "carbs_g": 3.1,
+  "fat_g": 0.3
+ },
+ "coco rallado sin azúcar": {
+  "protein_g": 3.3,
+  "carbs_g": 24,
+  "fat_g": 33
+ },
+ "coco rallado": {
+  "protein_g": 3.3,
+  "carbs_g": 24,
+  "fat_g": 33
+ },
+ "semillas de sésamo": {
+  "protein_g": 18,
+  "carbs_g": 23,
+  "fat_g": 50
+ },
+ "semillas de ajonjolí": {
+  "protein_g": 18,
+  "carbs_g": 23,
+  "fat_g": 50
+ },
+ "semillas de ajonjolí tostadas": {
+  "protein_g": 18,
+  "carbs_g": 23,
+  "fat_g": 50
+ },
+ "chuño": {
+  "protein_g": 4,
+  "carbs_g": 80,
+  "fat_g": 0.5
+ },
+ "pulpo limpio cocido": {
+  "protein_g": 30,
+  "carbs_g": 4,
+  "fat_g": 2
+ },
+ "piña": {
+  "protein_g": 0.5,
+  "carbs_g": 13,
+  "fat_g": 0.1
+ },
+ "piña fresca en trozos": {
+  "protein_g": 0.5,
+  "carbs_g": 13,
+  "fat_g": 0.1
+ },
+ "piña fresca o en conserva sin azúcar": {
+  "protein_g": 0.5,
+  "carbs_g": 13,
+  "fat_g": 0.1
+ },
+ "cuscús": {
+  "protein_g": 3.8,
+  "carbs_g": 23,
+  "fat_g": 0.2
+ },
+ "cuscús integral": {
+  "protein_g": 4.5,
+  "carbs_g": 24,
+  "fat_g": 0.3
+ },
+ "calamar limpio en aros": {
+  "protein_g": 16,
+  "carbs_g": 3,
+  "fat_g": 1.4
+ },
+ "curry en polvo": {
+  "protein_g": 14,
+  "carbs_g": 56,
+  "fat_g": 14
+ },
+ "romero seco": {
+  "protein_g": 4.9,
+  "carbs_g": 64,
+  "fat_g": 15
+ },
+ "romero fresco o seco": {
+  "protein_g": 3.3,
+  "carbs_g": 21,
+  "fat_g": 5.9
+ },
+ "páprika ahumada": {
+  "protein_g": 14,
+  "carbs_g": 54,
+  "fat_g": 13
+ },
+ "páprika": {
+  "protein_g": 14,
+  "carbs_g": 54,
+  "fat_g": 13
+ },
+ "paprika": {
+  "protein_g": 14,
+  "carbs_g": 54,
+  "fat_g": 13
+ },
+ "pimentón dulce": {
+  "protein_g": 14,
+  "carbs_g": 54,
+  "fat_g": 13
+ },
+ "pimentón dulce (paprika)": {
+  "protein_g": 14,
+  "carbs_g": 54,
+  "fat_g": 13
+ },
+ "pimentón dulce en polvo": {
+  "protein_g": 14,
+  "carbs_g": 54,
+  "fat_g": 13
+ },
+ "pimentón ahumado": {
+  "protein_g": 14,
+  "carbs_g": 54,
+  "fat_g": 13
+ },
+ "muesli sin azúcar añadida": {
+  "protein_g": 10,
+  "carbs_g": 66,
+  "fat_g": 6
+ },
+ "cebollín picado fino": {
+  "protein_g": 1.8,
+  "carbs_g": 7.3,
+  "fat_g": 0.7
+ },
+ "cebollín picado": {
+  "protein_g": 1.8,
+  "carbs_g": 7.3,
+  "fat_g": 0.7
+ },
+ "cebollín": {
+  "protein_g": 1.8,
+  "carbs_g": 7.3,
+  "fat_g": 0.7
+ },
+ "cebollín fresco": {
+  "protein_g": 1.8,
+  "carbs_g": 7.3,
+  "fat_g": 0.7
+ },
+ "queso panela": {
+  "protein_g": 18,
+  "carbs_g": 3,
+  "fat_g": 15
+ },
+ "pan de centeno": {
+  "protein_g": 9,
+  "carbs_g": 48,
+  "fat_g": 3.3
+ },
+ "pan pita integral": {
+  "protein_g": 9.8,
+  "carbs_g": 50,
+  "fat_g": 2.6
+ },
+ "arroz integral crudo ": {
+  "protein_g": 8,
+  "carbs_g": 77,
+  "fat_g": 2.9
+ },
+ "frijoles pintos cocidos ": {
+  "protein_g": 9,
+  "carbs_g": 26,
+  "fat_g": 0.7
+ },
+ "batata en cubos": {
+  "protein_g": 1.6,
+  "carbs_g": 20,
+  "fat_g": 0.1
+ },
+ "batata (camote) en cubos": {
+  "protein_g": 1.6,
+  "carbs_g": 20,
+  "fat_g": 0.1
+ },
+ "batata (camote) en cubos de 2cm": {
+  "protein_g": 1.6,
+  "carbs_g": 20,
+  "fat_g": 0.1
+ },
+ "batata (camote) pelada": {
+  "protein_g": 1.6,
+  "carbs_g": 20,
+  "fat_g": 0.1
+ },
+ "mantequilla sin sal": {
+  "protein_g": 0.9,
+  "carbs_g": 0.1,
+  "fat_g": 81
+ },
+ "arroz blanco de grano corto ": {
+  "protein_g": 6.5,
+  "carbs_g": 79,
+  "fat_g": 0.6
+ },
+ "frambuesas": {
+  "protein_g": 1.2,
+  "carbs_g": 12,
+  "fat_g": 0.7
+ },
+ "frambuesa": {
+  "protein_g": 1.2,
+  "carbs_g": 12,
+  "fat_g": 0.7
+ },
+ "frambuesas frescas o congeladas": {
+  "protein_g": 1.2,
+  "carbs_g": 12,
+  "fat_g": 0.7
+ },
+ "frambuesas congeladas": {
+  "protein_g": 1.2,
+  "carbs_g": 12,
+  "fat_g": 0.7
+ },
+ "queso bajo en grasa rallado": {
+  "protein_g": 24,
+  "carbs_g": 3,
+  "fat_g": 16
+ },
+ "queso bajo en grasa en láminas": {
+  "protein_g": 24,
+  "carbs_g": 3,
+  "fat_g": 16
+ },
+ "rebanada de queso bajo en grasa": {
+  "protein_g": 24,
+  "carbs_g": 3,
+  "fat_g": 16
+ },
+ "kiwi": {
+  "protein_g": 1.1,
+  "carbs_g": 15,
+  "fat_g": 0.5
+ },
+ "kiwi pelado": {
+  "protein_g": 1.1,
+  "carbs_g": 15,
+  "fat_g": 0.5
+ },
+ "alcaparras en salmuera escurridas": {
+  "protein_g": 2.4,
+  "carbs_g": 5,
+  "fat_g": 0.9
+ },
+ "alcaparras": {
+  "protein_g": 2.4,
+  "carbs_g": 5,
+  "fat_g": 0.9
+ },
+ "leche entera": {
+  "protein_g": 3.2,
+  "carbs_g": 4.8,
+  "fat_g": 3.3
+ },
+ "leche entera o semidescremada": {
+  "protein_g": 3.3,
+  "carbs_g": 4.9,
+  "fat_g": 2.4
+ },
+ "leche semidescremada": {
+  "protein_g": 3.4,
+  "carbs_g": 5,
+  "fat_g": 1.5
+ },
+ "naranja": {
+  "protein_g": 0.9,
+  "carbs_g": 12,
+  "fat_g": 0.1
+ },
+ "queso cheddar bajo en grasa rallado": {
+  "protein_g": 25,
+  "carbs_g": 2,
+  "fat_g": 7
+ },
+ "hojas de menta": {
+  "protein_g": 3.3,
+  "carbs_g": 8,
+  "fat_g": 0.7
+ },
+ "hojas de menta fresca": {
+  "protein_g": 3.3,
+  "carbs_g": 8,
+  "fat_g": 0.7
+ },
+ "menta fresca": {
+  "protein_g": 3.3,
+  "carbs_g": 8,
+  "fat_g": 0.7
+ },
+ "menta fresca (opcional)": {
+  "protein_g": 3.3,
+  "carbs_g": 8,
+  "fat_g": 0.7
+ },
+ "pasta integral tipo espagueti": {
+  "protein_g": 5.8,
+  "carbs_g": 27,
+  "fat_g": 0.5
+ },
+ "pasta integral pequeña (coditos o ditalini)": {
+  "protein_g": 5.8,
+  "carbs_g": 27,
+  "fat_g": 0.5
+ },
+ "durazno": {
+  "protein_g": 0.9,
+  "carbs_g": 10,
+  "fat_g": 0.3
+ },
+ "durazno fresco": {
+  "protein_g": 0.9,
+  "carbs_g": 10,
+  "fat_g": 0.3
+ },
+ "durazno maduro pelado sin hueso": {
+  "protein_g": 0.9,
+  "carbs_g": 10,
+  "fat_g": 0.3
+ },
+ "arvejas": {
+  "protein_g": 5.4,
+  "carbs_g": 14,
+  "fat_g": 0.4
+ },
+ "arveja verde": {
+  "protein_g": 5.4,
+  "carbs_g": 14,
+  "fat_g": 0.4
+ },
+ "arveja (guisante) congelada": {
+  "protein_g": 5.4,
+  "carbs_g": 14,
+  "fat_g": 0.4
+ },
+ "arvejas (guisantes) frescos o congelados": {
+  "protein_g": 5.4,
+  "carbs_g": 14,
+  "fat_g": 0.4
+ },
+ "guisantes (arvejas) congelados": {
+  "protein_g": 5.4,
+  "carbs_g": 14,
+  "fat_g": 0.4
+ },
+ "queso crema bajo en grasa": {
+  "protein_g": 5,
+  "carbs_g": 6,
+  "fat_g": 16
+ },
+ "proteína de suero sabor chocolate ": {
+  "protein_g": 82,
+  "carbs_g": 7,
+  "fat_g": 5
+ },
+ "leche de coco ": {
+  "protein_g": 2.3,
+  "carbs_g": 3.3,
+  "fat_g": 21
+ },
+ "semillas de girasol": {
+  "protein_g": 21,
+  "carbs_g": 20,
+  "fat_g": 51
+ },
+ "jamón de pavo bajo en grasa en cubos": {
+  "protein_g": 16,
+  "carbs_g": 2,
+  "fat_g": 4
+ },
+ "sandía": {
+  "protein_g": 0.6,
+  "carbs_g": 8,
+  "fat_g": 0.2
+ },
+ "fideos de sopa medianos": {
+  "protein_g": 5,
+  "carbs_g": 25,
+  "fat_g": 1
+ },
+ "fideos finos": {
+  "protein_g": 5,
+  "carbs_g": 25,
+  "fat_g": 1
+ },
+ "fideos de trigo (tipo vermicelli)": {
+  "protein_g": 5,
+  "carbs_g": 25,
+  "fat_g": 1
+ },
+ "fideos de trigo delgados": {
+  "protein_g": 5,
+  "carbs_g": 25,
+  "fat_g": 1
+ },
+ "fideos de cabello de ángel o fideos finos": {
+  "protein_g": 5,
+  "carbs_g": 25,
+  "fat_g": 1
+ },
+ "fideos de arroz": {
+  "protein_g": 3.4,
+  "carbs_g": 25,
+  "fat_g": 0.2
+ },
+ "fideos de huevo cocidos": {
+  "protein_g": 5,
+  "carbs_g": 25,
+  "fat_g": 2
+ },
+ "berenjena": {
+  "protein_g": 1,
+  "carbs_g": 6,
+  "fat_g": 0.2
+ },
+ "berenjena en cubos": {
+  "protein_g": 1,
+  "carbs_g": 6,
+  "fat_g": 0.2
+ },
+ "granola sin azúcar añadida": {
+  "protein_g": 11,
+  "carbs_g": 60,
+  "fat_g": 14
+ },
+ "granola sin azúcar": {
+  "protein_g": 11,
+  "carbs_g": 60,
+  "fat_g": 14
+ },
+ "granola": {
+  "protein_g": 10,
+  "carbs_g": 64,
+  "fat_g": 15
+ },
+ "masa de pizza integral": {
+  "protein_g": 8,
+  "carbs_g": 45,
+  "fat_g": 3
+ },
+ "masa de pizza integral (base delgada comprada)": {
+  "protein_g": 8,
+  "carbs_g": 45,
+  "fat_g": 3
+ },
+ "queso feta desmenuzado": {
+  "protein_g": 14,
+  "carbs_g": 4,
+  "fat_g": 21
+ },
+ "semillas de calabaza": {
+  "protein_g": 30,
+  "carbs_g": 11,
+  "fat_g": 49
+ },
+ "pepitas de calabaza": {
+  "protein_g": 30,
+  "carbs_g": 11,
+  "fat_g": 49
+ },
+ "edamame": {
+  "protein_g": 11,
+  "carbs_g": 10,
+  "fat_g": 5
+ },
+ "edamame cocido": {
+  "protein_g": 11,
+  "carbs_g": 10,
+  "fat_g": 5
+ },
+ "edamame (habas de soya) cocidas": {
+  "protein_g": 11,
+  "carbs_g": 10,
+  "fat_g": 5
+ },
+ "habas de soya cocidas (edamame)": {
+  "protein_g": 11,
+  "carbs_g": 10,
+  "fat_g": 5
+ },
+ "habas de soya cocido sin vaina": {
+  "protein_g": 11,
+  "carbs_g": 10,
+  "fat_g": 5
+ },
+ "aceitunas negras sin hueso": {
+  "protein_g": 0.8,
+  "carbs_g": 6,
+  "fat_g": 11
+ },
+ "aceitunas negras sin hueso rebanadas": {
+  "protein_g": 0.8,
+  "carbs_g": 6,
+  "fat_g": 11
+ },
+ "aceitunas verdes o negras sin semilla": {
+  "protein_g": 0.8,
+  "carbs_g": 4,
+  "fat_g": 12
+ },
+ "aceitunas verdes sin semilla": {
+  "protein_g": 0.8,
+  "carbs_g": 4,
+  "fat_g": 15
+ },
+ "carne molida de res magra ": {
+  "protein_g": 26,
+  "carbs_g": 0,
+  "fat_g": 9
+ },
+ "aceite de ajonjolí ": {
+  "protein_g": 0,
+  "carbs_g": 0,
+  "fat_g": 100
+ },
+ "cebollín picado ": {
+  "protein_g": 1.8,
+  "carbs_g": 7.3,
+  "fat_g": 0.7
+ },
+ "coco rallado ": {
+  "protein_g": 3.3,
+  "carbs_g": 24,
+  "fat_g": 33
+ },
+ "calabaza": {
+  "protein_g": 1,
+  "carbs_g": 7,
+  "fat_g": 0.1
+ },
+ "cacahuates": {
+  "protein_g": 26,
+  "carbs_g": 16,
+  "fat_g": 49
+ },
+ "col blanca rallada": {
+  "protein_g": 1.3,
+  "carbs_g": 6,
+  "fat_g": 0.1
+ },
+ "col": {
+  "protein_g": 1.3,
+  "carbs_g": 6,
+  "fat_g": 0.1
+ },
+ "lechuga en trozos": {
+  "protein_g": 1.4,
+  "carbs_g": 2.9,
+  "fat_g": 0.2
+ },
+ "pasas": {
+  "protein_g": 3.1,
+  "carbs_g": 79,
+  "fat_g": 0.5
+ },
+ "pasas sin semillas": {
+  "protein_g": 3.1,
+  "carbs_g": 79,
+  "fat_g": 0.5
+ },
+ "salsa de tomate natural sin azúcar": {
+  "protein_g": 1.3,
+  "carbs_g": 5,
+  "fat_g": 0.2
+ },
+ "hierbas frescas": {
+  "protein_g": 2.5,
+  "carbs_g": 5,
+  "fat_g": 0.6
+ },
+ "semillas de lino molidas ": {
+  "protein_g": 18,
+  "carbs_g": 29,
+  "fat_g": 42
+ },
+ "caldo de pollo o vegetales ": {
+  "protein_g": 1,
+  "carbs_g": 0.5,
+  "fat_g": 0.5
+ },
+ "queso ricotta bajo en grasa": {
+  "protein_g": 10,
+  "carbs_g": 5,
+  "fat_g": 5
+ },
+ "queso de hebra": {
+  "protein_g": 24,
+  "carbs_g": 2,
+  "fat_g": 16
+ },
+ "queso de cabra desmenuzado": {
+  "protein_g": 22,
+  "carbs_g": 0.1,
+  "fat_g": 30
+ },
+ "vino tinto seco": {
+  "protein_g": 0.1,
+  "carbs_g": 2.6,
+  "fat_g": 0
+ },
+ "maíz (maíz) en rodajas ": {
+  "protein_g": 3.4,
+  "carbs_g": 19,
+  "fat_g": 1.5
+ },
+ "pera con cascara": {
+  "protein_g": 0.4,
+  "carbs_g": 15,
+  "fat_g": 0.1
+ },
+ "hummus": {
+  "protein_g": 8,
+  "carbs_g": 14,
+  "fat_g": 10
+ },
+ "hummus natural": {
+  "protein_g": 8,
+  "carbs_g": 14,
+  "fat_g": 10
+ },
+ "chorizo bajo en grasa en rodajas": {
+  "protein_g": 20,
+  "carbs_g": 1,
+  "fat_g": 20
+ },
+ "crema light": {
+  "protein_g": 2.8,
+  "carbs_g": 4,
+  "fat_g": 15
+ },
+ "crema ligera (15% grasa)": {
+  "protein_g": 2.8,
+  "carbs_g": 4,
+  "fat_g": 15
+ },
+ "mejillones limpios": {
+  "protein_g": 24,
+  "carbs_g": 7.4,
+  "fat_g": 4.6
+ },
+ "guayaba": {
+  "protein_g": 2.6,
+  "carbs_g": 14,
+  "fat_g": 1
+ },
+ "guayaba madura pelada": {
+  "protein_g": 2.6,
+  "carbs_g": 14,
+  "fat_g": 1
+ },
+ "melón verde tipo honeydew pelado sin semillas": {
+  "protein_g": 0.5,
+  "carbs_g": 9,
+  "fat_g": 0.1
+ },
+ "comino y orégano": {
+  "protein_g": 14,
+  "carbs_g": 56,
+  "fat_g": 13
+ },
+ "comino y cúrcuma": {
+  "protein_g": 13,
+  "carbs_g": 54,
+  "fat_g": 16
+ },
+ "frutos rojos mixtos (fresa, arándano, frambuesa)": {
+  "protein_g": 1,
+  "carbs_g": 12,
+  "fat_g": 0.4
+ },
+ "germen de trigo": {
+  "protein_g": 23,
+  "carbs_g": 51,
+  "fat_g": 10
+ },
+ "maicena (almidón de maíz)": {
+  "protein_g": 0.3,
+  "carbs_g": 91,
+  "fat_g": 0.1
+ },
+ "tortilla de trigo integral ": {
+  "protein_g": 8,
+  "carbs_g": 46,
+  "fat_g": 4
+ },
+ "tahini (pasta de sésamo)": {
+  "protein_g": 17,
+  "carbs_g": 21,
+  "fat_g": 54
+ },
+ "espirulina en polvo (alga verde)": {
+  "protein_g": 57,
+  "carbs_g": 24,
+  "fat_g": 8
+ },
+ "polvo para hornear": {
+  "protein_g": 0,
+  "carbs_g": 46,
+  "fat_g": 0
+ },
+ "jícama": {
+  "protein_g": 0.7,
+  "carbs_g": 9,
+  "fat_g": 0.1
+ },
+ "harina de maíz": {
+  "protein_g": 7,
+  "carbs_g": 76,
+  "fat_g": 3.9
+ },
+ "eneldo fresco picado fino": {
+  "protein_g": 3.5,
+  "carbs_g": 7,
+  "fat_g": 1.1
+ },
+ "eneldo fresco": {
+  "protein_g": 3.5,
+  "carbs_g": 7,
+  "fat_g": 1.1
+ },
+ "pollo cocido desmechado": {
+  "protein_g": 29,
+  "carbs_g": 0,
+  "fat_g": 7
+ },
+ "pulpa de maracuyá (maracuyá abierta y colada)": {
+  "protein_g": 2.2,
+  "carbs_g": 23,
+  "fat_g": 0.7
+ },
+ "rúcula fresca": {
+  "protein_g": 2.6,
+  "carbs_g": 3.7,
+  "fat_g": 0.7
+ },
+ "dátiles medjool sin semilla": {
+  "protein_g": 1.8,
+  "carbs_g": 75,
+  "fat_g": 0.2
+ },
+ "mayonesa light": {
+  "protein_g": 0.9,
+  "carbs_g": 9,
+  "fat_g": 30
+ },
+ "vinagre blanco (para pochar)": {
+  "protein_g": 0,
+  "carbs_g": 0.9,
+  "fat_g": 0
+ },
+ "frambuesas congeladas ": {
+  "protein_g": 1.2,
+  "carbs_g": 12,
+  "fat_g": 0.7
+ },
+ "cerezas congeladas sin hueso": {
+  "protein_g": 1,
+  "carbs_g": 16,
+  "fat_g": 0.3
+ },
+ "moras congeladas": {
+  "protein_g": 1.4,
+  "carbs_g": 10,
+  "fat_g": 0.5
+ },
+ "azúcar (para reducir acidez)": {
+  "protein_g": 0,
+  "carbs_g": 100,
+  "fat_g": 0
+ },
+ "acelgas": {
+  "protein_g": 1.8,
+  "carbs_g": 3.7,
+  "fat_g": 0.2
+ },
+ "cerdo molido magro ": {
+  "protein_g": 26,
+  "carbs_g": 0,
+  "fat_g": 13
+ },
+ "arroz blanco de grano corto  ": {
+  "protein_g": 6.5,
+  "carbs_g": 79,
+  "fat_g": 0.6
+ },
+ "aceite de coco (para sartén) ": {
+  "protein_g": 0,
+  "carbs_g": 0,
+  "fat_g": 99
+ },
+ "papas fritas": {
+  "protein_g": 3.4,
+  "carbs_g": 41.4,
+  "fat_g": 14.7
+ },
+ "papa frita": {
+  "protein_g": 3.4,
+  "carbs_g": 41.4,
+  "fat_g": 14.7
+ },
+ "salchicha": {
+  "protein_g": 12.8,
+  "carbs_g": 0.3,
+  "fat_g": 23.7
+ },
+ "hot dog": {
+  "protein_g": 12.8,
+  "carbs_g": 0.3,
+  "fat_g": 23.7
+ },
+ "chorizo": {
+  "protein_g": 13.6,
+  "carbs_g": 3.8,
+  "fat_g": 25.1
+ },
+ "carne de res": {
+  "protein_g": 25.9,
+  "carbs_g": 0.0,
+  "fat_g": 15.4
+ },
+ "carne de res molida": {
+  "protein_g": 25.9,
+  "carbs_g": 0.0,
+  "fat_g": 15.4
+ },
+ "lomo de res": {
+  "protein_g": 27.6,
+  "carbs_g": 0.0,
+  "fat_g": 11.4
+ },
+ "aji rojo": {
+  "protein_g": 1.9,
+  "carbs_g": 8.8,
+  "fat_g": 0.4
+ },
+ "aji verde": {
+  "protein_g": 2.0,
+  "carbs_g": 9.5,
+  "fat_g": 0.2
+ },
+ "aji amarillo": {
+  "protein_g": 1.9,
+  "carbs_g": 8.8,
+  "fat_g": 0.4
+ },
+ "cebolla morada": {
+  "protein_g": 1.1,
+  "carbs_g": 9.3,
+  "fat_g": 0.1
+ },
+ "choclo": {
+  "protein_g": 3.3,
+  "carbs_g": 23.5,
+  "fat_g": 0.8
+ },
+ "maiz": {
+  "protein_g": 3.3,
+  "carbs_g": 23.5,
+  "fat_g": 0.8
+ },
+ "platano frito": {
+  "protein_g": 1.4,
+  "carbs_g": 40.8,
+  "fat_g": 7.5
+ }
 }
