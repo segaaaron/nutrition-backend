@@ -27,14 +27,17 @@ def test_gpt5_family_uses_max_completion_tokens_and_no_temperature(model: str) -
     kw = _completion_kwargs(model, 4000)
     assert kw == {
         "max_completion_tokens": 4000,
-        "extra_body": {"reasoning_effort": "low"},
+        # reasoning_effort + verbosity are env-tunable (config defaults below).
+        "extra_body": {"reasoning_effort": "low", "verbosity": "low"},
     }
     # Legacy params MUST be absent — their presence 400s on GPT-5.
     assert "max_tokens" not in kw
     assert "temperature" not in kw
-    # reasoning_effort MUST be "low": measured on the real vision prompt,
-    # "minimal" and "medium" both returned EMPTY items; "low" detects reliably.
+    # Defaults: reasoning_effort="low" (minimal/medium measured EMPTY on the real
+    # vision prompt; "low" detects reliably) and verbosity="low" (~30% fewer
+    # output tokens = faster, correct for an extraction task).
     assert kw["extra_body"]["reasoning_effort"] == "low"
+    assert kw["extra_body"]["verbosity"] == "low"
 
 
 @pytest.mark.parametrize("model", ["gpt-4o-mini", "gpt-4o-2024-08-06", "gpt-4o"])

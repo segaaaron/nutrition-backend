@@ -248,6 +248,13 @@ def _system_prompt(
         "crema en sopas, azúcar en jugos/postres, aderezo en ensaladas aliñadas.\n"
         "3) Especias secas (comino, pimienta, orégano) ≤5 kcal y 1-3 g. "
         "Condimentos calóricos (mayonesa, crema, chimichurri, ketchup) con gramaje real.\n"
+        "NO DOBLE-CONTEO (CRÍTICO): cada gramo y cada kcal se cuenta UNA sola vez. "
+        "Cuando desglosas un plato compuesto en sus partes (ej. hamburguesa → pan, "
+        "carne, queso, tocino, huevo; sándwich → pan + rellenos; taco → tortilla + "
+        "relleno), NUNCA agregues además un ítem del plato ENTERO ('hamburguesa "
+        "completa', 'sándwich armado'): sus calorías ya están en las partes y "
+        "sumarían doble. Elige SIEMPRE el desglose por componentes; el plato entero "
+        "como un solo ítem SOLO si NO listaste sus partes.\n"
         "Por ítem: name, estimated_amount_g, kcal, kcal_min, kcal_max, "
         "protein_g, carbs_g, fat_g, fiber_g, sugar_g, confidence (0-1), "
         "food_group (vegetable|fruit|grain|protein|dairy|fat|sweet|beverage|other), "
@@ -436,9 +443,16 @@ def _completion_kwargs(model: str, max_output_tokens: int) -> dict[str, Any]:
     through regardless of the SDK version's typed params.
     """
     if _model_is_gpt5_family(model):
+        s = get_settings()
         return {
             "max_completion_tokens": max_output_tokens,
-            "extra_body": {"reasoning_effort": "low"},
+            # verbosity="low" ~= 30% fewer output tokens than the default
+            # "medium" → faster response, correct for an extraction task.
+            # Both env-overridable (see config) for latency experiments.
+            "extra_body": {
+                "reasoning_effort": s.vision_reasoning_effort,
+                "verbosity": s.vision_verbosity,
+            },
         }
     return {"max_tokens": max_output_tokens, "temperature": 0.0}
 

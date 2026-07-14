@@ -94,8 +94,13 @@ class Settings(BaseSettings):
     # veía apilados como una sola pieza. primary == fallback → la cascada
     # colapsa a un solo modelo (test limpio de gpt-5-mini). El pre-filtro
     # binario food/no-food sigue en gpt-4o-mini (PREFILTER_MODEL, más barato).
-    openai_vision_model_primary: str = "gpt-5-mini"
-    openai_vision_model_fallback: str = "gpt-5-mini"
+    # DEFAULT EMPTY on purpose: when unset, both fall through to the single
+    # `openai_vision_model` knob (see _primary_model/_fallback_model: `X or
+    # openai_vision_model`). So ONE var — OPENAI_VISION_MODEL — controls the
+    # model for the common case. Only set these two to DIFFERENT models when you
+    # actually want a cheap-primary / heavy-fallback cascade.
+    openai_vision_model_primary: str = ""
+    openai_vision_model_fallback: str = ""
     # MASTER feature flag for the hybrid cost cascade. Since 2026-07-11 the
     # primary and fallback are BOTH gpt-5-mini, so the cascade collapses to a
     # single model regardless of this flag (no cost gap to save between
@@ -124,6 +129,14 @@ class Settings(BaseSettings):
     # for headroom. Cost: typical ~2500 out tok × $2.20/1M ≈ $0.0055 + input
     # ≈ $0.006/photo at gpt-5-mini. Ceiling (4000) ≈ $0.0088/call.
     vision_max_output_tokens: int = 4000
+    # GPT-5 family latency tuning — env-overridable so operators can experiment
+    # (e.g. gpt-5.4-nano) without a code deploy. `reasoning_effort`: minimal|low|
+    # medium|high (minimal/medium measured empty on this prompt → low is the safe
+    # floor for gpt-5-mini; newer/nano models may tolerate minimal). `verbosity`:
+    # low|medium|high — low = fewer output tokens = faster; correct for an
+    # extraction task like this. Both sent via extra_body.
+    vision_reasoning_effort: str = "low"
+    vision_verbosity: str = "low"
     # Pixel threshold (width AND height) — under this → detail="low" (85 tok
     # image cost), otherwise detail="high" (765 tok). OpenAI vision formula.
     vision_low_detail_max_dim: int = 500

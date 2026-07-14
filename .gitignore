@@ -59,3 +59,6 @@ docs/team/
 
 # ── Moat data — recipe catalog. Prod reads from the DB, not these files. ──────
 data/nova_catalog_v1.json
+
+# One-off scripts (backfills/gen/import/fix) — run once, never committed or deployed
+scripts/oneoff/

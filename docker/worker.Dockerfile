@@ -46,6 +46,9 @@ WORKDIR /app
 
 COPY app ./app
 COPY worker ./worker
+# data/ holds the USDA reference tables the vision worker uses to ground real
+# per-ingredient calories (falls back to coarse group averages when absent).
+COPY data ./data
 COPY pyproject.toml uv.lock* ./
 COPY README.md ./
 
