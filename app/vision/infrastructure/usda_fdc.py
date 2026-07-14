@@ -151,6 +151,26 @@ def _apply_synonyms(key: str) -> str:
     return " ".join(changed)
 
 
+def _headsafe_difflib(query_key: str, keys, cutoff: float = 0.72) -> str | None:
+    """difflib match that rejects candidates which drop the query's HEAD noun.
+
+    char-level difflib (Ratcliff/Obershelp) over-weights a shared suffix, so
+    'carne de hamburguesa' scores highest against 'pan de hamburguesa' (they
+    share 'de hamburguesa') even though the head noun flips carne→pan. Requiring
+    the query's first token to appear in the candidate is the token-based guard
+    (same rationale as RapidFuzz/token_set_ratio over plain difflib) — it keeps
+    'bistec'→'bistec de res' and 'carne de hamburguesa'→'carne de res' while
+    blocking the carne→pan class of false match. Dependency-free."""
+    toks = query_key.split()
+    if not toks:
+        return None
+    head = toks[0]
+    for cand in difflib.get_close_matches(query_key, keys, n=5, cutoff=cutoff):
+        if head in cand.split():
+            return cand
+    return None
+
+
 def _subset_match(query_key: str, keys) -> str | None:
     """Return the shortest reference key whose token set is a SUPERSET of every
     query token — i.e. the query is a more-general form of a more-specific entry
@@ -419,10 +439,10 @@ def _search_ingredient_ref(name: str) -> UsdaNutrition | None:
         if alt != key:
             entry = _INGREDIENT_REF.get(alt)
     if entry is None:
-        # Fuzzy match on ES keys — cheap (817 short strings).
-        matches = difflib.get_close_matches(lookup, _INGREDIENT_REF.keys(), n=1, cutoff=0.72)
-        if matches:
-            entry = _INGREDIENT_REF[matches[0]]
+        # Fuzzy match on ES keys — cheap (817 short strings), head-noun guarded.
+        cand = _headsafe_difflib(lookup, _INGREDIENT_REF.keys())
+        if cand is not None:
+            entry = _INGREDIENT_REF[cand]
 
     if entry is None:
         return None
@@ -469,13 +489,13 @@ def _search_nutrition_reference(name: str) -> UsdaNutrition | None:
                 if sk is not None:
                     key, macros = sk, _NUTRITION_MACROS[sk]
                 else:
-                    m = difflib.get_close_matches(alt, _NUTRITION_MACROS.keys(), n=1, cutoff=0.72)
-                    if m:
-                        key, macros = m[0], _NUTRITION_MACROS[m[0]]
+                    cand = _headsafe_difflib(alt, _NUTRITION_MACROS.keys())
+                    if cand is not None:
+                        key, macros = cand, _NUTRITION_MACROS[cand]
     if macros is None:
-        matches = difflib.get_close_matches(key, _NUTRITION_MACROS.keys(), n=1, cutoff=0.72)
-        if matches:
-            key = matches[0]
+        cand = _headsafe_difflib(key, _NUTRITION_MACROS.keys())
+        if cand is not None:
+            key = cand
             macros = _NUTRITION_MACROS[key]
     if macros is None:
         return None

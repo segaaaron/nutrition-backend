@@ -95,3 +95,22 @@ def test_sr_guard_skips_restaurant_composite_for_bare_query() -> None:
     if r is not None:
         # Composite dishes (pupusas etc.) live in 'Restaurant Foods' — skipped.
         assert "pupusa" not in r.description.lower()
+
+
+# ── Head-noun guard: difflib must not flip the head noun on a shared suffix ─────
+def test_headsafe_difflib_keeps_head_noun() -> None:
+    """'carne de hamburguesa' shares the suffix 'de hamburguesa' with a bun key,
+    so plain char-level difflib would match the bun. The head-noun guard keeps
+    'carne' and routes it to a beef entry instead."""
+    r = u._search_nutrition_reference("carne de hamburguesa")
+    assert r is not None
+    # Beef ≈ 200-270 kcal/100g; a hamburger bun ≈ 270-300 but is carbs-heavy.
+    # The guard must land on a meat entry (carbs ~0), never the bun (carbs high).
+    assert r.carbs_per_100g <= 5, f"grounded to a bun-like entry: {r.description}"
+    assert r.protein_per_100g >= 15, "should be a protein/beef entry"
+
+
+def test_headsafe_difflib_unit() -> None:
+    keys = ["pan de hamburguesa", "carne de res", "carne molida de res"]
+    # head 'carne' present in 'carne de res' → chosen; 'pan de hamburguesa' rejected.
+    assert u._headsafe_difflib("carne de hamburguesa", keys, cutoff=0.3) != "pan de hamburguesa"

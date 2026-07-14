@@ -80,7 +80,7 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # OK4: best-effort metadata read from request.state; PII-safe input repr.
     "app/core/problem_details.py": {444, 448, 489},
     # OK4: pHash compute is a best-effort cost optimization (logged, returns None).
-    "app/imaging/infrastructure/phash.py": {59},
+    "app/imaging/infrastructure/phash.py": {63},
     # OK5: identity session rollback wrapper — re-raises.
     "app/identity/presentation/dependencies.py": {94},
     # OK4: OAuth verifier collapses provider errors into Unauthenticated.
@@ -124,7 +124,7 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # OK1: notification handlers — fire-and-forget push, must not propagate.
     "app/notifications/application/event_handlers.py": {80, 116},
     # OK4: Redis cache helpers + Open Food Facts external API — best-effort, fail-open.
-    "app/vision/infrastructure/usda_fdc.py": {386, 394, 598},
+    "app/vision/infrastructure/usda_fdc.py": {406, 414, 618},
     # OK4: OpenAI vision wrappers with fallback contracts.
     "app/vision/application/learn_user_correction.py": {175},
     "app/vision/application/process_vision_job.py": {186, 424, 469, 547, 561},
