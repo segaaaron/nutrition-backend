@@ -134,13 +134,9 @@ VISION_SCHEMA: dict[str, Any] = {
                     "count": {"type": "integer", "minimum": 1},
                     "estimated_amount_g": {"type": "number"},
                     "kcal": {"type": "integer"},
-                    "kcal_min": {"type": "integer"},
-                    "kcal_max": {"type": "integer"},
                     "protein_g": {"type": "integer"},
                     "carbs_g": {"type": "integer"},
                     "fat_g": {"type": "integer"},
-                    "fiber_g": {"type": "integer"},
-                    "sugar_g": {"type": "integer"},
                     "confidence": {"type": "number"},
                     "food_group": {
                         "type": "string",
@@ -204,13 +200,9 @@ VISION_SCHEMA: dict[str, Any] = {
                     "count",
                     "estimated_amount_g",
                     "kcal",
-                    "kcal_min",
-                    "kcal_max",
                     "protein_g",
                     "carbs_g",
                     "fat_g",
-                    "fiber_g",
-                    "sugar_g",
                     "confidence",
                     "food_group",
                     "role",
@@ -263,15 +255,14 @@ def _system_prompt(
         "completa', 'sándwich armado'): sus calorías ya están en las partes y "
         "sumarían doble. Elige SIEMPRE el desglose por componentes; el plato entero "
         "como un solo ítem SOLO si NO listaste sus partes.\n"
-        "Por ítem: name, estimated_amount_g, kcal, kcal_min, kcal_max, "
-        "protein_g, carbs_g, fat_g, fiber_g, sugar_g, confidence (0-1), "
+        "Por ítem (SOLO estos campos, nada más — menos campos = respuesta más rápida): "
+        "name, estimated_amount_g, kcal, protein_g, carbs_g, fat_g, confidence (0-1), "
         "food_group (vegetable|fruit|grain|protein|dairy|fat|sweet|beverage|other), "
         "role (main|side|sauce|condiment|cooking_fat|garnish|sweetener|beverage_base), "
         "prep_method (deep_fried|fried|sauteed|grilled|boiled|steamed|baked|stewed|raw|unknown).\n"
         "COHERENCIA: `kcal`≈4·protein_g+4·carbs_g+9·fat_g (Atwater) — que cuadren. "
         "`prep_method` afecta kcal (frito absorbe aceite; a la plancha no). "
-        "`kcal_min/kcal_max`=rango honesto de incertidumbre, más ancho si el ítem "
-        "está ocluido o el tamaño es ambiguo. `confidence`: alto SOLO si identidad "
+        "`confidence`: alto SOLO si identidad "
         "Y tamaño son claros; bajo si ocluido, borroso o dudoso.\n"
         "PORCIONES: si hay mano, moneda, cubierto u otro objeto conocido → úsalo como "
         "calibrador PRINCIPAL. Otras referencias: plato Ø26cm, plato hondo 400ml, "

@@ -64,7 +64,7 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # OK6: circuit breaker wraps arbitrary callable.
     "app/core/circuit_breaker.py": {98},
     # OK4: tiktoken optional + fallback heuristic for token count.
-    "app/core/cost_cap.py": {100},
+    "app/core/cost_cap.py": {104},
     # OK5: session.commit() rollback wrapper — re-raises after rollback.
     "app/core/db.py": {92},
     # OK3: ErrorTracker boundary — tracker must NEVER raise; re-raises original.
@@ -124,7 +124,7 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # OK1: notification handlers — fire-and-forget push, must not propagate.
     "app/notifications/application/event_handlers.py": {80, 116},
     # OK4: Redis cache helpers + Open Food Facts external API — best-effort, fail-open.
-    "app/vision/infrastructure/usda_fdc.py": {305, 313, 417},
+    "app/vision/infrastructure/usda_fdc.py": {324, 332, 470},
     # OK4: OpenAI vision wrappers with fallback contracts.
     "app/vision/application/learn_user_correction.py": {175},
     "app/vision/application/process_vision_job.py": {183, 417, 462, 540, 554},
@@ -140,7 +140,7 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     "app/vision/infrastructure/inflight_lock.py": {32, 42, 68},
     "app/vision/infrastructure/food_matcher.py": {124},
     # OK4: dark-image enhancement (best-effort PIL), prefilter fail-open, invoke retry.
-    "app/vision/infrastructure/openai_vision.py": {359, 365, 411, 560, 855},
+    "app/vision/infrastructure/openai_vision.py": {350, 356, 402, 551, 846},
     # OK4: plate explanation is decorative — poll must still serve items.
     "app/vision/presentation/router.py": {169, 214},
     # OK4: voice/food text parser — LLM best-effort.

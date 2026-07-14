@@ -87,6 +87,10 @@ _INGREDIENT_REF: dict[str, dict[str, Any]] | None = None
 _SR_LEGACY: list[dict[str, Any]] | None = None
 # Pre-normalised SR Legacy descriptions for fast token matching.
 _SR_DESC_NORM: list[list[str]] | None = None  # list of token lists
+# Curated ES-native ingredient tables (data/nutrition_reference/) — same source
+# the recipe engine uses. ES keys → direct match (no ES→EN translation needed).
+_NUTRITION_MACROS: dict[str, dict[str, Any]] | None = None  # name -> {protein_g,carbs_g,fat_g}
+_NUTRITION_MICROS: dict[str, dict[str, Any]] | None = None  # name -> {fiber_g,sugar_g,...}
 
 
 def _norm_str(s: str) -> str:
@@ -107,9 +111,24 @@ def _tokens(s: str) -> list[str]:
 
 def _load_local_data() -> None:
     global _INGREDIENT_REF, _SR_LEGACY, _SR_DESC_NORM  # noqa: PLW0603
+    global _NUTRITION_MACROS, _NUTRITION_MICROS  # noqa: PLW0603
 
     ref_path = _DATA_DIR / "usda_ingredient_reference.json"
     sr_path = _DATA_DIR / "usda_sr_legacy_per100g.json"
+    nutr_dir = _DATA_DIR.parent / "nutrition_reference"
+    macros_path = nutr_dir / "ingredient_macros_extra.json"
+    micros_path = nutr_dir / "ingredient_nutrients.json"
+
+    if macros_path.is_file():
+        raw_m: dict[str, Any] = json.loads(macros_path.read_text(encoding="utf-8"))
+        _NUTRITION_MACROS = {_norm_key(k): v for k, v in raw_m.items()}
+    else:
+        _NUTRITION_MACROS = {}
+    if micros_path.is_file():
+        raw_u: dict[str, Any] = json.loads(micros_path.read_text(encoding="utf-8"))
+        _NUTRITION_MICROS = {_norm_key(k): v for k, v in raw_u.items()}
+    else:
+        _NUTRITION_MICROS = {}
 
     if ref_path.exists():
         raw: dict[str, Any] = json.loads(ref_path.read_text(encoding="utf-8"))
@@ -353,6 +372,40 @@ def _search_ingredient_ref(name: str) -> UsdaNutrition | None:
     )
 
 
+def _search_nutrition_reference(name: str) -> UsdaNutrition | None:
+    """Curated ES-native ingredient table (data/nutrition_reference/) — the same
+    macros/micros source the recipe engine uses. ES keys → direct/fuzzy match
+    (no ES→EN translation). kcal derived via Atwater (4·prot+4·carb+9·fat)."""
+    if not _NUTRITION_MACROS:
+        return None
+    key = _norm_key(name)
+    macros = _NUTRITION_MACROS.get(key)
+    if macros is None:
+        matches = difflib.get_close_matches(key, _NUTRITION_MACROS.keys(), n=1, cutoff=0.72)
+        if matches:
+            key = matches[0]
+            macros = _NUTRITION_MACROS[key]
+    if macros is None:
+        return None
+    protein = float(macros.get("protein_g") or 0)
+    carbs = float(macros.get("carbs_g") or 0)
+    fat = float(macros.get("fat_g") or 0)
+    kcal = 4.0 * protein + 4.0 * carbs + 9.0 * fat
+    if kcal <= 0:
+        return None
+    micros = (_NUTRITION_MICROS or {}).get(key) or {}
+    return UsdaNutrition(
+        kcal_per_100g=kcal,
+        protein_per_100g=protein,
+        carbs_per_100g=carbs,
+        fat_per_100g=fat,
+        fiber_per_100g=float(micros.get("fiber_g") or 0),
+        sugar_per_100g=float(micros.get("sugar_g") or 0),
+        fdc_id=0,
+        description=f"nutrition_reference:{name}"[:120],
+    )
+
+
 def _token_recall(query_toks: list[str], desc_toks: list[str]) -> float:
     """Fraction of query tokens found in desc tokens (recall score)."""
     if not query_toks:
@@ -469,6 +522,17 @@ async def search(name: str) -> UsdaNutrition | None:
             kcal=result.kcal_per_100g,
             description=result.description[:60],
         )
+
+    # 1b. Curated ES nutrition reference (recipe-engine tables) — ES-native match,
+    #     no translation. Broad LATAM coverage; catches items USDA SR Legacy misses.
+    if result is None:
+        result = _search_nutrition_reference(name)
+        if result is not None:
+            log.info(
+                "vision.nutrition_ref.match",
+                name=name[:60],
+                kcal=result.kcal_per_100g,
+            )
 
     # 2. SR Legacy local — translate ES→EN, token-recall fuzzy.
     if result is None:
