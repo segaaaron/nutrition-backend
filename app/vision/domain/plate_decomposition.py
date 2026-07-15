@@ -310,6 +310,72 @@ _STAPLE_FLOOR_ROLES: Final[frozenset[str]] = frozenset({"main", "side"})
 _STAPLE_FLOOR_MAX_FACTOR: Final[float] = 5.0
 
 
+# High-side plausibility caps — the mirror of STAPLE_PORTION_FLOOR_G. The LLM's
+# anti-underestimation bias (and heaped/fried plates) can overshoot; these
+# documented maxima only clamp grossly implausible grams, never normal portions.
+# Staple ceilings = top of the prompt's "plato lleno" anchors (fries 250-400 g).
+STAPLE_PORTION_CEIL_G: Final[dict[str, int]] = {
+    "papas fritas": 400, "papa frita": 400, "papas a la francesa": 400,
+    "french fries": 400, "fries": 400,
+    "arroz": 400, "rice": 400,
+    "fideos": 450, "tallarin": 450, "tallarines": 450, "pasta": 450,
+    "spaghetti": 450, "espagueti": 450, "noodles": 450,
+    "pure de papa": 400, "mashed potato": 400, "mashed potatoes": 400,
+}
+# Small-role items are never large. Wide ceils → only gross outliers clamp
+# (a garnish read as 400 g, an inferred cooking-oil blob at 200 g).
+_ROLE_PORTION_CEIL_G: Final[dict[str, int]] = {
+    "garnish": 150,
+    "condiment": 100,
+    "sweetener": 60,
+    "cooking_fat": 50,
+    "sauce": 200,
+}
+
+
+def cap_implausible_portions(items: list[DetectedFoodItem]) -> list[DetectedFoodItem]:
+    """Clamp grams DOWN to a documented plausible maximum — the high-side mirror
+    of ``floor_staple_portions``. Guards against the anti-underestimation bias
+    overshooting on staples and small-role items (a garnish read as 400 g).
+    Scales kcal + macros by the same factor so the USDA per-gram value is
+    preserved. Only touches items whose name/role has a documented ceiling."""
+    out: list[DetectedFoodItem] = []
+    for it in items:
+        grams = float(it.estimated_amount_g)
+        if grams <= 0:
+            out.append(it)
+            continue
+        ceil_g: int | None = None
+        n = _norm(it.name)
+        for marker, mg in STAPLE_PORTION_CEIL_G.items():
+            if marker in n:
+                ceil_g = mg
+                break
+        if ceil_g is None:
+            ceil_g = _ROLE_PORTION_CEIL_G.get(it.role or "")
+        if ceil_g is None or grams <= ceil_g:
+            out.append(it)
+            continue
+        factor = ceil_g / grams
+        kmin = None if it.kcal_min is None else int(round(it.kcal_min * factor))
+        kmax = None if it.kcal_max is None else int(round(it.kcal_max * factor))
+        out.append(
+            replace(
+                it,
+                estimated_amount_g=Decimal(str(round(grams * factor, 1))),
+                kcal=int(round(it.kcal * factor)),
+                protein_g=int(round(it.protein_g * factor)),
+                carbs_g=int(round(it.carbs_g * factor)),
+                fat_g=int(round(it.fat_g * factor)),
+                fiber_g=int(round(it.fiber_g * factor)),
+                sugar_g=int(round(it.sugar_g * factor)),
+                kcal_min=kmin,
+                kcal_max=kmax,
+            )
+        )
+    return out
+
+
 def floor_staple_portions(items: list[DetectedFoodItem]) -> list[DetectedFoodItem]:
     """Raise the grams of a known staple side/main whose estimated portion is
     below a conservative documented minimum, scaling kcal + macros by the same
@@ -509,17 +575,21 @@ def compute_totals(items: list[DetectedFoodItem]) -> PlateTotals:
 
 
 def decompose(items: list[DetectedFoodItem]) -> tuple[list[DetectedFoodItem], PlateTotals]:
-    """Full post-pass: spice clamp → staple-portion floor → condiment floors →
-    hidden fat (fry) → hidden dairy/oil v2 (cream soups, purées, LatAm rice) →
-    beverage refinement (container snap + curated table + alcohol formula) →
-    totals. The staple-portion floor runs early so downstream grams-based
-    inferences (e.g. rice-oil per 150 g) use the corrected portion."""
+    """Full post-pass: spice clamp → staple-portion floor → portion ceiling →
+    condiment floors → hidden fat (fry) → hidden dairy/oil v2 (cream soups,
+    purées, LatAm rice) → re-cap inferred oils → beverage refinement (container
+    snap + curated table + alcohol formula) → totals. The staple-portion floor
+    runs early so downstream grams-based inferences (e.g. rice-oil per 150 g)
+    use the corrected portion; the ceiling trims gross over-estimates both
+    before and after the hidden-fat inferences."""
     from app.vision.domain.beverage_engine import refine_beverages
 
     out = clamp_dry_spices(items)
     out = floor_staple_portions(out)
+    out = cap_implausible_portions(out)  # high-side mirror of the floor
     out = floor_caloric_condiments(out)
     out = infer_hidden_cooking_fat(out)
     out = infer_hidden_dairy_and_oil(out)
+    out = cap_implausible_portions(out)  # re-cap inferred oils/dairy
     out = refine_beverages(out)
     return out, compute_totals(out)

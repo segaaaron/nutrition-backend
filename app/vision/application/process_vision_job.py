@@ -13,7 +13,7 @@ Pipeline (each stage is a single-responsibility method or infrastructure call):
 Failure path: _handle_failure (mark_failed + VisionJobFailed + notify).
 
 SQL / Redis concerns live in app/vision/infrastructure/:
-  macro_grounder.py   — ground_macros_from_db, apply_group_fallback
+  macro_grounder.py   — ground_macros_from_db, apply_group_fallback, reconcile_kcal_atwater
   plan_context.py     — load_plan_context
   user_context.py     — load_user_profile, load_portion_calibration
   food_log_writer.py  — persist_food_logs
@@ -45,7 +45,11 @@ from app.vision.domain.triangulation import arbitrate
 from app.vision.infrastructure import inflight_lock as _lock
 from app.vision.infrastructure.cache_normalizer import normalize_cache_result
 from app.vision.infrastructure.food_log_writer import persist_food_logs as _persist
-from app.vision.infrastructure.macro_grounder import apply_group_fallback, ground_macros_from_db
+from app.vision.infrastructure.macro_grounder import (
+    apply_group_fallback,
+    ground_macros_from_db,
+    reconcile_kcal_atwater,
+)
 from app.vision.infrastructure.plan_context import load_plan_context
 from app.vision.infrastructure.user_context import (
     load_portion_calibration,
@@ -349,6 +353,9 @@ class ProcessVisionJob:
         )
         await ground_macros_from_db(items, session=self.session)
         await apply_group_fallback(items)
+        # Final coherence guard: repair only GROSS kcal↔macro drift, preserving
+        # USDA's food-specific Atwater factors (see reconcile_kcal_atwater).
+        reconcile_kcal_atwater(items)
 
     # ------------------------------------------------------------------ #
     # Stage 3 — Grounded escalation                                       #

@@ -184,3 +184,43 @@ def test_pre_v2_cached_jsonb_rows_still_deserialize() -> None:
     assert it.prep_method is None
     assert it.kcal_min is None
     assert it.inferred is False
+
+
+# ── Portion ceiling (cap_implausible_portions) — high-side mirror of the floor ──
+def test_cap_trims_grossly_over_estimated_garnish() -> None:
+    """A garnish read as 400 g is implausible → clamped to the role ceiling
+    (150 g), with kcal scaled by the same factor (USDA per-gram preserved)."""
+    from app.vision.domain.plate_decomposition import cap_implausible_portions
+
+    it = _item("aros de cebolla", 400, grams=400.0, role="garnish")
+    out = cap_implausible_portions([it])[0]
+    assert float(out.estimated_amount_g) == 150.0
+    assert out.kcal == 150  # 400 * (150/400)
+
+
+def test_cap_leaves_normal_portions_untouched() -> None:
+    from app.vision.domain.plate_decomposition import cap_implausible_portions
+
+    it = _item("papas fritas", 300, grams=180.0, role="side")  # 180 g < 400 ceil
+    out = cap_implausible_portions([it])[0]
+    assert float(out.estimated_amount_g) == 180.0
+    assert out.kcal == 300
+
+
+def test_cap_clamps_staple_over_ceiling() -> None:
+    from app.vision.domain.plate_decomposition import cap_implausible_portions
+
+    it = _item("arroz", 800, grams=800.0, role="main")  # 800 g > 400 ceil
+    out = cap_implausible_portions([it])[0]
+    assert float(out.estimated_amount_g) == 400.0
+    assert out.kcal == 400  # 800 * 0.5
+
+
+def test_cap_ignores_items_without_ceiling() -> None:
+    """A 'main' with no staple marker and no role ceiling is left alone — the
+    guard never caps a plate's large main dish it has no documented bound for."""
+    from app.vision.domain.plate_decomposition import cap_implausible_portions
+
+    it = _item("guiso de res", 600, grams=350.0, role="main")
+    out = cap_implausible_portions([it])[0]
+    assert float(out.estimated_amount_g) == 350.0

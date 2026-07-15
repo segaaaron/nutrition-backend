@@ -1,3920 +1,3956 @@
 {
- "aceite de oliva": {
-  "sat_fat_g": 13.8,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 2
- },
- "ajo": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 1.0,
-  "fiber_g": 2.1,
-  "sodium_mg": 17
- },
- "cebolla": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.2,
-  "fiber_g": 1.7,
-  "sodium_mg": 4
- },
- "aceite vegetal": {
-  "sat_fat_g": 13.0,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 2
- },
- "jugo de limón": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 2.5,
-  "fiber_g": 0.3,
-  "sodium_mg": 1
- },
- "pechuga de pollo sin piel": {
-  "sat_fat_g": 1.0,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 74
- },
- "tomate": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 2.6,
-  "fiber_g": 1.2,
-  "sodium_mg": 5
- },
- "cebolla blanca": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.2,
-  "fiber_g": 1.7,
-  "sodium_mg": 4
- },
- "zanahoria": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.7,
-  "fiber_g": 2.8,
-  "sodium_mg": 69
- },
- "brócoli": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 1.7,
-  "fiber_g": 2.6,
-  "sodium_mg": 33
- },
- "arroz blanco cocido": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.1,
-  "fiber_g": 0.4,
-  "sodium_mg": 1
- },
- "garbanzos cocidos": {
-  "sat_fat_g": 0.3,
-  "sugar_g": 4.8,
-  "fiber_g": 7.6,
-  "sodium_mg": 7
- },
- "arroz integral cocido": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 0.4,
-  "fiber_g": 1.8,
-  "sodium_mg": 4
- },
- "limón": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 2.5,
-  "fiber_g": 2.8,
-  "sodium_mg": 2
- },
- "quinoa cocida": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 0.9,
-  "fiber_g": 2.8,
-  "sodium_mg": 7
- },
- "frijoles negros cocidos": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.3,
-  "fiber_g": 8.7,
-  "sodium_mg": 2
- },
- "papa": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 0.8,
-  "fiber_g": 2.1,
-  "sodium_mg": 6
- },
- "pechuga de pollo": {
-  "sat_fat_g": 1.0,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 74
- },
- "lentejas cocidas": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 1.8,
-  "fiber_g": 7.9,
-  "sodium_mg": 2
- },
- "espinaca fresca": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.4,
-  "fiber_g": 2.2,
-  "sodium_mg": 79
- },
- "arroz blanco": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 0.1,
-  "fiber_g": 1.3,
-  "sodium_mg": 5
- },
- "leche descremada": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 5.0,
-  "fiber_g": 0,
-  "sodium_mg": 42
- },
- "huevo entero": {
-  "sat_fat_g": 3.3,
-  "sugar_g": 1.1,
-  "fiber_g": 0,
-  "sodium_mg": 124
- },
- "lomo de cerdo": {
-  "sat_fat_g": 2.0,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 55
- },
- "pechuga de pavo": {
-  "sat_fat_g": 0.3,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 63
- },
- "miel": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 82.1,
-  "fiber_g": 0.2,
-  "sodium_mg": 4
- },
- "pimiento rojo": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.2,
-  "fiber_g": 2.1,
-  "sodium_mg": 4
- },
- "calabacita": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 2.5,
-  "fiber_g": 1.0,
-  "sodium_mg": 8
- },
- "aguacate": {
-  "sat_fat_g": 2.1,
-  "sugar_g": 0.7,
-  "fiber_g": 6.7,
-  "sodium_mg": 7
- },
- "arroz integral": {
-  "sat_fat_g": 0.5,
-  "sugar_g": 0.7,
-  "fiber_g": 3.4,
-  "sodium_mg": 7
- },
- "avena en hojuelas": {
-  "sat_fat_g": 1.2,
-  "sugar_g": 1.0,
-  "fiber_g": 10.6,
-  "sodium_mg": 2
- },
- "quinoa": {
-  "sat_fat_g": 0.7,
-  "sugar_g": 0,
-  "fiber_g": 7.0,
-  "sodium_mg": 5
- },
- "camote": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.2,
-  "fiber_g": 3.0,
-  "sodium_mg": 55
- },
- "sirloin de res magro": {
-  "sat_fat_g": 2.3,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 55
- },
- "granos de maíz": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 3.2,
-  "fiber_g": 2.7,
-  "sodium_mg": 15
- },
- "filete de salmón sin piel": {
-  "sat_fat_g": 1.9,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 59
- },
- "filete de pescado blanco": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 78
- },
- "jitomate": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 2.6,
-  "fiber_g": 1.2,
-  "sodium_mg": 5
- },
- "ejotes": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 3.3,
-  "fiber_g": 2.7,
-  "sodium_mg": 6
- },
- "huevos enteros": {
-  "sat_fat_g": 3.3,
-  "sugar_g": 1.1,
-  "fiber_g": 0,
-  "sodium_mg": 124
- },
- "espinacas": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.4,
-  "fiber_g": 2.2,
-  "sodium_mg": 79
- },
- "atún en agua": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 247
- },
- "ajo picado fino": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 1.0,
-  "fiber_g": 2.1,
-  "sodium_mg": 17
- },
- "chayote": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 1.7,
-  "fiber_g": 1.7,
-  "sodium_mg": 2
- },
- "sardinas en lata": {
-  "sat_fat_g": 1.5,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 307
- },
- "surubí": {
-  "sat_fat_g": 0.7,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 60
- },
- "caldo de pollo bajo en sodio": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.3,
-  "fiber_g": 0,
-  "sodium_mg": 90
- },
- "pacú": {
-  "sat_fat_g": 1.5,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 60
- },
- "espinacas frescas": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.4,
-  "fiber_g": 2.2,
-  "sodium_mg": 79
- },
- "filete de tilapia": {
-  "sat_fat_g": 0.8,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 52
- },
- "atún en lata": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 247
- },
- "clara de huevo": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 0.7,
-  "fiber_g": 0,
-  "sodium_mg": 166
- },
- "claras de huevo": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 0.7,
-  "fiber_g": 0,
-  "sodium_mg": 166
- },
- "semillas de chía": {
-  "sat_fat_g": 3.3,
-  "sugar_g": 0,
-  "fiber_g": 34.4,
-  "sodium_mg": 16
- },
- "filete de salmón": {
-  "sat_fat_g": 1.9,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 59
- },
- "miel de abeja": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 82.1,
-  "fiber_g": 0.2,
-  "sodium_mg": 4
- },
- "hielo": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 0
- },
- "sal": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 38758
- },
- "pepino": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 1.7,
-  "fiber_g": 0.5,
-  "sodium_mg": 2
- },
- "lechuga": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 0.8,
-  "fiber_g": 1.3,
-  "sodium_mg": 28
- },
- "queso cottage bajo en grasa": {
-  "sat_fat_g": 0.7,
-  "sugar_g": 2.7,
-  "fiber_g": 0,
-  "sodium_mg": 330
- },
- "espinaca": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.4,
-  "fiber_g": 2.2,
-  "sodium_mg": 79
- },
- "yuca": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0,
-  "fiber_g": 1.8,
-  "sodium_mg": 14
- },
- "orégano seco": {
-  "sat_fat_g": 0.6,
-  "sugar_g": 4.1,
-  "fiber_g": 42.5,
-  "sodium_mg": 25
- },
- "bacalao": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 54
- },
- "pan integral de molde": {
-  "sat_fat_g": 0.6,
-  "sugar_g": 6.0,
-  "fiber_g": 7.0,
-  "sodium_mg": 450
- },
- "ajo en polvo": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 2.4,
-  "fiber_g": 9.0,
-  "sodium_mg": 60
- },
- "plátano maduro": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 12.2,
-  "fiber_g": 2.6,
-  "sodium_mg": 1
- },
- "tilapia": {
-  "sat_fat_g": 0.8,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 52
- },
- "cebolla picada fina": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.2,
-  "fiber_g": 1.7,
-  "sodium_mg": 4
- },
- "salsa de soya baja en sodio": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 1.7,
-  "fiber_g": 0.8,
-  "sodium_mg": 3600
- },
- "jengibre fresco rallado": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 1.7,
-  "fiber_g": 2.0,
-  "sodium_mg": 13
- },
- "nopal": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 1.0,
-  "fiber_g": 3.6,
-  "sodium_mg": 21
- },
- "arroz blanco crudo": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 0.1,
-  "fiber_g": 1.3,
-  "sodium_mg": 5
- },
- "pan integral tostado": {
-  "sat_fat_g": 0.7,
-  "sugar_g": 6.0,
-  "fiber_g": 7.5,
-  "sodium_mg": 480
- },
- "aguacate maduro": {
-  "sat_fat_g": 2.1,
-  "sugar_g": 0.7,
-  "fiber_g": 6.7,
-  "sodium_mg": 7
- },
- "proteína en polvo sabor vainilla": {
-  "sat_fat_g": 1.5,
-  "sugar_g": 5.0,
-  "fiber_g": 2.0,
-  "sodium_mg": 350
- },
- "tomate mediano": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 2.6,
-  "fiber_g": 1.2,
-  "sodium_mg": 5
- },
- "camarones pelados y limpios": {
-  "sat_fat_g": 0.3,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 111
- },
- "pavo molido": {
-  "sat_fat_g": 2.3,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 75
- },
- "carne molida de res": {
-  "sat_fat_g": 5.4,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 66
- },
- "tortilla de maíz": {
-  "sat_fat_g": 0.4,
-  "sugar_g": 0.8,
-  "fiber_g": 3.9,
-  "sodium_mg": 45
- },
- "cola de langosta": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 296
- },
- "proteína de suero sabor vainilla": {
-  "sat_fat_g": 1.5,
-  "sugar_g": 4.0,
-  "fiber_g": 1.0,
-  "sodium_mg": 300
- },
- "pierna de cerdo": {
-  "sat_fat_g": 3.0,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 55
- },
- "perejil fresco": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.9,
-  "fiber_g": 3.3,
-  "sodium_mg": 56
- },
- "calabacín": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 2.5,
-  "fiber_g": 1.0,
-  "sodium_mg": 8
- },
- "yogur griego natural sin grasa": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 3.6,
-  "fiber_g": 0,
-  "sodium_mg": 36
- },
- "plátano congelado": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 12.2,
-  "fiber_g": 2.6,
-  "sodium_mg": 1
- },
- "trucha": {
-  "sat_fat_g": 1.6,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 51
- },
- "yogur griego sin grasa": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 3.6,
-  "fiber_g": 0,
-  "sodium_mg": 36
- },
- "aceite de oliva extra virgen": {
-  "sat_fat_g": 13.8,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 2
- },
- "chuleta de cerdo": {
-  "sat_fat_g": 2.5,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 58
- },
- "batata": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.2,
-  "fiber_g": 3.0,
-  "sodium_mg": 55
- },
- "coliflor": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 1.9,
-  "fiber_g": 2.0,
-  "sodium_mg": 30
- },
- "elote": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 3.2,
-  "fiber_g": 2.7,
-  "sodium_mg": 15
- },
- "extracto de vainilla": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 12.7,
-  "fiber_g": 0,
-  "sodium_mg": 9
- },
- "canela en polvo": {
-  "sat_fat_g": 0.3,
-  "sugar_g": 2.2,
-  "fiber_g": 53.1,
-  "sodium_mg": 10
- },
- "frijol negro cocido": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.3,
-  "fiber_g": 8.7,
-  "sodium_mg": 2
- },
- "pasta integral": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 0.6,
-  "fiber_g": 3.9,
-  "sodium_mg": 4
- },
- "apio": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 1.8,
-  "fiber_g": 1.6,
-  "sodium_mg": 80
- },
- "papa mediana": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 0.8,
-  "fiber_g": 2.1,
-  "sodium_mg": 6
- },
- "plátano": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 12.2,
-  "fiber_g": 2.6,
-  "sodium_mg": 1
- },
- "tortillas de maíz": {
-  "sat_fat_g": 0.4,
-  "sugar_g": 0.8,
-  "fiber_g": 3.9,
-  "sodium_mg": 45
- },
- "tomate rojo": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 2.6,
-  "fiber_g": 1.2,
-  "sodium_mg": 5
- },
- "tomate en cubos": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 3.6,
-  "fiber_g": 1.0,
-  "sodium_mg": 120
- },
- "cilantro fresco": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 0.9,
-  "fiber_g": 2.8,
-  "sodium_mg": 46
- },
- "tomillo seco": {
-  "sat_fat_g": 0.5,
-  "sugar_g": 1.7,
-  "fiber_g": 37.0,
-  "sodium_mg": 55
- },
- "yogur griego descremado": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 3.6,
-  "fiber_g": 0,
-  "sodium_mg": 36
- },
- "comino molido": {
-  "sat_fat_g": 1.5,
-  "sugar_g": 2.3,
-  "fiber_g": 10.5,
-  "sodium_mg": 168
- },
- "lenteja cocida": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 1.8,
-  "fiber_g": 7.9,
-  "sodium_mg": 2
- },
- "canela molida": {
-  "sat_fat_g": 0.3,
-  "sugar_g": 2.2,
-  "fiber_g": 53.1,
-  "sodium_mg": 10
- },
- "tomate cherry": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 2.6,
-  "fiber_g": 1.2,
-  "sodium_mg": 5
- },
- "tofu firme": {
-  "sat_fat_g": 0.7,
-  "sugar_g": 0.6,
-  "fiber_g": 0.9,
-  "sodium_mg": 12
- },
- "pimiento morrón": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.2,
-  "fiber_g": 2.1,
-  "sodium_mg": 4
- },
- "comino en polvo": {
-  "sat_fat_g": 1.5,
-  "sugar_g": 2.3,
-  "fiber_g": 10.5,
-  "sodium_mg": 168
- },
- "leche de coco light": {
-  "sat_fat_g": 6.0,
-  "sugar_g": 2.0,
-  "fiber_g": 1.0,
-  "sodium_mg": 15
- },
- "caldo de res bajo en sodio": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.3,
-  "fiber_g": 0,
-  "sodium_mg": 90
- },
- "bistec de res": {
-  "sat_fat_g": 4.4,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 67
- },
- "brócoli en trozos": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 1.7,
-  "fiber_g": 2.6,
-  "sodium_mg": 33
- },
- "mostaza dijon": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 1.5,
-  "fiber_g": 3.3,
-  "sodium_mg": 1120
- },
- "agua": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 0
- },
- "nueces": {
-  "sat_fat_g": 6.1,
-  "sugar_g": 2.6,
-  "fiber_g": 6.7,
-  "sodium_mg": 2
- },
- "cebolla morada": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 0,
-  "fiber_g": 1.7,
-  "sodium_mg": 4
- },
- "lomo de res": {
-  "sat_fat_g": 4.4,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 67
- },
- "espinacas baby frescas": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.4,
-  "fiber_g": 2.2,
-  "sodium_mg": 79
- },
- "queso parmesano rallado": {
-  "sat_fat_g": 19.1,
-  "sugar_g": 0.9,
-  "fiber_g": 0,
-  "sodium_mg": 1529
- },
- "huevo": {
-  "sat_fat_g": 3.3,
-  "sugar_g": 1.1,
-  "fiber_g": 0,
-  "sodium_mg": 124
- },
- "muslo de pollo sin piel": {
-  "sat_fat_g": 2.7,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 86
- },
- "espárragos frescos": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 1.9,
-  "fiber_g": 2.1,
-  "sodium_mg": 2
- },
- "requesón bajo en grasa": {
-  "sat_fat_g": 0.7,
-  "sugar_g": 2.7,
-  "fiber_g": 0,
-  "sodium_mg": 330
- },
- "tortilla integral grande": {
-  "sat_fat_g": 1.5,
-  "sugar_g": 2.5,
-  "fiber_g": 5.0,
-  "sodium_mg": 480
- },
- "cebolla blanca picada fina": {
-  "sat_fat_g": 0,
-  "sugar_g": 4.2,
-  "fiber_g": 1.7,
-  "sodium_mg": 4
- },
- "queso mozzarella bajo en grasa rallado": {
-  "sat_fat_g": 9.0,
-  "sugar_g": 1.1,
-  "fiber_g": 0,
-  "sodium_mg": 505
- },
- "cebolla blanca picada": {
-  "sat_fat_g": 0,
-  "sugar_g": 4.2,
-  "fiber_g": 1.7,
-  "sodium_mg": 4
- },
- "camarones limpios y pelados": {
-  "sat_fat_g": 0.3,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 111
- },
- "pasta integral cocida": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 0.6,
-  "fiber_g": 3.9,
-  "sodium_mg": 4
- },
- "garbanzo cocido": {
-  "sat_fat_g": 0.3,
-  "sugar_g": 4.8,
-  "fiber_g": 7.6,
-  "sodium_mg": 7
- },
- "pechuga de pavo sin piel": {
-  "sat_fat_g": 0.5,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 63
- },
- "filete de atún fresco": {
-  "sat_fat_g": 0.3,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 45
- },
- "yogur griego natural sin azúcar": {
-  "sat_fat_g": 1.2,
-  "sugar_g": 3.6,
-  "fiber_g": 0,
-  "sodium_mg": 36
- },
- "chile en polvo": {
-  "sat_fat_g": 1.1,
-  "sugar_g": 7.2,
-  "fiber_g": 34.8,
-  "sodium_mg": 1640
- },
- "semilla de linaza molida": {
-  "sat_fat_g": 3.7,
-  "sugar_g": 1.6,
-  "fiber_g": 27.3,
-  "sodium_mg": 30
- },
- "tomate triturado": {
-  "sat_fat_g": 0,
-  "sugar_g": 3.6,
-  "fiber_g": 1.9,
-  "sodium_mg": 90
- },
- "caldo de verduras bajo en sodio": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.5,
-  "fiber_g": 0,
-  "sodium_mg": 60
- },
- "quinoa cruda": {
-  "sat_fat_g": 0.7,
-  "sugar_g": 0,
-  "fiber_g": 7.0,
-  "sodium_mg": 5
- },
- "semilla de chía": {
-  "sat_fat_g": 3.3,
-  "sugar_g": 0,
-  "fiber_g": 34.4,
-  "sodium_mg": 16
- },
- "carne molida de res (90% magra)": {
-  "sat_fat_g": 4.5,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 66
- },
- "zanahoria en rodajas": {
-  "sat_fat_g": 0,
-  "sugar_g": 4.7,
-  "fiber_g": 2.8,
-  "sodium_mg": 69
- },
- "canela": {
-  "sat_fat_g": 0.3,
-  "sugar_g": 2.2,
-  "fiber_g": 53.1,
-  "sodium_mg": 10
- },
- "pan integral": {
-  "sat_fat_g": 0.6,
-  "sugar_g": 6.0,
-  "fiber_g": 7.0,
-  "sodium_mg": 450
- },
- "brócoli en floretes": {
-  "sat_fat_g": 0,
-  "sugar_g": 1.7,
-  "fiber_g": 2.6,
-  "sodium_mg": 33
- },
- "maíz tierno": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 3.2,
-  "fiber_g": 2.7,
-  "sodium_mg": 15
- },
- "jugo de naranja natural": {
-  "sat_fat_g": 0,
-  "sugar_g": 8.4,
-  "fiber_g": 0.2,
-  "sodium_mg": 1
- },
- "espárragos": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 1.9,
-  "fiber_g": 2.1,
-  "sodium_mg": 2
- },
- "atún en agua escurrido": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 247
- },
- "nueces picadas": {
-  "sat_fat_g": 6.1,
-  "sugar_g": 2.6,
-  "fiber_g": 6.7,
-  "sodium_mg": 2
- },
- "champiñones frescos": {
-  "sat_fat_g": 0,
-  "sugar_g": 2.0,
-  "fiber_g": 1.0,
-  "sodium_mg": 5
- },
- "pimiento rojo en cubos": {
-  "sat_fat_g": 0,
-  "sugar_g": 4.2,
-  "fiber_g": 2.1,
-  "sodium_mg": 4
- },
- "mango": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 13.7,
-  "fiber_g": 1.6,
-  "sodium_mg": 1
- },
- "papa en cubos medianos": {
-  "sat_fat_g": 0,
-  "sugar_g": 0.8,
-  "fiber_g": 2.1,
-  "sodium_mg": 6
- },
- "cacao en polvo sin azúcar": {
-  "sat_fat_g": 8.1,
-  "sugar_g": 1.8,
-  "fiber_g": 33.2,
-  "sodium_mg": 21
- },
- "cilantro": {
-  "sat_fat_g": 0,
-  "sugar_g": 0.9,
-  "fiber_g": 2.8,
-  "sodium_mg": 46
- },
- "manzana": {
-  "sat_fat_g": 0,
-  "sugar_g": 10.4,
-  "fiber_g": 2.4,
-  "sodium_mg": 1
- },
- "camarón": {
-  "sat_fat_g": 0.3,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 111
- },
- "almendras laminadas": {
-  "sat_fat_g": 3.8,
-  "sugar_g": 4.4,
-  "fiber_g": 12.5,
-  "sodium_mg": 1
- },
- "arándanos": {
-  "sat_fat_g": 0,
-  "sugar_g": 10.0,
-  "fiber_g": 2.4,
-  "sodium_mg": 1
- },
- "cúrcuma": {
-  "sat_fat_g": 1.8,
-  "sugar_g": 3.2,
-  "fiber_g": 21.1,
-  "sodium_mg": 27
- },
- "tomate cherry partido a la mitad": {
-  "sat_fat_g": 0,
-  "sugar_g": 2.6,
-  "fiber_g": 1.2,
-  "sodium_mg": 5
- },
- "papa blanca": {
-  "sat_fat_g": 0,
-  "sugar_g": 0.8,
-  "fiber_g": 2.1,
-  "sodium_mg": 6
- },
- "fresas": {
-  "sat_fat_g": 0,
-  "sugar_g": 4.9,
-  "fiber_g": 2.0,
-  "sodium_mg": 1
- },
- "bacalao (pescado blanco)": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 54
- },
- "avena en hojuelas seca": {
-  "sat_fat_g": 1.2,
-  "sugar_g": 1.0,
-  "fiber_g": 10.6,
-  "sodium_mg": 2
- },
- "ralladura de limón": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 4.2,
-  "fiber_g": 10.6,
-  "sodium_mg": 6
- },
- "fresas frescas": {
-  "sat_fat_g": 0,
-  "sugar_g": 4.9,
-  "fiber_g": 2.0,
-  "sodium_mg": 1
- },
- "camarones limpios sin cáscara": {
-  "sat_fat_g": 0.3,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 111
- },
- "albahaca fresca": {
-  "sat_fat_g": 0,
-  "sugar_g": 0.3,
-  "fiber_g": 1.6,
-  "sodium_mg": 4
- },
- "lentejas rojas cocidas": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 1.8,
-  "fiber_g": 7.9,
-  "sodium_mg": 2
- },
- "zucchini": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 2.5,
-  "fiber_g": 1.0,
-  "sodium_mg": 8
- },
- "coco rallado sin azúcar": {
-  "sat_fat_g": 57.2,
-  "sugar_g": 7.4,
-  "fiber_g": 16.3,
-  "sodium_mg": 37
- },
- "zanahoria en cubos": {
-  "sat_fat_g": 0,
-  "sugar_g": 4.7,
-  "fiber_g": 2.8,
-  "sodium_mg": 69
- },
- "semillas de sésamo": {
-  "sat_fat_g": 6.7,
-  "sugar_g": 0.3,
-  "fiber_g": 11.8,
-  "sodium_mg": 11
- },
- "pechuga de pollo en cubos": {
-  "sat_fat_g": 1.0,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 74
- },
- "chuño": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.3,
-  "fiber_g": 1.8,
-  "sodium_mg": 10
- },
- "carne molida de cerdo": {
-  "sat_fat_g": 6.2,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 62
- },
- "pulpo limpio cocido": {
-  "sat_fat_g": 0.4,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 460
- },
- "mantequilla": {
-  "sat_fat_g": 51.4,
-  "sugar_g": 0.1,
-  "fiber_g": 0,
-  "sodium_mg": 643
- },
- "pechuga de pollo en cubos de 2cm": {
-  "sat_fat_g": 1.0,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 74
- },
- "piña": {
-  "sat_fat_g": 0,
-  "sugar_g": 9.9,
-  "fiber_g": 1.4,
-  "sodium_mg": 1
- },
- "zanahoria en trozos": {
-  "sat_fat_g": 0,
-  "sugar_g": 4.7,
-  "fiber_g": 2.8,
-  "sodium_mg": 69
- },
- "camarones medianos pelados y limpios": {
-  "sat_fat_g": 0.3,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 111
- },
- "piña fresca en trozos": {
-  "sat_fat_g": 0,
-  "sugar_g": 9.9,
-  "fiber_g": 1.4,
-  "sodium_mg": 1
- },
- "tomate triturado natural": {
-  "sat_fat_g": 0,
-  "sugar_g": 3.2,
-  "fiber_g": 1.2,
-  "sodium_mg": 11
- },
- "pepino en rodajas": {
-  "sat_fat_g": 0,
-  "sugar_g": 1.7,
-  "fiber_g": 0.5,
-  "sodium_mg": 2
- },
- "tomate triturado en lata": {
-  "sat_fat_g": 0,
-  "sugar_g": 3.6,
-  "fiber_g": 1.9,
-  "sodium_mg": 150
- },
- "cuscús": {
-  "sat_fat_g": 0,
-  "sugar_g": 0.1,
-  "fiber_g": 1.4,
-  "sodium_mg": 5
- },
- "calamar limpio en aros": {
-  "sat_fat_g": 0.4,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 44
- },
- "pasta integral (penne o fusilli)": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 0.6,
-  "fiber_g": 3.9,
-  "sodium_mg": 4
- },
- "garbanzos cocidos (en lata, escurridos)": {
-  "sat_fat_g": 0.3,
-  "sugar_g": 0.4,
-  "fiber_g": 6.4,
-  "sodium_mg": 240
- },
- "champiñones frescos rebanados": {
-  "sat_fat_g": 0,
-  "sugar_g": 2.0,
-  "fiber_g": 1.0,
-  "sodium_mg": 5
- },
- "pimiento verde": {
-  "sat_fat_g": 0,
-  "sugar_g": 2.4,
-  "fiber_g": 1.7,
-  "sodium_mg": 3
- },
- "curry en polvo": {
-  "sat_fat_g": 2.2,
-  "sugar_g": 2.8,
-  "fiber_g": 33.2,
-  "sodium_mg": 52
- },
- "romero seco": {
-  "sat_fat_g": 2.8,
-  "sugar_g": 0,
-  "fiber_g": 42.6,
-  "sodium_mg": 50
- },
- "almendras": {
-  "sat_fat_g": 3.8,
-  "sugar_g": 4.4,
-  "fiber_g": 12.5,
-  "sodium_mg": 1
- },
- "champiñones": {
-  "sat_fat_g": 0,
-  "sugar_g": 2.0,
-  "fiber_g": 1.0,
-  "sodium_mg": 5
- },
- "tomate picado fino": {
-  "sat_fat_g": 0,
-  "sugar_g": 2.6,
-  "fiber_g": 1.2,
-  "sodium_mg": 5
- },
- "judías verdes": {
-  "sat_fat_g": 0,
-  "sugar_g": 3.3,
-  "fiber_g": 2.7,
-  "sodium_mg": 6
- },
- "páprika ahumada": {
-  "sat_fat_g": 2.1,
-  "sugar_g": 10.3,
-  "fiber_g": 34.9,
-  "sodium_mg": 68
- },
- "muesli sin azúcar añadida": {
-  "sat_fat_g": 1.2,
-  "sugar_g": 15.0,
-  "fiber_g": 7.5,
-  "sodium_mg": 20
- },
- "almendras picadas": {
-  "sat_fat_g": 3.8,
-  "sugar_g": 4.4,
-  "fiber_g": 12.5,
-  "sodium_mg": 1
- },
- "cebollín picado fino": {
-  "sat_fat_g": 0,
-  "sugar_g": 1.9,
-  "fiber_g": 2.5,
-  "sodium_mg": 3
- },
- "queso panela": {
-  "sat_fat_g": 12.0,
-  "sugar_g": 2.5,
-  "fiber_g": 0,
-  "sodium_mg": 400
- },
- "zucchini (calabacín) en cubos": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 2.5,
-  "fiber_g": 1.0,
-  "sodium_mg": 8
- },
- "apio en rodajas": {
-  "sat_fat_g": 0,
-  "sugar_g": 1.8,
-  "fiber_g": 1.6,
-  "sodium_mg": 80
- },
- "yogur bajo en grasa": {
-  "sat_fat_g": 1.0,
-  "sugar_g": 4.7,
-  "fiber_g": 0,
-  "sodium_mg": 58
- },
- "aceite de sésamo": {
-  "sat_fat_g": 14.2,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 0
- },
- "calabacín (zucchini)": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 2.5,
-  "fiber_g": 1.0,
-  "sodium_mg": 8
- },
- "pan de centeno": {
-  "sat_fat_g": 0.6,
-  "sugar_g": 3.9,
-  "fiber_g": 5.8,
-  "sodium_mg": 603
- },
- "pechuga de pavo en rebanadas": {
-  "sat_fat_g": 0.5,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 63
- },
- "cebolla morada picada fina": {
-  "sat_fat_g": 0,
-  "sugar_g": 4.2,
-  "fiber_g": 1.7,
-  "sodium_mg": 4
- },
- "requeson bajo en grasa": {
-  "sat_fat_g": 0.7,
-  "sugar_g": 2.7,
-  "fiber_g": 0,
-  "sodium_mg": 330
- },
- "proteína en polvo": {
-  "sat_fat_g": 1.5,
-  "sugar_g": 4.0,
-  "fiber_g": 1.0,
-  "sodium_mg": 250
- },
- "perejil fresco picado": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.9,
-  "fiber_g": 3.3,
-  "sodium_mg": 56
- },
- "champiñones en rodajas": {
-  "sat_fat_g": 0,
-  "sugar_g": 2.0,
-  "fiber_g": 1.0,
-  "sodium_mg": 5
- },
- "nopales": {
-  "sat_fat_g": 0,
-  "sugar_g": 1.1,
-  "fiber_g": 2.2,
-  "sodium_mg": 21
- },
- "tomate en rodajas": {
-  "sat_fat_g": 0,
-  "sugar_g": 2.6,
-  "fiber_g": 1.2,
-  "sodium_mg": 5
- },
- "mantequilla de maní": {
-  "sat_fat_g": 10.3,
-  "sugar_g": 9.2,
-  "fiber_g": 6.0,
-  "sodium_mg": 476
- },
- "arroz integral crudo": {
-  "sat_fat_g": 0.6,
-  "sugar_g": 0.9,
-  "fiber_g": 3.5,
-  "sodium_mg": 7
- },
- "mantequilla de maní natural sin azúcar": {
-  "sat_fat_g": 8.0,
-  "sugar_g": 2.9,
-  "fiber_g": 6.5,
-  "sodium_mg": 8
- },
- "champiñones en láminas": {
-  "sat_fat_g": 0,
-  "sugar_g": 2.0,
-  "fiber_g": 1.0,
-  "sodium_mg": 5
- },
- "lechuga romana": {
-  "sat_fat_g": 0,
-  "sugar_g": 1.2,
-  "fiber_g": 2.1,
-  "sodium_mg": 8
- },
- "pechuga de pavo en láminas": {
-  "sat_fat_g": 0.5,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 63
- },
- "mango maduro": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 13.7,
-  "fiber_g": 1.6,
-  "sodium_mg": 1
- },
- "plátano maduro congelado": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 12.2,
-  "fiber_g": 2.6,
-  "sodium_mg": 1
- },
- "cilantro fresco picado": {
-  "sat_fat_g": 0,
-  "sugar_g": 0.9,
-  "fiber_g": 2.8,
-  "sodium_mg": 46
- },
- "mostaza": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 2.9,
-  "fiber_g": 3.3,
-  "sodium_mg": 1135
- },
- "salvado de avena": {
-  "sat_fat_g": 1.3,
-  "sugar_g": 1.5,
-  "fiber_g": 15.4,
-  "sodium_mg": 4
- },
- "tomates cherry": {
-  "sat_fat_g": 0,
-  "sugar_g": 2.6,
-  "fiber_g": 1.2,
-  "sodium_mg": 5
- },
- "yogur griego natural sin azúcar 0% grasa": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 3.2,
-  "fiber_g": 0,
-  "sodium_mg": 36
- },
- "papa blanca en cubos": {
-  "sat_fat_g": 0,
-  "sugar_g": 0.8,
-  "fiber_g": 2.1,
-  "sodium_mg": 6
- },
- "frijoles pintos cocidos": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.3,
-  "fiber_g": 9.0,
-  "sodium_mg": 1
- },
- "batata en cubos": {
-  "sat_fat_g": 0,
-  "sugar_g": 4.2,
-  "fiber_g": 3.0,
-  "sodium_mg": 55
- },
- "mantequilla sin sal": {
-  "sat_fat_g": 51.4,
-  "sugar_g": 0.1,
-  "fiber_g": 0,
-  "sodium_mg": 11
- },
- "arroz blanco de grano corto": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 0.1,
-  "fiber_g": 1.3,
-  "sodium_mg": 1
- },
- "atún en agua, escurrido": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 247
- },
- "semilla de chia": {
-  "sat_fat_g": 3.3,
-  "sugar_g": 0,
-  "fiber_g": 34.4,
-  "sodium_mg": 16
- },
- "frambuesas": {
-  "sat_fat_g": 0,
-  "sugar_g": 4.4,
-  "fiber_g": 6.5,
-  "sodium_mg": 1
- },
- "queso bajo en grasa rallado": {
-  "sat_fat_g": 6.0,
-  "sugar_g": 1.0,
-  "fiber_g": 0,
-  "sodium_mg": 600
- },
- "leche de almendra sin azúcar": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0,
-  "fiber_g": 0.4,
-  "sodium_mg": 63
- },
- "kiwi": {
-  "sat_fat_g": 0.3,
-  "sugar_g": 9.0,
-  "fiber_g": 3.0,
-  "sodium_mg": 3
- },
- "alcaparras en salmuera escurridas": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.4,
-  "fiber_g": 3.2,
-  "sodium_mg": 2350
- },
- "lentejas": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 1.8,
-  "fiber_g": 7.9,
-  "sodium_mg": 2
- },
- "espinacas picadas": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.4,
-  "fiber_g": 2.2,
-  "sodium_mg": 79
- },
- "cebolla en cuartos": {
-  "sat_fat_g": 0,
-  "sugar_g": 4.2,
-  "fiber_g": 1.7,
-  "sodium_mg": 4
- },
- "pimiento": {
-  "sat_fat_g": 0,
-  "sugar_g": 4.2,
-  "fiber_g": 2.1,
-  "sodium_mg": 4
- },
- "leche entera": {
-  "sat_fat_g": 1.9,
-  "sugar_g": 5.1,
-  "fiber_g": 0,
-  "sodium_mg": 43
- },
- "lentejas rojas secas": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 2.0,
-  "fiber_g": 10.8,
-  "sodium_mg": 6
- },
- "rebanada de queso bajo en grasa": {
-  "sat_fat_g": 3.0,
-  "sugar_g": 1.0,
-  "fiber_g": 0,
-  "sodium_mg": 600
- },
- "brócoli en ramitos pequeños": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 1.7,
-  "fiber_g": 2.6,
-  "sodium_mg": 33
- },
- "naranja": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 9.4,
-  "fiber_g": 2.4,
-  "sodium_mg": 0
- },
- "aceite de coco": {
-  "sat_fat_g": 82.5,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 0
- },
- "paprika": {
-  "sat_fat_g": 1.9,
-  "sugar_g": 10.3,
-  "fiber_g": 34.9,
-  "sodium_mg": 68
- },
- "yogur griego natural 0%": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 3.6,
-  "fiber_g": 0,
-  "sodium_mg": 36
- },
- "cebolla blanca en picado fino": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.2,
-  "fiber_g": 1.7,
-  "sodium_mg": 4
- },
- "proteína en polvo sabor chocolate": {
-  "sat_fat_g": 1.5,
-  "sugar_g": 5.0,
-  "fiber_g": 3.0,
-  "sodium_mg": 300
- },
- "salmón": {
-  "sat_fat_g": 3.1,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 59
- },
- "frijoles negros cocidos (en lata, escurridos)": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.3,
-  "fiber_g": 7.0,
-  "sodium_mg": 220
- },
- "queso cheddar bajo en grasa rallado": {
-  "sat_fat_g": 4.3,
-  "sugar_g": 0.5,
-  "fiber_g": 0,
-  "sodium_mg": 600
- },
- "pasta integral (penne o espiral)": {
-  "sat_fat_g": 0.3,
-  "sugar_g": 0.6,
-  "fiber_g": 3.9,
-  "sodium_mg": 4
- },
- "tofu firme en cubos de 2cm": {
-  "sat_fat_g": 1.0,
-  "sugar_g": 0.6,
-  "fiber_g": 0.9,
-  "sodium_mg": 12
- },
- "hojas de menta": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0,
-  "fiber_g": 8.0,
-  "sodium_mg": 31
- },
- "tomates maduros en trozos": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 2.6,
-  "fiber_g": 1.2,
-  "sodium_mg": 5
- },
- "pasta integral tipo espagueti": {
-  "sat_fat_g": 0.3,
-  "sugar_g": 0.6,
-  "fiber_g": 3.9,
-  "sodium_mg": 4
- },
- "habichuelas (vainitas) verdes": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 3.3,
-  "fiber_g": 2.7,
-  "sodium_mg": 6
- },
- "frijoles blancos cocidos": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.3,
-  "fiber_g": 6.3,
-  "sodium_mg": 6
- },
- "atún en agua (escurrido)": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 320
- },
- "lomo de res sin grasa visible": {
-  "sat_fat_g": 2.5,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 55
- },
- "mozzarella light rallada": {
-  "sat_fat_g": 3.0,
-  "sugar_g": 1.0,
-  "fiber_g": 0,
-  "sodium_mg": 490
- },
- "durazno": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 8.4,
-  "fiber_g": 1.5,
-  "sodium_mg": 0
- },
- "leche": {
-  "sat_fat_g": 1.9,
-  "sugar_g": 5.0,
-  "fiber_g": 0,
-  "sodium_mg": 43
- },
- "alcaparras": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.4,
-  "fiber_g": 3.2,
-  "sodium_mg": 2350
- },
- "queso fresco bajo en grasa": {
-  "sat_fat_g": 3.5,
-  "sugar_g": 2.0,
-  "fiber_g": 0,
-  "sodium_mg": 350
- },
- "arvejas": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 5.7,
-  "fiber_g": 5.1,
-  "sodium_mg": 5
- },
- "papaya": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 7.8,
-  "fiber_g": 1.7,
-  "sodium_mg": 8
- },
- "lomo de cerdo en cubos": {
-  "sat_fat_g": 2.0,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 55
- },
- "albahaca seca": {
-  "sat_fat_g": 0.4,
-  "sugar_g": 1.7,
-  "fiber_g": 37.7,
-  "sodium_mg": 76
- },
- "zanahoria rallada": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.7,
-  "fiber_g": 2.8,
-  "sodium_mg": 69
- },
- "queso crema bajo en grasa": {
-  "sat_fat_g": 9.0,
-  "sugar_g": 3.5,
-  "fiber_g": 0,
-  "sodium_mg": 340
- },
- "carne de res (corte magro, sin grasa visible)": {
-  "sat_fat_g": 2.5,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 55
- },
- "proteína de suero sabor chocolate": {
-  "sat_fat_g": 1.5,
-  "sugar_g": 5.0,
-  "fiber_g": 2.0,
-  "sodium_mg": 250
- },
- "avena en hojuelas (molida)": {
-  "sat_fat_g": 1.2,
-  "sugar_g": 1.0,
-  "fiber_g": 10.6,
-  "sodium_mg": 2
- },
- "pechuga de pavo molida o en trozos pequeños": {
-  "sat_fat_g": 1.0,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 60
- },
- "carne de res para guisar en cubos": {
-  "sat_fat_g": 3.5,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 60
- },
- "carne de res (corte sin grasa visible)": {
-  "sat_fat_g": 2.5,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 55
- },
- "pimiento verde picado": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 2.4,
-  "fiber_g": 1.7,
-  "sodium_mg": 3
- },
- "pimiento rojo en tiras delgadas": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 4.2,
-  "fiber_g": 2.1,
-  "sodium_mg": 4
- },
- "leche de coco": {
-  "sat_fat_g": 21.1,
-  "sugar_g": 3.3,
-  "fiber_g": 2.2,
-  "sodium_mg": 15
- },
- "caldo de vegetales bajo en sodio": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 0.5,
-  "fiber_g": 0,
-  "sodium_mg": 55
- },
- "aguacate maduro en cubos": {
-  "sat_fat_g": 2.1,
-  "sugar_g": 0.7,
-  "fiber_g": 6.7,
-  "sodium_mg": 7
- },
- "proteína de suero sabor vainilla o coco": {
-  "sat_fat_g": 1.5,
-  "sugar_g": 4.0,
-  "fiber_g": 1.0,
-  "sodium_mg": 250
- },
- "pavo molido bajo en grasa": {
-  "sat_fat_g": 1.5,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 65
- },
- "tomates pera maduros triturados": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 3.5,
-  "fiber_g": 1.3,
-  "sodium_mg": 10
- },
- "lomo de res en medallones": {
-  "sat_fat_g": 2.5,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 55
- },
- "jamón de pavo bajo en grasa en cubos": {
-  "sat_fat_g": 1.0,
-  "sugar_g": 1.5,
-  "fiber_g": 0,
-  "sodium_mg": 1000
- },
- "espárrago": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 1.9,
-  "fiber_g": 2.1,
-  "sodium_mg": 2
- },
- "semillas de girasol": {
-  "sat_fat_g": 4.5,
-  "sugar_g": 2.6,
-  "fiber_g": 8.6,
-  "sodium_mg": 9
- },
- "fresas frescas o congeladas": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.9,
-  "fiber_g": 2.0,
-  "sodium_mg": 1
- },
- "papa dulce (batata) en rodajas": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.2,
-  "fiber_g": 3.0,
-  "sodium_mg": 55
- },
- "almendras crudas": {
-  "sat_fat_g": 3.8,
-  "sugar_g": 4.4,
-  "fiber_g": 12.5,
-  "sodium_mg": 1
- },
- "carne de res para guisar": {
-  "sat_fat_g": 3.5,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 60
- },
- "pasta integral (penne)": {
-  "sat_fat_g": 0.3,
-  "sugar_g": 0.6,
-  "fiber_g": 3.9,
-  "sodium_mg": 4
- },
- "sandía": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 6.2,
-  "fiber_g": 0.4,
-  "sodium_mg": 1
- },
- "tomates maduros": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 2.6,
-  "fiber_g": 1.2,
-  "sodium_mg": 5
- },
- "fideos de sopa medianos": {
-  "sat_fat_g": 0.3,
-  "sugar_g": 0.6,
-  "fiber_g": 1.8,
-  "sodium_mg": 6
- },
- "agua o caldo bajo en sodio": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 0.2,
-  "fiber_g": 0,
-  "sodium_mg": 40
- },
- "pasta integral (espagueti o penne)": {
-  "sat_fat_g": 0.3,
-  "sugar_g": 0.6,
-  "fiber_g": 3.9,
-  "sodium_mg": 4
- },
- "tomate picado": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 2.6,
-  "fiber_g": 1.2,
-  "sodium_mg": 5
- },
- "papa cocida en cubos pequeños": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 0.9,
-  "fiber_g": 1.8,
-  "sodium_mg": 4
- },
- "páprika": {
-  "sat_fat_g": 1.9,
-  "sugar_g": 10.3,
-  "fiber_g": 34.9,
-  "sodium_mg": 68
- },
- "jugo de limón verde": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 1.7,
-  "fiber_g": 0.4,
-  "sodium_mg": 2
- },
- "cacao en polvo": {
-  "sat_fat_g": 8.1,
-  "sugar_g": 1.8,
-  "fiber_g": 33.2,
-  "sodium_mg": 21
- },
- "garbanzos cocidos en lata": {
-  "sat_fat_g": 0.3,
-  "sugar_g": 0.4,
-  "fiber_g": 7.6,
-  "sodium_mg": 240
- },
- "carne de carne de res en cubos (carne de res para guisar)": {
-  "sat_fat_g": 3.5,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 60
- },
- "cuscús integral": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 0.1,
-  "fiber_g": 2.2,
-  "sodium_mg": 5
- },
- "cebolla picada": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.2,
-  "fiber_g": 1.7,
-  "sodium_mg": 4
- },
- "queso cottage descremado": {
-  "sat_fat_g": 0.3,
-  "sugar_g": 3.4,
-  "fiber_g": 0,
-  "sodium_mg": 330
- },
- "tortilla de harina integral (30g c/u)": {
-  "sat_fat_g": 1.5,
-  "sugar_g": 2.0,
-  "fiber_g": 5.0,
-  "sodium_mg": 500
- },
- "caldo de vegetales": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.7,
-  "fiber_g": 0,
-  "sodium_mg": 350
- },
- "pechuga de pollo entera": {
-  "sat_fat_g": 1.0,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 65
- },
- "salmón ahumado en trozos": {
-  "sat_fat_g": 0.9,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 1700
- },
- "berenjena": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 3.5,
-  "fiber_g": 3.0,
-  "sodium_mg": 2
- },
- "pimiento amarillo": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 3.6,
-  "fiber_g": 0.9,
-  "sodium_mg": 2
- },
- "bistec de res (sirloin)": {
-  "sat_fat_g": 3.0,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 55
- },
- "pasta integral (espagueti o linguine)": {
-  "sat_fat_g": 0.3,
-  "sugar_g": 0.6,
-  "fiber_g": 3.9,
-  "sodium_mg": 4
- },
- "plátano banano": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 12.2,
-  "fiber_g": 2.6,
-  "sodium_mg": 1
- },
- "zanahoria en rodajas gruesas": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.7,
-  "fiber_g": 2.8,
-  "sodium_mg": 69
- },
- "granola sin azúcar añadida": {
-  "sat_fat_g": 2.0,
-  "sugar_g": 5.0,
-  "fiber_g": 8.0,
-  "sodium_mg": 15
- },
- "pan integral (rebanadas)": {
-  "sat_fat_g": 0.6,
-  "sugar_g": 4.4,
-  "fiber_g": 7.0,
-  "sodium_mg": 450
- },
- "lomo de cerdo magro en rodajas gruesas de 2cm": {
-  "sat_fat_g": 2.0,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 55
- },
- "masa de pizza integral": {
-  "sat_fat_g": 0.8,
-  "sugar_g": 3.0,
-  "fiber_g": 5.0,
-  "sodium_mg": 480
- },
- "semillas de linaza": {
-  "sat_fat_g": 3.7,
-  "sugar_g": 1.6,
-  "fiber_g": 27.3,
-  "sodium_mg": 30
- },
- "pimiento rojo en cubos pequeños": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 4.2,
-  "fiber_g": 2.1,
-  "sodium_mg": 4
- },
- "filete de pescado blanco (tilapia, corvina o similar)": {
-  "sat_fat_g": 0.7,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 52
- },
- "queso feta desmenuzado": {
-  "sat_fat_g": 14.9,
-  "sugar_g": 4.1,
-  "fiber_g": 0,
-  "sodium_mg": 1116
- },
- "semillas de calabaza": {
-  "sat_fat_g": 8.7,
-  "sugar_g": 1.4,
-  "fiber_g": 6.0,
-  "sodium_mg": 7
- },
- "lomo de cerdo en tiras delgadas": {
-  "sat_fat_g": 2.0,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 55
- },
- "proteína de suero sabor vainilla o neutro": {
-  "sat_fat_g": 1.5,
-  "sugar_g": 3.5,
-  "fiber_g": 1.0,
-  "sodium_mg": 250
- },
- "carne de res en tiras delgadas": {
-  "sat_fat_g": 2.5,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 55
- },
- "pechuga de pavo cocida en cubos": {
-  "sat_fat_g": 0.9,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 70
- },
- "caldo de pollo": {
-  "sat_fat_g": 0.4,
-  "sugar_g": 0.4,
-  "fiber_g": 0,
-  "sodium_mg": 380
- },
- "aceite de ajonjolí": {
-  "sat_fat_g": 14.2,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 0
- },
- "salmón en trozo": {
-  "sat_fat_g": 3.1,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 59
- },
- "edamame": {
-  "sat_fat_g": 0.6,
-  "sugar_g": 2.2,
-  "fiber_g": 5.2,
-  "sodium_mg": 6
- },
- "carne molida de res magra": {
-  "sat_fat_g": 4.5,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 70
- },
- "aceitunas negras sin hueso": {
-  "sat_fat_g": 1.4,
-  "sugar_g": 0,
-  "fiber_g": 3.2,
-  "sodium_mg": 1556
- },
- "mantequilla de maní natural (sin azúcar)": {
-  "sat_fat_g": 10.0,
-  "sugar_g": 4.0,
-  "fiber_g": 6.0,
-  "sodium_mg": 17
- },
- "pimiento rojo picado fino": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 4.2,
-  "fiber_g": 2.1,
-  "sodium_mg": 4
- },
- "batata (camote) en cubos de 2cm": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.2,
-  "fiber_g": 3.0,
-  "sodium_mg": 55
- },
- "carne de carne de res en cubos (pulpa o lomo)": {
-  "sat_fat_g": 3.0,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 58
- },
- "cebollín picado": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 1.9,
-  "fiber_g": 2.5,
-  "sodium_mg": 3
- },
- "fideos finos": {
-  "sat_fat_g": 0.3,
-  "sugar_g": 0.6,
-  "fiber_g": 1.8,
-  "sodium_mg": 6
- },
- "frambuesa": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.4,
-  "fiber_g": 6.5,
-  "sodium_mg": 1
- },
- "carne de cerdo en cubos": {
-  "sat_fat_g": 2.5,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 55
- },
- "coco rallado": {
-  "sat_fat_g": 30.0,
-  "sugar_g": 7.4,
-  "fiber_g": 9.0,
-  "sodium_mg": 20
- },
- "atún claro en agua": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 320
- },
- "cúrcuma en polvo": {
-  "sat_fat_g": 3.1,
-  "sugar_g": 3.2,
-  "fiber_g": 21.1,
-  "sodium_mg": 27
- },
- "carne de res (sin grasa visible)": {
-  "sat_fat_g": 2.5,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 55
- },
- "calabaza": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 2.8,
-  "fiber_g": 0.5,
-  "sodium_mg": 1
- },
- "carne de cerdo en cubos pequeños": {
-  "sat_fat_g": 2.5,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 55
- },
- "cacahuates": {
-  "sat_fat_g": 6.3,
-  "sugar_g": 4.7,
-  "fiber_g": 8.5,
-  "sodium_mg": 18
- },
- "col blanca rallada": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 3.2,
-  "fiber_g": 2.5,
-  "sodium_mg": 18
- },
- "mango maduro pelado": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 13.7,
-  "fiber_g": 1.6,
-  "sodium_mg": 1
- },
- "filete de pescado blanco fresco": {
-  "sat_fat_g": 0.7,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 52
- },
- "pepino con cascara": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 1.7,
-  "fiber_g": 0.5,
-  "sodium_mg": 2
- },
- "leche semidescremada": {
-  "sat_fat_g": 1.2,
-  "sugar_g": 4.9,
-  "fiber_g": 0,
-  "sodium_mg": 44
- },
- "lentejas rojas crudas": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 2.0,
-  "fiber_g": 10.8,
-  "sodium_mg": 6
- },
- "pechuga de pollo en trozos": {
-  "sat_fat_g": 1.0,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 65
- },
- "tomate maduro": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 2.6,
-  "fiber_g": 1.2,
-  "sodium_mg": 5
- },
- "masa de pizza integral (base delgada comprada)": {
-  "sat_fat_g": 0.8,
-  "sugar_g": 3.0,
-  "fiber_g": 5.0,
-  "sodium_mg": 480
- },
- "salsa de tomate natural sin azúcar": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 4.5,
-  "fiber_g": 1.5,
-  "sodium_mg": 320
- },
- "pasas": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 59.2,
-  "fiber_g": 3.7,
-  "sodium_mg": 11
- },
- "lechuga en trozos": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 0.8,
-  "fiber_g": 1.3,
-  "sodium_mg": 28
- },
- "lomo de res magro en tiras delgadas": {
-  "sat_fat_g": 2.5,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 55
- },
- "bistec de res (falda o palomilla)": {
-  "sat_fat_g": 4.0,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 60
- },
- "pan pita integral": {
-  "sat_fat_g": 0.5,
-  "sugar_g": 1.6,
-  "fiber_g": 7.4,
-  "sodium_mg": 480
- },
- "pechuga de pollo grande sin piel": {
-  "sat_fat_g": 1.0,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 65
- },
- "tomates pera triturados": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 3.9,
-  "fiber_g": 1.2,
-  "sodium_mg": 130
- },
- "tomates maduros picados": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 2.6,
-  "fiber_g": 1.2,
-  "sodium_mg": 5
- },
- "hierbas frescas": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.9,
-  "fiber_g": 3.0,
-  "sodium_mg": 30
- },
- "pechuga de pollo sin piel (entera)": {
-  "sat_fat_g": 1.0,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 65
- },
- "lentejas verdes secas": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 2.0,
-  "fiber_g": 10.7,
-  "sodium_mg": 6
- },
- "filete de res magro (lomo)": {
-  "sat_fat_g": 2.5,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 55
- },
- "durazno fresco": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 8.4,
-  "fiber_g": 1.5,
-  "sodium_mg": 0
- },
- "queso mozzarella bajo en grasa": {
-  "sat_fat_g": 3.0,
-  "sugar_g": 1.5,
-  "fiber_g": 0,
-  "sodium_mg": 480
- },
- "semillas de lino molidas": {
-  "sat_fat_g": 3.7,
-  "sugar_g": 1.6,
-  "fiber_g": 27.3,
-  "sodium_mg": 30
- },
- "yogur griego natural sin azúcar 2% grasa": {
-  "sat_fat_g": 1.3,
-  "sugar_g": 3.6,
-  "fiber_g": 0,
-  "sodium_mg": 36
- },
- "semillas de ajonjolí tostadas": {
-  "sat_fat_g": 6.6,
-  "sugar_g": 0.5,
-  "fiber_g": 14.0,
-  "sodium_mg": 11
- },
- "aguacate maduro pelado sin hueso": {
-  "sat_fat_g": 2.1,
-  "sugar_g": 0.7,
-  "fiber_g": 6.7,
-  "sodium_mg": 7
- },
- "caldo de pollo o vegetales": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.4,
-  "fiber_g": 0,
-  "sodium_mg": 340
- },
- "pepino en medias lunas": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 1.7,
-  "fiber_g": 0.5,
-  "sodium_mg": 2
- },
- "queso bajo en grasa en láminas": {
-  "sat_fat_g": 3.5,
-  "sugar_g": 1.0,
-  "fiber_g": 0,
-  "sodium_mg": 520
- },
- "batata (camote) pelada": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.2,
-  "fiber_g": 3.0,
-  "sodium_mg": 55
- },
- "leche descremada adicional para la base": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 5.0,
-  "fiber_g": 0,
-  "sodium_mg": 42
- },
- "batata (camote) en cubos": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.2,
-  "fiber_g": 3.0,
-  "sodium_mg": 55
- },
- "lechuga romana en tiras": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 1.2,
-  "fiber_g": 2.1,
-  "sodium_mg": 8
- },
- "jengibre": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 1.7,
-  "fiber_g": 2.0,
-  "sodium_mg": 13
- },
- "perejil fresco picado fino": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.9,
-  "fiber_g": 3.3,
-  "sodium_mg": 56
- },
- "edamame cocido": {
-  "sat_fat_g": 0.6,
-  "sugar_g": 2.2,
-  "fiber_g": 5.2,
-  "sodium_mg": 6
- },
- "agua fría": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 2
- },
- "menta fresca (opcional)": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0,
-  "fiber_g": 6.8,
-  "sodium_mg": 31
- },
- "pepitas de calabaza": {
-  "sat_fat_g": 8.7,
-  "sugar_g": 1.4,
-  "fiber_g": 6.0,
-  "sodium_mg": 7
- },
- "coliflor en floretes": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 1.9,
-  "fiber_g": 2.0,
-  "sodium_mg": 30
- },
- "queso de hebra": {
-  "sat_fat_g": 5.0,
-  "sugar_g": 1.0,
-  "fiber_g": 0,
-  "sodium_mg": 620
- },
- "tomate cherry cortado a la mitad": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 3.3,
-  "fiber_g": 1.2,
-  "sodium_mg": 5
- },
- "camote (batata)": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.2,
-  "fiber_g": 3.0,
-  "sodium_mg": 55
- },
- "maíz (maíz) en rodajas": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 3.2,
-  "fiber_g": 2.4,
-  "sodium_mg": 15
- },
- "salmón ahumado": {
-  "sat_fat_g": 0.9,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 672
- },
- "galletas de avena": {
-  "sat_fat_g": 3.5,
-  "sugar_g": 28.0,
-  "fiber_g": 4.0,
-  "sodium_mg": 320
- },
- "vino tinto seco": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 0.6,
-  "fiber_g": 0,
-  "sodium_mg": 4
- },
- "proteína de suero sabor vainilla o mango": {
-  "sat_fat_g": 2.0,
-  "sugar_g": 6.0,
-  "fiber_g": 1.0,
-  "sodium_mg": 250
- },
- "manzana roja o verde": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 10.4,
-  "fiber_g": 2.4,
-  "sodium_mg": 1
- },
- "queso de cabra desmenuzado": {
-  "sat_fat_g": 14.1,
-  "sugar_g": 2.5,
-  "fiber_g": 0,
-  "sodium_mg": 415
- },
- "huevo duro (2 piezas)": {
-  "sat_fat_g": 3.3,
-  "sugar_g": 1.1,
-  "fiber_g": 0,
-  "sodium_mg": 124
- },
- "col": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 3.2,
-  "fiber_g": 2.5,
-  "sodium_mg": 18
- },
- "fideos de arroz": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 0.1,
-  "fiber_g": 1.0,
-  "sodium_mg": 19
- },
- "queso ricotta bajo en grasa": {
-  "sat_fat_g": 2.9,
-  "sugar_g": 3.0,
-  "fiber_g": 0,
-  "sodium_mg": 100
- },
- "aceitunas verdes o negras sin semilla": {
-  "sat_fat_g": 1.4,
-  "sugar_g": 0.5,
-  "fiber_g": 3.2,
-  "sodium_mg": 1560
- },
- "ajo fresco": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 1.0,
-  "fiber_g": 2.1,
-  "sodium_mg": 17
- },
- "huevo entero (3 piezas)": {
-  "sat_fat_g": 3.3,
-  "sugar_g": 1.1,
-  "fiber_g": 0,
-  "sodium_mg": 142
- },
- "pera con cascara": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 9.8,
-  "fiber_g": 3.1,
-  "sodium_mg": 1
- },
- "hummus": {
-  "sat_fat_g": 1.4,
-  "sugar_g": 0.4,
-  "fiber_g": 6.0,
-  "sodium_mg": 379
- },
- "zanahoria en tiras delgadass": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.7,
-  "fiber_g": 2.8,
-  "sodium_mg": 69
- },
- "proteína de suero sabor fresa o vainilla": {
-  "sat_fat_g": 2.0,
-  "sugar_g": 6.0,
-  "fiber_g": 1.0,
-  "sodium_mg": 250
- },
- "pechuga de pollo sin piel cocida y desmenuzada": {
-  "sat_fat_g": 1.1,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 74
- },
- "pasta integral (penne o espagueti)": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 0.6,
-  "fiber_g": 3.9,
-  "sodium_mg": 4
- },
- "almendras enteras": {
-  "sat_fat_g": 3.8,
-  "sugar_g": 4.4,
-  "fiber_g": 12.5,
-  "sodium_mg": 1
- },
- "mango fresco en cubos": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 13.7,
-  "fiber_g": 1.6,
-  "sodium_mg": 1
- },
- "cebolla morada en tiras delgadas": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.2,
-  "fiber_g": 1.7,
-  "sodium_mg": 4
- },
- "arandano": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 10.0,
-  "fiber_g": 2.4,
-  "sodium_mg": 1
- },
- "lentejas naranjas (rojas) secas": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 2.0,
-  "fiber_g": 10.8,
-  "sodium_mg": 7
- },
- "caldo de pollo bajo en sal": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.4,
-  "fiber_g": 0,
-  "sodium_mg": 130
- },
- "zucchini en cubos pequeños": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 2.5,
-  "fiber_g": 1.0,
-  "sodium_mg": 8
- },
- "proteína de suero sabor chocolate o neutro": {
-  "sat_fat_g": 2.0,
-  "sugar_g": 6.0,
-  "fiber_g": 1.5,
-  "sodium_mg": 250
- },
- "vainilla en extracto": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 12.7,
-  "fiber_g": 0,
-  "sodium_mg": 9
- },
- "cilantro o perejil fresco": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 0.9,
-  "fiber_g": 2.8,
-  "sodium_mg": 46
- },
- "pimiento rojo en tiras delgadass": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.2,
-  "fiber_g": 2.1,
-  "sodium_mg": 4
- },
- "habas de soya cocido sin vaina": {
-  "sat_fat_g": 1.3,
-  "sugar_g": 3.0,
-  "fiber_g": 6.0,
-  "sodium_mg": 6
- },
- "leche descremada (para puré)": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 5.0,
-  "fiber_g": 0,
-  "sodium_mg": 42
- },
- "agua o caldo de res bajo en sodio": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.3,
-  "fiber_g": 0,
-  "sodium_mg": 120
- },
- "tortillas de maíz pequeñas": {
-  "sat_fat_g": 0.4,
-  "sugar_g": 1.0,
-  "fiber_g": 5.5,
-  "sodium_mg": 45
- },
- "chorizo bajo en grasa en rodajas": {
-  "sat_fat_g": 6.0,
-  "sugar_g": 1.0,
-  "fiber_g": 0,
-  "sodium_mg": 900
- },
- "aceite de coco (para sartén)": {
-  "sat_fat_g": 82.5,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 0
- },
- "mantequilla de almendra natural": {
-  "sat_fat_g": 5.2,
-  "sugar_g": 4.4,
-  "fiber_g": 10.3,
-  "sodium_mg": 3
- },
- "manzana con cascara": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 10.4,
-  "fiber_g": 2.4,
-  "sodium_mg": 1
- },
- "jitomates cherry": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 3.3,
-  "fiber_g": 1.2,
-  "sodium_mg": 5
- },
- "tostadas de maíz": {
-  "sat_fat_g": 0.6,
-  "sugar_g": 1.2,
-  "fiber_g": 6.5,
-  "sodium_mg": 65
- },
- "crema light": {
-  "sat_fat_g": 10.0,
-  "sugar_g": 3.5,
-  "fiber_g": 0,
-  "sodium_mg": 40
- },
- "queso fresco": {
-  "sat_fat_g": 8.5,
-  "sugar_g": 2.9,
-  "fiber_g": 0,
-  "sodium_mg": 690
- },
- "nueces de castilla": {
-  "sat_fat_g": 6.1,
-  "sugar_g": 2.6,
-  "fiber_g": 6.7,
-  "sodium_mg": 2
- },
- "leche de avena sin azúcar": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 1.0,
-  "fiber_g": 0.8,
-  "sodium_mg": 100
- },
- "comino y orégano": {
-  "sat_fat_g": 1.5,
-  "sugar_g": 2.3,
-  "fiber_g": 30.0,
-  "sodium_mg": 100
- },
- "cebolla de cambray (cebollín)": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 2.3,
-  "fiber_g": 2.6,
-  "sodium_mg": 16
- },
- "mejillones limpios": {
-  "sat_fat_g": 0.4,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 286
- },
- "granola": {
-  "sat_fat_g": 2.5,
-  "sugar_g": 21.0,
-  "fiber_g": 7.0,
-  "sodium_mg": 30
- },
- "guayaba": {
-  "sat_fat_g": 0.3,
-  "sugar_g": 8.9,
-  "fiber_g": 5.4,
-  "sodium_mg": 2
- },
- "pimentón dulce (paprika)": {
-  "sat_fat_g": 2.1,
-  "sugar_g": 10.3,
-  "fiber_g": 34.9,
-  "sodium_mg": 68
- },
- "cebolla morada picada fino": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.2,
-  "fiber_g": 1.7,
-  "sodium_mg": 4
- },
- "papaya madura pelada sin semillas": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 7.8,
-  "fiber_g": 1.7,
-  "sodium_mg": 8
- },
- "cebolla en tiras delgadas": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.2,
-  "fiber_g": 1.7,
-  "sodium_mg": 4
- },
- "aceitunas verdes sin semilla": {
-  "sat_fat_g": 1.4,
-  "sugar_g": 0.5,
-  "fiber_g": 3.3,
-  "sodium_mg": 1560
- },
- "champiñones portobello en láminas": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 2.5,
-  "fiber_g": 1.3,
-  "sodium_mg": 9
- },
- "lechuga romana en trozos": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 1.2,
-  "fiber_g": 2.1,
-  "sodium_mg": 8
- },
- "pimiento rojo picado": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.2,
-  "fiber_g": 2.1,
-  "sodium_mg": 4
- },
- "arándanos congelados": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 10.0,
-  "fiber_g": 2.4,
-  "sodium_mg": 1
- },
- "ralladura de naranja": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.4,
-  "fiber_g": 10.6,
-  "sodium_mg": 3
- },
- "arroz jazmín cocido": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.1,
-  "fiber_g": 0.4,
-  "sodium_mg": 1
- },
- "coliflor en trozos": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 1.9,
-  "fiber_g": 2.0,
-  "sodium_mg": 30
- },
- "melón verde tipo honeydew pelado sin semillas": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 8.1,
-  "fiber_g": 0.8,
-  "sodium_mg": 18
- },
- "comino y cúrcuma": {
-  "sat_fat_g": 2.0,
-  "sugar_g": 2.4,
-  "fiber_g": 22.0,
-  "sodium_mg": 130
- },
- "cebollín": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 1.9,
-  "fiber_g": 2.5,
-  "sodium_mg": 3
- },
- "proteína de suero sabor natural o vainilla": {
-  "sat_fat_g": 2.0,
-  "sugar_g": 5.0,
-  "fiber_g": 1.0,
-  "sodium_mg": 250
- },
- "zanahorias": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.7,
-  "fiber_g": 2.8,
-  "sodium_mg": 69
- },
- "arándanos frescos o congelados": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 10.0,
-  "fiber_g": 2.4,
-  "sodium_mg": 1
- },
- "plátano maduro en rodajas": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 12.2,
-  "fiber_g": 2.6,
-  "sodium_mg": 1
- },
- "kiwi pelado": {
-  "sat_fat_g": 0.3,
-  "sugar_g": 9.0,
-  "fiber_g": 3.0,
-  "sodium_mg": 3
- },
- "maíz desgranado": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 3.2,
-  "fiber_g": 2.4,
-  "sodium_mg": 15
- },
- "frutos rojos mixtos (fresa, arándano, frambuesa)": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 7.0,
-  "fiber_g": 4.5,
-  "sodium_mg": 1
- },
- "arándanos frescos": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 10.0,
-  "fiber_g": 2.4,
-  "sodium_mg": 1
- },
- "zucchini en medias lunas": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 2.5,
-  "fiber_g": 1.0,
-  "sodium_mg": 8
- },
- "germen de trigo": {
-  "sat_fat_g": 1.7,
-  "sugar_g": 7.6,
-  "fiber_g": 13.2,
-  "sodium_mg": 12
- },
- "papa blanca pelada": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 0.8,
-  "fiber_g": 1.8,
-  "sodium_mg": 6
- },
- "fideos de trigo (tipo vermicelli)": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.6,
-  "fiber_g": 1.8,
-  "sodium_mg": 3
- },
- "zucchini en rodajas gruesas": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 2.5,
-  "fiber_g": 1.0,
-  "sodium_mg": 8
- },
- "maicena (almidón de maíz)": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 0,
-  "fiber_g": 0.9,
-  "sodium_mg": 9
- },
- "proteína de suero sabor vainilla o fresa": {
-  "sat_fat_g": 2.0,
-  "sugar_g": 6.0,
-  "fiber_g": 1.0,
-  "sodium_mg": 250
- },
- "crema ligera (15% grasa)": {
-  "sat_fat_g": 9.3,
-  "sugar_g": 3.5,
-  "fiber_g": 0,
-  "sodium_mg": 38
- },
- "tortilla de trigo integral": {
-  "sat_fat_g": 1.2,
-  "sugar_g": 2.5,
-  "fiber_g": 5.5,
-  "sodium_mg": 470
- },
- "manzana con piel": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 10.4,
-  "fiber_g": 2.4,
-  "sodium_mg": 1
- },
- "cebolla en rodajas delgadas": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.2,
-  "fiber_g": 1.7,
-  "sodium_mg": 4
- },
- "pepino fresco pelado": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 1.7,
-  "fiber_g": 0.7,
-  "sodium_mg": 2
- },
- "manzana verde sin semillas": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 9.6,
-  "fiber_g": 2.8,
-  "sodium_mg": 1
- },
- "garbanzos cocidos (de lata, escurridos)": {
-  "sat_fat_g": 0.3,
-  "sugar_g": 0.5,
-  "fiber_g": 7.6,
-  "sodium_mg": 240
- },
- "pimentón dulce en polvo": {
-  "sat_fat_g": 2.1,
-  "sugar_g": 10.3,
-  "fiber_g": 34.9,
-  "sodium_mg": 68
- },
- "cebolla roja picada fina": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.2,
-  "fiber_g": 1.7,
-  "sodium_mg": 4
- },
- "atún en agua en lata": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 320
- },
- "tomate verde (tomatillo)": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 3.9,
-  "fiber_g": 1.9,
-  "sodium_mg": 1
- },
- "cebolla en rodajas finas": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.2,
-  "fiber_g": 1.7,
-  "sodium_mg": 4
- },
- "arvejas (guisantes) frescos o congelados": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 5.7,
-  "fiber_g": 5.5,
-  "sodium_mg": 5
- },
- "pasta": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 0.6,
-  "fiber_g": 1.8,
-  "sodium_mg": 1
- },
- "fideos de trigo delgados": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.6,
-  "fiber_g": 1.8,
-  "sodium_mg": 3
- },
- "mantequilla de maní natural": {
-  "sat_fat_g": 3.3,
-  "sugar_g": 9.0,
-  "fiber_g": 6.0,
-  "sodium_mg": 17
- },
- "pimentón dulce": {
-  "sat_fat_g": 2.1,
-  "sugar_g": 10.3,
-  "fiber_g": 34.9,
-  "sodium_mg": 68
- },
- "tahini (pasta de sésamo)": {
-  "sat_fat_g": 7.9,
-  "sugar_g": 0.5,
-  "fiber_g": 9.3,
-  "sodium_mg": 35
- },
- "manzana roja en rodajas": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 10.4,
-  "fiber_g": 2.4,
-  "sodium_mg": 1
- },
- "pimentón ahumado": {
-  "sat_fat_g": 2.1,
-  "sugar_g": 10.3,
-  "fiber_g": 34.9,
-  "sodium_mg": 68
- },
- "cebolla morada en rodajas finas": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.2,
-  "fiber_g": 1.7,
-  "sodium_mg": 4
- },
- "espinacas baby": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.4,
-  "fiber_g": 2.2,
-  "sodium_mg": 79
- },
- "pasta integral pequeña (coditos o ditalini)": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 0.6,
-  "fiber_g": 3.9,
-  "sodium_mg": 4
- },
- "arándanos secos": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 65.0,
-  "fiber_g": 5.7,
-  "sodium_mg": 3
- },
- "jengibre fresco": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 1.7,
-  "fiber_g": 2.0,
-  "sodium_mg": 13
- },
- "edamame (habas de soya) cocidas": {
-  "sat_fat_g": 0.6,
-  "sugar_g": 2.2,
-  "fiber_g": 5.2,
-  "sodium_mg": 6
- },
- "claras de huevo pasteurizadas": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 0.7,
-  "fiber_g": 0.0,
-  "sodium_mg": 166
- },
- "pan integral rallado": {
-  "sat_fat_g": 0.9,
-  "sugar_g": 3.8,
-  "fiber_g": 6.5,
-  "sodium_mg": 560
- },
- "quinua cocida": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 0.9,
-  "fiber_g": 2.8,
-  "sodium_mg": 7
- },
- "manzana verde sin piel ni semillas": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 9.6,
-  "fiber_g": 1.7,
-  "sodium_mg": 1
- },
- "papa en cuartos": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 0.8,
-  "fiber_g": 2.1,
-  "sodium_mg": 6
- },
- "caldo de res": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.3,
-  "fiber_g": 0.0,
-  "sodium_mg": 340
- },
- "espirulina en polvo (alga verde)": {
-  "sat_fat_g": 2.7,
-  "sugar_g": 3.1,
-  "fiber_g": 3.6,
-  "sodium_mg": 1048
- },
- "yogur griego natural 0% grasa": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 3.6,
-  "fiber_g": 0.0,
-  "sodium_mg": 36
- },
- "proteína en polvo sabor vainilla o coco": {
-  "sat_fat_g": 1.5,
-  "sugar_g": 5.0,
-  "fiber_g": 2.0,
-  "sodium_mg": 350
- },
- "polvo para hornear": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 0.0,
-  "fiber_g": 0.2,
-  "sodium_mg": 10600
- },
- "comino": {
-  "sat_fat_g": 1.5,
-  "sugar_g": 2.3,
-  "fiber_g": 10.5,
-  "sodium_mg": 168
- },
- "jícama": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 1.8,
-  "fiber_g": 4.9,
-  "sodium_mg": 4
- },
- "tomillo fresco": {
-  "sat_fat_g": 0.5,
-  "sugar_g": 0.0,
-  "fiber_g": 14.0,
-  "sodium_mg": 9
- },
- "tomate cherry cortado por la mitad": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 2.6,
-  "fiber_g": 1.2,
-  "sodium_mg": 5
- },
- "cúrcuma molida": {
-  "sat_fat_g": 1.8,
-  "sugar_g": 3.2,
-  "fiber_g": 22.7,
-  "sodium_mg": 38
- },
- "romero fresco o seco": {
-  "sat_fat_g": 2.8,
-  "sugar_g": 0.0,
-  "fiber_g": 14.1,
-  "sodium_mg": 26
- },
- "pasas sin semillas": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 59.2,
-  "fiber_g": 3.7,
-  "sodium_mg": 11
- },
- "hummus natural": {
-  "sat_fat_g": 1.4,
-  "sugar_g": 0.4,
-  "fiber_g": 6.0,
-  "sodium_mg": 379
- },
- "menta fresca": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 0.0,
-  "fiber_g": 8.0,
-  "sodium_mg": 31
- },
- "proteína en polvo sabor fresa o vainilla": {
-  "sat_fat_g": 1.5,
-  "sugar_g": 5.0,
-  "fiber_g": 2.0,
-  "sodium_mg": 350
- },
- "pimiento verde en cubos": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 2.4,
-  "fiber_g": 1.7,
-  "sodium_mg": 3
- },
- "pollo cocido desmechado": {
-  "sat_fat_g": 1.7,
-  "sugar_g": 0.0,
-  "fiber_g": 0.0,
-  "sodium_mg": 70
- },
- "semillas de ajonjolí": {
-  "sat_fat_g": 6.7,
-  "sugar_g": 0.3,
-  "fiber_g": 11.8,
-  "sodium_mg": 11
- },
- "harina de maíz": {
-  "sat_fat_g": 0.5,
-  "sugar_g": 0.6,
-  "fiber_g": 7.3,
-  "sodium_mg": 5
- },
- "pimiento amarillo picado": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 3.2,
-  "fiber_g": 0.9,
-  "sodium_mg": 2
- },
- "cebolla de verdeo (cebollín) picada": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 2.3,
-  "fiber_g": 2.6,
-  "sodium_mg": 16
- },
- "aguacate maduro en rebanadas": {
-  "sat_fat_g": 2.1,
-  "sugar_g": 0.7,
-  "fiber_g": 6.7,
-  "sodium_mg": 7
- },
- "eneldo fresco picado fino": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.0,
-  "fiber_g": 2.1,
-  "sodium_mg": 61
- },
- "manzana rallada": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 10.4,
-  "fiber_g": 2.4,
-  "sodium_mg": 1
- },
- "zanahoria en bastones": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.7,
-  "fiber_g": 2.8,
-  "sodium_mg": 69
- },
- "berenjena en cubos": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 3.5,
-  "fiber_g": 3.0,
-  "sodium_mg": 2
- },
- "cebolla picada fino": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.2,
-  "fiber_g": 1.7,
-  "sodium_mg": 4
- },
- "papas pequeñas": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 0.8,
-  "fiber_g": 2.1,
-  "sodium_mg": 6
- },
- "cebolla en polvo": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 6.6,
-  "fiber_g": 15.2,
-  "sodium_mg": 73
- },
- "arveja (guisante) congelada": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 4.0,
-  "fiber_g": 5.0,
-  "sodium_mg": 72
- },
- "proteína en polvo sabor chocolate o vainilla": {
-  "sat_fat_g": 1.5,
-  "sugar_g": 5.0,
-  "fiber_g": 2.0,
-  "sodium_mg": 350
- },
- "fideos de huevo cocidos": {
-  "sat_fat_g": 0.4,
-  "sugar_g": 0.4,
-  "fiber_g": 1.2,
-  "sodium_mg": 5
- },
- "durazno maduro pelado sin hueso": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 8.4,
-  "fiber_g": 1.5,
-  "sodium_mg": 0
- },
- "pasta integral (ditalini o espirales)": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 0.6,
-  "fiber_g": 3.9,
-  "sodium_mg": 4
- },
- "chayote o calabacín en cubos": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 1.7,
-  "fiber_g": 1.7,
-  "sodium_mg": 2
- },
- "champiñón": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 2.0,
-  "fiber_g": 1.0,
-  "sodium_mg": 5
- },
- "zanahoria en trozos gruesos": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.7,
-  "fiber_g": 2.8,
-  "sodium_mg": 69
- },
- "guisantes (arvejas) congelados": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 4.0,
-  "fiber_g": 5.0,
-  "sodium_mg": 72
- },
- "extracto de vainilla puro": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 12.7,
-  "fiber_g": 0.0,
-  "sodium_mg": 9
- },
- "proteína de suero sabor vainilla o caramelo": {
-  "sat_fat_g": 2.0,
-  "sugar_g": 4.0,
-  "fiber_g": 1.0,
-  "sodium_mg": 300
- },
- "hojas de menta fresca": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 0.0,
-  "fiber_g": 8.0,
-  "sodium_mg": 31
- },
- "pulpa de maracuyá (maracuyá abierta y colada)": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 11.2,
-  "fiber_g": 10.4,
-  "sodium_mg": 28
- },
- "espárragos frescos troceados": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 1.9,
-  "fiber_g": 2.1,
-  "sodium_mg": 2
- },
- "fideos de cabello de ángel o fideos finos": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 0.6,
-  "fiber_g": 1.8,
-  "sodium_mg": 6
- },
- "pepino en rodajas finas": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 1.7,
-  "fiber_g": 0.5,
-  "sodium_mg": 2
- },
- "rúcula fresca": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 2.1,
-  "fiber_g": 1.6,
-  "sodium_mg": 27
- },
- "pimiento rojo o verde grande": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 3.5,
-  "fiber_g": 1.7,
-  "sodium_mg": 3
- },
- "granola de avena y nueces": {
-  "sat_fat_g": 2.5,
-  "sugar_g": 20.0,
-  "fiber_g": 7.0,
-  "sodium_mg": 25
- },
- "arveja verde": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 5.7,
-  "fiber_g": 5.7,
-  "sodium_mg": 5
- },
- "habas de soya cocidas (edamame)": {
-  "sat_fat_g": 0.6,
-  "sugar_g": 2.2,
-  "fiber_g": 5.2,
-  "sodium_mg": 6
- },
- "tortilla integral de trigo": {
-  "sat_fat_g": 1.5,
-  "sugar_g": 2.5,
-  "fiber_g": 5.5,
-  "sodium_mg": 520
- },
- "papa blanca en cubos pequeños": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 0.8,
-  "fiber_g": 2.1,
-  "sodium_mg": 6
- },
- "harina de avena": {
-  "sat_fat_g": 1.2,
-  "sugar_g": 0.8,
-  "fiber_g": 6.5,
-  "sodium_mg": 4
- },
- "pimiento rojo y verde en cubos": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 3.0,
-  "fiber_g": 1.7,
-  "sodium_mg": 3
- },
- "caldo de pollo o agua": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.4,
-  "fiber_g": 0.0,
-  "sodium_mg": 310
- },
- "cebollín fresco": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 1.9,
-  "fiber_g": 2.5,
-  "sodium_mg": 3
- },
- "frijoles negros cocidos (de lata, escurridos)": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.3,
-  "fiber_g": 8.7,
-  "sodium_mg": 240
- },
- "mango maduro en cubos pequeños": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 13.7,
-  "fiber_g": 1.6,
-  "sodium_mg": 1
- },
- "lechuga romana en hojas": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 1.2,
-  "fiber_g": 2.1,
-  "sodium_mg": 8
- },
- "dátiles medjool sin semilla": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 66.5,
-  "fiber_g": 6.7,
-  "sodium_mg": 1
- },
- "tomate en rebanadas": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 2.6,
-  "fiber_g": 1.2,
-  "sodium_mg": 5
- },
- "brócoli en floretes pequeños": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 1.7,
-  "fiber_g": 2.6,
-  "sodium_mg": 33
- },
- "chile guajillo": {
-  "sat_fat_g": 0.6,
-  "sugar_g": 5.0,
-  "fiber_g": 15.0,
-  "sodium_mg": 40
- },
- "aceitunas negras sin hueso rebanadas": {
-  "sat_fat_g": 1.4,
-  "sugar_g": 0.0,
-  "fiber_g": 3.2,
-  "sodium_mg": 735
- },
- "mayonesa light": {
-  "sat_fat_g": 1.5,
-  "sugar_g": 3.5,
-  "fiber_g": 0.0,
-  "sodium_mg": 780
- },
- "fresa": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.9,
-  "fiber_g": 2.0,
-  "sodium_mg": 1
- },
- "proteína de suero sabor chocolate o vainilla": {
-  "sat_fat_g": 2.0,
-  "sugar_g": 4.0,
-  "fiber_g": 1.0,
-  "sodium_mg": 300
- },
- "cebolla blanca en rebanadas delgadas": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.2,
-  "fiber_g": 1.7,
-  "sodium_mg": 4
- },
- "pechuga de pollo cocida y desmenuzada": {
-  "sat_fat_g": 1.0,
-  "sugar_g": 0.0,
-  "fiber_g": 0.0,
-  "sodium_mg": 74
- },
- "frambuesas frescas o congeladas": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.4,
-  "fiber_g": 6.5,
-  "sodium_mg": 1
- },
- "vinagre blanco (para pochar)": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 0.0,
-  "fiber_g": 0.0,
-  "sodium_mg": 2
- },
- "apio en trozos": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 1.8,
-  "fiber_g": 1.6,
-  "sodium_mg": 80
- },
- "guayaba madura pelada": {
-  "sat_fat_g": 0.3,
-  "sugar_g": 8.9,
-  "fiber_g": 5.4,
-  "sodium_mg": 2
- },
- "miel de abeja o azúcar morena": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 82.0,
-  "fiber_g": 0.2,
-  "sodium_mg": 4
- },
- "manzana verde": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 9.6,
-  "fiber_g": 2.4,
-  "sodium_mg": 1
- },
- "mango deshidratado": {
-  "sat_fat_g": 0.3,
-  "sugar_g": 66.0,
-  "fiber_g": 2.4,
-  "sodium_mg": 45
- },
- "leche entera o semidescremada": {
-  "sat_fat_g": 1.9,
-  "sugar_g": 5.0,
-  "fiber_g": 0.0,
-  "sodium_mg": 43
- },
- "aceite de coco o aceite neutro": {
-  "sat_fat_g": 82.5,
-  "sugar_g": 0.0,
-  "fiber_g": 0.0,
-  "sodium_mg": 0
- },
- "cebolla morada en rodajas delgadas": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.2,
-  "fiber_g": 1.7,
-  "sodium_mg": 4
- },
- "brócoli en ramitos": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 1.7,
-  "fiber_g": 2.6,
-  "sodium_mg": 33
- },
- "pimiento rojo en trozos": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 4.2,
-  "fiber_g": 2.1,
-  "sodium_mg": 4
- },
- "brócoli en trozos pequeños": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 1.7,
-  "fiber_g": 2.6,
-  "sodium_mg": 33
- },
- "jengibre en polvo": {
-  "sat_fat_g": 0.2,
-  "sugar_g": 3.4,
-  "fiber_g": 14.1,
-  "sodium_mg": 27
- },
- "cerdo molido magro": {
-  "sat_fat_g": 3.5,
-  "sugar_g": 0.0,
-  "fiber_g": 0.0,
-  "sodium_mg": 65
- },
- "papa blanca pelada en trozos": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 0.8,
-  "fiber_g": 2.1,
-  "sodium_mg": 6
- },
- "cebolla en cubos": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.2,
-  "fiber_g": 1.7,
-  "sodium_mg": 4
- },
- "granola sin azúcar": {
-  "sat_fat_g": 2.0,
-  "sugar_g": 3.0,
-  "fiber_g": 8.0,
-  "sodium_mg": 10
- },
- "acelgas": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 1.1,
-  "fiber_g": 1.6,
-  "sodium_mg": 213
- },
- "tomate maduro en rebanadas": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 2.6,
-  "fiber_g": 1.2,
-  "sodium_mg": 5
- },
- "caldo de pescado o agua con sal": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.0,
-  "fiber_g": 0.0,
-  "sodium_mg": 350
- },
- "leche de almendra": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.5,
-  "fiber_g": 0.4,
-  "sodium_mg": 63
- },
- "cebolla blanca en cubos": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.2,
-  "fiber_g": 1.7,
-  "sodium_mg": 4
- },
- "leche descremada caliente": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 5.0,
-  "fiber_g": 0.0,
-  "sodium_mg": 42
- },
- "tortilla integral grande (30cm)": {
-  "sat_fat_g": 1.5,
-  "sugar_g": 2.5,
-  "fiber_g": 5.5,
-  "sodium_mg": 520
- },
- "frambuesas congeladas": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.4,
-  "fiber_g": 6.5,
-  "sodium_mg": 1
- },
- "arándanos secos sin azúcar": {
-  "sat_fat_g": 0.7,
-  "sugar_g": 34.0,
-  "fiber_g": 7.5,
-  "sodium_mg": 3
- },
- "salsa de soya": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 0.4,
-  "fiber_g": 0.8,
-  "sodium_mg": 5493
- },
- "pepino en cubos": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 1.7,
-  "fiber_g": 0.5,
-  "sodium_mg": 2
- },
- "cerezas congeladas sin hueso": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 12.8,
-  "fiber_g": 1.6,
-  "sodium_mg": 0
- },
- "proteína en polvo sabor vainilla o tropical": {
-  "sat_fat_g": 1.5,
-  "sugar_g": 5.0,
-  "fiber_g": 2.0,
-  "sodium_mg": 350
- },
- "avena en hojuelas gruesas": {
-  "sat_fat_g": 1.2,
-  "sugar_g": 1.0,
-  "fiber_g": 10.1,
-  "sodium_mg": 2
- },
- "aguacate en rebanadas": {
-  "sat_fat_g": 2.1,
-  "sugar_g": 0.7,
-  "fiber_g": 6.7,
-  "sodium_mg": 7
- },
- "zucchini rallado": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 2.5,
-  "fiber_g": 1.0,
-  "sodium_mg": 8
- },
- "aceite de coco en spray": {
-  "sat_fat_g": 82.5,
-  "sugar_g": 0.0,
-  "fiber_g": 0.0,
-  "sodium_mg": 0
- },
- "eneldo fresco": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0.0,
-  "fiber_g": 2.1,
-  "sodium_mg": 61
- },
- "tomates triturados": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 3.4,
-  "fiber_g": 1.5,
-  "sodium_mg": 130
- },
- "aguacate maduro en rodajas": {
-  "sat_fat_g": 2.1,
-  "sugar_g": 0.7,
-  "fiber_g": 6.7,
-  "sodium_mg": 7
- },
- "leche descremada fría": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 5.0,
-  "fiber_g": 0.0,
-  "sodium_mg": 42
- },
- "papa mediana cocida": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 0.9,
-  "fiber_g": 1.8,
-  "sodium_mg": 5
- },
- "moras congeladas": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 4.9,
-  "fiber_g": 5.3,
-  "sodium_mg": 1
- },
- "piña fresca o en conserva sin azúcar": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 9.9,
-  "fiber_g": 1.4,
-  "sodium_mg": 1
- },
- "azúcar (para reducir acidez)": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 99.8,
-  "fiber_g": 0.0,
-  "sodium_mg": 0
- },
- "tomates triturados en lata": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 3.4,
-  "fiber_g": 1.5,
-  "sodium_mg": 180
- },
- "pechuga de pollo cocida desmenuzada": {
-  "sat_fat_g": 1.0,
-  "sugar_g": 0.0,
-  "fiber_g": 0.0,
-  "sodium_mg": 74
- },
- "papas fritas": {
-  "sat_fat_g": 2.3,
-  "sugar_g": 0,
-  "fiber_g": 3.8,
-  "sodium_mg": 210
- },
- "papa frita": {
-  "sat_fat_g": 2.3,
-  "sugar_g": 0,
-  "fiber_g": 3.8,
-  "sodium_mg": 210
- },
- "salchicha": {
-  "sat_fat_g": 8.7,
-  "sugar_g": 0,
-  "fiber_g": 0.1,
-  "sodium_mg": 816
- },
- "hot dog": {
-  "sat_fat_g": 8.7,
-  "sugar_g": 0,
-  "fiber_g": 0.1,
-  "sodium_mg": 816
- },
- "chorizo": {
-  "sat_fat_g": 8.6,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 788
- },
- "carne de res": {
-  "sat_fat_g": 5.9,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 72
- },
- "carne de res molida": {
-  "sat_fat_g": 5.9,
-  "sugar_g": 0,
-  "fiber_g": 0,
-  "sodium_mg": 72
- },
- "aji rojo": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 0,
-  "fiber_g": 1.5,
-  "sodium_mg": 9
- },
- "aji verde": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 0,
-  "fiber_g": 1.5,
-  "sodium_mg": 7
- },
- "aji amarillo": {
-  "sat_fat_g": 0.0,
-  "sugar_g": 0,
-  "fiber_g": 1.5,
-  "sodium_mg": 9
- },
- "choclo": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0,
-  "fiber_g": 2.8,
-  "sodium_mg": 5
- },
- "maiz": {
-  "sat_fat_g": 0.1,
-  "sugar_g": 0,
-  "fiber_g": 2.8,
-  "sodium_mg": 5
- },
- "platano frito": {
-  "sat_fat_g": 1.8,
-  "sugar_g": 0,
-  "fiber_g": 3.2,
-  "sodium_mg": 6
- }
+  "aceite de oliva": {
+    "sat_fat_g": 13.8,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 2
+  },
+  "ajo": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 1.0,
+    "fiber_g": 2.1,
+    "sodium_mg": 17
+  },
+  "cebolla": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.2,
+    "fiber_g": 1.7,
+    "sodium_mg": 4
+  },
+  "aceite vegetal": {
+    "sat_fat_g": 13.0,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 2
+  },
+  "jugo de limón": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 2.5,
+    "fiber_g": 0.3,
+    "sodium_mg": 1
+  },
+  "pechuga de pollo sin piel": {
+    "sat_fat_g": 1.0,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 74
+  },
+  "tomate": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 2.6,
+    "fiber_g": 1.2,
+    "sodium_mg": 5
+  },
+  "cebolla blanca": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.2,
+    "fiber_g": 1.7,
+    "sodium_mg": 4
+  },
+  "zanahoria": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.7,
+    "fiber_g": 2.8,
+    "sodium_mg": 69
+  },
+  "brócoli": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 1.7,
+    "fiber_g": 2.6,
+    "sodium_mg": 33
+  },
+  "arroz blanco cocido": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.1,
+    "fiber_g": 0.4,
+    "sodium_mg": 1
+  },
+  "garbanzos cocidos": {
+    "sat_fat_g": 0.3,
+    "sugar_g": 4.8,
+    "fiber_g": 7.6,
+    "sodium_mg": 7
+  },
+  "arroz integral cocido": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 0.4,
+    "fiber_g": 1.8,
+    "sodium_mg": 4
+  },
+  "limón": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 2.5,
+    "fiber_g": 2.8,
+    "sodium_mg": 2
+  },
+  "quinoa cocida": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 0.9,
+    "fiber_g": 2.8,
+    "sodium_mg": 7
+  },
+  "frijoles negros cocidos": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.3,
+    "fiber_g": 8.7,
+    "sodium_mg": 2
+  },
+  "papa": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 0.8,
+    "fiber_g": 2.1,
+    "sodium_mg": 6
+  },
+  "pechuga de pollo": {
+    "sat_fat_g": 1.0,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 74
+  },
+  "lentejas cocidas": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 1.8,
+    "fiber_g": 7.9,
+    "sodium_mg": 2
+  },
+  "espinaca fresca": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.4,
+    "fiber_g": 2.2,
+    "sodium_mg": 79
+  },
+  "arroz blanco": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 0.1,
+    "fiber_g": 1.3,
+    "sodium_mg": 5
+  },
+  "leche descremada": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 5.0,
+    "fiber_g": 0,
+    "sodium_mg": 42
+  },
+  "huevo entero": {
+    "sat_fat_g": 3.3,
+    "sugar_g": 1.1,
+    "fiber_g": 0,
+    "sodium_mg": 124
+  },
+  "lomo de cerdo": {
+    "sat_fat_g": 2.0,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 55
+  },
+  "pechuga de pavo": {
+    "sat_fat_g": 0.3,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 63
+  },
+  "miel": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 82.1,
+    "fiber_g": 0.2,
+    "sodium_mg": 4
+  },
+  "pimiento rojo": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.2,
+    "fiber_g": 2.1,
+    "sodium_mg": 4
+  },
+  "calabacita": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 2.5,
+    "fiber_g": 1.0,
+    "sodium_mg": 8
+  },
+  "aguacate": {
+    "sat_fat_g": 2.1,
+    "sugar_g": 0.7,
+    "fiber_g": 6.7,
+    "sodium_mg": 7
+  },
+  "arroz integral": {
+    "sat_fat_g": 0.5,
+    "sugar_g": 0.7,
+    "fiber_g": 3.4,
+    "sodium_mg": 7
+  },
+  "avena en hojuelas": {
+    "sat_fat_g": 1.2,
+    "sugar_g": 1.0,
+    "fiber_g": 10.6,
+    "sodium_mg": 2
+  },
+  "quinoa": {
+    "sat_fat_g": 0.7,
+    "sugar_g": 0,
+    "fiber_g": 7.0,
+    "sodium_mg": 5
+  },
+  "camote": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.2,
+    "fiber_g": 3.0,
+    "sodium_mg": 55
+  },
+  "sirloin de res magro": {
+    "sat_fat_g": 2.3,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 55
+  },
+  "granos de maíz": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 3.2,
+    "fiber_g": 2.7,
+    "sodium_mg": 15
+  },
+  "filete de salmón sin piel": {
+    "sat_fat_g": 1.9,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 59
+  },
+  "filete de pescado blanco": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 78
+  },
+  "jitomate": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 2.6,
+    "fiber_g": 1.2,
+    "sodium_mg": 5
+  },
+  "ejotes": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 3.3,
+    "fiber_g": 2.7,
+    "sodium_mg": 6
+  },
+  "huevos enteros": {
+    "sat_fat_g": 3.3,
+    "sugar_g": 1.1,
+    "fiber_g": 0,
+    "sodium_mg": 124
+  },
+  "espinacas": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.4,
+    "fiber_g": 2.2,
+    "sodium_mg": 79
+  },
+  "atún en agua": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 247
+  },
+  "ajo picado fino": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 1.0,
+    "fiber_g": 2.1,
+    "sodium_mg": 17
+  },
+  "chayote": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 1.7,
+    "fiber_g": 1.7,
+    "sodium_mg": 2
+  },
+  "sardinas en lata": {
+    "sat_fat_g": 1.5,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 307
+  },
+  "surubí": {
+    "sat_fat_g": 0.7,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 60
+  },
+  "caldo de pollo bajo en sodio": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.3,
+    "fiber_g": 0,
+    "sodium_mg": 90
+  },
+  "pacú": {
+    "sat_fat_g": 1.5,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 60
+  },
+  "espinacas frescas": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.4,
+    "fiber_g": 2.2,
+    "sodium_mg": 79
+  },
+  "filete de tilapia": {
+    "sat_fat_g": 0.8,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 52
+  },
+  "atún en lata": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 247
+  },
+  "clara de huevo": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 0.7,
+    "fiber_g": 0,
+    "sodium_mg": 166
+  },
+  "claras de huevo": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 0.7,
+    "fiber_g": 0,
+    "sodium_mg": 166
+  },
+  "semillas de chía": {
+    "sat_fat_g": 3.3,
+    "sugar_g": 0,
+    "fiber_g": 34.4,
+    "sodium_mg": 16
+  },
+  "filete de salmón": {
+    "sat_fat_g": 1.9,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 59
+  },
+  "miel de abeja": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 82.1,
+    "fiber_g": 0.2,
+    "sodium_mg": 4
+  },
+  "hielo": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 0
+  },
+  "sal": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 38758
+  },
+  "pepino": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 1.7,
+    "fiber_g": 0.5,
+    "sodium_mg": 2
+  },
+  "lechuga": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 0.8,
+    "fiber_g": 1.3,
+    "sodium_mg": 28
+  },
+  "queso cottage bajo en grasa": {
+    "sat_fat_g": 0.7,
+    "sugar_g": 2.7,
+    "fiber_g": 0,
+    "sodium_mg": 330
+  },
+  "espinaca": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.4,
+    "fiber_g": 2.2,
+    "sodium_mg": 79
+  },
+  "yuca": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0,
+    "fiber_g": 1.8,
+    "sodium_mg": 14
+  },
+  "orégano seco": {
+    "sat_fat_g": 0.6,
+    "sugar_g": 4.1,
+    "fiber_g": 42.5,
+    "sodium_mg": 25
+  },
+  "bacalao": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 54
+  },
+  "pan integral de molde": {
+    "sat_fat_g": 0.6,
+    "sugar_g": 6.0,
+    "fiber_g": 7.0,
+    "sodium_mg": 450
+  },
+  "ajo en polvo": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 2.4,
+    "fiber_g": 9.0,
+    "sodium_mg": 60
+  },
+  "plátano maduro": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 12.2,
+    "fiber_g": 2.6,
+    "sodium_mg": 1
+  },
+  "tilapia": {
+    "sat_fat_g": 0.8,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 52
+  },
+  "cebolla picada fina": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.2,
+    "fiber_g": 1.7,
+    "sodium_mg": 4
+  },
+  "salsa de soya baja en sodio": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 1.7,
+    "fiber_g": 0.8,
+    "sodium_mg": 3600
+  },
+  "jengibre fresco rallado": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 1.7,
+    "fiber_g": 2.0,
+    "sodium_mg": 13
+  },
+  "nopal": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 1.0,
+    "fiber_g": 3.6,
+    "sodium_mg": 21
+  },
+  "arroz blanco crudo": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 0.1,
+    "fiber_g": 1.3,
+    "sodium_mg": 5
+  },
+  "pan integral tostado": {
+    "sat_fat_g": 0.7,
+    "sugar_g": 6.0,
+    "fiber_g": 7.5,
+    "sodium_mg": 480
+  },
+  "aguacate maduro": {
+    "sat_fat_g": 2.1,
+    "sugar_g": 0.7,
+    "fiber_g": 6.7,
+    "sodium_mg": 7
+  },
+  "proteína en polvo sabor vainilla": {
+    "sat_fat_g": 1.5,
+    "sugar_g": 5.0,
+    "fiber_g": 2.0,
+    "sodium_mg": 350
+  },
+  "tomate mediano": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 2.6,
+    "fiber_g": 1.2,
+    "sodium_mg": 5
+  },
+  "camarones pelados y limpios": {
+    "sat_fat_g": 0.3,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 111
+  },
+  "pavo molido": {
+    "sat_fat_g": 2.3,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 75
+  },
+  "carne molida de res": {
+    "sat_fat_g": 5.4,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 66
+  },
+  "tortilla de maíz": {
+    "sat_fat_g": 0.4,
+    "sugar_g": 0.8,
+    "fiber_g": 3.9,
+    "sodium_mg": 45
+  },
+  "cola de langosta": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 296
+  },
+  "proteína de suero sabor vainilla": {
+    "sat_fat_g": 1.5,
+    "sugar_g": 4.0,
+    "fiber_g": 1.0,
+    "sodium_mg": 300
+  },
+  "pierna de cerdo": {
+    "sat_fat_g": 3.0,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 55
+  },
+  "perejil fresco": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.9,
+    "fiber_g": 3.3,
+    "sodium_mg": 56
+  },
+  "calabacín": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 2.5,
+    "fiber_g": 1.0,
+    "sodium_mg": 8
+  },
+  "yogur griego natural sin grasa": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 3.6,
+    "fiber_g": 0,
+    "sodium_mg": 36
+  },
+  "plátano congelado": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 12.2,
+    "fiber_g": 2.6,
+    "sodium_mg": 1
+  },
+  "trucha": {
+    "sat_fat_g": 1.6,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 51
+  },
+  "yogur griego sin grasa": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 3.6,
+    "fiber_g": 0,
+    "sodium_mg": 36
+  },
+  "aceite de oliva extra virgen": {
+    "sat_fat_g": 13.8,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 2
+  },
+  "chuleta de cerdo": {
+    "sat_fat_g": 2.5,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 58
+  },
+  "batata": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.2,
+    "fiber_g": 3.0,
+    "sodium_mg": 55
+  },
+  "coliflor": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 1.9,
+    "fiber_g": 2.0,
+    "sodium_mg": 30
+  },
+  "elote": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 3.2,
+    "fiber_g": 2.7,
+    "sodium_mg": 15
+  },
+  "extracto de vainilla": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 12.7,
+    "fiber_g": 0,
+    "sodium_mg": 9
+  },
+  "canela en polvo": {
+    "sat_fat_g": 0.3,
+    "sugar_g": 2.2,
+    "fiber_g": 53.1,
+    "sodium_mg": 10
+  },
+  "frijol negro cocido": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.3,
+    "fiber_g": 8.7,
+    "sodium_mg": 2
+  },
+  "pasta integral": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 0.6,
+    "fiber_g": 3.9,
+    "sodium_mg": 4
+  },
+  "apio": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 1.8,
+    "fiber_g": 1.6,
+    "sodium_mg": 80
+  },
+  "papa mediana": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 0.8,
+    "fiber_g": 2.1,
+    "sodium_mg": 6
+  },
+  "plátano": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 12.2,
+    "fiber_g": 2.6,
+    "sodium_mg": 1
+  },
+  "tortillas de maíz": {
+    "sat_fat_g": 0.4,
+    "sugar_g": 0.8,
+    "fiber_g": 3.9,
+    "sodium_mg": 45
+  },
+  "tomate rojo": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 2.6,
+    "fiber_g": 1.2,
+    "sodium_mg": 5
+  },
+  "tomate en cubos": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 3.6,
+    "fiber_g": 1.0,
+    "sodium_mg": 120
+  },
+  "cilantro fresco": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 0.9,
+    "fiber_g": 2.8,
+    "sodium_mg": 46
+  },
+  "tomillo seco": {
+    "sat_fat_g": 0.5,
+    "sugar_g": 1.7,
+    "fiber_g": 37.0,
+    "sodium_mg": 55
+  },
+  "yogur griego descremado": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 3.6,
+    "fiber_g": 0,
+    "sodium_mg": 36
+  },
+  "comino molido": {
+    "sat_fat_g": 1.5,
+    "sugar_g": 2.3,
+    "fiber_g": 10.5,
+    "sodium_mg": 168
+  },
+  "lenteja cocida": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 1.8,
+    "fiber_g": 7.9,
+    "sodium_mg": 2
+  },
+  "canela molida": {
+    "sat_fat_g": 0.3,
+    "sugar_g": 2.2,
+    "fiber_g": 53.1,
+    "sodium_mg": 10
+  },
+  "tomate cherry": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 2.6,
+    "fiber_g": 1.2,
+    "sodium_mg": 5
+  },
+  "tofu firme": {
+    "sat_fat_g": 0.7,
+    "sugar_g": 0.6,
+    "fiber_g": 0.9,
+    "sodium_mg": 12
+  },
+  "pimiento morrón": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.2,
+    "fiber_g": 2.1,
+    "sodium_mg": 4
+  },
+  "comino en polvo": {
+    "sat_fat_g": 1.5,
+    "sugar_g": 2.3,
+    "fiber_g": 10.5,
+    "sodium_mg": 168
+  },
+  "leche de coco light": {
+    "sat_fat_g": 6.0,
+    "sugar_g": 2.0,
+    "fiber_g": 1.0,
+    "sodium_mg": 15
+  },
+  "caldo de res bajo en sodio": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.3,
+    "fiber_g": 0,
+    "sodium_mg": 90
+  },
+  "bistec de res": {
+    "sat_fat_g": 4.4,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 67
+  },
+  "brócoli en trozos": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 1.7,
+    "fiber_g": 2.6,
+    "sodium_mg": 33
+  },
+  "mostaza dijon": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 1.5,
+    "fiber_g": 3.3,
+    "sodium_mg": 1120
+  },
+  "agua": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 0
+  },
+  "nueces": {
+    "sat_fat_g": 6.1,
+    "sugar_g": 2.6,
+    "fiber_g": 6.7,
+    "sodium_mg": 2
+  },
+  "cebolla morada": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 0,
+    "fiber_g": 1.7,
+    "sodium_mg": 4
+  },
+  "lomo de res": {
+    "sat_fat_g": 4.4,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 67
+  },
+  "espinacas baby frescas": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.4,
+    "fiber_g": 2.2,
+    "sodium_mg": 79
+  },
+  "queso parmesano rallado": {
+    "sat_fat_g": 19.1,
+    "sugar_g": 0.9,
+    "fiber_g": 0,
+    "sodium_mg": 1529
+  },
+  "huevo": {
+    "sat_fat_g": 3.3,
+    "sugar_g": 1.1,
+    "fiber_g": 0,
+    "sodium_mg": 124
+  },
+  "muslo de pollo sin piel": {
+    "sat_fat_g": 2.7,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 86
+  },
+  "espárragos frescos": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 1.9,
+    "fiber_g": 2.1,
+    "sodium_mg": 2
+  },
+  "requesón bajo en grasa": {
+    "sat_fat_g": 0.7,
+    "sugar_g": 2.7,
+    "fiber_g": 0,
+    "sodium_mg": 330
+  },
+  "tortilla integral grande": {
+    "sat_fat_g": 1.5,
+    "sugar_g": 2.5,
+    "fiber_g": 5.0,
+    "sodium_mg": 480
+  },
+  "cebolla blanca picada fina": {
+    "sat_fat_g": 0,
+    "sugar_g": 4.2,
+    "fiber_g": 1.7,
+    "sodium_mg": 4
+  },
+  "queso mozzarella bajo en grasa rallado": {
+    "sat_fat_g": 9.0,
+    "sugar_g": 1.1,
+    "fiber_g": 0,
+    "sodium_mg": 505
+  },
+  "cebolla blanca picada": {
+    "sat_fat_g": 0,
+    "sugar_g": 4.2,
+    "fiber_g": 1.7,
+    "sodium_mg": 4
+  },
+  "camarones limpios y pelados": {
+    "sat_fat_g": 0.3,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 111
+  },
+  "pasta integral cocida": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 0.6,
+    "fiber_g": 3.9,
+    "sodium_mg": 4
+  },
+  "garbanzo cocido": {
+    "sat_fat_g": 0.3,
+    "sugar_g": 4.8,
+    "fiber_g": 7.6,
+    "sodium_mg": 7
+  },
+  "pechuga de pavo sin piel": {
+    "sat_fat_g": 0.5,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 63
+  },
+  "filete de atún fresco": {
+    "sat_fat_g": 0.3,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 45
+  },
+  "yogur griego natural sin azúcar": {
+    "sat_fat_g": 1.2,
+    "sugar_g": 3.6,
+    "fiber_g": 0,
+    "sodium_mg": 36
+  },
+  "chile en polvo": {
+    "sat_fat_g": 1.1,
+    "sugar_g": 7.2,
+    "fiber_g": 34.8,
+    "sodium_mg": 1640
+  },
+  "semilla de linaza molida": {
+    "sat_fat_g": 3.7,
+    "sugar_g": 1.6,
+    "fiber_g": 27.3,
+    "sodium_mg": 30
+  },
+  "tomate triturado": {
+    "sat_fat_g": 0,
+    "sugar_g": 3.6,
+    "fiber_g": 1.9,
+    "sodium_mg": 90
+  },
+  "caldo de verduras bajo en sodio": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.5,
+    "fiber_g": 0,
+    "sodium_mg": 60
+  },
+  "quinoa cruda": {
+    "sat_fat_g": 0.7,
+    "sugar_g": 0,
+    "fiber_g": 7.0,
+    "sodium_mg": 5
+  },
+  "semilla de chía": {
+    "sat_fat_g": 3.3,
+    "sugar_g": 0,
+    "fiber_g": 34.4,
+    "sodium_mg": 16
+  },
+  "carne molida de res (90% magra)": {
+    "sat_fat_g": 4.5,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 66
+  },
+  "zanahoria en rodajas": {
+    "sat_fat_g": 0,
+    "sugar_g": 4.7,
+    "fiber_g": 2.8,
+    "sodium_mg": 69
+  },
+  "canela": {
+    "sat_fat_g": 0.3,
+    "sugar_g": 2.2,
+    "fiber_g": 53.1,
+    "sodium_mg": 10
+  },
+  "pan integral": {
+    "sat_fat_g": 0.6,
+    "sugar_g": 6.0,
+    "fiber_g": 7.0,
+    "sodium_mg": 450
+  },
+  "brócoli en floretes": {
+    "sat_fat_g": 0,
+    "sugar_g": 1.7,
+    "fiber_g": 2.6,
+    "sodium_mg": 33
+  },
+  "maíz tierno": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 3.2,
+    "fiber_g": 2.7,
+    "sodium_mg": 15
+  },
+  "jugo de naranja natural": {
+    "sat_fat_g": 0,
+    "sugar_g": 8.4,
+    "fiber_g": 0.2,
+    "sodium_mg": 1
+  },
+  "espárragos": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 1.9,
+    "fiber_g": 2.1,
+    "sodium_mg": 2
+  },
+  "atún en agua escurrido": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 247
+  },
+  "nueces picadas": {
+    "sat_fat_g": 6.1,
+    "sugar_g": 2.6,
+    "fiber_g": 6.7,
+    "sodium_mg": 2
+  },
+  "champiñones frescos": {
+    "sat_fat_g": 0,
+    "sugar_g": 2.0,
+    "fiber_g": 1.0,
+    "sodium_mg": 5
+  },
+  "pimiento rojo en cubos": {
+    "sat_fat_g": 0,
+    "sugar_g": 4.2,
+    "fiber_g": 2.1,
+    "sodium_mg": 4
+  },
+  "mango": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 13.7,
+    "fiber_g": 1.6,
+    "sodium_mg": 1
+  },
+  "papa en cubos medianos": {
+    "sat_fat_g": 0,
+    "sugar_g": 0.8,
+    "fiber_g": 2.1,
+    "sodium_mg": 6
+  },
+  "cacao en polvo sin azúcar": {
+    "sat_fat_g": 8.1,
+    "sugar_g": 1.8,
+    "fiber_g": 33.2,
+    "sodium_mg": 21
+  },
+  "cilantro": {
+    "sat_fat_g": 0,
+    "sugar_g": 0.9,
+    "fiber_g": 2.8,
+    "sodium_mg": 46
+  },
+  "manzana": {
+    "sat_fat_g": 0,
+    "sugar_g": 10.4,
+    "fiber_g": 2.4,
+    "sodium_mg": 1
+  },
+  "camarón": {
+    "sat_fat_g": 0.3,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 111
+  },
+  "almendras laminadas": {
+    "sat_fat_g": 3.8,
+    "sugar_g": 4.4,
+    "fiber_g": 12.5,
+    "sodium_mg": 1
+  },
+  "arándanos": {
+    "sat_fat_g": 0,
+    "sugar_g": 10.0,
+    "fiber_g": 2.4,
+    "sodium_mg": 1
+  },
+  "cúrcuma": {
+    "sat_fat_g": 1.8,
+    "sugar_g": 3.2,
+    "fiber_g": 21.1,
+    "sodium_mg": 27
+  },
+  "tomate cherry partido a la mitad": {
+    "sat_fat_g": 0,
+    "sugar_g": 2.6,
+    "fiber_g": 1.2,
+    "sodium_mg": 5
+  },
+  "papa blanca": {
+    "sat_fat_g": 0,
+    "sugar_g": 0.8,
+    "fiber_g": 2.1,
+    "sodium_mg": 6
+  },
+  "fresas": {
+    "sat_fat_g": 0,
+    "sugar_g": 4.9,
+    "fiber_g": 2.0,
+    "sodium_mg": 1
+  },
+  "bacalao (pescado blanco)": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 54
+  },
+  "avena en hojuelas seca": {
+    "sat_fat_g": 1.2,
+    "sugar_g": 1.0,
+    "fiber_g": 10.6,
+    "sodium_mg": 2
+  },
+  "ralladura de limón": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 4.2,
+    "fiber_g": 10.6,
+    "sodium_mg": 6
+  },
+  "fresas frescas": {
+    "sat_fat_g": 0,
+    "sugar_g": 4.9,
+    "fiber_g": 2.0,
+    "sodium_mg": 1
+  },
+  "camarones limpios sin cáscara": {
+    "sat_fat_g": 0.3,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 111
+  },
+  "albahaca fresca": {
+    "sat_fat_g": 0,
+    "sugar_g": 0.3,
+    "fiber_g": 1.6,
+    "sodium_mg": 4
+  },
+  "lentejas rojas cocidas": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 1.8,
+    "fiber_g": 7.9,
+    "sodium_mg": 2
+  },
+  "zucchini": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 2.5,
+    "fiber_g": 1.0,
+    "sodium_mg": 8
+  },
+  "coco rallado sin azúcar": {
+    "sat_fat_g": 57.2,
+    "sugar_g": 7.4,
+    "fiber_g": 16.3,
+    "sodium_mg": 37
+  },
+  "zanahoria en cubos": {
+    "sat_fat_g": 0,
+    "sugar_g": 4.7,
+    "fiber_g": 2.8,
+    "sodium_mg": 69
+  },
+  "semillas de sésamo": {
+    "sat_fat_g": 6.7,
+    "sugar_g": 0.3,
+    "fiber_g": 11.8,
+    "sodium_mg": 11
+  },
+  "pechuga de pollo en cubos": {
+    "sat_fat_g": 1.0,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 74
+  },
+  "chuño": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.3,
+    "fiber_g": 1.8,
+    "sodium_mg": 10
+  },
+  "carne molida de cerdo": {
+    "sat_fat_g": 6.2,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 62
+  },
+  "pulpo limpio cocido": {
+    "sat_fat_g": 0.4,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 460
+  },
+  "mantequilla": {
+    "sat_fat_g": 51.4,
+    "sugar_g": 0.1,
+    "fiber_g": 0,
+    "sodium_mg": 643
+  },
+  "pechuga de pollo en cubos de 2cm": {
+    "sat_fat_g": 1.0,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 74
+  },
+  "piña": {
+    "sat_fat_g": 0,
+    "sugar_g": 9.9,
+    "fiber_g": 1.4,
+    "sodium_mg": 1
+  },
+  "zanahoria en trozos": {
+    "sat_fat_g": 0,
+    "sugar_g": 4.7,
+    "fiber_g": 2.8,
+    "sodium_mg": 69
+  },
+  "camarones medianos pelados y limpios": {
+    "sat_fat_g": 0.3,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 111
+  },
+  "piña fresca en trozos": {
+    "sat_fat_g": 0,
+    "sugar_g": 9.9,
+    "fiber_g": 1.4,
+    "sodium_mg": 1
+  },
+  "tomate triturado natural": {
+    "sat_fat_g": 0,
+    "sugar_g": 3.2,
+    "fiber_g": 1.2,
+    "sodium_mg": 11
+  },
+  "pepino en rodajas": {
+    "sat_fat_g": 0,
+    "sugar_g": 1.7,
+    "fiber_g": 0.5,
+    "sodium_mg": 2
+  },
+  "tomate triturado en lata": {
+    "sat_fat_g": 0,
+    "sugar_g": 3.6,
+    "fiber_g": 1.9,
+    "sodium_mg": 150
+  },
+  "cuscús": {
+    "sat_fat_g": 0,
+    "sugar_g": 0.1,
+    "fiber_g": 1.4,
+    "sodium_mg": 5
+  },
+  "calamar limpio en aros": {
+    "sat_fat_g": 0.4,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 44
+  },
+  "pasta integral (penne o fusilli)": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 0.6,
+    "fiber_g": 3.9,
+    "sodium_mg": 4
+  },
+  "garbanzos cocidos (en lata, escurridos)": {
+    "sat_fat_g": 0.3,
+    "sugar_g": 0.4,
+    "fiber_g": 6.4,
+    "sodium_mg": 240
+  },
+  "champiñones frescos rebanados": {
+    "sat_fat_g": 0,
+    "sugar_g": 2.0,
+    "fiber_g": 1.0,
+    "sodium_mg": 5
+  },
+  "pimiento verde": {
+    "sat_fat_g": 0,
+    "sugar_g": 2.4,
+    "fiber_g": 1.7,
+    "sodium_mg": 3
+  },
+  "curry en polvo": {
+    "sat_fat_g": 2.2,
+    "sugar_g": 2.8,
+    "fiber_g": 33.2,
+    "sodium_mg": 52
+  },
+  "romero seco": {
+    "sat_fat_g": 2.8,
+    "sugar_g": 0,
+    "fiber_g": 42.6,
+    "sodium_mg": 50
+  },
+  "almendras": {
+    "sat_fat_g": 3.8,
+    "sugar_g": 4.4,
+    "fiber_g": 12.5,
+    "sodium_mg": 1
+  },
+  "champiñones": {
+    "sat_fat_g": 0,
+    "sugar_g": 2.0,
+    "fiber_g": 1.0,
+    "sodium_mg": 5
+  },
+  "tomate picado fino": {
+    "sat_fat_g": 0,
+    "sugar_g": 2.6,
+    "fiber_g": 1.2,
+    "sodium_mg": 5
+  },
+  "judías verdes": {
+    "sat_fat_g": 0,
+    "sugar_g": 3.3,
+    "fiber_g": 2.7,
+    "sodium_mg": 6
+  },
+  "páprika ahumada": {
+    "sat_fat_g": 2.1,
+    "sugar_g": 10.3,
+    "fiber_g": 34.9,
+    "sodium_mg": 68
+  },
+  "muesli sin azúcar añadida": {
+    "sat_fat_g": 1.2,
+    "sugar_g": 15.0,
+    "fiber_g": 7.5,
+    "sodium_mg": 20
+  },
+  "almendras picadas": {
+    "sat_fat_g": 3.8,
+    "sugar_g": 4.4,
+    "fiber_g": 12.5,
+    "sodium_mg": 1
+  },
+  "cebollín picado fino": {
+    "sat_fat_g": 0,
+    "sugar_g": 1.9,
+    "fiber_g": 2.5,
+    "sodium_mg": 3
+  },
+  "queso panela": {
+    "sat_fat_g": 12.0,
+    "sugar_g": 2.5,
+    "fiber_g": 0,
+    "sodium_mg": 400
+  },
+  "zucchini (calabacín) en cubos": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 2.5,
+    "fiber_g": 1.0,
+    "sodium_mg": 8
+  },
+  "apio en rodajas": {
+    "sat_fat_g": 0,
+    "sugar_g": 1.8,
+    "fiber_g": 1.6,
+    "sodium_mg": 80
+  },
+  "yogur bajo en grasa": {
+    "sat_fat_g": 1.0,
+    "sugar_g": 4.7,
+    "fiber_g": 0,
+    "sodium_mg": 58
+  },
+  "aceite de sésamo": {
+    "sat_fat_g": 14.2,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 0
+  },
+  "calabacín (zucchini)": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 2.5,
+    "fiber_g": 1.0,
+    "sodium_mg": 8
+  },
+  "pan de centeno": {
+    "sat_fat_g": 0.6,
+    "sugar_g": 3.9,
+    "fiber_g": 5.8,
+    "sodium_mg": 603
+  },
+  "pechuga de pavo en rebanadas": {
+    "sat_fat_g": 0.5,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 63
+  },
+  "cebolla morada picada fina": {
+    "sat_fat_g": 0,
+    "sugar_g": 4.2,
+    "fiber_g": 1.7,
+    "sodium_mg": 4
+  },
+  "requeson bajo en grasa": {
+    "sat_fat_g": 0.7,
+    "sugar_g": 2.7,
+    "fiber_g": 0,
+    "sodium_mg": 330
+  },
+  "proteína en polvo": {
+    "sat_fat_g": 1.5,
+    "sugar_g": 4.0,
+    "fiber_g": 1.0,
+    "sodium_mg": 250
+  },
+  "perejil fresco picado": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.9,
+    "fiber_g": 3.3,
+    "sodium_mg": 56
+  },
+  "champiñones en rodajas": {
+    "sat_fat_g": 0,
+    "sugar_g": 2.0,
+    "fiber_g": 1.0,
+    "sodium_mg": 5
+  },
+  "nopales": {
+    "sat_fat_g": 0,
+    "sugar_g": 1.1,
+    "fiber_g": 2.2,
+    "sodium_mg": 21
+  },
+  "tomate en rodajas": {
+    "sat_fat_g": 0,
+    "sugar_g": 2.6,
+    "fiber_g": 1.2,
+    "sodium_mg": 5
+  },
+  "mantequilla de maní": {
+    "sat_fat_g": 10.3,
+    "sugar_g": 9.2,
+    "fiber_g": 6.0,
+    "sodium_mg": 476
+  },
+  "arroz integral crudo": {
+    "sat_fat_g": 0.6,
+    "sugar_g": 0.9,
+    "fiber_g": 3.5,
+    "sodium_mg": 7
+  },
+  "mantequilla de maní natural sin azúcar": {
+    "sat_fat_g": 8.0,
+    "sugar_g": 2.9,
+    "fiber_g": 6.5,
+    "sodium_mg": 8
+  },
+  "champiñones en láminas": {
+    "sat_fat_g": 0,
+    "sugar_g": 2.0,
+    "fiber_g": 1.0,
+    "sodium_mg": 5
+  },
+  "lechuga romana": {
+    "sat_fat_g": 0,
+    "sugar_g": 1.2,
+    "fiber_g": 2.1,
+    "sodium_mg": 8
+  },
+  "pechuga de pavo en láminas": {
+    "sat_fat_g": 0.5,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 63
+  },
+  "mango maduro": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 13.7,
+    "fiber_g": 1.6,
+    "sodium_mg": 1
+  },
+  "plátano maduro congelado": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 12.2,
+    "fiber_g": 2.6,
+    "sodium_mg": 1
+  },
+  "cilantro fresco picado": {
+    "sat_fat_g": 0,
+    "sugar_g": 0.9,
+    "fiber_g": 2.8,
+    "sodium_mg": 46
+  },
+  "mostaza": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 2.9,
+    "fiber_g": 3.3,
+    "sodium_mg": 1135
+  },
+  "salvado de avena": {
+    "sat_fat_g": 1.3,
+    "sugar_g": 1.5,
+    "fiber_g": 15.4,
+    "sodium_mg": 4
+  },
+  "tomates cherry": {
+    "sat_fat_g": 0,
+    "sugar_g": 2.6,
+    "fiber_g": 1.2,
+    "sodium_mg": 5
+  },
+  "yogur griego natural sin azúcar 0% grasa": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 3.2,
+    "fiber_g": 0,
+    "sodium_mg": 36
+  },
+  "papa blanca en cubos": {
+    "sat_fat_g": 0,
+    "sugar_g": 0.8,
+    "fiber_g": 2.1,
+    "sodium_mg": 6
+  },
+  "frijoles pintos cocidos": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.3,
+    "fiber_g": 9.0,
+    "sodium_mg": 1
+  },
+  "batata en cubos": {
+    "sat_fat_g": 0,
+    "sugar_g": 4.2,
+    "fiber_g": 3.0,
+    "sodium_mg": 55
+  },
+  "mantequilla sin sal": {
+    "sat_fat_g": 51.4,
+    "sugar_g": 0.1,
+    "fiber_g": 0,
+    "sodium_mg": 11
+  },
+  "arroz blanco de grano corto": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 0.1,
+    "fiber_g": 1.3,
+    "sodium_mg": 1
+  },
+  "atún en agua, escurrido": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 247
+  },
+  "semilla de chia": {
+    "sat_fat_g": 3.3,
+    "sugar_g": 0,
+    "fiber_g": 34.4,
+    "sodium_mg": 16
+  },
+  "frambuesas": {
+    "sat_fat_g": 0,
+    "sugar_g": 4.4,
+    "fiber_g": 6.5,
+    "sodium_mg": 1
+  },
+  "queso bajo en grasa rallado": {
+    "sat_fat_g": 6.0,
+    "sugar_g": 1.0,
+    "fiber_g": 0,
+    "sodium_mg": 600
+  },
+  "leche de almendra sin azúcar": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0,
+    "fiber_g": 0.4,
+    "sodium_mg": 63
+  },
+  "kiwi": {
+    "sat_fat_g": 0.3,
+    "sugar_g": 9.0,
+    "fiber_g": 3.0,
+    "sodium_mg": 3
+  },
+  "alcaparras en salmuera escurridas": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.4,
+    "fiber_g": 3.2,
+    "sodium_mg": 2350
+  },
+  "lentejas": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 1.8,
+    "fiber_g": 7.9,
+    "sodium_mg": 2
+  },
+  "espinacas picadas": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.4,
+    "fiber_g": 2.2,
+    "sodium_mg": 79
+  },
+  "cebolla en cuartos": {
+    "sat_fat_g": 0,
+    "sugar_g": 4.2,
+    "fiber_g": 1.7,
+    "sodium_mg": 4
+  },
+  "pimiento": {
+    "sat_fat_g": 0,
+    "sugar_g": 4.2,
+    "fiber_g": 2.1,
+    "sodium_mg": 4
+  },
+  "leche entera": {
+    "sat_fat_g": 1.9,
+    "sugar_g": 5.1,
+    "fiber_g": 0,
+    "sodium_mg": 43
+  },
+  "lentejas rojas secas": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 2.0,
+    "fiber_g": 10.8,
+    "sodium_mg": 6
+  },
+  "rebanada de queso bajo en grasa": {
+    "sat_fat_g": 3.0,
+    "sugar_g": 1.0,
+    "fiber_g": 0,
+    "sodium_mg": 600
+  },
+  "brócoli en ramitos pequeños": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 1.7,
+    "fiber_g": 2.6,
+    "sodium_mg": 33
+  },
+  "naranja": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 9.4,
+    "fiber_g": 2.4,
+    "sodium_mg": 0
+  },
+  "aceite de coco": {
+    "sat_fat_g": 82.5,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 0
+  },
+  "paprika": {
+    "sat_fat_g": 1.9,
+    "sugar_g": 10.3,
+    "fiber_g": 34.9,
+    "sodium_mg": 68
+  },
+  "yogur griego natural 0%": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 3.6,
+    "fiber_g": 0,
+    "sodium_mg": 36
+  },
+  "cebolla blanca en picado fino": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.2,
+    "fiber_g": 1.7,
+    "sodium_mg": 4
+  },
+  "proteína en polvo sabor chocolate": {
+    "sat_fat_g": 1.5,
+    "sugar_g": 5.0,
+    "fiber_g": 3.0,
+    "sodium_mg": 300
+  },
+  "salmón": {
+    "sat_fat_g": 3.1,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 59
+  },
+  "frijoles negros cocidos (en lata, escurridos)": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.3,
+    "fiber_g": 7.0,
+    "sodium_mg": 220
+  },
+  "queso cheddar bajo en grasa rallado": {
+    "sat_fat_g": 4.3,
+    "sugar_g": 0.5,
+    "fiber_g": 0,
+    "sodium_mg": 600
+  },
+  "pasta integral (penne o espiral)": {
+    "sat_fat_g": 0.3,
+    "sugar_g": 0.6,
+    "fiber_g": 3.9,
+    "sodium_mg": 4
+  },
+  "tofu firme en cubos de 2cm": {
+    "sat_fat_g": 1.0,
+    "sugar_g": 0.6,
+    "fiber_g": 0.9,
+    "sodium_mg": 12
+  },
+  "hojas de menta": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0,
+    "fiber_g": 8.0,
+    "sodium_mg": 31
+  },
+  "tomates maduros en trozos": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 2.6,
+    "fiber_g": 1.2,
+    "sodium_mg": 5
+  },
+  "pasta integral tipo espagueti": {
+    "sat_fat_g": 0.3,
+    "sugar_g": 0.6,
+    "fiber_g": 3.9,
+    "sodium_mg": 4
+  },
+  "habichuelas (vainitas) verdes": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 3.3,
+    "fiber_g": 2.7,
+    "sodium_mg": 6
+  },
+  "frijoles blancos cocidos": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.3,
+    "fiber_g": 6.3,
+    "sodium_mg": 6
+  },
+  "atún en agua (escurrido)": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 320
+  },
+  "lomo de res sin grasa visible": {
+    "sat_fat_g": 2.5,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 55
+  },
+  "mozzarella light rallada": {
+    "sat_fat_g": 3.0,
+    "sugar_g": 1.0,
+    "fiber_g": 0,
+    "sodium_mg": 490
+  },
+  "durazno": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 8.4,
+    "fiber_g": 1.5,
+    "sodium_mg": 0
+  },
+  "leche": {
+    "sat_fat_g": 1.9,
+    "sugar_g": 5.0,
+    "fiber_g": 0,
+    "sodium_mg": 43
+  },
+  "alcaparras": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.4,
+    "fiber_g": 3.2,
+    "sodium_mg": 2350
+  },
+  "queso fresco bajo en grasa": {
+    "sat_fat_g": 3.5,
+    "sugar_g": 2.0,
+    "fiber_g": 0,
+    "sodium_mg": 350
+  },
+  "arvejas": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 5.7,
+    "fiber_g": 5.1,
+    "sodium_mg": 5
+  },
+  "papaya": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 7.8,
+    "fiber_g": 1.7,
+    "sodium_mg": 8
+  },
+  "lomo de cerdo en cubos": {
+    "sat_fat_g": 2.0,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 55
+  },
+  "albahaca seca": {
+    "sat_fat_g": 0.4,
+    "sugar_g": 1.7,
+    "fiber_g": 37.7,
+    "sodium_mg": 76
+  },
+  "zanahoria rallada": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.7,
+    "fiber_g": 2.8,
+    "sodium_mg": 69
+  },
+  "queso crema bajo en grasa": {
+    "sat_fat_g": 9.0,
+    "sugar_g": 3.5,
+    "fiber_g": 0,
+    "sodium_mg": 340
+  },
+  "carne de res (corte magro, sin grasa visible)": {
+    "sat_fat_g": 2.5,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 55
+  },
+  "proteína de suero sabor chocolate": {
+    "sat_fat_g": 1.5,
+    "sugar_g": 5.0,
+    "fiber_g": 2.0,
+    "sodium_mg": 250
+  },
+  "avena en hojuelas (molida)": {
+    "sat_fat_g": 1.2,
+    "sugar_g": 1.0,
+    "fiber_g": 10.6,
+    "sodium_mg": 2
+  },
+  "pechuga de pavo molida o en trozos pequeños": {
+    "sat_fat_g": 1.0,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 60
+  },
+  "carne de res para guisar en cubos": {
+    "sat_fat_g": 3.5,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 60
+  },
+  "carne de res (corte sin grasa visible)": {
+    "sat_fat_g": 2.5,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 55
+  },
+  "pimiento verde picado": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 2.4,
+    "fiber_g": 1.7,
+    "sodium_mg": 3
+  },
+  "pimiento rojo en tiras delgadas": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 4.2,
+    "fiber_g": 2.1,
+    "sodium_mg": 4
+  },
+  "leche de coco": {
+    "sat_fat_g": 21.1,
+    "sugar_g": 3.3,
+    "fiber_g": 2.2,
+    "sodium_mg": 15
+  },
+  "caldo de vegetales bajo en sodio": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 0.5,
+    "fiber_g": 0,
+    "sodium_mg": 55
+  },
+  "aguacate maduro en cubos": {
+    "sat_fat_g": 2.1,
+    "sugar_g": 0.7,
+    "fiber_g": 6.7,
+    "sodium_mg": 7
+  },
+  "proteína de suero sabor vainilla o coco": {
+    "sat_fat_g": 1.5,
+    "sugar_g": 4.0,
+    "fiber_g": 1.0,
+    "sodium_mg": 250
+  },
+  "pavo molido bajo en grasa": {
+    "sat_fat_g": 1.5,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 65
+  },
+  "tomates pera maduros triturados": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 3.5,
+    "fiber_g": 1.3,
+    "sodium_mg": 10
+  },
+  "lomo de res en medallones": {
+    "sat_fat_g": 2.5,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 55
+  },
+  "jamón de pavo bajo en grasa en cubos": {
+    "sat_fat_g": 1.0,
+    "sugar_g": 1.5,
+    "fiber_g": 0,
+    "sodium_mg": 1000
+  },
+  "espárrago": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 1.9,
+    "fiber_g": 2.1,
+    "sodium_mg": 2
+  },
+  "semillas de girasol": {
+    "sat_fat_g": 4.5,
+    "sugar_g": 2.6,
+    "fiber_g": 8.6,
+    "sodium_mg": 9
+  },
+  "fresas frescas o congeladas": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.9,
+    "fiber_g": 2.0,
+    "sodium_mg": 1
+  },
+  "papa dulce (batata) en rodajas": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.2,
+    "fiber_g": 3.0,
+    "sodium_mg": 55
+  },
+  "almendras crudas": {
+    "sat_fat_g": 3.8,
+    "sugar_g": 4.4,
+    "fiber_g": 12.5,
+    "sodium_mg": 1
+  },
+  "carne de res para guisar": {
+    "sat_fat_g": 3.5,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 60
+  },
+  "pasta integral (penne)": {
+    "sat_fat_g": 0.3,
+    "sugar_g": 0.6,
+    "fiber_g": 3.9,
+    "sodium_mg": 4
+  },
+  "sandía": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 6.2,
+    "fiber_g": 0.4,
+    "sodium_mg": 1
+  },
+  "tomates maduros": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 2.6,
+    "fiber_g": 1.2,
+    "sodium_mg": 5
+  },
+  "fideos de sopa medianos": {
+    "sat_fat_g": 0.3,
+    "sugar_g": 0.6,
+    "fiber_g": 1.8,
+    "sodium_mg": 6
+  },
+  "agua o caldo bajo en sodio": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 0.2,
+    "fiber_g": 0,
+    "sodium_mg": 40
+  },
+  "pasta integral (espagueti o penne)": {
+    "sat_fat_g": 0.3,
+    "sugar_g": 0.6,
+    "fiber_g": 3.9,
+    "sodium_mg": 4
+  },
+  "tomate picado": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 2.6,
+    "fiber_g": 1.2,
+    "sodium_mg": 5
+  },
+  "papa cocida en cubos pequeños": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 0.9,
+    "fiber_g": 1.8,
+    "sodium_mg": 4
+  },
+  "páprika": {
+    "sat_fat_g": 1.9,
+    "sugar_g": 10.3,
+    "fiber_g": 34.9,
+    "sodium_mg": 68
+  },
+  "jugo de limón verde": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 1.7,
+    "fiber_g": 0.4,
+    "sodium_mg": 2
+  },
+  "cacao en polvo": {
+    "sat_fat_g": 8.1,
+    "sugar_g": 1.8,
+    "fiber_g": 33.2,
+    "sodium_mg": 21
+  },
+  "garbanzos cocidos en lata": {
+    "sat_fat_g": 0.3,
+    "sugar_g": 0.4,
+    "fiber_g": 7.6,
+    "sodium_mg": 240
+  },
+  "carne de carne de res en cubos (carne de res para guisar)": {
+    "sat_fat_g": 3.5,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 60
+  },
+  "cuscús integral": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 0.1,
+    "fiber_g": 2.2,
+    "sodium_mg": 5
+  },
+  "cebolla picada": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.2,
+    "fiber_g": 1.7,
+    "sodium_mg": 4
+  },
+  "queso cottage descremado": {
+    "sat_fat_g": 0.3,
+    "sugar_g": 3.4,
+    "fiber_g": 0,
+    "sodium_mg": 330
+  },
+  "tortilla de harina integral (30g c/u)": {
+    "sat_fat_g": 1.5,
+    "sugar_g": 2.0,
+    "fiber_g": 5.0,
+    "sodium_mg": 500
+  },
+  "caldo de vegetales": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.7,
+    "fiber_g": 0,
+    "sodium_mg": 350
+  },
+  "pechuga de pollo entera": {
+    "sat_fat_g": 1.0,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 65
+  },
+  "salmón ahumado en trozos": {
+    "sat_fat_g": 0.9,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 1700
+  },
+  "berenjena": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 3.5,
+    "fiber_g": 3.0,
+    "sodium_mg": 2
+  },
+  "pimiento amarillo": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 3.6,
+    "fiber_g": 0.9,
+    "sodium_mg": 2
+  },
+  "bistec de res (sirloin)": {
+    "sat_fat_g": 3.0,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 55
+  },
+  "pasta integral (espagueti o linguine)": {
+    "sat_fat_g": 0.3,
+    "sugar_g": 0.6,
+    "fiber_g": 3.9,
+    "sodium_mg": 4
+  },
+  "plátano banano": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 12.2,
+    "fiber_g": 2.6,
+    "sodium_mg": 1
+  },
+  "zanahoria en rodajas gruesas": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.7,
+    "fiber_g": 2.8,
+    "sodium_mg": 69
+  },
+  "granola sin azúcar añadida": {
+    "sat_fat_g": 2.0,
+    "sugar_g": 5.0,
+    "fiber_g": 8.0,
+    "sodium_mg": 15
+  },
+  "pan integral (rebanadas)": {
+    "sat_fat_g": 0.6,
+    "sugar_g": 4.4,
+    "fiber_g": 7.0,
+    "sodium_mg": 450
+  },
+  "lomo de cerdo magro en rodajas gruesas de 2cm": {
+    "sat_fat_g": 2.0,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 55
+  },
+  "masa de pizza integral": {
+    "sat_fat_g": 0.8,
+    "sugar_g": 3.0,
+    "fiber_g": 5.0,
+    "sodium_mg": 480
+  },
+  "semillas de linaza": {
+    "sat_fat_g": 3.7,
+    "sugar_g": 1.6,
+    "fiber_g": 27.3,
+    "sodium_mg": 30
+  },
+  "pimiento rojo en cubos pequeños": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 4.2,
+    "fiber_g": 2.1,
+    "sodium_mg": 4
+  },
+  "filete de pescado blanco (tilapia, corvina o similar)": {
+    "sat_fat_g": 0.7,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 52
+  },
+  "queso feta desmenuzado": {
+    "sat_fat_g": 14.9,
+    "sugar_g": 4.1,
+    "fiber_g": 0,
+    "sodium_mg": 1116
+  },
+  "semillas de calabaza": {
+    "sat_fat_g": 8.7,
+    "sugar_g": 1.4,
+    "fiber_g": 6.0,
+    "sodium_mg": 7
+  },
+  "lomo de cerdo en tiras delgadas": {
+    "sat_fat_g": 2.0,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 55
+  },
+  "proteína de suero sabor vainilla o neutro": {
+    "sat_fat_g": 1.5,
+    "sugar_g": 3.5,
+    "fiber_g": 1.0,
+    "sodium_mg": 250
+  },
+  "carne de res en tiras delgadas": {
+    "sat_fat_g": 2.5,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 55
+  },
+  "pechuga de pavo cocida en cubos": {
+    "sat_fat_g": 0.9,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 70
+  },
+  "caldo de pollo": {
+    "sat_fat_g": 0.4,
+    "sugar_g": 0.4,
+    "fiber_g": 0,
+    "sodium_mg": 380
+  },
+  "aceite de ajonjolí": {
+    "sat_fat_g": 14.2,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 0
+  },
+  "salmón en trozo": {
+    "sat_fat_g": 3.1,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 59
+  },
+  "edamame": {
+    "sat_fat_g": 0.6,
+    "sugar_g": 2.2,
+    "fiber_g": 5.2,
+    "sodium_mg": 6
+  },
+  "carne molida de res magra": {
+    "sat_fat_g": 4.5,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 70
+  },
+  "aceitunas negras sin hueso": {
+    "sat_fat_g": 1.4,
+    "sugar_g": 0,
+    "fiber_g": 3.2,
+    "sodium_mg": 1556
+  },
+  "mantequilla de maní natural (sin azúcar)": {
+    "sat_fat_g": 10.0,
+    "sugar_g": 4.0,
+    "fiber_g": 6.0,
+    "sodium_mg": 17
+  },
+  "pimiento rojo picado fino": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 4.2,
+    "fiber_g": 2.1,
+    "sodium_mg": 4
+  },
+  "batata (camote) en cubos de 2cm": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.2,
+    "fiber_g": 3.0,
+    "sodium_mg": 55
+  },
+  "carne de carne de res en cubos (pulpa o lomo)": {
+    "sat_fat_g": 3.0,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 58
+  },
+  "cebollín picado": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 1.9,
+    "fiber_g": 2.5,
+    "sodium_mg": 3
+  },
+  "fideos finos": {
+    "sat_fat_g": 0.3,
+    "sugar_g": 0.6,
+    "fiber_g": 1.8,
+    "sodium_mg": 6
+  },
+  "frambuesa": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.4,
+    "fiber_g": 6.5,
+    "sodium_mg": 1
+  },
+  "carne de cerdo en cubos": {
+    "sat_fat_g": 2.5,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 55
+  },
+  "coco rallado": {
+    "sat_fat_g": 30.0,
+    "sugar_g": 7.4,
+    "fiber_g": 9.0,
+    "sodium_mg": 20
+  },
+  "atún claro en agua": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 320
+  },
+  "cúrcuma en polvo": {
+    "sat_fat_g": 3.1,
+    "sugar_g": 3.2,
+    "fiber_g": 21.1,
+    "sodium_mg": 27
+  },
+  "carne de res (sin grasa visible)": {
+    "sat_fat_g": 2.5,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 55
+  },
+  "calabaza": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 2.8,
+    "fiber_g": 0.5,
+    "sodium_mg": 1
+  },
+  "carne de cerdo en cubos pequeños": {
+    "sat_fat_g": 2.5,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 55
+  },
+  "cacahuates": {
+    "sat_fat_g": 6.3,
+    "sugar_g": 4.7,
+    "fiber_g": 8.5,
+    "sodium_mg": 18
+  },
+  "col blanca rallada": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 3.2,
+    "fiber_g": 2.5,
+    "sodium_mg": 18
+  },
+  "mango maduro pelado": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 13.7,
+    "fiber_g": 1.6,
+    "sodium_mg": 1
+  },
+  "filete de pescado blanco fresco": {
+    "sat_fat_g": 0.7,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 52
+  },
+  "pepino con cascara": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 1.7,
+    "fiber_g": 0.5,
+    "sodium_mg": 2
+  },
+  "leche semidescremada": {
+    "sat_fat_g": 1.2,
+    "sugar_g": 4.9,
+    "fiber_g": 0,
+    "sodium_mg": 44
+  },
+  "lentejas rojas crudas": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 2.0,
+    "fiber_g": 10.8,
+    "sodium_mg": 6
+  },
+  "pechuga de pollo en trozos": {
+    "sat_fat_g": 1.0,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 65
+  },
+  "tomate maduro": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 2.6,
+    "fiber_g": 1.2,
+    "sodium_mg": 5
+  },
+  "masa de pizza integral (base delgada comprada)": {
+    "sat_fat_g": 0.8,
+    "sugar_g": 3.0,
+    "fiber_g": 5.0,
+    "sodium_mg": 480
+  },
+  "salsa de tomate natural sin azúcar": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 4.5,
+    "fiber_g": 1.5,
+    "sodium_mg": 320
+  },
+  "pasas": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 59.2,
+    "fiber_g": 3.7,
+    "sodium_mg": 11
+  },
+  "lechuga en trozos": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 0.8,
+    "fiber_g": 1.3,
+    "sodium_mg": 28
+  },
+  "lomo de res magro en tiras delgadas": {
+    "sat_fat_g": 2.5,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 55
+  },
+  "bistec de res (falda o palomilla)": {
+    "sat_fat_g": 4.0,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 60
+  },
+  "pan pita integral": {
+    "sat_fat_g": 0.5,
+    "sugar_g": 1.6,
+    "fiber_g": 7.4,
+    "sodium_mg": 480
+  },
+  "pechuga de pollo grande sin piel": {
+    "sat_fat_g": 1.0,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 65
+  },
+  "tomates pera triturados": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 3.9,
+    "fiber_g": 1.2,
+    "sodium_mg": 130
+  },
+  "tomates maduros picados": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 2.6,
+    "fiber_g": 1.2,
+    "sodium_mg": 5
+  },
+  "hierbas frescas": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.9,
+    "fiber_g": 3.0,
+    "sodium_mg": 30
+  },
+  "pechuga de pollo sin piel (entera)": {
+    "sat_fat_g": 1.0,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 65
+  },
+  "lentejas verdes secas": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 2.0,
+    "fiber_g": 10.7,
+    "sodium_mg": 6
+  },
+  "filete de res magro (lomo)": {
+    "sat_fat_g": 2.5,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 55
+  },
+  "durazno fresco": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 8.4,
+    "fiber_g": 1.5,
+    "sodium_mg": 0
+  },
+  "queso mozzarella bajo en grasa": {
+    "sat_fat_g": 3.0,
+    "sugar_g": 1.5,
+    "fiber_g": 0,
+    "sodium_mg": 480
+  },
+  "semillas de lino molidas": {
+    "sat_fat_g": 3.7,
+    "sugar_g": 1.6,
+    "fiber_g": 27.3,
+    "sodium_mg": 30
+  },
+  "yogur griego natural sin azúcar 2% grasa": {
+    "sat_fat_g": 1.3,
+    "sugar_g": 3.6,
+    "fiber_g": 0,
+    "sodium_mg": 36
+  },
+  "semillas de ajonjolí tostadas": {
+    "sat_fat_g": 6.6,
+    "sugar_g": 0.5,
+    "fiber_g": 14.0,
+    "sodium_mg": 11
+  },
+  "aguacate maduro pelado sin hueso": {
+    "sat_fat_g": 2.1,
+    "sugar_g": 0.7,
+    "fiber_g": 6.7,
+    "sodium_mg": 7
+  },
+  "caldo de pollo o vegetales": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.4,
+    "fiber_g": 0,
+    "sodium_mg": 340
+  },
+  "pepino en medias lunas": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 1.7,
+    "fiber_g": 0.5,
+    "sodium_mg": 2
+  },
+  "queso bajo en grasa en láminas": {
+    "sat_fat_g": 3.5,
+    "sugar_g": 1.0,
+    "fiber_g": 0,
+    "sodium_mg": 520
+  },
+  "batata (camote) pelada": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.2,
+    "fiber_g": 3.0,
+    "sodium_mg": 55
+  },
+  "leche descremada adicional para la base": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 5.0,
+    "fiber_g": 0,
+    "sodium_mg": 42
+  },
+  "batata (camote) en cubos": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.2,
+    "fiber_g": 3.0,
+    "sodium_mg": 55
+  },
+  "lechuga romana en tiras": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 1.2,
+    "fiber_g": 2.1,
+    "sodium_mg": 8
+  },
+  "jengibre": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 1.7,
+    "fiber_g": 2.0,
+    "sodium_mg": 13
+  },
+  "perejil fresco picado fino": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.9,
+    "fiber_g": 3.3,
+    "sodium_mg": 56
+  },
+  "edamame cocido": {
+    "sat_fat_g": 0.6,
+    "sugar_g": 2.2,
+    "fiber_g": 5.2,
+    "sodium_mg": 6
+  },
+  "agua fría": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 2
+  },
+  "menta fresca (opcional)": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0,
+    "fiber_g": 6.8,
+    "sodium_mg": 31
+  },
+  "pepitas de calabaza": {
+    "sat_fat_g": 8.7,
+    "sugar_g": 1.4,
+    "fiber_g": 6.0,
+    "sodium_mg": 7
+  },
+  "coliflor en floretes": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 1.9,
+    "fiber_g": 2.0,
+    "sodium_mg": 30
+  },
+  "queso de hebra": {
+    "sat_fat_g": 5.0,
+    "sugar_g": 1.0,
+    "fiber_g": 0,
+    "sodium_mg": 620
+  },
+  "tomate cherry cortado a la mitad": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 3.3,
+    "fiber_g": 1.2,
+    "sodium_mg": 5
+  },
+  "camote (batata)": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.2,
+    "fiber_g": 3.0,
+    "sodium_mg": 55
+  },
+  "maíz (maíz) en rodajas": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 3.2,
+    "fiber_g": 2.4,
+    "sodium_mg": 15
+  },
+  "salmón ahumado": {
+    "sat_fat_g": 0.9,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 672
+  },
+  "galletas de avena": {
+    "sat_fat_g": 3.5,
+    "sugar_g": 28.0,
+    "fiber_g": 4.0,
+    "sodium_mg": 320
+  },
+  "vino tinto seco": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 0.6,
+    "fiber_g": 0,
+    "sodium_mg": 4
+  },
+  "proteína de suero sabor vainilla o mango": {
+    "sat_fat_g": 2.0,
+    "sugar_g": 6.0,
+    "fiber_g": 1.0,
+    "sodium_mg": 250
+  },
+  "manzana roja o verde": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 10.4,
+    "fiber_g": 2.4,
+    "sodium_mg": 1
+  },
+  "queso de cabra desmenuzado": {
+    "sat_fat_g": 14.1,
+    "sugar_g": 2.5,
+    "fiber_g": 0,
+    "sodium_mg": 415
+  },
+  "huevo duro (2 piezas)": {
+    "sat_fat_g": 3.3,
+    "sugar_g": 1.1,
+    "fiber_g": 0,
+    "sodium_mg": 124
+  },
+  "col": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 3.2,
+    "fiber_g": 2.5,
+    "sodium_mg": 18
+  },
+  "fideos de arroz": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 0.1,
+    "fiber_g": 1.0,
+    "sodium_mg": 19
+  },
+  "queso ricotta bajo en grasa": {
+    "sat_fat_g": 2.9,
+    "sugar_g": 3.0,
+    "fiber_g": 0,
+    "sodium_mg": 100
+  },
+  "aceitunas verdes o negras sin semilla": {
+    "sat_fat_g": 1.4,
+    "sugar_g": 0.5,
+    "fiber_g": 3.2,
+    "sodium_mg": 1560
+  },
+  "ajo fresco": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 1.0,
+    "fiber_g": 2.1,
+    "sodium_mg": 17
+  },
+  "huevo entero (3 piezas)": {
+    "sat_fat_g": 3.3,
+    "sugar_g": 1.1,
+    "fiber_g": 0,
+    "sodium_mg": 142
+  },
+  "pera con cascara": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 9.8,
+    "fiber_g": 3.1,
+    "sodium_mg": 1
+  },
+  "hummus": {
+    "sat_fat_g": 1.4,
+    "sugar_g": 0.4,
+    "fiber_g": 6.0,
+    "sodium_mg": 379
+  },
+  "zanahoria en tiras delgadass": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.7,
+    "fiber_g": 2.8,
+    "sodium_mg": 69
+  },
+  "proteína de suero sabor fresa o vainilla": {
+    "sat_fat_g": 2.0,
+    "sugar_g": 6.0,
+    "fiber_g": 1.0,
+    "sodium_mg": 250
+  },
+  "pechuga de pollo sin piel cocida y desmenuzada": {
+    "sat_fat_g": 1.1,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 74
+  },
+  "pasta integral (penne o espagueti)": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 0.6,
+    "fiber_g": 3.9,
+    "sodium_mg": 4
+  },
+  "almendras enteras": {
+    "sat_fat_g": 3.8,
+    "sugar_g": 4.4,
+    "fiber_g": 12.5,
+    "sodium_mg": 1
+  },
+  "mango fresco en cubos": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 13.7,
+    "fiber_g": 1.6,
+    "sodium_mg": 1
+  },
+  "cebolla morada en tiras delgadas": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.2,
+    "fiber_g": 1.7,
+    "sodium_mg": 4
+  },
+  "arandano": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 10.0,
+    "fiber_g": 2.4,
+    "sodium_mg": 1
+  },
+  "lentejas naranjas (rojas) secas": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 2.0,
+    "fiber_g": 10.8,
+    "sodium_mg": 7
+  },
+  "caldo de pollo bajo en sal": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.4,
+    "fiber_g": 0,
+    "sodium_mg": 130
+  },
+  "zucchini en cubos pequeños": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 2.5,
+    "fiber_g": 1.0,
+    "sodium_mg": 8
+  },
+  "proteína de suero sabor chocolate o neutro": {
+    "sat_fat_g": 2.0,
+    "sugar_g": 6.0,
+    "fiber_g": 1.5,
+    "sodium_mg": 250
+  },
+  "vainilla en extracto": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 12.7,
+    "fiber_g": 0,
+    "sodium_mg": 9
+  },
+  "cilantro o perejil fresco": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 0.9,
+    "fiber_g": 2.8,
+    "sodium_mg": 46
+  },
+  "pimiento rojo en tiras delgadass": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.2,
+    "fiber_g": 2.1,
+    "sodium_mg": 4
+  },
+  "habas de soya cocido sin vaina": {
+    "sat_fat_g": 1.3,
+    "sugar_g": 3.0,
+    "fiber_g": 6.0,
+    "sodium_mg": 6
+  },
+  "leche descremada (para puré)": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 5.0,
+    "fiber_g": 0,
+    "sodium_mg": 42
+  },
+  "agua o caldo de res bajo en sodio": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.3,
+    "fiber_g": 0,
+    "sodium_mg": 120
+  },
+  "tortillas de maíz pequeñas": {
+    "sat_fat_g": 0.4,
+    "sugar_g": 1.0,
+    "fiber_g": 5.5,
+    "sodium_mg": 45
+  },
+  "chorizo bajo en grasa en rodajas": {
+    "sat_fat_g": 6.0,
+    "sugar_g": 1.0,
+    "fiber_g": 0,
+    "sodium_mg": 900
+  },
+  "aceite de coco (para sartén)": {
+    "sat_fat_g": 82.5,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 0
+  },
+  "mantequilla de almendra natural": {
+    "sat_fat_g": 5.2,
+    "sugar_g": 4.4,
+    "fiber_g": 10.3,
+    "sodium_mg": 3
+  },
+  "manzana con cascara": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 10.4,
+    "fiber_g": 2.4,
+    "sodium_mg": 1
+  },
+  "jitomates cherry": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 3.3,
+    "fiber_g": 1.2,
+    "sodium_mg": 5
+  },
+  "tostadas de maíz": {
+    "sat_fat_g": 0.6,
+    "sugar_g": 1.2,
+    "fiber_g": 6.5,
+    "sodium_mg": 65
+  },
+  "crema light": {
+    "sat_fat_g": 10.0,
+    "sugar_g": 3.5,
+    "fiber_g": 0,
+    "sodium_mg": 40
+  },
+  "queso fresco": {
+    "sat_fat_g": 8.5,
+    "sugar_g": 2.9,
+    "fiber_g": 0,
+    "sodium_mg": 690
+  },
+  "nueces de castilla": {
+    "sat_fat_g": 6.1,
+    "sugar_g": 2.6,
+    "fiber_g": 6.7,
+    "sodium_mg": 2
+  },
+  "leche de avena sin azúcar": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 1.0,
+    "fiber_g": 0.8,
+    "sodium_mg": 100
+  },
+  "comino y orégano": {
+    "sat_fat_g": 1.5,
+    "sugar_g": 2.3,
+    "fiber_g": 30.0,
+    "sodium_mg": 100
+  },
+  "cebolla de cambray (cebollín)": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 2.3,
+    "fiber_g": 2.6,
+    "sodium_mg": 16
+  },
+  "mejillones limpios": {
+    "sat_fat_g": 0.4,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 286
+  },
+  "granola": {
+    "sat_fat_g": 2.5,
+    "sugar_g": 21.0,
+    "fiber_g": 7.0,
+    "sodium_mg": 30
+  },
+  "guayaba": {
+    "sat_fat_g": 0.3,
+    "sugar_g": 8.9,
+    "fiber_g": 5.4,
+    "sodium_mg": 2
+  },
+  "pimentón dulce (paprika)": {
+    "sat_fat_g": 2.1,
+    "sugar_g": 10.3,
+    "fiber_g": 34.9,
+    "sodium_mg": 68
+  },
+  "cebolla morada picada fino": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.2,
+    "fiber_g": 1.7,
+    "sodium_mg": 4
+  },
+  "papaya madura pelada sin semillas": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 7.8,
+    "fiber_g": 1.7,
+    "sodium_mg": 8
+  },
+  "cebolla en tiras delgadas": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.2,
+    "fiber_g": 1.7,
+    "sodium_mg": 4
+  },
+  "aceitunas verdes sin semilla": {
+    "sat_fat_g": 1.4,
+    "sugar_g": 0.5,
+    "fiber_g": 3.3,
+    "sodium_mg": 1560
+  },
+  "champiñones portobello en láminas": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 2.5,
+    "fiber_g": 1.3,
+    "sodium_mg": 9
+  },
+  "lechuga romana en trozos": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 1.2,
+    "fiber_g": 2.1,
+    "sodium_mg": 8
+  },
+  "pimiento rojo picado": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.2,
+    "fiber_g": 2.1,
+    "sodium_mg": 4
+  },
+  "arándanos congelados": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 10.0,
+    "fiber_g": 2.4,
+    "sodium_mg": 1
+  },
+  "ralladura de naranja": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.4,
+    "fiber_g": 10.6,
+    "sodium_mg": 3
+  },
+  "arroz jazmín cocido": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.1,
+    "fiber_g": 0.4,
+    "sodium_mg": 1
+  },
+  "coliflor en trozos": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 1.9,
+    "fiber_g": 2.0,
+    "sodium_mg": 30
+  },
+  "melón verde tipo honeydew pelado sin semillas": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 8.1,
+    "fiber_g": 0.8,
+    "sodium_mg": 18
+  },
+  "comino y cúrcuma": {
+    "sat_fat_g": 2.0,
+    "sugar_g": 2.4,
+    "fiber_g": 22.0,
+    "sodium_mg": 130
+  },
+  "cebollín": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 1.9,
+    "fiber_g": 2.5,
+    "sodium_mg": 3
+  },
+  "proteína de suero sabor natural o vainilla": {
+    "sat_fat_g": 2.0,
+    "sugar_g": 5.0,
+    "fiber_g": 1.0,
+    "sodium_mg": 250
+  },
+  "zanahorias": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.7,
+    "fiber_g": 2.8,
+    "sodium_mg": 69
+  },
+  "arándanos frescos o congelados": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 10.0,
+    "fiber_g": 2.4,
+    "sodium_mg": 1
+  },
+  "plátano maduro en rodajas": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 12.2,
+    "fiber_g": 2.6,
+    "sodium_mg": 1
+  },
+  "kiwi pelado": {
+    "sat_fat_g": 0.3,
+    "sugar_g": 9.0,
+    "fiber_g": 3.0,
+    "sodium_mg": 3
+  },
+  "maíz desgranado": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 3.2,
+    "fiber_g": 2.4,
+    "sodium_mg": 15
+  },
+  "frutos rojos mixtos (fresa, arándano, frambuesa)": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 7.0,
+    "fiber_g": 4.5,
+    "sodium_mg": 1
+  },
+  "arándanos frescos": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 10.0,
+    "fiber_g": 2.4,
+    "sodium_mg": 1
+  },
+  "zucchini en medias lunas": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 2.5,
+    "fiber_g": 1.0,
+    "sodium_mg": 8
+  },
+  "germen de trigo": {
+    "sat_fat_g": 1.7,
+    "sugar_g": 7.6,
+    "fiber_g": 13.2,
+    "sodium_mg": 12
+  },
+  "papa blanca pelada": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 0.8,
+    "fiber_g": 1.8,
+    "sodium_mg": 6
+  },
+  "fideos de trigo (tipo vermicelli)": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.6,
+    "fiber_g": 1.8,
+    "sodium_mg": 3
+  },
+  "zucchini en rodajas gruesas": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 2.5,
+    "fiber_g": 1.0,
+    "sodium_mg": 8
+  },
+  "maicena (almidón de maíz)": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 0,
+    "fiber_g": 0.9,
+    "sodium_mg": 9
+  },
+  "proteína de suero sabor vainilla o fresa": {
+    "sat_fat_g": 2.0,
+    "sugar_g": 6.0,
+    "fiber_g": 1.0,
+    "sodium_mg": 250
+  },
+  "crema ligera (15% grasa)": {
+    "sat_fat_g": 9.3,
+    "sugar_g": 3.5,
+    "fiber_g": 0,
+    "sodium_mg": 38
+  },
+  "tortilla de trigo integral": {
+    "sat_fat_g": 1.2,
+    "sugar_g": 2.5,
+    "fiber_g": 5.5,
+    "sodium_mg": 470
+  },
+  "manzana con piel": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 10.4,
+    "fiber_g": 2.4,
+    "sodium_mg": 1
+  },
+  "cebolla en rodajas delgadas": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.2,
+    "fiber_g": 1.7,
+    "sodium_mg": 4
+  },
+  "pepino fresco pelado": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 1.7,
+    "fiber_g": 0.7,
+    "sodium_mg": 2
+  },
+  "manzana verde sin semillas": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 9.6,
+    "fiber_g": 2.8,
+    "sodium_mg": 1
+  },
+  "garbanzos cocidos (de lata, escurridos)": {
+    "sat_fat_g": 0.3,
+    "sugar_g": 0.5,
+    "fiber_g": 7.6,
+    "sodium_mg": 240
+  },
+  "pimentón dulce en polvo": {
+    "sat_fat_g": 2.1,
+    "sugar_g": 10.3,
+    "fiber_g": 34.9,
+    "sodium_mg": 68
+  },
+  "cebolla roja picada fina": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.2,
+    "fiber_g": 1.7,
+    "sodium_mg": 4
+  },
+  "atún en agua en lata": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 320
+  },
+  "tomate verde (tomatillo)": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 3.9,
+    "fiber_g": 1.9,
+    "sodium_mg": 1
+  },
+  "cebolla en rodajas finas": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.2,
+    "fiber_g": 1.7,
+    "sodium_mg": 4
+  },
+  "arvejas (guisantes) frescos o congelados": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 5.7,
+    "fiber_g": 5.5,
+    "sodium_mg": 5
+  },
+  "pasta": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 0.6,
+    "fiber_g": 1.8,
+    "sodium_mg": 1
+  },
+  "fideos de trigo delgados": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.6,
+    "fiber_g": 1.8,
+    "sodium_mg": 3
+  },
+  "mantequilla de maní natural": {
+    "sat_fat_g": 3.3,
+    "sugar_g": 9.0,
+    "fiber_g": 6.0,
+    "sodium_mg": 17
+  },
+  "pimentón dulce": {
+    "sat_fat_g": 2.1,
+    "sugar_g": 10.3,
+    "fiber_g": 34.9,
+    "sodium_mg": 68
+  },
+  "tahini (pasta de sésamo)": {
+    "sat_fat_g": 7.9,
+    "sugar_g": 0.5,
+    "fiber_g": 9.3,
+    "sodium_mg": 35
+  },
+  "manzana roja en rodajas": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 10.4,
+    "fiber_g": 2.4,
+    "sodium_mg": 1
+  },
+  "pimentón ahumado": {
+    "sat_fat_g": 2.1,
+    "sugar_g": 10.3,
+    "fiber_g": 34.9,
+    "sodium_mg": 68
+  },
+  "cebolla morada en rodajas finas": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.2,
+    "fiber_g": 1.7,
+    "sodium_mg": 4
+  },
+  "espinacas baby": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.4,
+    "fiber_g": 2.2,
+    "sodium_mg": 79
+  },
+  "pasta integral pequeña (coditos o ditalini)": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 0.6,
+    "fiber_g": 3.9,
+    "sodium_mg": 4
+  },
+  "arándanos secos": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 65.0,
+    "fiber_g": 5.7,
+    "sodium_mg": 3
+  },
+  "jengibre fresco": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 1.7,
+    "fiber_g": 2.0,
+    "sodium_mg": 13
+  },
+  "edamame (habas de soya) cocidas": {
+    "sat_fat_g": 0.6,
+    "sugar_g": 2.2,
+    "fiber_g": 5.2,
+    "sodium_mg": 6
+  },
+  "claras de huevo pasteurizadas": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 0.7,
+    "fiber_g": 0.0,
+    "sodium_mg": 166
+  },
+  "pan integral rallado": {
+    "sat_fat_g": 0.9,
+    "sugar_g": 3.8,
+    "fiber_g": 6.5,
+    "sodium_mg": 560
+  },
+  "quinua cocida": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 0.9,
+    "fiber_g": 2.8,
+    "sodium_mg": 7
+  },
+  "manzana verde sin piel ni semillas": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 9.6,
+    "fiber_g": 1.7,
+    "sodium_mg": 1
+  },
+  "papa en cuartos": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 0.8,
+    "fiber_g": 2.1,
+    "sodium_mg": 6
+  },
+  "caldo de res": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.3,
+    "fiber_g": 0.0,
+    "sodium_mg": 340
+  },
+  "espirulina en polvo (alga verde)": {
+    "sat_fat_g": 2.7,
+    "sugar_g": 3.1,
+    "fiber_g": 3.6,
+    "sodium_mg": 1048
+  },
+  "yogur griego natural 0% grasa": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 3.6,
+    "fiber_g": 0.0,
+    "sodium_mg": 36
+  },
+  "proteína en polvo sabor vainilla o coco": {
+    "sat_fat_g": 1.5,
+    "sugar_g": 5.0,
+    "fiber_g": 2.0,
+    "sodium_mg": 350
+  },
+  "polvo para hornear": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 0.0,
+    "fiber_g": 0.2,
+    "sodium_mg": 10600
+  },
+  "comino": {
+    "sat_fat_g": 1.5,
+    "sugar_g": 2.3,
+    "fiber_g": 10.5,
+    "sodium_mg": 168
+  },
+  "jícama": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 1.8,
+    "fiber_g": 4.9,
+    "sodium_mg": 4
+  },
+  "tomillo fresco": {
+    "sat_fat_g": 0.5,
+    "sugar_g": 0.0,
+    "fiber_g": 14.0,
+    "sodium_mg": 9
+  },
+  "tomate cherry cortado por la mitad": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 2.6,
+    "fiber_g": 1.2,
+    "sodium_mg": 5
+  },
+  "cúrcuma molida": {
+    "sat_fat_g": 1.8,
+    "sugar_g": 3.2,
+    "fiber_g": 22.7,
+    "sodium_mg": 38
+  },
+  "romero fresco o seco": {
+    "sat_fat_g": 2.8,
+    "sugar_g": 0.0,
+    "fiber_g": 14.1,
+    "sodium_mg": 26
+  },
+  "pasas sin semillas": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 59.2,
+    "fiber_g": 3.7,
+    "sodium_mg": 11
+  },
+  "hummus natural": {
+    "sat_fat_g": 1.4,
+    "sugar_g": 0.4,
+    "fiber_g": 6.0,
+    "sodium_mg": 379
+  },
+  "menta fresca": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 0.0,
+    "fiber_g": 8.0,
+    "sodium_mg": 31
+  },
+  "proteína en polvo sabor fresa o vainilla": {
+    "sat_fat_g": 1.5,
+    "sugar_g": 5.0,
+    "fiber_g": 2.0,
+    "sodium_mg": 350
+  },
+  "pimiento verde en cubos": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 2.4,
+    "fiber_g": 1.7,
+    "sodium_mg": 3
+  },
+  "pollo cocido desmechado": {
+    "sat_fat_g": 1.7,
+    "sugar_g": 0.0,
+    "fiber_g": 0.0,
+    "sodium_mg": 70
+  },
+  "semillas de ajonjolí": {
+    "sat_fat_g": 6.7,
+    "sugar_g": 0.3,
+    "fiber_g": 11.8,
+    "sodium_mg": 11
+  },
+  "harina de maíz": {
+    "sat_fat_g": 0.5,
+    "sugar_g": 0.6,
+    "fiber_g": 7.3,
+    "sodium_mg": 5
+  },
+  "pimiento amarillo picado": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 3.2,
+    "fiber_g": 0.9,
+    "sodium_mg": 2
+  },
+  "cebolla de verdeo (cebollín) picada": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 2.3,
+    "fiber_g": 2.6,
+    "sodium_mg": 16
+  },
+  "aguacate maduro en rebanadas": {
+    "sat_fat_g": 2.1,
+    "sugar_g": 0.7,
+    "fiber_g": 6.7,
+    "sodium_mg": 7
+  },
+  "eneldo fresco picado fino": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.0,
+    "fiber_g": 2.1,
+    "sodium_mg": 61
+  },
+  "manzana rallada": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 10.4,
+    "fiber_g": 2.4,
+    "sodium_mg": 1
+  },
+  "zanahoria en bastones": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.7,
+    "fiber_g": 2.8,
+    "sodium_mg": 69
+  },
+  "berenjena en cubos": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 3.5,
+    "fiber_g": 3.0,
+    "sodium_mg": 2
+  },
+  "cebolla picada fino": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.2,
+    "fiber_g": 1.7,
+    "sodium_mg": 4
+  },
+  "papas pequeñas": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 0.8,
+    "fiber_g": 2.1,
+    "sodium_mg": 6
+  },
+  "cebolla en polvo": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 6.6,
+    "fiber_g": 15.2,
+    "sodium_mg": 73
+  },
+  "arveja (guisante) congelada": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 4.0,
+    "fiber_g": 5.0,
+    "sodium_mg": 72
+  },
+  "proteína en polvo sabor chocolate o vainilla": {
+    "sat_fat_g": 1.5,
+    "sugar_g": 5.0,
+    "fiber_g": 2.0,
+    "sodium_mg": 350
+  },
+  "fideos de huevo cocidos": {
+    "sat_fat_g": 0.4,
+    "sugar_g": 0.4,
+    "fiber_g": 1.2,
+    "sodium_mg": 5
+  },
+  "durazno maduro pelado sin hueso": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 8.4,
+    "fiber_g": 1.5,
+    "sodium_mg": 0
+  },
+  "pasta integral (ditalini o espirales)": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 0.6,
+    "fiber_g": 3.9,
+    "sodium_mg": 4
+  },
+  "chayote o calabacín en cubos": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 1.7,
+    "fiber_g": 1.7,
+    "sodium_mg": 2
+  },
+  "champiñón": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 2.0,
+    "fiber_g": 1.0,
+    "sodium_mg": 5
+  },
+  "zanahoria en trozos gruesos": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.7,
+    "fiber_g": 2.8,
+    "sodium_mg": 69
+  },
+  "guisantes (arvejas) congelados": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 4.0,
+    "fiber_g": 5.0,
+    "sodium_mg": 72
+  },
+  "extracto de vainilla puro": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 12.7,
+    "fiber_g": 0.0,
+    "sodium_mg": 9
+  },
+  "proteína de suero sabor vainilla o caramelo": {
+    "sat_fat_g": 2.0,
+    "sugar_g": 4.0,
+    "fiber_g": 1.0,
+    "sodium_mg": 300
+  },
+  "hojas de menta fresca": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 0.0,
+    "fiber_g": 8.0,
+    "sodium_mg": 31
+  },
+  "pulpa de maracuyá (maracuyá abierta y colada)": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 11.2,
+    "fiber_g": 10.4,
+    "sodium_mg": 28
+  },
+  "espárragos frescos troceados": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 1.9,
+    "fiber_g": 2.1,
+    "sodium_mg": 2
+  },
+  "fideos de cabello de ángel o fideos finos": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 0.6,
+    "fiber_g": 1.8,
+    "sodium_mg": 6
+  },
+  "pepino en rodajas finas": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 1.7,
+    "fiber_g": 0.5,
+    "sodium_mg": 2
+  },
+  "rúcula fresca": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 2.1,
+    "fiber_g": 1.6,
+    "sodium_mg": 27
+  },
+  "pimiento rojo o verde grande": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 3.5,
+    "fiber_g": 1.7,
+    "sodium_mg": 3
+  },
+  "granola de avena y nueces": {
+    "sat_fat_g": 2.5,
+    "sugar_g": 20.0,
+    "fiber_g": 7.0,
+    "sodium_mg": 25
+  },
+  "arveja verde": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 5.7,
+    "fiber_g": 5.7,
+    "sodium_mg": 5
+  },
+  "habas de soya cocidas (edamame)": {
+    "sat_fat_g": 0.6,
+    "sugar_g": 2.2,
+    "fiber_g": 5.2,
+    "sodium_mg": 6
+  },
+  "tortilla integral de trigo": {
+    "sat_fat_g": 1.5,
+    "sugar_g": 2.5,
+    "fiber_g": 5.5,
+    "sodium_mg": 520
+  },
+  "papa blanca en cubos pequeños": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 0.8,
+    "fiber_g": 2.1,
+    "sodium_mg": 6
+  },
+  "harina de avena": {
+    "sat_fat_g": 1.2,
+    "sugar_g": 0.8,
+    "fiber_g": 6.5,
+    "sodium_mg": 4
+  },
+  "pimiento rojo y verde en cubos": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 3.0,
+    "fiber_g": 1.7,
+    "sodium_mg": 3
+  },
+  "caldo de pollo o agua": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.4,
+    "fiber_g": 0.0,
+    "sodium_mg": 310
+  },
+  "cebollín fresco": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 1.9,
+    "fiber_g": 2.5,
+    "sodium_mg": 3
+  },
+  "frijoles negros cocidos (de lata, escurridos)": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.3,
+    "fiber_g": 8.7,
+    "sodium_mg": 240
+  },
+  "mango maduro en cubos pequeños": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 13.7,
+    "fiber_g": 1.6,
+    "sodium_mg": 1
+  },
+  "lechuga romana en hojas": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 1.2,
+    "fiber_g": 2.1,
+    "sodium_mg": 8
+  },
+  "dátiles medjool sin semilla": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 66.5,
+    "fiber_g": 6.7,
+    "sodium_mg": 1
+  },
+  "tomate en rebanadas": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 2.6,
+    "fiber_g": 1.2,
+    "sodium_mg": 5
+  },
+  "brócoli en floretes pequeños": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 1.7,
+    "fiber_g": 2.6,
+    "sodium_mg": 33
+  },
+  "chile guajillo": {
+    "sat_fat_g": 0.6,
+    "sugar_g": 5.0,
+    "fiber_g": 15.0,
+    "sodium_mg": 40
+  },
+  "aceitunas negras sin hueso rebanadas": {
+    "sat_fat_g": 1.4,
+    "sugar_g": 0.0,
+    "fiber_g": 3.2,
+    "sodium_mg": 735
+  },
+  "mayonesa light": {
+    "sat_fat_g": 1.5,
+    "sugar_g": 3.5,
+    "fiber_g": 0.0,
+    "sodium_mg": 780
+  },
+  "fresa": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.9,
+    "fiber_g": 2.0,
+    "sodium_mg": 1
+  },
+  "proteína de suero sabor chocolate o vainilla": {
+    "sat_fat_g": 2.0,
+    "sugar_g": 4.0,
+    "fiber_g": 1.0,
+    "sodium_mg": 300
+  },
+  "cebolla blanca en rebanadas delgadas": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.2,
+    "fiber_g": 1.7,
+    "sodium_mg": 4
+  },
+  "pechuga de pollo cocida y desmenuzada": {
+    "sat_fat_g": 1.0,
+    "sugar_g": 0.0,
+    "fiber_g": 0.0,
+    "sodium_mg": 74
+  },
+  "frambuesas frescas o congeladas": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.4,
+    "fiber_g": 6.5,
+    "sodium_mg": 1
+  },
+  "vinagre blanco (para pochar)": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 0.0,
+    "fiber_g": 0.0,
+    "sodium_mg": 2
+  },
+  "apio en trozos": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 1.8,
+    "fiber_g": 1.6,
+    "sodium_mg": 80
+  },
+  "guayaba madura pelada": {
+    "sat_fat_g": 0.3,
+    "sugar_g": 8.9,
+    "fiber_g": 5.4,
+    "sodium_mg": 2
+  },
+  "miel de abeja o azúcar morena": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 82.0,
+    "fiber_g": 0.2,
+    "sodium_mg": 4
+  },
+  "manzana verde": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 9.6,
+    "fiber_g": 2.4,
+    "sodium_mg": 1
+  },
+  "mango deshidratado": {
+    "sat_fat_g": 0.3,
+    "sugar_g": 66.0,
+    "fiber_g": 2.4,
+    "sodium_mg": 45
+  },
+  "leche entera o semidescremada": {
+    "sat_fat_g": 1.9,
+    "sugar_g": 5.0,
+    "fiber_g": 0.0,
+    "sodium_mg": 43
+  },
+  "aceite de coco o aceite neutro": {
+    "sat_fat_g": 82.5,
+    "sugar_g": 0.0,
+    "fiber_g": 0.0,
+    "sodium_mg": 0
+  },
+  "cebolla morada en rodajas delgadas": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.2,
+    "fiber_g": 1.7,
+    "sodium_mg": 4
+  },
+  "brócoli en ramitos": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 1.7,
+    "fiber_g": 2.6,
+    "sodium_mg": 33
+  },
+  "pimiento rojo en trozos": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 4.2,
+    "fiber_g": 2.1,
+    "sodium_mg": 4
+  },
+  "brócoli en trozos pequeños": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 1.7,
+    "fiber_g": 2.6,
+    "sodium_mg": 33
+  },
+  "jengibre en polvo": {
+    "sat_fat_g": 0.2,
+    "sugar_g": 3.4,
+    "fiber_g": 14.1,
+    "sodium_mg": 27
+  },
+  "cerdo molido magro": {
+    "sat_fat_g": 3.5,
+    "sugar_g": 0.0,
+    "fiber_g": 0.0,
+    "sodium_mg": 65
+  },
+  "papa blanca pelada en trozos": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 0.8,
+    "fiber_g": 2.1,
+    "sodium_mg": 6
+  },
+  "cebolla en cubos": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.2,
+    "fiber_g": 1.7,
+    "sodium_mg": 4
+  },
+  "granola sin azúcar": {
+    "sat_fat_g": 2.0,
+    "sugar_g": 3.0,
+    "fiber_g": 8.0,
+    "sodium_mg": 10
+  },
+  "acelgas": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 1.1,
+    "fiber_g": 1.6,
+    "sodium_mg": 213
+  },
+  "tomate maduro en rebanadas": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 2.6,
+    "fiber_g": 1.2,
+    "sodium_mg": 5
+  },
+  "caldo de pescado o agua con sal": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.0,
+    "fiber_g": 0.0,
+    "sodium_mg": 350
+  },
+  "leche de almendra": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.5,
+    "fiber_g": 0.4,
+    "sodium_mg": 63
+  },
+  "cebolla blanca en cubos": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.2,
+    "fiber_g": 1.7,
+    "sodium_mg": 4
+  },
+  "leche descremada caliente": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 5.0,
+    "fiber_g": 0.0,
+    "sodium_mg": 42
+  },
+  "tortilla integral grande (30cm)": {
+    "sat_fat_g": 1.5,
+    "sugar_g": 2.5,
+    "fiber_g": 5.5,
+    "sodium_mg": 520
+  },
+  "frambuesas congeladas": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.4,
+    "fiber_g": 6.5,
+    "sodium_mg": 1
+  },
+  "arándanos secos sin azúcar": {
+    "sat_fat_g": 0.7,
+    "sugar_g": 34.0,
+    "fiber_g": 7.5,
+    "sodium_mg": 3
+  },
+  "salsa de soya": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 0.4,
+    "fiber_g": 0.8,
+    "sodium_mg": 5493
+  },
+  "pepino en cubos": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 1.7,
+    "fiber_g": 0.5,
+    "sodium_mg": 2
+  },
+  "cerezas congeladas sin hueso": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 12.8,
+    "fiber_g": 1.6,
+    "sodium_mg": 0
+  },
+  "proteína en polvo sabor vainilla o tropical": {
+    "sat_fat_g": 1.5,
+    "sugar_g": 5.0,
+    "fiber_g": 2.0,
+    "sodium_mg": 350
+  },
+  "avena en hojuelas gruesas": {
+    "sat_fat_g": 1.2,
+    "sugar_g": 1.0,
+    "fiber_g": 10.1,
+    "sodium_mg": 2
+  },
+  "aguacate en rebanadas": {
+    "sat_fat_g": 2.1,
+    "sugar_g": 0.7,
+    "fiber_g": 6.7,
+    "sodium_mg": 7
+  },
+  "zucchini rallado": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 2.5,
+    "fiber_g": 1.0,
+    "sodium_mg": 8
+  },
+  "aceite de coco en spray": {
+    "sat_fat_g": 82.5,
+    "sugar_g": 0.0,
+    "fiber_g": 0.0,
+    "sodium_mg": 0
+  },
+  "eneldo fresco": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0.0,
+    "fiber_g": 2.1,
+    "sodium_mg": 61
+  },
+  "tomates triturados": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 3.4,
+    "fiber_g": 1.5,
+    "sodium_mg": 130
+  },
+  "aguacate maduro en rodajas": {
+    "sat_fat_g": 2.1,
+    "sugar_g": 0.7,
+    "fiber_g": 6.7,
+    "sodium_mg": 7
+  },
+  "leche descremada fría": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 5.0,
+    "fiber_g": 0.0,
+    "sodium_mg": 42
+  },
+  "papa mediana cocida": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 0.9,
+    "fiber_g": 1.8,
+    "sodium_mg": 5
+  },
+  "moras congeladas": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 4.9,
+    "fiber_g": 5.3,
+    "sodium_mg": 1
+  },
+  "piña fresca o en conserva sin azúcar": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 9.9,
+    "fiber_g": 1.4,
+    "sodium_mg": 1
+  },
+  "azúcar (para reducir acidez)": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 99.8,
+    "fiber_g": 0.0,
+    "sodium_mg": 0
+  },
+  "tomates triturados en lata": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 3.4,
+    "fiber_g": 1.5,
+    "sodium_mg": 180
+  },
+  "pechuga de pollo cocida desmenuzada": {
+    "sat_fat_g": 1.0,
+    "sugar_g": 0.0,
+    "fiber_g": 0.0,
+    "sodium_mg": 74
+  },
+  "papas fritas": {
+    "sat_fat_g": 2.3,
+    "sugar_g": 0,
+    "fiber_g": 3.8,
+    "sodium_mg": 210
+  },
+  "papa frita": {
+    "sat_fat_g": 2.3,
+    "sugar_g": 0,
+    "fiber_g": 3.8,
+    "sodium_mg": 210
+  },
+  "salchicha": {
+    "sat_fat_g": 8.7,
+    "sugar_g": 0,
+    "fiber_g": 0.1,
+    "sodium_mg": 816
+  },
+  "hot dog": {
+    "sat_fat_g": 8.7,
+    "sugar_g": 0,
+    "fiber_g": 0.1,
+    "sodium_mg": 816
+  },
+  "chorizo": {
+    "sat_fat_g": 8.6,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 788
+  },
+  "carne de res": {
+    "sat_fat_g": 5.9,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 72
+  },
+  "carne de res molida": {
+    "sat_fat_g": 5.9,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 72
+  },
+  "aji rojo": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 0,
+    "fiber_g": 1.5,
+    "sodium_mg": 9
+  },
+  "aji verde": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 0,
+    "fiber_g": 1.5,
+    "sodium_mg": 7
+  },
+  "aji amarillo": {
+    "sat_fat_g": 0.0,
+    "sugar_g": 0,
+    "fiber_g": 1.5,
+    "sodium_mg": 9
+  },
+  "choclo": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0,
+    "fiber_g": 2.8,
+    "sodium_mg": 5
+  },
+  "maiz": {
+    "sat_fat_g": 0.1,
+    "sugar_g": 0,
+    "fiber_g": 2.8,
+    "sodium_mg": 5
+  },
+  "platano frito": {
+    "sat_fat_g": 1.8,
+    "sugar_g": 0,
+    "fiber_g": 3.2,
+    "sodium_mg": 6
+  },
+  "pan de hamburguesa": {
+    "sat_fat_g": 1.0,
+    "sugar_g": 6,
+    "fiber_g": 2.6,
+    "sodium_mg": 480
+  },
+  "tocino": {
+    "sat_fat_g": 13.7,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 1717
+  },
+  "bacon": {
+    "sat_fat_g": 13.7,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 1717
+  },
+  "milanesa": {
+    "sat_fat_g": 3.5,
+    "sugar_g": 1,
+    "fiber_g": 1,
+    "sodium_mg": 400
+  },
+  "milanesa de res": {
+    "sat_fat_g": 3.5,
+    "sugar_g": 1,
+    "fiber_g": 1,
+    "sodium_mg": 400
+  },
+  "carne empanizada": {
+    "sat_fat_g": 3.5,
+    "sugar_g": 1,
+    "fiber_g": 1,
+    "sodium_mg": 400
+  }
 }

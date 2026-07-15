@@ -124,6 +124,14 @@ VISION_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
     "properties": {
+        # Declared FIRST on purpose: strict constrained-decoding emits properties
+        # in declaration order, so the model must write this unit-count scratchpad
+        # BEFORE `items` — a forced chain-of-thought that makes it enumerate every
+        # repeated/stacked unit (per-food, e.g. "carne: u1+u2=2; pan:2") before it
+        # commits each `count`. Generic: applies to any food, not one dish. Ignored
+        # by the parser (_parse_items reads only `items`); it exists to steer the
+        # weaker vision model away from lumping composites into one unit.
+        "unit_census": {"type": "string"},
         "items": {
             "type": "array",
             "items": {
@@ -131,6 +139,14 @@ VISION_SCHEMA: dict[str, Any] = {
                 "additionalProperties": False,
                 "properties": {
                     "name": {"type": "string"},
+                    # Declared BEFORE `count` on purpose: constrained decoding
+                    # generates properties in order, so the model must CLASSIFY
+                    # whole-piece vs bulk BEFORE it picks count. This anchors the
+                    # count (weak models over-count chunks of a pile otherwise).
+                    # The field NAME + enum act as the instruction channel;
+                    # `_parse_items` also hard-clamps count=1 when 'a_granel', so
+                    # correctness holds even if the model disobeys.
+                    "portion_kind": {"type": "string", "enum": ["pieza_entera", "a_granel"]},
                     "count": {"type": "integer", "minimum": 1},
                     "estimated_amount_g": {"type": "number"},
                     "kcal": {"type": "integer"},
@@ -197,6 +213,7 @@ VISION_SCHEMA: dict[str, Any] = {
                 },
                 "required": [
                     "name",
+                    "portion_kind",
                     "count",
                     "estimated_amount_g",
                     "kcal",
@@ -212,7 +229,7 @@ VISION_SCHEMA: dict[str, Any] = {
             },
         },
     },
-    "required": ["items"],
+    "required": ["unit_census", "items"],
 }
 
 
@@ -250,12 +267,14 @@ def _system_prompt(
         "3) Especias secas (comino, pimienta, orégano) ≤5 kcal y 1-3 g. "
         "Condimentos calóricos (mayonesa, crema, chimichurri, ketchup) con gramaje real.\n"
         "NO DOBLE-CONTEO (CRÍTICO): cada gramo y cada kcal se cuenta UNA sola vez. "
-        "Cuando desglosas un plato compuesto en sus partes (ej. hamburguesa → pan, "
-        "carne, queso, tocino, huevo; sándwich → pan + rellenos; taco → tortilla + "
-        "relleno), NUNCA agregues además un ítem del plato ENTERO ('hamburguesa "
-        "completa', 'sándwich armado'): sus calorías ya están en las partes y "
-        "sumarían doble. Elige SIEMPRE el desglose por componentes; el plato entero "
-        "como un solo ítem SOLO si NO listaste sus partes.\n"
+        "DESGLOSE OBLIGATORIO: todo alimento armado cuyas partes se distingan DEBE "
+        "listarse por COMPONENTES separados, nunca como un ítem con el nombre del "
+        "conjunto (ej. hamburguesa → pan + carne(s) + queso + toppings; taco → "
+        "tortilla + relleno). Son ejemplos, no lista cerrada: aplica el principio a "
+        "cualquier plato armado. PROHIBIDO el conjunto como ítem único cuando sus "
+        "partes se ven — ya están contadas en las partes. Plato como UN ítem SÓLO "
+        "si sus partes son indistinguibles/homogéneas (sopa licuada, batido, "
+        "puré).\n"
         "Por ítem (SOLO estos campos, nada más — menos campos = respuesta más rápida): "
         "name, estimated_amount_g, kcal, protein_g, carbs_g, fat_g, confidence (0-1), "
         "food_group (vegetable|fruit|grain|protein|dairy|fat|sweet|beverage|other), "
@@ -272,25 +291,30 @@ def _system_prompt(
         "⚠️ SESGO CRÍTICO A CORREGIR: se SUBESTIMAN las porciones sistemáticamente. "
         "Cuando el alimento LLENA el plato, se APILA o SOBRESALE del borde, la cantidad "
         "es GRANDE — estimá hacia el volumen MAYOR, no el menor. Un montículo alto tiene "
-        "mucho más peso del que parece por el área. Anclas de PLATO LLENO: papas fritas "
-        "que cubren un plato ≈ 250-400g; arroz que llena un plato ≈ 200-350g; fideos/pasta "
-        "≈ 250-400g; guiso o plato principal colmado ≈ 300-500g; carne porción generosa "
-        "≈ 150-250g. Un plato principal completo de restaurante suele ser 700-1200 kcal o "
+        "mucho más peso del que parece por el área. Anclas PLATO LLENO: papas 250-400g; "
+        "arroz 200-350g; pasta 250-400g; guiso 300-500g; carne generosa 150-250g. "
+        "Un plato principal completo de restaurante suele ser 700-1200 kcal o "
         "más; si tu suma da mucho menos para un plato claramente lleno, REVISÁ AL ALZA las "
         "porciones antes de responder.\n"
         "CONTEO CRÍTICO — LOCALIZA Y CUENTA ANTES DE RESPONDER: para CADA "
-        "alimento que pueda venir en unidades repetidas, primero ubica y numera "
-        "cada unidad individual una por una (unidad 1, unidad 2, …), incluyendo "
-        "las APILADAS, superpuestas o parcialmente ocultas detrás de otra "
-        "(ej. dos carnes de hamburguesa una sobre otra, tortas apiladas, huevos, "
-        "albóndigas, tacos, panqueques, empanadas, salchichas, rebanadas). "
+        "alimento que venga en piezas enteras repetidas, primero ubica y numera "
+        "cada unidad una por una (unidad 1, unidad 2, …), incluyendo las APILADAS, "
+        "superpuestas u ocultas detrás de otra (ej. dos carnes de hamburguesa "
+        "apiladas, panqueques, empanadas, salchichas). "
         "Reporta ese total en `count`=N y `estimated_amount_g`= peso de UNA sola "
-        "unidad. NUNCA multipliques tú — la app multiplica. 1 unidad → `count`=1. "
-        "Salsas/condimentos/aceites → `count`=1 siempre.\n"
-        "DESAMBIGUACIÓN de apilados: ante la duda de si es 1 pieza o 2+ apiladas, "
-        "mira el GROSOR (un alto doble = 2 unidades), los BORDES (dos contornos "
-        "separados = 2) y las SOMBRAS/líneas horizontales entre capas. Cuenta lo "
-        "que la evidencia visual soporta; no asumas 1 por defecto en montículos.\n"
+        "unidad. NUNCA multipliques tú — la app multiplica.\n"
+        "CLASIFICA cada ítem con `portion_kind` ANTES de `count`: "
+        "`pieza_entera` = piezas enteras idénticas que levantarías de a una con "
+        "tenedor (carnes de burger, panqueques, huevos, empanadas) → `count` = "
+        "cuántas hay. `a_granel` = picado/en trozos/rodajas o aros sueltos/guiso/"
+        "montón (carne salteada, papas fritas, cebolla en aros) y salsas/aceites → "
+        "`count`=1, `estimated_amount_g` = peso TOTAL del montón. Pan base+tapa = "
+        "`pieza_entera`, `count`=1.\n"
+        "DESAMBIGUACIÓN de apilados: ante duda 1 vs 2+, mira GROSOR (alto doble=2), "
+        "BORDES (dos contornos=2) y SOMBRAS entre capas. No asumas 1 por defecto.\n"
+        "CENSO (`unit_census`, OBLIGATORIO, va ANTES de `items`): UNA línea breve "
+        "con las PIEZAS ENTERAS repetidas — ej. 'carne:2; queso:2; huevo:1'. Copia "
+        "al `count` de cada `pieza_entera`. Sé breve.\n"
         "IDIOMA DEL NOMBRE: escribe cada `name` en el idioma del Locale — "
         "Locale que empieza con 'en' → nombres en INGLÉS (ej: 'grilled chicken "
         "breast'); cualquier otro → ESPAÑOL (ej: 'pechuga de pollo a la plancha'). "
@@ -1022,6 +1046,18 @@ def _parse_items(raw: dict[str, Any]) -> list[DetectedFoodItem]:
             # LLM returns per-unit amounts; we multiply deterministically here
             # so the rest of the pipeline always works with totals.
             count = max(1, int(r.get("count") or 1))
+            # Hard guard: bulk foods (diced meat, fries, onion rings, sauces) are
+            # ONE portion by weight, never repeated units. The model classifies
+            # via `portion_kind` (generated before count); if it says 'a_granel'
+            # we clamp count=1 so a weak model over-counting chunks can't inflate
+            # kcal. estimated_amount_g already holds the whole-pile weight.
+            if str(r.get("portion_kind") or "").lower() == "a_granel" and count > 1:
+                log.info(
+                    "vision.parse.bulk_count_clamped",
+                    name=str(r.get("name", "?"))[:60],
+                    count_llm=count,
+                )
+                count = 1
 
             protein_g = max(0, int(r["protein_g"])) * count
             carbs_g = max(0, int(r["carbs_g"])) * count

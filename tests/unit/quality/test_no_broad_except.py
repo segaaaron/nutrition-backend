@@ -127,7 +127,7 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     "app/vision/infrastructure/usda_fdc.py": {406, 414, 618},
     # OK4: OpenAI vision wrappers with fallback contracts.
     "app/vision/application/learn_user_correction.py": {175},
-    "app/vision/application/process_vision_job.py": {186, 424, 469, 547, 561},
+    "app/vision/application/process_vision_job.py": {190, 431, 476, 554, 568},
     # OK4: macro grounding + USDA fallback — DB lookup best-effort.
     "app/vision/infrastructure/macro_grounder.py": {73},
     # OK4: plan context SQL — best-effort LLM hint.
@@ -140,7 +140,7 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     "app/vision/infrastructure/inflight_lock.py": {32, 42, 68},
     "app/vision/infrastructure/food_matcher.py": {124},
     # OK4: dark-image enhancement (best-effort PIL), prefilter fail-open, invoke retry.
-    "app/vision/infrastructure/openai_vision.py": {373, 379, 425, 591, 888},
+    "app/vision/infrastructure/openai_vision.py": {397, 403, 449, 615, 912},
     # OK4: plate explanation is decorative — poll must still serve items.
     "app/vision/presentation/router.py": {174, 219},
     # OK4: voice/food text parser — LLM best-effort.

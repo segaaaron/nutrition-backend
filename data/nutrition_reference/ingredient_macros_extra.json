@@ -2163,5 +2163,35 @@
     "protein_g": 1.9,
     "carbs_g": 8.8,
     "fat_g": 0.4
+  },
+  "pan de hamburguesa": {
+    "protein_g": 8,
+    "carbs_g": 51,
+    "fat_g": 4
+  },
+  "tocino": {
+    "protein_g": 37,
+    "carbs_g": 1,
+    "fat_g": 42
+  },
+  "bacon": {
+    "protein_g": 37,
+    "carbs_g": 1,
+    "fat_g": 42
+  },
+  "milanesa": {
+    "protein_g": 20,
+    "carbs_g": 14,
+    "fat_g": 15
+  },
+  "milanesa de res": {
+    "protein_g": 20,
+    "carbs_g": 14,
+    "fat_g": 15
+  },
+  "carne empanizada": {
+    "protein_g": 20,
+    "carbs_g": 14,
+    "fat_g": 15
   }
 }

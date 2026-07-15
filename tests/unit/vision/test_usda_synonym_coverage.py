@@ -114,3 +114,35 @@ def test_headsafe_difflib_unit() -> None:
     keys = ["pan de hamburguesa", "carne de res", "carne molida de res"]
     # head 'carne' present in 'carne de res' → chosen; 'pan de hamburguesa' rejected.
     assert u._headsafe_difflib("carne de hamburguesa", keys, cutoff=0.3) != "pan de hamburguesa"
+
+
+# ── Grounding-miss closure 2026-07-15: pan de hamburguesa / tocino / milanesa ──
+def test_pan_de_hamburguesa_grounds_to_bun_not_group_avg() -> None:
+    """'pan de hamburguesa' used to fall to the grain group average. Now resolves
+    to the real USDA hamburger-bun entry (~272 kcal/100g, carb-heavy)."""
+    r = _resolve("pan de hamburguesa")
+    assert r is not None
+    assert 240 <= r.kcal_per_100g <= 310
+    assert r.carbs_per_100g >= 40  # bread = carb-dominant
+
+
+def test_tocino_and_bacon_ground_to_real_pork_not_meatless() -> None:
+    """Bare 'bacon' previously matched SR 'Bacon, meatless' (~309 kcal, wrong).
+    Both 'tocino' and 'bacon' now resolve to real cooked pork bacon (~530)."""
+    for name in ("tocino", "bacon"):
+        r = _resolve(name)
+        assert r is not None, name
+        assert r.kcal_per_100g >= 450, f"{name} grounded too low: {r.kcal_per_100g}"
+        assert r.fat_per_100g >= 30  # bacon = fat-dominant
+
+
+def test_milanesa_grounds_to_breaded_beef() -> None:
+    """'milanesa' / 'carne empanizada' used to miss entirely. Now resolve to the
+    breaded-fried-beef reference (~271 kcal/100g, computed from USDA components)."""
+    for name in ("milanesa", "carne empanizada", "milanesa de res"):
+        r = _resolve(name)
+        assert r is not None, name
+        assert 230 <= r.kcal_per_100g <= 320, f"{name}: {r.kcal_per_100g}"
+        # Atwater-coherent (protein + breading carbs + fry fat).
+        atwater = 4 * r.protein_per_100g + 4 * r.carbs_per_100g + 9 * r.fat_per_100g
+        assert abs(atwater - r.kcal_per_100g) / r.kcal_per_100g <= 0.05

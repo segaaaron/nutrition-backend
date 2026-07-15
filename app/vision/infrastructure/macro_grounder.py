@@ -111,6 +111,49 @@ async def ground_macros_from_db(
         it.kcal_max = int(round(kcal_db * 1.2))
 
 
+# Gross-incoherence guard threshold. USDA/catalog kcal uses food-specific
+# Atwater factors (not a flat 4/4/9), so small deviations from 4·p+4·c+9·f are
+# EXPECTED and must be preserved — a tight threshold would wrongly overwrite
+# curated USDA kcal. Only a gap this large signals a real defect (corrupt source
+# row, or a scaling/count bug that touched kcal but not the macros), never the
+# normal Atwater-factor nuance. 40% is deliberately loose for that reason.
+_GROSS_INCOHERENCE_THRESHOLD = 0.40
+
+
+def reconcile_kcal_atwater(items: list[DetectedFoodItem]) -> None:
+    """Final coherence guard: run AFTER grounding on every item.
+
+    Post-grounding, kcal and macros come from the same trusted source (catalog
+    `foods` row or USDA FDC), so they are already internally consistent and the
+    small kcal ≠ 4·p+4·c+9·f gap from food-specific Atwater factors is left
+    UNTOUCHED — overriding it would degrade USDA's curated calories.
+
+    This only repairs GROSS drift (> `_GROSS_INCOHERENCE_THRESHOLD`), which can
+    only come from a corrupt source or a pipeline bug (e.g. `count` multiplied
+    into kcal but not the macros). In that case the macros are the reliable
+    anchor, so kcal is recomputed from them via Atwater and the ±20% band reset.
+    Generic: applies to any food, not one dish."""
+    for it in items:
+        macro_kcal = it.protein_g * 4 + it.carbs_g * 4 + it.fat_g * 9
+        if macro_kcal <= 0 or it.kcal <= 0:
+            # Zero-macro foods (water, pure spices) or unset kcal: nothing to
+            # reconcile — trust whatever grounding/parse already set.
+            continue
+        discrepancy = abs(it.kcal - macro_kcal) / max(it.kcal, macro_kcal)
+        if discrepancy <= _GROSS_INCOHERENCE_THRESHOLD:
+            continue
+        log.info(
+            "vision.ground.atwater_reconcile",
+            name=it.name[:60],
+            kcal_before=it.kcal,
+            kcal_after=macro_kcal,
+            method=it.match_method,
+        )
+        it.kcal = macro_kcal
+        it.kcal_min = int(round(macro_kcal * 0.80))
+        it.kcal_max = int(round(macro_kcal * 1.20))
+
+
 async def apply_group_fallback(items: list[DetectedFoodItem]) -> None:
     """USDA FDC API lookup then static per-group averages for unmatched items.
 

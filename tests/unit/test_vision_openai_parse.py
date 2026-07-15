@@ -190,3 +190,76 @@ def test_parse_clips_confidence() -> None:
     }
     out = _parse_items(raw)
     assert out[0].confidence == 1.0
+
+
+def test_parse_bulk_portion_clamps_count_to_one() -> None:
+    """`portion_kind='a_granel'` (diced meat, fries, sauces) is ONE portion by
+    weight. A weak model that returns count>1 on a pile must be clamped to 1 so
+    per-unit amounts are not multiplied — else kcal inflates wildly."""
+    raw = {
+        "items": [
+            {
+                "name": "carne de res salteada",
+                "portion_kind": "a_granel",
+                "count": 3,  # model over-counted chunks
+                "estimated_amount_g": 100,
+                "kcal": 250,
+                "protein_g": 26,
+                "carbs_g": 0,
+                "fat_g": 15,
+                "confidence": 0.85,
+                "food_group": "protein",
+            }
+        ]
+    }
+    out = _parse_items(raw)
+    assert len(out) == 1
+    it = out[0]
+    assert it.count == 1                              # clamped from 3
+    assert float(it.estimated_amount_g) == 100.0      # NOT tripled
+    assert it.kcal == 250                             # NOT 750
+
+
+def test_parse_whole_piece_keeps_count() -> None:
+    """`portion_kind='pieza_entera'` with count=2 (two patties) is a genuine
+    repeated unit — the clamp must NOT touch it."""
+    raw = {
+        "items": [
+            {
+                "name": "carne de hamburguesa",
+                "portion_kind": "pieza_entera",
+                "count": 2,
+                "estimated_amount_g": 120,
+                "kcal": 300,
+                "protein_g": 25,
+                "carbs_g": 0,
+                "fat_g": 20,
+                "confidence": 0.9,
+                "food_group": "protein",
+            }
+        ]
+    }
+    out = _parse_items(raw)
+    assert out[0].count == 2
+    assert float(out[0].estimated_amount_g) == 240.0  # 120 * 2
+    assert out[0].kcal == 600                          # 300 * 2
+
+
+def test_parse_missing_portion_kind_keeps_count() -> None:
+    """Legacy/cached rows without portion_kind must not be clamped."""
+    raw = {
+        "items": [
+            {
+                "name": "panqueques",
+                "count": 3,
+                "estimated_amount_g": 40,
+                "kcal": 80,
+                "protein_g": 2,
+                "carbs_g": 15,
+                "fat_g": 1,
+                "confidence": 0.8,
+            }
+        ]
+    }
+    out = _parse_items(raw)
+    assert out[0].count == 3
