@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID
 
-from app.core.errors import NotFoundError
+from app.core.errors import BusinessRuleViolation, NotFoundError
 from app.core.event_bus import EventBus
 from app.plan.application.layer3_ranking import Layer3Ranking
 from app.plan.domain.entities import Plan
@@ -98,6 +98,36 @@ class CompleteMeal:
                 break
 
 
+# Anti-repetition window, mirroring CreatePlan: 7 days for day/week plans,
+# 14 for month plans.
+_SWAP_WINDOW_SHORT = 7
+_SWAP_WINDOW_LONG = 14
+
+
+def _window_recipe_ids(plan: Plan, meal_id: UUID, meal_time: str) -> set[UUID]:
+    """Recipes already served in `meal_time` within the swapped meal's window.
+
+    The window is SYMMETRIC, unlike CreatePlan's. CreatePlan builds days in
+    order, so looking backwards is enough — nothing exists ahead of it yet. A
+    swap lands in the middle of a finished plan, where a collision with a LATER
+    day is just as much a repetition. Ignoring that direction is what let a
+    day-5 lunch swap land on the recipe already sitting at day 6.
+    """
+    day_index = next(
+        (d.day_index for d in plan.days for m in d.meals if m.id == meal_id), None
+    )
+    if day_index is None:
+        return set()
+    span = (_SWAP_WINDOW_SHORT if plan.total_days <= 7 else _SWAP_WINDOW_LONG) - 1
+    return {
+        m.recipe_id
+        for d in plan.days
+        if abs(d.day_index - day_index) <= span
+        for m in d.meals
+        if m.id != meal_id and m.meal_time == meal_time and m.recipe_id is not None
+    }
+
+
 @dataclass(slots=True)
 class SwapMeal:
     plans: SqlPlanRepository
@@ -119,9 +149,26 @@ class SwapMeal:
         meal = plan.find_meal(meal_id)
         if meal is None:
             raise NotFoundError("meal_not_found", meal_id=str(meal_id))
+        # CLAUDE.md §REGLA D — a plan must never repeat a recipe inside its
+        # window, and variety is a requirement, not a preference. Comparing
+        # only against the meal being replaced (the old behaviour) let a swap
+        # reintroduce a recipe the generator had deliberately excluded. When
+        # the pool cannot honour the rule, fail loudly naming the slot rather
+        # than serving a silent repeat.
+        forbidden = _window_recipe_ids(plan, meal_id, meal.meal_time)
+        eligible = [rid for rid in candidate_ids if rid not in forbidden]
+        if not eligible:
+            raise BusinessRuleViolation(
+                "swap_pool_exhausted_for_slot",
+                meal_time=meal.meal_time,
+                plan_id=str(plan_id),
+                meal_id=str(meal_id),
+                n_candidates=len(candidate_ids),
+                n_forbidden=len(forbidden),
+            )
         ranked = await self.layer3(
             user_id=plan.user_id,
-            candidate_ids=candidate_ids,
+            candidate_ids=eligible,
             meal_time=meal.meal_time,
         )
         top = [rid for rid, _ in ranked[:3]]

@@ -104,6 +104,12 @@ class Layer1Eligibility:
         where: list[str] = [
             "r.regions && CAST(:regions AS char(5)[])",
             "r.meal_time = :meal_time",
+            # Quarantine (migration 0031): recipes whose stored macros are known
+            # to be wrong — today the `meals_v4` batch, whose duplicated
+            # component rows inflated kcal/protein past the slot band. Lives in
+            # `where`, so it survives the region and meal-time fallbacks below:
+            # a recipe with bad nutrition is never the lesser evil.
+            "r.quarantined_at IS NULL",
         ]
         params: dict[str, object] = {
             "regions": allowed_tags,

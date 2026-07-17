@@ -79,7 +79,11 @@ async def test_concurrent_workers_call_provider_once(
 
     # Matcher that always returns unmatched (keeps DB writes minimal).
     matcher = MagicMock()
-    matcher.match = AsyncMock(return_value=(None, "oat", "unmatched"))
+    # 4-tuple per FoodMatcher port: (food_id, name_norm, method, corrected_amount_g).
+    # The 3-tuple this used to return predates the port gaining corrected_amount_g,
+    # and blew up with "not enough values to unpack (expected 4, got 3)". It went
+    # unnoticed because the integration suite errored at setup and never ran.
+    matcher.match = AsyncMock(return_value=(None, "oat", "unmatched", None))
 
     notifier = MagicMock()
     notifier.notify = AsyncMock()

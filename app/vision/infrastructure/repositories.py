@@ -177,15 +177,37 @@ class SqlVisionJobRepository:
             .values(status="running", started_at=datetime.now(UTC))
         )
 
-    async def mark_completed(self, job_id: UUID, *, items: list[DetectedFoodItem]) -> None:
+    async def mark_completed(
+        self,
+        job_id: UUID,
+        *,
+        items: list[DetectedFoodItem],
+        prompt_sha256: str | None = None,
+    ) -> None:
+        """Persist the detection AND the prompt sha it was produced with.
+
+        `prompt_sha256` is what arms the sha/pHash dedup cache: the lookups in
+        `find_recent_completed_by_sha` / `_by_phash` filter on
+        `prompt_sha256 == current` to auto-invalidate on prompt changes. A row
+        stored with NULL can never satisfy that predicate (SQL `NULL = x` is
+        never true), so leaving it unwritten silently disables the cache — the
+        model then re-runs on every upload and returns different items for the
+        same photo. Written here, at the one place a job becomes cacheable.
+        """
+        values: dict[str, Any] = {
+            "status": "completed",
+            "detected_items": _items_to_jsonb(items),
+            "completed_at": datetime.now(UTC),
+        }
+        # Falsy check, not `is not None`: the cache-hit path can hand back an
+        # empty sha (`cached_sha or ... or ""`) when it reads a legacy row that
+        # predates this column being written. Storing "" would be as dead as
+        # storing NULL — it can never equal a real prompt sha — so leave the
+        # column untouched and let the next real detection populate it.
+        if prompt_sha256:
+            values["prompt_sha256"] = prompt_sha256
         await self.s.execute(
-            update(VisionJobModel)
-            .where(VisionJobModel.id == job_id)
-            .values(
-                status="completed",
-                detected_items=_items_to_jsonb(items),
-                completed_at=datetime.now(UTC),
-            )
+            update(VisionJobModel).where(VisionJobModel.id == job_id).values(**values)
         )
 
     async def mark_failed(self, job_id: UUID, *, error_code: str, detail: str) -> None:

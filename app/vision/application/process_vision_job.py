@@ -175,7 +175,7 @@ class ProcessVisionJob:
                 session=self.session,
             )
 
-            await self.repo.mark_completed(job_id, items=items)
+            await self.repo.mark_completed(job_id, items=items, prompt_sha256=prompt_sha)
             await self._publish_completion(
                 job_id=job_id,
                 user_id=user_id,

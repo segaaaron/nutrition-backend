@@ -45,9 +45,13 @@ def pg_container() -> Iterator[Any]:
 
     from testcontainers.postgres import PostgresContainer  # type: ignore[import-untyped]
 
-    # pgvector image carries the `vector` extension preinstalled.
+    # Must match the engine the app actually runs on (docker/db.Dockerfile builds
+    # FROM timescale/timescaledb-ha:pg16; prod runs the pg17 variant). The old
+    # pgvector/pgvector:pg16 image carries `vector` but NOT `timescaledb`, so
+    # migration 0001_init died on `CREATE EXTENSION timescaledb` and the whole
+    # integration suite errored at setup. The timescaledb-ha image bundles both.
     container = PostgresContainer(
-        image="pgvector/pgvector:pg16",
+        image="timescale/timescaledb-ha:pg16",
         username="nova",
         password="nova",  # noqa: S106 — ephemeral testcontainer, torn down post-module
         dbname="nova_test",
@@ -72,35 +76,49 @@ def pg_url(pg_container: Any) -> str:
 
 @pytest.fixture(scope="module")
 def _apply_migrations(pg_url: str) -> str:
-    """Run Alembic upgrade head against the testcontainer DB."""
-    # Alembic does not handle the CREATE INDEX CONCURRENTLY trick on a brand-new
-    # DB cleanly inside testcontainers (no traffic to serialise). For test
-    # purposes we apply 0001-0010 via Alembic and add 0011's index by hand as
-    # plain (non-concurrent) DDL.
+    """Run Alembic upgrade head against the testcontainer DB.
+
+    This used to stop at 0010 and hand-create 0011's partial index as plain DDL,
+    on the belief that Alembic could not run `CREATE INDEX CONCURRENTLY`. That is
+    no longer true — 0011 (and 0012/0016/0027) wrap it in Alembic's official
+    `op.get_context().autocommit_block()`. Meanwhile the schema moved on to 0034,
+    so freezing tests at 0010 meant they ran against a schema missing columns the
+    models require (`phash_64`, added in 0013) and every test errored out. Migrate
+    to head: tests must see the schema production actually has.
+    """
     from alembic import command
     from alembic.config import Config
 
+    from app.core.config import get_settings
+
     cfg = Config(os.path.join(os.path.dirname(__file__), "..", "..", "..", "alembic.ini"))
-    sync_url = pg_url.replace("+asyncpg", "")
-    cfg.set_main_option("sqlalchemy.url", sync_url)
-    # Stop one before 0011 — the partial index is created manually below.
-    command.upgrade(cfg, "0010_user_profile_onboarding_extensions")
+    cfg.set_main_option("sqlalchemy.url", pg_url)
 
-    # Add the migration 0011 partial index plain (no CONCURRENTLY) for tests.
-    import sqlalchemy as sa
+    # `migrations/env.py` OVERWRITES sqlalchemy.url with `get_settings().database_url`
+    # ("Reads DATABASE_URL from app settings"), so the cfg value above is ignored and
+    # Alembic would target whatever DATABASE_URL happens to be set — by default the
+    # `test:test@localhost:5432` placeholder in tests/conftest.py, i.e. some unrelated
+    # Postgres on the dev machine (or nothing). Point the env var at THIS container and
+    # drop the lru_cache so env.py resolves the testcontainer.
+    prev_url = os.environ.get("DATABASE_URL")
+    os.environ["DATABASE_URL"] = pg_url
+    get_settings.cache_clear()
+    try:
+        # 0030, not "head": 0031 is a DATA migration that DELETEs/INSERTs
+        # recipe_components for the authored meals_v4 recipe ids. Those rows were
+        # seeded into PROD, not created by a migration, so on an empty DB the
+        # INSERT trips recipe_components_recipe_id_fkey and the whole suite dies.
+        # 0030 is also exactly the revision PROD runs today, and it carries every
+        # column the vision models need (prompt_sha256 from 0002, phash_64 from
+        # 0013). Move this to "head" once 0031 is made safe on a fresh database.
+        command.upgrade(cfg, "0030_recipe_component_name_en")
+    finally:
+        if prev_url is None:
+            os.environ.pop("DATABASE_URL", None)
+        else:
+            os.environ["DATABASE_URL"] = prev_url
+        get_settings.cache_clear()
 
-    sync_engine = sa.create_engine(sync_url)
-    with sync_engine.begin() as conn:
-        conn.execute(
-            sa.text(
-                """
-            CREATE INDEX IF NOT EXISTS ix_vision_jobs_sha_recent
-            ON vision_jobs (image_sha256, created_at DESC)
-            WHERE status = 'completed' AND detected_items IS NOT NULL
-            """
-            )
-        )
-    sync_engine.dispose()
     return pg_url
 
 

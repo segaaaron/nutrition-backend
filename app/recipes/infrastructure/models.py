@@ -136,6 +136,13 @@ class RecipeModel(Base):
     # (migration 0025). Empty array = available everywhere. Plan Layer 1 filters
     # via NOT (:country = ANY(excluded_countries)). GIN-indexed for speed.
     excluded_countries: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}", default=list)
+    # Quarantine (migration 0031). Non-NULL = stored nutrition is known-wrong,
+    # so Layer1 must never serve this recipe in a new plan. Set for the
+    # `meals_v4` batch, whose duplicated components inflated its macros.
+    # Lifted by setting back to NULL once the recipe is re-authored and its
+    # macros recomputed from real reference values.
+    quarantined_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    quarantine_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     # v3 catalog fields (migration 0019). NULL for pre-v3 legacy recipes.
     cuisine: Mapped[str | None] = mapped_column(Text, nullable=True)
     dish_family: Mapped[str | None] = mapped_column(Text, nullable=True)

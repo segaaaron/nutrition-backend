@@ -44,7 +44,13 @@ class FakeRepo:
         return None
 
     async def mark_running(self, job_id: UUID) -> None: ...
-    async def mark_completed(self, job_id: UUID, *, items: list[DetectedFoodItem]) -> None: ...
+    async def mark_completed(
+        self,
+        job_id: UUID,
+        *,
+        items: list[DetectedFoodItem],
+        prompt_sha256: str | None = None,
+    ) -> None: ...
     async def mark_failed(self, job_id: UUID, *, error_code: str, detail: str) -> None: ...
     async def find_recent_completed_by_sha(
         self,

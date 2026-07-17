@@ -240,6 +240,48 @@ async def test_mark_completed_executes_update():
 
 
 @pytest.mark.asyncio
+async def test_mark_completed_persists_prompt_sha256():
+    """The sha dedup cache is dead unless completion writes `prompt_sha256`.
+
+    Regression for the PROD incident found 2026-07-17: all 8 vision_jobs rows
+    had `prompt_sha256 = NULL`, because `mark_completed` never wrote the column.
+    `find_recent_completed_by_sha` filters on `prompt_sha256 == current` (the
+    HIGH-1 prompt-invalidation guard), and in SQL `NULL = <anything>` is never
+    true — so every lookup returned 0 rows and the model re-ran on every upload.
+    Same image, same sha256, 5 uploads → 10/10/10/10/9 items, i.e. the user saw
+    different calories for one photo.
+    """
+    session = _async_session()
+    repo = SqlVisionJobRepository(session)
+
+    await repo.mark_completed(uuid4(), items=[_item()], prompt_sha256="deadbeef")
+
+    stmt = session.execute.await_args.args[0]
+    values = stmt.compile().params
+    assert "deadbeef" in values.values(), (
+        f"prompt_sha256 not written on completion; UPDATE params were {values}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_mark_completed_skips_empty_prompt_sha256():
+    """An empty sha must not overwrite the column — it is as dead as NULL.
+
+    The cache-hit path yields `cached_sha or ... or ""`, so a legacy row stored
+    before `prompt_sha256` was persisted hands back "". Writing that would keep
+    the row permanently un-cacheable, since "" never equals a real prompt sha.
+    """
+    session = _async_session()
+    repo = SqlVisionJobRepository(session)
+
+    await repo.mark_completed(uuid4(), items=[_item()], prompt_sha256="")
+
+    stmt = session.execute.await_args.args[0]
+    values = stmt.compile().params
+    assert "" not in values.values(), f"empty prompt_sha256 was written: {values}"
+
+
+@pytest.mark.asyncio
 async def test_mark_failed_caps_detail_at_500_chars():
     session = _async_session()
     repo = SqlVisionJobRepository(session)
