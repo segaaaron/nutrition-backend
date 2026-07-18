@@ -14,6 +14,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import os
 import sys
@@ -71,25 +72,28 @@ def classify(
     return soft, hard
 
 
-def _audit_db(database_url: str) -> list[ColumnAudit]:
-    """Run NULL audit against the live DB. Requires psycopg2 (sync)."""
-    import psycopg2  # noqa: PLC0415
+async def _audit_db(database_url: str) -> list[ColumnAudit]:
+    """Run NULL audit against the live DB using asyncpg — the project's only DB
+    driver (2026-07-18: was psycopg2, which is not a dependency; every boot logged
+    'DB audit failed: No module named psycopg2')."""
+    import asyncpg  # noqa: PLC0415
 
-    # asyncpg URL → psycopg2 URL
+    # SQLAlchemy asyncpg URL → plain DSN that asyncpg.connect accepts.
     url = database_url.replace("postgresql+asyncpg://", "postgresql://")
-    conn = psycopg2.connect(url)
+    conn = await asyncpg.connect(url)
     try:
-        cur = conn.cursor()
         results: list[ColumnAudit] = []
         for col in CRITICAL_COLUMNS:
-            cur.execute(
-                f"SELECT COUNT(*) FILTER (WHERE {col} IS NULL), COUNT(*) FROM recipes"  # noqa: S608
+            row = await conn.fetchrow(
+                f"SELECT COUNT(*) FILTER (WHERE {col} IS NULL) AS nulls, "  # noqa: S608
+                "COUNT(*) AS total FROM recipes"
             )
-            null_count, total = cur.fetchone()
-            results.append(ColumnAudit(column=col, null_count=null_count, total=total))
+            results.append(
+                ColumnAudit(column=col, null_count=row["nulls"], total=row["total"])
+            )
         return results
     finally:
-        conn.close()
+        await conn.close()
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -112,7 +116,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     try:
-        audits = _audit_db(db_url)
+        audits = asyncio.run(_audit_db(db_url))
     except Exception as exc:  # noqa: BLE001
         print(f"ERROR: DB audit failed: {exc}", file=sys.stderr)
         return 2
