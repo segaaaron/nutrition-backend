@@ -321,6 +321,16 @@ STAPLE_PORTION_CEIL_G: Final[dict[str, int]] = {
     "fideos": 450, "tallarin": 450, "tallarines": 450, "pasta": 450,
     "spaghetti": 450, "espagueti": 450, "noodles": 450,
     "pure de papa": 400, "mashed potato": 400, "mashed potatoes": 400,
+    # Sandwich/burger buns (2026-07-17) — role="main", food_group="grain", so
+    # NEITHER a staple-side name NOR a small role: previously uncapped. The LLM
+    # overshot a bun to 200 g (→544 kcal) vs the correct ~80 g (→218 kcal) for
+    # the SAME photo. Documented weights: standard hamburger bun 57 g (USDA),
+    # large brioche ~80-100 g. Ceiling 130 g sits ABOVE the realistic max so it
+    # only clamps gross overshoots, never a normal bun. Specific markers only —
+    # never bare "pan" (a baguette legitimately weighs ~250 g).
+    "pan de hamburguesa": 130, "pan de hot dog": 130, "pan de pancho": 130,
+    "pan de completo": 130, "hamburger bun": 130, "hot dog bun": 130,
+    "hotdog bun": 130,
 }
 # Small-role items are never large. Wide ceils → only gross outliers clamp
 # (a garnish read as 400 g, an inferred cooking-oil blob at 200 g).
@@ -332,13 +342,35 @@ _ROLE_PORTION_CEIL_G: Final[dict[str, int]] = {
     "sauce": 200,
 }
 
+# GENERIC per-food-group ceiling — the SAFETY NET so NO item is ever left
+# uncapped. Applied LAST, only when no tighter name/role ceiling matched. This
+# closes the class of bug where an item fell through both checks (the burger bun:
+# role='main', group='grain' → matched neither name nor role → uncapped → 200 g
+# overshoot). Deliberately WIDE physics rails, NOT preferences: a single plated
+# item of a group rarely exceeds these, so only gross outliers (a 900 g "main")
+# clamp — never a normal portion. Grounded in USDA MyPlate / Dietary Guidelines
+# serving sizes scaled up to a very full single-item plate. Specific name/role
+# ceilings above stay as tighter overrides where a documented bound is smaller.
+FOOD_GROUP_PORTION_CEIL_G: Final[dict[str, int]] = {
+    "protein": 500,    # large mixed grill / big steak ≈ 350-450 g
+    "grain": 500,      # very heaped rice / pasta / bread plate ≈ 400-450 g
+    "vegetable": 600,  # big salad / cooked-veg plate
+    "fruit": 500,      # large fruit bowl
+    "dairy": 500,      # ≈ 2 cups yogurt / milk
+    "sweet": 450,      # large dessert
+    "beverage": 750,   # large drink (~750 ml ≈ 750 g)
+    "fat": 100,        # oils / butter are never a large mass
+    "other": 600,
+}
+
 
 def cap_implausible_portions(items: list[DetectedFoodItem]) -> list[DetectedFoodItem]:
     """Clamp grams DOWN to a documented plausible maximum — the high-side mirror
     of ``floor_staple_portions``. Guards against the anti-underestimation bias
-    overshooting on staples and small-role items (a garnish read as 400 g).
-    Scales kcal + macros by the same factor so the USDA per-gram value is
-    preserved. Only touches items whose name/role has a documented ceiling."""
+    overshooting. Resolution is tightest-first: specific name → role → food_group
+    (generic safety net). The food_group tier guarantees NO item is ever left
+    uncapped. Scales kcal + macros by the same factor so the USDA per-gram value
+    is preserved."""
     out: list[DetectedFoodItem] = []
     for it in items:
         grams = float(it.estimated_amount_g)
@@ -353,6 +385,9 @@ def cap_implausible_portions(items: list[DetectedFoodItem]) -> list[DetectedFood
                 break
         if ceil_g is None:
             ceil_g = _ROLE_PORTION_CEIL_G.get(it.role or "")
+        if ceil_g is None:
+            # Generic safety net — nothing falls through uncapped.
+            ceil_g = FOOD_GROUP_PORTION_CEIL_G.get(it.food_group or "other")
         if ceil_g is None or grams <= ceil_g:
             out.append(it)
             continue

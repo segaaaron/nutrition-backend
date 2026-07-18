@@ -8,6 +8,7 @@ Must never be imported by the domain layer.
 from __future__ import annotations
 
 import json
+from typing import cast
 from uuid import UUID
 
 from sqlalchemy import text
@@ -24,7 +25,7 @@ _PORTION_CAL_TTL = 3600  # 1 hour
 
 async def load_user_profile(
     *, user_id: UUID, session: AsyncSession
-) -> dict | None:
+) -> dict[str, object] | None:
     """Fetch age / sex / weight_kg for LLM portion-calibration hint (F5.2).
 
     Returns None when the profile row is missing or on any DB error.
@@ -64,7 +65,7 @@ async def load_portion_calibration(
     try:
         raw = await get_redis().get(redis_key)
         if raw:
-            return json.loads(raw)
+            return cast("dict[str, float]", json.loads(raw))
     except Exception:  # noqa: BLE001 — OK4: cache miss → fall through to DB
         pass
 

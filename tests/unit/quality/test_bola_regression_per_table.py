@@ -31,7 +31,6 @@ from app.identity.presentation.dependencies import (
     assert_owns,
 )
 
-
 _ALLOWLIST = sorted(_ASSERT_OWNS_ALLOWLIST)
 
 

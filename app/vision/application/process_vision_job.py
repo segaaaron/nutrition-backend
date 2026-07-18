@@ -5,10 +5,20 @@ Pipeline (each stage is a single-responsibility method or infrastructure call):
   2. _match_and_ground   — per-user catalog match + macro grounding (always reruns)
   3. _maybe_escalate     — post-catalog escalation to full model when needed
   4. _triangulate_mains  — top-down catalog anchor + physics arbiter
-  5. _apply_plan_anchor  — scale items to planned meal kcal when within ±15 %
-  6. decompose           — plate decomposition: clamping, inference, honest totals
-  7. persist_food_logs   — slot-cap check + INSERT food_logs (infra module)
-  8. _publish_completion — mark_completed + domain events + client notify
+  5. decompose           — plate decomposition: clamping, inference, honest totals
+  6. persist_food_logs   — slot-cap check + INSERT food_logs (infra module)
+  7. _publish_completion — mark_completed + domain events + client notify
+
+Design note (2026-07-17): the former plan-anchor stage (F2.2 — scaled detected
+kcal to EQUAL the day's planned meal when within ±15%) was REMOVED. A food log
+must reflect what was measured (eaten), not what was planned. Snapping the total
+to the plan (a) coupled the log to the plan — same photo + different plan gave
+different logged kcal — and (b) made adherence metrics circular (the log always
+"hit" the plan because it was overwritten with it). Preferring the audited
+catalog value over a noisy photo is already done correctly, per-item and physics-
+bounded, by the triangulation arbiter (stage 4, DishAnchor). The old
+`ReconcileWithPlan` helper (its only callers were this plan-anchor stage and the
+coach photo-cross-check Feature B) was removed with them 2026-07-18.
 
 Failure path: _handle_failure (mark_failed + VisionJobFailed + notify).
 
@@ -30,16 +40,15 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.core.event_bus import EventBus
 from app.core.logging import get_logger
 from app.core.metrics import VISION_CACHE_HITS, VISION_CACHE_MISSES, VISION_JOB_DURATION
 from app.core.redis import get_redis
 from app.imaging.infrastructure.phash import compute_phash_64
-from app.vision.application.reconcile_with_plan import ReconcileWithPlan
 from app.vision.domain.entities import DetectedFoodItem
 from app.vision.domain.events import FoodPhotoLogged, VisionJobCompleted, VisionJobFailed
-from app.vision.domain.plate_decomposition import decompose
+from app.vision.domain.plate_decomposition import PlateTotals, decompose
 from app.vision.domain.ports import FoodMatcher, JobNotifier, VisionJobRepository, VisionProvider
 from app.vision.domain.triangulation import arbitrate
 from app.vision.infrastructure import inflight_lock as _lock
@@ -58,6 +67,10 @@ from app.vision.infrastructure.user_context import (
 )
 
 log = get_logger("vision.process")
+
+# The four meal slots — single source of truth for the Literal used across the
+# pipeline (submission → recognition → completion event).
+MealTime = Literal["breakfast", "lunch", "dinner", "snack"]
 
 _ESCALATE_MIN_ITEM_CONF: float = 0.35
 
@@ -164,7 +177,6 @@ class ProcessVisionJob:
                 )
 
             await self._triangulate_mains(items)
-            await self._apply_plan_anchor(items, user_id=user_id, meal_time=meal_time)
             items, plate_totals = decompose(items)
 
             food_log_ids = await _persist(
@@ -206,10 +218,10 @@ class ProcessVisionJob:
         locale: str,
         region: str,
         job_meta: object,
-        settings: object,
+        settings: Settings,
         current_prompt_sha: str,
         plan_context: str | None,
-        user_profile: dict | None,
+        user_profile: dict[str, object] | None,
         portion_anchors: list[str] | None = None,
         user_context: str | None = None,
     ) -> tuple[list[DetectedFoodItem], str, bool]:
@@ -372,9 +384,9 @@ class ProcessVisionJob:
         locale: str,
         region: str,
         plan_context: str | None,
-        user_profile: dict | None,
+        user_profile: dict[str, object] | None,
         portion_anchors: list[str] | None = None,
-        settings: object,
+        settings: Settings,
         user_context: str | None = None,
     ) -> tuple[list[DetectedFoodItem], str]:
         """Post-catalog escalation: call full model only when catalog cannot vouch."""
@@ -432,51 +444,6 @@ class ProcessVisionJob:
             log.warning("vision.triangulation.failed", err=str(exc))
 
     # ------------------------------------------------------------------ #
-    # Stage 5 — Plan anchor                                               #
-    # ------------------------------------------------------------------ #
-
-    async def _apply_plan_anchor(
-        self, items: list[DetectedFoodItem], *, user_id: UUID, meal_time: str
-    ) -> None:
-        """Scale item kcal to planned meal kcal when within ±15 % (F2.2)."""
-        try:
-            detected_kcal = sum(it.kcal for it in items if not it.inferred)
-            if detected_kcal <= 0:
-                return
-
-            hint = await ReconcileWithPlan(self.session)(
-                user_id=user_id, meal_time=meal_time, detected_kcal=detected_kcal,
-            )
-            if hint is None or hint["needs_hint"]:
-                return
-
-            planned_kcal: int = hint["planned_kcal"]
-            if planned_kcal <= 0:
-                return
-
-            scale = planned_kcal / detected_kcal
-            for it in items:
-                if it.inferred:
-                    continue
-                it.kcal = round(it.kcal * scale)
-                it.kcal_min = round(it.kcal * 0.90)
-                it.kcal_max = round(it.kcal * 1.10)
-                it.protein_g = round(float(it.protein_g) * scale)
-                it.carbs_g = round(float(it.carbs_g) * scale)
-                it.fat_g = round(float(it.fat_g) * scale)
-                it.fiber_g = round(float(it.fiber_g) * scale)
-                it.sugar_g = round(float(it.sugar_g) * scale)
-
-            log.info(
-                "vision.plan_anchor.applied",
-                user_id=str(user_id),
-                meal_time=meal_time,
-                scale=round(scale, 3),
-            )
-        except Exception as exc:  # noqa: BLE001 — OK4: plan anchor best-effort; LLM estimates remain
-            log.debug("vision.plan_anchor.failed", err=str(exc)[:120])
-
-    # ------------------------------------------------------------------ #
     # Completion & failure                                                #
     # ------------------------------------------------------------------ #
 
@@ -485,9 +452,9 @@ class ProcessVisionJob:
         *,
         job_id: UUID,
         user_id: UUID,
-        meal_time: str,
+        meal_time: MealTime,
         items: list[DetectedFoodItem],
-        plate_totals: object,
+        plate_totals: PlateTotals,
         food_log_ids: list[UUID],
         start: datetime,
     ) -> None:

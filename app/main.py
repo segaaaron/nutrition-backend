@@ -230,7 +230,6 @@ def create_app() -> FastAPI:
     app.include_router(billing_router)
 
     # --- Domain event subscriptions ---
-    from app.coach.application.event_handlers import register as register_coach_handlers
     from app.core.db import get_sessionmaker as _profile_sessionmaker
     from app.core.event_bus import get_event_bus
     from app.gamification.application.event_handlers import (
@@ -247,7 +246,6 @@ def create_app() -> FastAPI:
 
     bus = get_event_bus()
     register_nutrition_handlers(bus)
-    register_coach_handlers(bus)
     register_gamification_handlers(bus)
     register_tracking_handlers(bus)
     register_notification_handlers(bus, _profile_sessionmaker())

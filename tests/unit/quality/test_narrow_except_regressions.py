@@ -73,7 +73,7 @@ async def test_mp_webhook_propagates_unexpected_exception() -> None:
     from app.billing import gateways
     from app.core.errors import UpstreamError
 
-    secret = "test-secret"
+    secret = "test-secret"  # noqa: S105 — fake HMAC key for webhook-signature test, not a real credential
     ts = str(int(time.time()))
     request_id = "req-1"
     payload = b'{"data":{"id":"123"}}'

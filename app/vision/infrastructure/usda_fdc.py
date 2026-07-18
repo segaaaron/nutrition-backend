@@ -25,6 +25,7 @@ import json
 import os
 import re
 import unicodedata
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -151,7 +152,7 @@ def _apply_synonyms(key: str) -> str:
     return " ".join(changed)
 
 
-def _headsafe_difflib(query_key: str, keys, cutoff: float = 0.72) -> str | None:
+def _headsafe_difflib(query_key: str, keys: Iterable[str], cutoff: float = 0.72) -> str | None:
     """difflib match that rejects candidates which drop the query's HEAD noun.
 
     char-level difflib (Ratcliff/Obershelp) over-weights a shared suffix, so
@@ -171,7 +172,7 @@ def _headsafe_difflib(query_key: str, keys, cutoff: float = 0.72) -> str | None:
     return None
 
 
-def _subset_match(query_key: str, keys) -> str | None:
+def _subset_match(query_key: str, keys: Iterable[str]) -> str | None:
     """Return the shortest reference key whose token set is a SUPERSET of every
     query token — i.e. the query is a more-general form of a more-specific entry
     (``bistec`` → ``bistec de res``, ``lentejas`` → ``lentejas cocidas``).

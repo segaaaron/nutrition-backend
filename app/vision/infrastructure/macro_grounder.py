@@ -183,7 +183,7 @@ async def apply_group_fallback(items: list[DetectedFoodItem]) -> None:
     for it, fdc in zip(unmatched, fdc_results, strict=False):
         factor = float(it.estimated_amount_g) / 100.0
 
-        if isinstance(fdc, Exception):
+        if isinstance(fdc, BaseException):
             fdc = None
 
         if fdc is not None and fdc.kcal_per_100g > 0:

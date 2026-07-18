@@ -1,7 +1,10 @@
-"""Coach features B / C / E / F / G — proactive coach behaviours.
+"""Coach features C / E / F / G — proactive coach behaviours.
 
-  B) foto_cross_check       — on FoodPhotoLogged: compare detected vs planned
-                              meal kcal. If |delta| >= 15% emit 1 hint message.
+  (Feature B `foto_cross_check` — coach reaction to FoodPhotoLogged — was REMOVED
+  2026-07-17: vision must NOT trigger the coach. It spent gpt-4o-mini tokens on a
+  hint that the app never displayed. Vision's only LLM call is the food-recognition
+  model; nothing else in that path consumes tokens.)
+
   C) macro_repair           — daily 19:00 user-locale cron. Suggests 3 snacks
                               to close the gap macros for the day.
   D) propose_swap           — see propose_swap.py (separate file).
@@ -33,7 +36,6 @@ from app.core.config import get_settings
 from app.core.cost_cap import estimate_input_cost, pre_check, record_usage
 from app.core.db import session_scope
 from app.core.logging import get_logger
-from app.vision.application.reconcile_with_plan import ReconcileWithPlan
 
 log = get_logger("coach.features")
 
@@ -109,35 +111,6 @@ async def _push_assistant_msg(session: AsyncSession, *, user_id: UUID, content: 
 
 
 # ---------------------------------------------------------------------------
-# Feature B — photo cross-check
-# ---------------------------------------------------------------------------
-
-
-async def foto_cross_check(
-    session: AsyncSession,
-    *,
-    user_id: UUID,
-    meal_time: str,
-    detected_kcal: int,
-    detected_names: tuple[str, ...],
-) -> None:
-    reconcile = ReconcileWithPlan(session=session)
-    report = await reconcile(user_id=user_id, meal_time=meal_time, detected_kcal=detected_kcal)
-    if not report or not report["needs_hint"]:
-        return
-    delta_pct = report["delta_pct"]
-    direction = "más" if delta_pct > 0 else "menos"
-    prompt = (
-        f"El usuario comió ~{detected_kcal} kcal en {meal_time} pero su plan "
-        f"esperaba {report['planned_kcal']} kcal ({direction} {abs(int(delta_pct*100))}%). "
-        f"Da una sola frase coach, práctica, sin diagnóstico médico."
-    )
-    msg = await _mini_completion(prompt, user_id=user_id, max_tokens=80)
-    if msg:
-        await _push_assistant_msg(session, user_id=user_id, content=msg)
-
-
-# ---------------------------------------------------------------------------
 # Feature C — macro repair (cron 19:00 user-locale)
 # ---------------------------------------------------------------------------
 
@@ -168,6 +141,8 @@ async def macro_repair(session: AsyncSession, *, user_id: UUID) -> None:
             {"uid": str(user_id)},
         )
     ).first()
+    if not intake:
+        return
     kcal_gap = int(goal_row[0]) - int(intake[0])
     protein_gap = int(goal_row[2]) - int(intake[1])
     if kcal_gap < 100 and protein_gap < 5:
@@ -205,7 +180,7 @@ async def macro_repair(session: AsyncSession, *, user_id: UUID) -> None:
 # ---------------------------------------------------------------------------
 
 
-async def proactive_deviation(session: AsyncSession, *, user_id: UUID) -> dict | None:
+async def proactive_deviation(session: AsyncSession, *, user_id: UUID) -> dict[str, str] | None:
     """Returns push payload if alert sent, else None."""
     row = (
         (

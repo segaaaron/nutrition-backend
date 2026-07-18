@@ -15,6 +15,7 @@ from typing import Any
 from app.core.cache_keys import CacheKeys
 from app.core.logging import get_logger
 from app.core.metrics import VISION_CACHE_HITS, VISION_CACHE_MISSES, VISION_INFLIGHT_LOCK_WAITS
+from app.vision.domain.entities import DetectedFoodItem
 from app.vision.infrastructure.cache_normalizer import normalize_cache_result
 
 log = get_logger("vision.inflight_lock")
@@ -50,7 +51,7 @@ async def poll_until_cached(
     settings: Any,
     current_prompt_sha: str,
     job_meta: Any,
-) -> tuple[list, str] | None:
+) -> tuple[list[DetectedFoodItem], str] | None:
     """Poll the SHA cache while another worker holds the inflight lock.
 
     Returns normalised ``(items, prompt_sha)`` on a cache hit, or None

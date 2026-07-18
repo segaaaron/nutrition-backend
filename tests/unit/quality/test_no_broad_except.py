@@ -54,7 +54,7 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # OK4: best-effort cache miss + LLM call boundary.
     "app/coach/application/context_builder.py": {162},
     # OK4: cost-cap soft-skip + best-effort feature lookup.
-    "app/coach/application/features.py": {50, 73, 307},
+    "app/coach/application/features.py": {52, 75, 282},
     # OK4: best-effort LLM intent classifier — falls back to rule-based.
     "app/coach/infrastructure/intent_classifier.py": {157, 181, 186},
     # OK4: OpenAI client wrappers with structured fallback.
@@ -88,7 +88,7 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # OK3: identity rate-limit fail-open on infra surprise (logged).
     "app/identity/infrastructure/rate_limit.py": {53},
     # OK3: /readyz health probe — reports component status without 500.
-    "app/main.py": {270, 276, 284},
+    "app/main.py": {268, 274, 282},
     # OK1: nutrition event handlers — best-effort with explicit log.
     "app/nutrition/event_handlers.py": {76, 108},
     # OK4: ensure_goals fallback wrapper — logs and re-raises domain error.
@@ -124,20 +124,20 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # OK1: notification handlers — fire-and-forget push, must not propagate.
     "app/notifications/application/event_handlers.py": {80, 116},
     # OK4: Redis cache helpers + Open Food Facts external API — best-effort, fail-open.
-    "app/vision/infrastructure/usda_fdc.py": {406, 414, 618},
+    "app/vision/infrastructure/usda_fdc.py": {407, 415, 619},
     # OK4: OpenAI vision wrappers with fallback contracts.
     "app/vision/application/learn_user_correction.py": {175},
-    "app/vision/application/process_vision_job.py": {190, 431, 476, 554, 568},
+    "app/vision/application/process_vision_job.py": {202, 443, 521, 535},
     # OK4: macro grounding + USDA fallback — DB lookup best-effort.
     "app/vision/infrastructure/macro_grounder.py": {73},
     # OK4: plan context SQL — best-effort LLM hint.
     "app/vision/infrastructure/plan_context.py": {69},
     # OK4: user profile + portion calibration + portion anchors — Redis/DB best-effort.
-    "app/vision/infrastructure/user_context.py": {46, 68, 90, 95, 125},
+    "app/vision/infrastructure/user_context.py": {47, 69, 91, 96, 126},
     # OK4: food log INSERT slot-cap Redis fail-open.
     "app/vision/infrastructure/food_log_writer.py": {60},
     # OK4: Redis inflight lock — fail-open on acquire/release errors + DB poll skip.
-    "app/vision/infrastructure/inflight_lock.py": {32, 42, 68},
+    "app/vision/infrastructure/inflight_lock.py": {33, 43, 69},
     "app/vision/infrastructure/food_matcher.py": {124},
     # OK4: dark-image enhancement (best-effort PIL), prefilter fail-open, invoke retry.
     "app/vision/infrastructure/openai_vision.py": {397, 403, 449, 615, 912},

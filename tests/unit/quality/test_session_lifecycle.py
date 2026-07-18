@@ -54,7 +54,6 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SCAN_ROOTS = ("app", "worker")
 
@@ -77,11 +76,10 @@ ALLOWED_SESSION_SCOPE: dict[str, str] = {
     "app/gamification/application/event_handlers.py:384": "OK2 event handler (FastingCompleted achievement)",
     "app/gamification/application/event_handlers.py:406": "OK2 event handler (DayCompleted achievement)",
     "app/gamification/application/event_handlers.py:431": "OK2 event handler (WeightLogged)",
-    "app/coach/application/event_handlers.py:17": "OK2 event handler (FoodPhotoLogged → foto_cross_check)",
     "app/nutrition/event_handlers.py:64": "OK2 event handler (BiometricsChanged safety net)",
     "app/nutrition/event_handlers.py:83": "OK2 event handler (WeightLogged recalibration)",
     # OK2 — event handlers spawning their own session (no outer request session).
-    "app/coach/application/features.py:295": "OK2 event handler (coach feature lookup)",
+    "app/coach/application/features.py:270": "OK2 event handler (coach feature lookup)",
     "app/tracking/event_handlers.py:30": "OK2 event handler (tracking best-effort)",
     "app/tracking/event_handlers.py:41": "OK2 event handler (tracking best-effort)",
     # OK3 — worker tasks (arq job entry-points, no outer FastAPI session).
@@ -150,7 +148,7 @@ def _find_session_scope_sites() -> list[tuple[str, int]]:
             continue
         for node in ast.walk(tree):
             items = []
-            if isinstance(node, (ast.With, ast.AsyncWith)):
+            if isinstance(node, ast.With | ast.AsyncWith):
                 items = node.items
             else:
                 continue
@@ -203,7 +201,7 @@ def test_update_profile_uses_region_audit_port() -> None:
     tree = ast.parse(path.read_text(encoding="utf-8"))
     offenders: list[int] = []
     for node in ast.walk(tree):
-        if isinstance(node, (ast.With, ast.AsyncWith)):
+        if isinstance(node, ast.With | ast.AsyncWith):
             for it in node.items:
                 if _is_session_scope_call(it.context_expr):
                     offenders.append(it.context_expr.lineno)

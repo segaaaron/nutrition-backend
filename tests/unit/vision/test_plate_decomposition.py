@@ -216,11 +216,73 @@ def test_cap_clamps_staple_over_ceiling() -> None:
     assert out.kcal == 400  # 800 * 0.5
 
 
-def test_cap_ignores_items_without_ceiling() -> None:
-    """A 'main' with no staple marker and no role ceiling is left alone — the
-    guard never caps a plate's large main dish it has no documented bound for."""
+def test_cap_normal_main_under_group_ceiling_untouched() -> None:
+    """A normal 'main' with no staple marker and no role ceiling now falls back
+    to the GENERIC food_group ceiling — but a normal 350 g portion is well under
+    it, so it is left untouched. Proves the generic net does not over-clamp."""
     from app.vision.domain.plate_decomposition import cap_implausible_portions
 
-    it = _item("guiso de res", 600, grams=350.0, role="main")
+    it = _item("guiso de res", 600, grams=350.0, role="main")  # group "other" → 600 g
     out = cap_implausible_portions([it])[0]
     assert float(out.estimated_amount_g) == 350.0
+
+
+def test_cap_generic_group_backstop_catches_unlisted_food() -> None:
+    """THE fix for the bun-bug class: an un-whitelisted food (no name marker, no
+    small role) is NO LONGER uncapped. A 'main' grain read at 900 g is clamped by
+    the generic food_group='grain' ceiling (500 g). Nothing falls through."""
+    from app.vision.domain.plate_decomposition import cap_implausible_portions
+
+    it = DetectedFoodItem(
+        name="tamal gigante",  # not in any name list
+        estimated_amount_g=Decimal("900"),
+        kcal=1800,
+        protein_g=0,
+        carbs_g=0,
+        fat_g=0,
+        confidence=0.8,
+        food_group="grain",
+        role="main",  # not a small-role ceiling
+        prep_method=None,
+        kcal_min=None,
+        kcal_max=None,
+    )
+    out = cap_implausible_portions([it])[0]
+    assert float(out.estimated_amount_g) == 500.0  # generic grain ceiling
+    assert out.kcal == 1000  # 1800 * (500/900)
+
+
+def test_cap_clamps_over_estimated_hamburger_bun() -> None:
+    """Regression (PROD 2026-07-17): same burger photo, the LLM read the bun as
+    200 g (→544 kcal) some calls and 80 g (→218 kcal) others. Bun is role='main'
+    food_group='grain' → previously uncapped. Ceiling 130 g clamps the 200 g
+    overshoot; USDA per-gram value is preserved by scaling kcal by the factor."""
+    from app.vision.domain.plate_decomposition import cap_implausible_portions
+
+    it = _item("pan de hamburguesa", 544, grams=200.0, role="main")
+    out = cap_implausible_portions([it])[0]
+    assert float(out.estimated_amount_g) == 130.0
+    assert out.kcal == 354  # 544 * (130/200) = 353.6 → 354
+
+
+def test_cap_leaves_normal_hamburger_bun_untouched() -> None:
+    """The correct 80 g bun (218 kcal) is below the 130 g ceiling → untouched.
+    Proves the fix clamps only the outlier, never a normal-sized bun."""
+    from app.vision.domain.plate_decomposition import cap_implausible_portions
+
+    it = _item("pan de hamburguesa", 218, grams=80.0, role="main")
+    out = cap_implausible_portions([it])[0]
+    assert float(out.estimated_amount_g) == 80.0
+    assert out.kcal == 218
+
+
+def test_cap_never_clamps_generic_bread() -> None:
+    """A generic 'pan' (e.g. a baguette/marraqueta) legitimately weighs ~250 g.
+    The bun markers are specific ('pan de hamburguesa'), so generic bread is
+    NEVER clamped — no over-correction of legitimate large bread portions."""
+    from app.vision.domain.plate_decomposition import cap_implausible_portions
+
+    it = _item("pan frances", 660, grams=250.0, role="main")
+    out = cap_implausible_portions([it])[0]
+    assert float(out.estimated_amount_g) == 250.0
+    assert out.kcal == 660
