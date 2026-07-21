@@ -78,6 +78,9 @@ class Layer1Eligibility:
         allergies: list[str] = prof.get("allergies") or []
         conditions: list[str] = prof.get("conditions") or []
         dietary_pattern = (prof.get("dietary_pattern") or "").lower().strip()
+        disliked: list[str] = [
+            d.strip() for d in (prof.get("disliked_ingredients") or []) if d and d.strip()
+        ]
 
         # Region-based filtering (post-2026-06-09 fix).
         #
@@ -196,6 +199,24 @@ class Layer1Eligibility:
                     where.append(g_sql)
                     params.update(g_params)
 
+        # Disliked-ingredient taste exclusion (2026-07-20). Free-text foods the
+        # user marked "no como esto". A recipe is dropped if ANY component name
+        # matches ANY disliked term (case-insensitive substring). This is a
+        # PREFERENCE, not a safety filter: it is `disliked_clause` and is the
+        # FIRST clause relaxed in the fallback below, so a picky profile can
+        # never abort plan generation — safety filters stay hard.
+        disliked_clause: str | None = None
+        if disliked:
+            disliked_clause = (
+                "NOT EXISTS ("
+                " SELECT 1 FROM recipe_components rc"
+                " WHERE rc.recipe_id = r.id"
+                " AND lower(coalesce(rc.free_text_name, '')) ILIKE ANY(:disliked_patterns)"
+                ")"
+            )
+            where.append(disliked_clause)
+            params["disliked_patterns"] = [f"%{d.lower()}%" for d in disliked]
+
         # S608 noqa: `where` is assembled exclusively from literal SQL
         # fragments authored in this function or returned by registered
         # ConditionGate strategies. User-controlled values are bound via
@@ -211,6 +232,29 @@ class Layer1Eligibility:
         ids = [row[0] for row in res.all()]
         if ids:
             return ids
+
+        # Disliked-ingredient fallback (2026-07-20): a taste preference is NOT
+        # safety. If excluding disliked foods empties the pool, relax it first
+        # (serve a disliked-but-safe meal rather than abort). Reassigning
+        # `where` here means the region/meal-time fallbacks below also run
+        # without the disliked clause. Safety filters remain in place.
+        if disliked_clause is not None and disliked_clause in where:
+            where = [w for w in where if w != disliked_clause]
+            sql_no_dislike = f"""
+                SELECT r.id FROM recipes r
+                 WHERE {' AND '.join(where)}
+                 ORDER BY r.id
+            """  # noqa: S608
+            res = await self.session.execute(text(sql_no_dislike), params)
+            ids = [row[0] for row in res.all()]
+            if ids:
+                _log.warning(
+                    "layer1.disliked_fallback_used",
+                    n_disliked=len(disliked),
+                    meal_time=meal_time,
+                    n_candidates=len(ids),
+                )
+                return ids
 
         # Region fallback (owner decision 2026-06-10): region is a cultural
         # preference, NOT a safety filter. If the user's market has zero

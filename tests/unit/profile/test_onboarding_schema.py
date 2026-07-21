@@ -226,3 +226,20 @@ def test_height_cm_wins_when_both_present() -> None:
         )
     )
     assert body.resolved_height_cm == Decimal("180.0")
+
+
+# ── disliked_ingredients (taste-preference exclusion, 2026-07-20) ─────────────
+
+
+def test_disliked_ingredients_defaults_empty() -> None:
+    body = OnboardingRequest(**_base_payload())  # type: ignore[arg-type]
+    assert body.disliked_ingredients == []
+
+
+def test_disliked_ingredients_accepts_freetext_list() -> None:
+    body = OnboardingRequest(
+        **_base_payload(disliked_ingredients=["brócoli", "cebolla"])  # type: ignore[arg-type]
+    )
+    assert body.disliked_ingredients == ["brócoli", "cebolla"]
+    # Flows into the payload the profile use-case persists via setattr.
+    assert body.model_dump()["disliked_ingredients"] == ["brócoli", "cebolla"]

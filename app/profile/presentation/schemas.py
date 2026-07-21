@@ -184,6 +184,19 @@ class OnboardingRequest(_Strict):
             )
         },
     )
+    disliked_ingredients: list[str] = Field(
+        default_factory=list,
+        max_length=30,
+        json_schema_extra={
+            "description": (
+                "Free-text ingredients the user does not want (taste preference, "
+                'e.g. ["brócoli", "cebolla"]). Delivers the onboarding promise '
+                '"NOVA excluirá los alimentos que no comes". Applied at Layer 1 '
+                "as a RELAXABLE preference (dropped before region/meal-time in "
+                "fallback so it never aborts a plan) — NOT a safety filter."
+            )
+        },
+    )
 
     # Pregnancy / lactation conditional fields
     trimester: Trimester | None = Field(

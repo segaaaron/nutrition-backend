@@ -31,4 +31,7 @@ class SqlEligibilityProfileReader:
             # Drives the vegan/vegetarian hard-exclude in Layer 1 (the
             # onboarding promise "NOVA excluirá los alimentos que no comes").
             "dietary_pattern": p.dietary_pattern,
+            # Free-text taste-preference exclusion (same onboarding promise).
+            # RELAXABLE in Layer 1 — never a safety filter.
+            "disliked_ingredients": list(p.disliked_ingredients or []),
         }

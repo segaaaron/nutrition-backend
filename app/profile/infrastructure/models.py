@@ -78,6 +78,9 @@ class UserProfileModel(Base):
     other_condition: Mapped[str | None] = mapped_column(Text, nullable=True)
     allergies: Mapped[list[str]] = mapped_column(ARRAY(_ALLERGEN_ENUM), default=list)
     other_allergy: Mapped[str | None] = mapped_column(Text, nullable=True)
+    disliked_ingredients: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), default=list, server_default="{}"
+    )
     country: Mapped[str | None] = mapped_column(String(2), nullable=True)
     region: Mapped[str | None] = mapped_column(String(5), nullable=True)
     locale: Mapped[str] = mapped_column(String(2), default="en")

@@ -37,6 +37,7 @@ class UserProfile:
     other_condition: str | None = None
     allergies: list[str] = field(default_factory=list)
     other_allergy: str | None = None
+    disliked_ingredients: list[str] = field(default_factory=list)
     trimester: Trimester | None = None
     is_exclusively_breastfeeding: bool | None = None
     country: str | None = None

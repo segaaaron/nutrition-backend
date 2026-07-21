@@ -29,6 +29,7 @@ def _from_model(m: UserProfileModel) -> UserProfile:
         other_condition=m.other_condition,
         allergies=list(m.allergies or []),
         other_allergy=m.other_allergy,
+        disliked_ingredients=list(m.disliked_ingredients or []),
         trimester=m.trimester,  # type: ignore[arg-type]
         is_exclusively_breastfeeding=m.is_exclusively_breastfeeding,
         country=m.country,
@@ -66,6 +67,7 @@ class SqlProfileRepository:
             "other_condition": profile.other_condition,
             "allergies": profile.allergies,
             "other_allergy": profile.other_allergy,
+            "disliked_ingredients": profile.disliked_ingredients,
             "trimester": profile.trimester,
             "is_exclusively_breastfeeding": profile.is_exclusively_breastfeeding,
             "country": profile.country,
