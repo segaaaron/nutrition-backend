@@ -26,7 +26,10 @@ import base64
 import hashlib
 import io
 import json
+import re as _re
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from dataclasses import replace as _dc_replace
 from decimal import Decimal, InvalidOperation
 from statistics import fmean
 from typing import Any, Literal
@@ -51,7 +54,13 @@ from app.core.metrics import (
     VISION_PARSE_ERRORS,
     VISION_PRIMARY_OK,
 )
-from app.vision.domain.entities import DetectedFoodItem
+from app.vision.domain.entities import DetectedFoodItem, FoodGroup
+from app.vision.domain.plate_decomposition import (
+    OIL_ABSORPTION_PCT,
+    OIL_KCAL_PER_G,
+    cap_implausible_portions,
+)
+from app.vision.domain.value_objects import FoodIdentification, PortionEstimate, PortionHint
 
 log = get_logger("vision.openai")
 
@@ -109,6 +118,97 @@ PREFILTER_SYSTEM_PROMPT = (
     '"supplement", "low_kcal", "non_food", "empty_plate", "uncertain".'
 )
 
+# ---------------------------------------------------------------------------
+# Per-user context hint injected into the vision system prompt (2026-07-25).
+# ---------------------------------------------------------------------------
+
+@dataclass(slots=True, frozen=True)
+class UserVisionContext:
+    """Caller-provided per-user signals that sharpen the vision system prompt.
+
+    ``region``: ISO-3166-1 alpha-2 country code or full country name
+    (e.g. ``"BO"``, ``"MX"``).  Used to detect landlocked regions whose
+    users never have ocean seafood on their plates.
+
+    ``meal_time``: one of ``breakfast/lunch/dinner/snack``.  Drives per-slot
+    portion-size expectations in the prompt.
+
+    ``portion_history``: ordered tuple of ``"food_name Xg"`` strings (highest
+    correction frequency first) from ``vision_user_corrections``.  The top-3
+    entries are surfaced to the model as identification anchors.
+    """
+
+    region: str
+    meal_time: str | None = None
+    portion_history: tuple[str, ...] | None = None
+
+
+# Countries in LATAM without ocean coastline — these users cannot have
+# ocean fish/shellfish on their plates.  Matched case-insensitively against
+# region ISO codes or full names passed by the caller.
+#
+# GAP (2026-07-25): The system currently passes region="latam" as the canonical
+# value for all LATAM users rather than a per-country code. This means the
+# landlocked check NEVER fires for BO/PARAGUAY users because their profile
+# country is not mapped to a region code before this check.
+# The correct fix is to map profile.country → ISO-3166-1 alpha-2 in the
+# process_vision_job pipeline BEFORE building UserVisionContext, then pass
+# the per-country code as `region`. Do NOT add "latam" here: LATAM includes
+# major seafood consumers (Peru, Chile, Brazil, Argentina, Mexico, Colombia,
+# Ecuador) — treating the whole region as landlocked would wrongly suppress
+# ocean seafood identification for the vast majority of LATAM users.
+# Owner decision required before any region mapping is implemented.
+_LANDLOCKED_LATAM_REGIONS: frozenset[str] = frozenset(
+    {"BO", "BOLIVIA", "PY", "PARAGUAY"}
+)
+
+
+def _build_user_context_hint(ctx: UserVisionContext) -> str:
+    """Generate additional context to append to the vision system prompt.
+
+    Returns an empty string when no useful signals are present so the caller
+    can skip the append with a simple truthiness check.  Pure function —
+    no I/O, no state.
+
+    Signals handled:
+    - Landlocked LATAM region → instruct model to never identify ocean seafood.
+    - Snack slot → emphasise per-item small-portion expectations beyond the
+      kcal-range hint already in the base prompt.
+    - User correction history → surface top-3 frequent foods as recognition
+      anchors (complements the gramaje anchors in portion_history, focusing
+      on IDENTITY rather than amount).
+    """
+    parts: list[str] = []
+
+    region_key = (ctx.region or "").upper().strip()
+    if region_key in _LANDLOCKED_LATAM_REGIONS:
+        parts.append(
+            "REGIÓN SIN COSTA MARÍTIMA: este usuario NO consume camarones, "
+            "langostinos, langosta, cangrejo, pulpo, calamar ni ningún otro "
+            "marisco de mar. Cuando detectes una proteína acuática, identificala "
+            "como trucha, tilapia, surubí, pacú u otro pez de río o lago — "
+            "NUNCA como marisco de mar."
+        )
+
+    if ctx.meal_time == "snack":
+        parts.append(
+            "SLOT SNACK — PORCIONES PEQUEÑAS POR ÍTEM: fruta 1 pieza (≤150 g), "
+            "yogur ≤180 g, queso ≤30 g, nueces ≤25 g, galletitas ≤5 unidades "
+            "(≤50 g total), proteína cocida ≤120 g. Si algún ítem supera estas "
+            "referencias en un snack, revisá si el gramaje es correcto y reducilo."
+        )
+
+    if ctx.portion_history:
+        top3 = ", ".join(ctx.portion_history[:3])
+        parts.append(
+            f"ALIMENTOS HABITUALES DE ESTE USUARIO (por frecuencia de corrección): "
+            f"{top3}. Si alguno aparece en la imagen, prioriza esa identificación y "
+            f"calibra el gramaje a su patrón histórico."
+        )
+
+    return "\n".join(parts)
+
+
 PREFILTER_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
@@ -148,6 +248,7 @@ VISION_SCHEMA: dict[str, Any] = {
                     # correctness holds even if the model disobeys.
                     "portion_kind": {"type": "string", "enum": ["pieza_entera", "a_granel"]},
                     "count": {"type": "integer", "minimum": 1},
+                    "size_category": {"type": "string", "enum": ["XS", "S", "M", "L", "XL"]},
                     "estimated_amount_g": {"type": "number"},
                     "kcal": {"type": "integer"},
                     "protein_g": {"type": "integer"},
@@ -215,6 +316,7 @@ VISION_SCHEMA: dict[str, Any] = {
                     "name",
                     "portion_kind",
                     "count",
+                    "size_category",
                     "estimated_amount_g",
                     "kcal",
                     "protein_g",
@@ -240,6 +342,7 @@ def _system_prompt(
     user_profile: dict[str, Any] | None = None,
     portion_history: list[str] | None = None,
     user_context: str | None = None,
+    meal_time: str | None = None,
 ) -> str:
     # Plate Decomposition 2.0 — full decomposition, not just visible items.
     # Any wording change here changes prompt_sha256 → SHA dedup cache
@@ -276,26 +379,66 @@ def _system_prompt(
         "si sus partes son indistinguibles/homogéneas (sopa licuada, batido, "
         "puré).\n"
         "Por ítem (SOLO estos campos, nada más — menos campos = respuesta más rápida): "
-        "name, estimated_amount_g, kcal, protein_g, carbs_g, fat_g, confidence (0-1), "
+        "name, estimated_amount_g, size_category, kcal, protein_g, carbs_g, fat_g, "
+        "confidence (0-1), "
         "food_group (vegetable|fruit|grain|protein|dairy|fat|sweet|beverage|other), "
         "role (main|side|sauce|condiment|cooking_fat|garnish|sweetener|beverage_base), "
         "prep_method (deep_fried|fried|sauteed|grilled|boiled|steamed|baked|stewed|raw|unknown).\n"
+        "CAMPO CRÍTICO `size_category` — OBLIGATORIO en TODOS los ítems: "
+        "XS=muy pequeño (mitad de porción chica), S=pequeño, M=porción normal hogar 1 adulto, "
+        "L=grande, XL=muy grande. "
+        "MÉTODO: (1) detecta objeto de referencia visible (tenedor≈18cm, cuchara sopera≈15cm, "
+        "plato estándar≈26cm Ø, mano adulta≈18cm, moneda 25mm). "
+        "(2) Compara el alimento con esa referencia para juzgar el tamaño VISUAL. "
+        "(3) Asigna XS/S/M/L/XL ANTES de escribir estimated_amount_g. "
+        "(4) estimated_amount_g debe ser COHERENTE con size_category "
+        "(ej. pollo M → 120-140g, arroz M → 140-160g, NO pongas M y 40g — se contradicen).\n"
         "COHERENCIA: `kcal`≈4·protein_g+4·carbs_g+9·fat_g (Atwater) — que cuadren. "
         "`prep_method` afecta kcal (frito absorbe aceite; a la plancha no). "
         "`confidence`: alto SOLO si identidad "
         "Y tamaño son claros; bajo si ocluido, borroso o dudoso.\n"
-        "PORCIONES: si hay mano, moneda, cubierto u otro objeto conocido → úsalo como "
-        "calibrador PRINCIPAL. Otras referencias: plato Ø26cm, plato hondo 400ml, "
+        "PORCIONES — calibración HOGAR LATAM (no restaurante): si hay mano, moneda, "
+        "cubierto u otro objeto conocido → úsalo como calibrador PRINCIPAL. "
+        "Otras referencias: plato Ø26cm, plato hondo 400ml, "
         "cuchara sopera 15ml, vaso 250ml, taza 240ml, lata 355ml. "
         "Estima profundidad del montículo, no solo área. "
-        "⚠️ SESGO CRÍTICO A CORREGIR: se SUBESTIMAN las porciones sistemáticamente. "
-        "Cuando el alimento LLENA el plato, se APILA o SOBRESALE del borde, la cantidad "
-        "es GRANDE — estimá hacia el volumen MAYOR, no el menor. Un montículo alto tiene "
-        "mucho más peso del que parece por el área. Anclas PLATO LLENO: papas 250-400g; "
-        "arroz 200-350g; pasta 250-400g; guiso 300-500g; carne generosa 150-250g. "
-        "Un plato principal completo de restaurante suele ser 700-1200 kcal o "
-        "más; si tu suma da mucho menos para un plato claramente lleno, REVISÁ AL ALZA las "
-        "porciones antes de responder.\n"
+        "ANCLAS DE PORCIÓN INDIVIDUAL (cocina de hogar LATAM, UNA persona): "
+        "proteína (filete/pechuga/lomo) 120-200g; filete de pescado 130-200g; "
+        "carne molida/guisada 100-180g; "
+        "arroz cocido 120-200g; pasta cocida 150-220g; papas cocidas 100-180g; "
+        "legumbres cocidas 80-150g; masa de pizza (pizza personal entera) 120-170g; "
+        "queso en pizza 60-90g; verdura cocida por tipo 60-130g; ensalada mixta 80-150g; "
+        "pan/tostada (rebanada) 30-50g; fruta mediana entera 120-180g. "
+        "RANGOS CALÓRICOS ESPERADOS por comida (hogar individual): "
+        "desayuno 300-550 kcal; almuerzo 500-750 kcal; cena 400-650 kcal; snack 80-220 kcal. "
+        "⚠️ VERIFICACIÓN FINAL OBLIGATORIA: suma todos tus ítems. "
+        "Si el total supera el rango esperado para esa comida, "
+        "REVISÁ las porciones MÁS GRANDES y ajustá a la baja antes de responder. "
+        "El error más común es SOBREESTIMAR el gramaje — un plato parece grande visualmente "
+        "pero la porción real es moderada. Ante la duda, estimá hacia la porción MEDIANA del rango. "
+        "EXCEPCIÓN — ALIMENTOS LICUADOS/MEZCLADOS (batido, smoothie, licuado, gachas, porridge, "
+        "sémola, crema, potaje, puré): contienen ingredientes densos INVISIBLES en el blend "
+        "(aguacate, plátano, leche entera, mantequilla de maní, miel, semillas, crema). "
+        "Densidad de referencia: batido de frutas con lácteos 70-90 kcal/100ml; "
+        "batido con aguacate/nuez/coco 100-130 kcal/100ml; "
+        "gachas/porridge con leche 90-120 kcal/100g. "
+        "Si tu estimado es MÁS BAJO que estos rangos para una porción visible de tamaño normal, "
+        "AÑADÍ los ingredientes densos más probables (leche entera, aguacate, miel) como ítems "
+        "invisibles separados antes de finalizar.\n"
+        "PROTEÍNA FALTANTE — DOBLE VERIFICACIÓN: en platos de almuerzo/cena, "
+        "antes de finalizar verificá que hayas incluido la proteína principal "
+        "(carne, pollo, pescado, mariscos, huevo, legumbre). Si no ves ninguna, "
+        "REVISÁ la imagen — puede estar bajo salsa, semioculta, con color similar "
+        "al plato, o en el borde. Un plato principal sin proteína es inusual.\n"
+        "SOPAS/CREMAS CON SÓLIDOS: si el plato base es sopa o crema pero hay "
+        "ingredientes sólidos VISIBLES (trozos de carne, papa, verdura entera, "
+        "legumbre), listalós POR SEPARADO además de la base líquida. No los "
+        "absorba en 'sopa cremosa general' — la base líquida es UN ítem, cada "
+        "sólido identificable es otro ítem adicional.\n"
+        "SNACK CON MÚLTIPLES INGREDIENTES: en snacks con 2-4 componentes "
+        "(frutas + nueces, queso + crackers, yogur + granola), verificá que "
+        "TODOS estén listados. Nueces, frutos secos y frutos rojos son "
+        "pequeños y fáciles de omitir aunque estén claramente presentes.\n"
         "CONTEO CRÍTICO — LOCALIZA Y CUENTA ANTES DE RESPONDER: para CADA "
         "alimento que venga en piezas enteras repetidas, primero ubica y numera "
         "cada unidad una por una (unidad 1, unidad 2, …), incluyendo las APILADAS, "
@@ -327,6 +470,19 @@ def _system_prompt(
         "puré; salsa mezclada; ingrediente disperso). Nunca inventes coords.\n"
         f"Locale={locale}. Region={region}. JSON estricto, nunca texto libre."
     )
+    if meal_time:
+        _meal_kcal = {
+            "breakfast": "300-550 kcal",
+            "lunch": "500-750 kcal",
+            "dinner": "400-650 kcal",
+            "snack": "80-220 kcal",
+        }
+        kcal_hint = _meal_kcal.get(meal_time, "")
+        base += (
+            f"\nCOMIDA DEL DÍA: {meal_time}."
+            + (f" Rango calórico esperado: {kcal_hint}." if kcal_hint else "")
+            + " Si tu suma excede este rango, ajustá las porciones mayores a la baja."
+        )
     if user_profile:
         sex = user_profile.get("sex", "")
         age = user_profile.get("age", "")
@@ -363,7 +519,187 @@ def _system_prompt(
             "→ subí el gramaje; 'individual'/'de niño' → bajalo). Úsalo SOLO para el "
             "gramaje; nunca agregues alimentos que no se vean en la imagen."
         )
+    # Per-user context hint: landlocked region, slot-specific size anchors,
+    # user's most-corrected foods.  Build from the caller-provided signals;
+    # returns "" when nothing useful is available.
+    user_ctx_hint = _build_user_context_hint(
+        UserVisionContext(
+            region=region,
+            meal_time=meal_time,
+            portion_history=tuple(portion_history) if portion_history else None,
+        )
+    )
+    if user_ctx_hint:
+        base += f"\n{user_ctx_hint}"
     return base
+
+
+# ---------------------------------------------------------------------------
+# Two-pass schemas and prompts (identify + estimate)
+# ---------------------------------------------------------------------------
+
+IDENTIFY_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "items": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "name": {"type": "string"},
+                    "confidence": {"type": "number"},
+                    "group": {
+                        "type": "string",
+                        "enum": [
+                            "vegetable",
+                            "fruit",
+                            "grain",
+                            "protein",
+                            "dairy",
+                            "fat",
+                            "sweet",
+                            "beverage",
+                            "other",
+                        ],
+                    },
+                    "role": {
+                        "type": "string",
+                        "enum": [
+                            "main",
+                            "side",
+                            "sauce",
+                            "condiment",
+                            "cooking_fat",
+                            "garnish",
+                            "sweetener",
+                            "beverage_base",
+                        ],
+                    },
+                    "prep_method": {
+                        "type": "string",
+                        "enum": [
+                            "grilled",
+                            "fried",
+                            "deep_fried",
+                            "boiled",
+                            "raw",
+                            "baked",
+                            "sauteed",
+                            "steamed",
+                            "stewed",
+                            "unknown",
+                        ],
+                    },
+                    "count": {"type": "integer", "minimum": 1},
+                    "portion_kind": {
+                        "type": "string",
+                        "enum": ["pieza_entera", "a_granel"],
+                    },
+                },
+                "required": [
+                    "name",
+                    "confidence",
+                    "group",
+                    "role",
+                    "prep_method",
+                    "count",
+                    "portion_kind",
+                ],
+            },
+        }
+    },
+    "required": ["items"],
+}
+
+ESTIMATE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "estimates": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "index": {"type": "integer", "minimum": 0},
+                    "estimated_amount_g": {"type": "number"},
+                    "kcal": {"type": "integer"},
+                    "protein_g": {"type": "integer"},
+                    "carbs_g": {"type": "integer"},
+                    "fat_g": {"type": "integer"},
+                    "confidence": {"type": "number"},
+                },
+                "required": [
+                    "index",
+                    "estimated_amount_g",
+                    "kcal",
+                    "protein_g",
+                    "carbs_g",
+                    "fat_g",
+                    "confidence",
+                ],
+            },
+        }
+    },
+    "required": ["estimates"],
+}
+
+
+def _identify_system_prompt(locale: str, region: str) -> str:
+    """Short, identification-only prompt for Call 1 of the two-pass pipeline.
+
+    Does NOT request grams or macros — that is Call 2's job.
+    Any wording change here changes identification_prompt_sha256 → cache invalidation.
+    """
+    return (
+        "Eres un experto en nutrición. Analiza la imagen e IDENTIFICA los alimentos.\n"
+        "NO estimes gramos, kcal ni macros — solo identificación.\n"
+        "Descompone platos compuestos en ingredientes individuales visibles.\n"
+        "Por cada alimento escribe: name, confidence (0..1), group, role, prep_method, "
+        "count, portion_kind.\n"
+        "group: vegetable|fruit|grain|protein|dairy|fat|sweet|beverage|other\n"
+        "role: main|side|sauce|condiment|cooking_fat|garnish|sweetener|beverage_base\n"
+        "prep_method: grilled|fried|deep_fried|boiled|raw|baked|sauteed|steamed|stewed|unknown\n"
+        "portion_kind: pieza_entera (piezas enteras contables, ej. medallón, huevo, empanada) "
+        "| a_granel (montón, picado, salsa, líquido).\n"
+        "count: número de unidades idénticas cuando portion_kind=pieza_entera; "
+        "siempre 1 cuando a_granel.\n"
+        "confidence alto solo si la identidad del alimento es clara en la imagen.\n"
+        f"Locale={locale}. Region={region}. JSON estricto, nunca texto libre."
+    )
+
+
+def _estimate_system_prompt(locale: str, region: str) -> str:
+    """Stable estimation prompt template for Call 2 of the two-pass pipeline.
+
+    The specific item list is injected as user-message content at call time so
+    this template stays stable and its hash is a valid cache-invalidation key.
+    Any wording change here changes estimation_prompt_sha256 → cache invalidation.
+    """
+    return (
+        "Eres un experto en nutrición y porciones de hogar LatAm/US/EU.\n"
+        "Recibirás una lista de alimentos ya identificados y la imagen original.\n"
+        "Tu tarea: para CADA ítem de la lista, estima los gramos visibles en la foto "
+        "y calcula macros con Atwater (kcal = 4·prot + 4·carbs + 9·fat).\n"
+        "Responde con un array `estimates` index-alineado a la lista recibida.\n"
+        "PORCIONES — calibración HOGAR (no restaurante): "
+        "proteína (filete/pechuga) 120-200 g; arroz cocido 120-200 g; "
+        "pasta cocida 150-220 g; verdura cocida 60-130 g; fruta mediana 120-180 g.\n"
+        "confidence: alto si tamaño Y tipo son claros; bajo si ocluido o dudoso.\n"
+        "Si la lista incluye referencias de porción típica, úsalas como ancla, "
+        "no como valor final.\n"
+        f"Locale={locale}. Region={region}. JSON estricto."
+    )
+
+
+_IDENTIFY_ROLES: frozenset[str] = frozenset(
+    {"main", "side", "sauce", "condiment", "cooking_fat", "garnish", "sweetener", "beverage_base"}
+)
+_IDENTIFY_PREP_METHODS: frozenset[str] = frozenset(
+    {"grilled", "fried", "deep_fried", "boiled", "raw", "baked", "sauteed", "steamed", "stewed", "unknown"}
+)
 
 
 def _get_client() -> AsyncOpenAI:
@@ -548,6 +884,326 @@ class OpenAIVisionProvider:
         """Port impl — exposes the prompt-version hash for cache invalidation."""
         return hashlib.sha256(_system_prompt(locale, region).encode()).hexdigest()
 
+    # ------------------------------------------------------------------
+    # Two-pass protocol implementations
+    # ------------------------------------------------------------------
+
+    def identification_prompt_sha256(self, *, locale: str, region: str) -> str:
+        """SHA256 of the Call-1 (identification) system prompt template.
+
+        Used by the two-pass cache layer for invalidation when the prompt changes.
+        Pure function — no I/O.
+        """
+        return hashlib.sha256(_identify_system_prompt(locale, region).encode()).hexdigest()
+
+    def estimation_prompt_sha256(self, *, locale: str, region: str) -> str:
+        """SHA256 of the Call-2 (estimation) system prompt template.
+
+        Pure function — no I/O.
+        """
+        return hashlib.sha256(_estimate_system_prompt(locale, region).encode()).hexdigest()
+
+    async def _invoke_with_schema(  # noqa: PLR0913 — cohesive call params
+        self,
+        *,
+        model: str,
+        sys_prompt: str,
+        user_content: list[dict[str, Any]],
+        detail: DetailLevel,
+        user_id: UUID | None,
+        max_output_tokens: int,
+        schema_name: str,
+        schema: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Raw API call with a custom JSON schema. Returns parsed dict.
+
+        Shares cost-cap, circuit-breaker, and retry logic with ``_invoke``.
+        Returns the parsed JSON dict so callers can extract their own typed values.
+        """
+        img_tok = _image_token_estimate(detail)
+        in_price = _price_input(model)
+        out_price = _price_output(model)
+        one_m = Decimal(1_000_000)
+        text_est_decimal = Decimal(str(estimate_input_cost(model, sys_prompt)))
+        image_est = (Decimal(img_tok) / one_m) * in_price
+        typical_out_tok = Decimal(max_output_tokens) / Decimal(4)
+        out_est = (typical_out_tok / one_m) * out_price
+        total_est = text_est_decimal + image_est + out_est
+        await pre_check(user_id=user_id, estimate_usd=float(total_est))
+
+        async def _call() -> dict[str, Any]:
+            resp = await _get_client().chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": sys_prompt},
+                    {"role": "user", "content": user_content},
+                ],
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": schema_name,
+                        "strict": True,
+                        "schema": schema,
+                    },
+                },
+                **_completion_kwargs(model, max_output_tokens),
+            )
+            content = resp.choices[0].message.content or "{}"
+            usage = resp.usage
+            _cached_tok = 0
+            if (
+                usage
+                and hasattr(usage, "prompt_tokens_details")
+                and usage.prompt_tokens_details
+            ):
+                _cached_tok = (
+                    getattr(usage.prompt_tokens_details, "cached_tokens", 0) or 0
+                )
+            await record_usage(
+                user_id=user_id,
+                model=model,
+                in_tok=(getattr(usage, "prompt_tokens", 0) if usage else img_tok),
+                out_tok=(
+                    getattr(usage, "completion_tokens", 0)
+                    if usage
+                    else max_output_tokens
+                ),
+                cached_tok=_cached_tok,
+            )
+            try:
+                parsed: dict[str, Any] = json.loads(content)
+            except json.JSONDecodeError as je:
+                VISION_PARSE_ERRORS.labels(model=model).inc()
+                log.warning(
+                    "vision.invoke_raw.parse_error",
+                    model=model,
+                    schema=schema_name,
+                    err=str(je)[:200],
+                    content_len=len(content),
+                )
+                parsed = {}
+            return parsed
+
+        attempt = 0
+        last_exc: Exception | None = None
+        while attempt <= MAX_RETRIES:
+            try:
+                return await _breaker.call(_call)
+            except Exception as exc:  # noqa: BLE001
+                last_exc = exc
+                attempt += 1
+                if attempt > MAX_RETRIES:
+                    break
+                await asyncio.sleep(0.5 * (2 ** (attempt - 1)))
+
+        log.warning(
+            "vision.invoke_raw.failed",
+            model=model,
+            schema=schema_name,
+            error=str(last_exc),
+        )
+        raise UpstreamError(f"vision_raw_failed:{last_exc!s}")
+
+    async def identify(
+        self,
+        *,
+        image_bytes: bytes,
+        mime: str,
+        user_id: UUID | None,
+        locale: str,
+        region: str,
+        meal_time: str | None = None,
+        plan_context: str | None = None,
+        user_context: str | None = None,
+        model: str | None = None,
+    ) -> tuple[list[FoodIdentification], str]:
+        """Call 1 — identity only.  MUST NOT return amounts.
+
+        Returns ``(identifications, prompt_sha256)`` where ``prompt_sha256``
+        is the SHA of the *stable* system prompt (locale + region only).
+        """
+        from collections.abc import Sequence  # local to avoid import cycle
+
+        s = get_settings()
+        effective_model = model or self._primary_model()
+
+        prompt = _identify_system_prompt(locale, region)
+        prompt_sha = hashlib.sha256(prompt.encode()).hexdigest()
+
+        # Inject per-call context into the system prompt (does not affect hash)
+        prompt_full = prompt
+        if meal_time:
+            prompt_full += f"\nComida: {meal_time}."
+        if plan_context:
+            prompt_full += (
+                f"\nContexto del plan: {plan_context}. "
+                "Si ves los mismos ingredientes, priorizalos."
+            )
+        if user_context:
+            prompt_full += (
+                f"\nContexto de esta foto (usuario): «{user_context}»."
+            )
+
+        detail: DetailLevel = await asyncio.to_thread(
+            _detect_detail_level, image_bytes, s.vision_low_detail_max_dim
+        )
+        b64 = base64.b64encode(image_bytes).decode()
+        data_url = f"data:{mime};base64,{b64}"
+
+        user_content: list[dict[str, Any]] = [
+            {"type": "text", "text": "Identifica los alimentos en esta imagen."},
+            {"type": "image_url", "image_url": {"url": data_url, "detail": detail}},
+        ]
+
+        raw = await self._invoke_with_schema(
+            model=effective_model,
+            sys_prompt=prompt_full,
+            user_content=user_content,
+            detail=detail,
+            user_id=user_id,
+            max_output_tokens=s.vision_identify_max_output_tokens,
+            schema_name="vision_identify",
+            schema=IDENTIFY_SCHEMA,
+        )
+
+        ids = _parse_identifications(raw)
+        log.info(
+            "vision.identify.done",
+            n_items=len(ids),
+            model=effective_model,
+            prompt_sha=prompt_sha[:8],
+        )
+        return ids, prompt_sha
+
+    async def estimate(
+        self,
+        *,
+        image_bytes: bytes,
+        mime: str,
+        identifications: Sequence[FoodIdentification],
+        portion_hints: Mapping[int, PortionHint] | None = None,
+        user_id: UUID | None,
+        locale: str,
+        region: str,
+        meal_time: str | None = None,
+        user_profile: dict[str, object] | None = None,
+        portion_history: list[str] | None = None,
+        user_context: str | None = None,
+        model: str | None = None,
+    ) -> tuple[list[PortionEstimate], str]:
+        """Call 2 — grams/macros for a FIXED item list, from the SAME image.
+
+        Returns ``(estimates, prompt_sha256)`` where ``prompt_sha256``
+        is the SHA of the *stable* system prompt (locale + region only).
+        """
+        from collections.abc import Mapping as _Mapping, Sequence as _Sequence
+
+        s = get_settings()
+        effective_model = model or self._primary_model()
+
+        prompt = _estimate_system_prompt(locale, region)
+        prompt_sha = hashlib.sha256(prompt.encode()).hexdigest()
+
+        # Build system prompt with per-call context (does not affect hash)
+        prompt_full = prompt
+        if meal_time:
+            _meal_kcal = {
+                "breakfast": "300-550 kcal",
+                "lunch": "500-750 kcal",
+                "dinner": "400-650 kcal",
+                "snack": "80-220 kcal",
+            }
+            kcal_hint = _meal_kcal.get(meal_time, "")
+            prompt_full += (
+                f"\nComida del día: {meal_time}."
+                + (f" Rango calórico esperado: {kcal_hint}." if kcal_hint else "")
+            )
+        if user_profile:
+            sex = user_profile.get("sex", "")
+            age = user_profile.get("age", "")
+            weight = user_profile.get("weight_kg", "")
+            prompt_full += (
+                f"\nPerfil del usuario: {sex}, {age} años, {weight}kg."
+            )
+        if user_context:
+            prompt_full += (
+                f"\nContexto de esta foto (usuario): «{user_context}». "
+                "Señal más fuerte para calibrar tamaño de porciones."
+            )
+
+        # Build user message: items list + optional hints + image
+        items_lines = [
+            f"{i}: {ident.name} ({ident.group})"
+            for i, ident in enumerate(identifications)
+        ]
+        items_text = "\n".join(items_lines)
+
+        hints_text = ""
+        if portion_hints:
+            hint_lines: list[str] = []
+            for idx, hint in portion_hints.items():
+                if hint.typical_serving_g is not None:
+                    hint_lines.append(
+                        f"  {idx}: {hint.name_norm} → ~{hint.typical_serving_g:.0f}g típico"
+                    )
+            if hint_lines:
+                hints_text = "\nReferencias de porción:\n" + "\n".join(hint_lines)
+
+        if portion_history:
+            history_text = ", ".join(portion_history[:3])
+            hints_text += (
+                f"\nPorciones habituales del usuario: {history_text}. "
+                "Calibra si reconoces los mismos alimentos."
+            )
+
+        user_text = (
+            f"Alimentos identificados:\n{items_text}{hints_text}\n\n"
+            "Para CADA ítem (por su índice), estima los gramos visibles y los macros."
+        )
+
+        detail: DetailLevel = await asyncio.to_thread(
+            _detect_detail_level, image_bytes, s.vision_low_detail_max_dim
+        )
+        b64 = base64.b64encode(image_bytes).decode()
+        data_url = f"data:{mime};base64,{b64}"
+
+        user_content: list[dict[str, Any]] = [
+            {"type": "text", "text": user_text},
+            {"type": "image_url", "image_url": {"url": data_url, "detail": detail}},
+        ]
+
+        raw = await self._invoke_with_schema(
+            model=effective_model,
+            sys_prompt=prompt_full,
+            user_content=user_content,
+            detail=detail,
+            user_id=user_id,
+            max_output_tokens=s.vision_max_output_tokens,
+            schema_name="vision_estimate",
+            schema=ESTIMATE_SCHEMA,
+        )
+
+        raw_estimates = _parse_estimates(raw)
+        n_ids = len(identifications)
+        estimates: list[PortionEstimate] = []
+        for e in raw_estimates:
+            if e.index >= n_ids:
+                log.warning(
+                    "vision.estimate.index_out_of_range",
+                    index=e.index,
+                    n_items=n_ids,
+                )
+            else:
+                estimates.append(e)
+        log.info(
+            "vision.estimate.done",
+            n_estimates=len(estimates),
+            n_items=n_ids,
+            model=effective_model,
+            prompt_sha=prompt_sha[:8],
+        )
+        return estimates, prompt_sha
+
     async def is_food_image(
         self,
         *,
@@ -671,6 +1327,7 @@ class OpenAIVisionProvider:
         user_profile: dict[str, Any] | None = None,
         portion_history: list[str] | None = None,
         user_context: str | None = None,
+        meal_time: str | None = None,
     ) -> tuple[list[DetectedFoodItem], str]:
         s = get_settings()
         # prompt_sha uses only stable parts (locale, region) — plan_context,
@@ -684,6 +1341,7 @@ class OpenAIVisionProvider:
             user_profile=user_profile,
             portion_history=portion_history,
             user_context=user_context,
+            meal_time=meal_time,
         )
 
         # Enhance dark food photos before sending to the VLM (best-effort,
@@ -727,7 +1385,8 @@ class OpenAIVisionProvider:
                 detail=detail,
                 prompt_sha=prompt_sha[:8],
             )
-            return full_items, prompt_sha
+            # Pre-domain guard: cap raw LLM grams here; decompose() re-caps after floor/inference.
+            return cap_implausible_portions(full_items, slot=meal_time), prompt_sha
 
         # --- Primary call ---
         primary_items = await self._invoke(
@@ -757,7 +1416,8 @@ class OpenAIVisionProvider:
                 detail=detail,
                 prompt_sha=prompt_sha[:8],
             )
-            return primary_items, prompt_sha
+            # Pre-domain guard: cap raw LLM grams here; decompose() re-caps after floor/inference.
+            return cap_implausible_portions(primary_items, slot=meal_time), prompt_sha
 
         if not cascade_enabled:
             log.info(
@@ -769,7 +1429,8 @@ class OpenAIVisionProvider:
                 detail=detail,
                 prompt_sha=prompt_sha[:8],
             )
-            return primary_items, prompt_sha
+            # Pre-domain guard: cap raw LLM grams here; decompose() re-caps after floor/inference.
+            return cap_implausible_portions(primary_items, slot=meal_time), prompt_sha
 
         escalate, reason = _should_fallback(primary_items, s.vision_confidence_threshold)
         if not escalate:
@@ -786,7 +1447,8 @@ class OpenAIVisionProvider:
                 detail=detail,
                 prompt_sha=prompt_sha[:8],
             )
-            return primary_items, prompt_sha
+            # Pre-domain guard: cap raw LLM grams here; decompose() re-caps after floor/inference.
+            return cap_implausible_portions(primary_items, slot=meal_time), prompt_sha
 
         # --- Fallback call ---
         VISION_FALLBACK.labels(reason=reason).inc()
@@ -816,7 +1478,8 @@ class OpenAIVisionProvider:
             user_id=user_id,
             max_output_tokens=s.vision_max_output_tokens,
         )
-        return fallback_items, prompt_sha
+        # Pre-domain guard: cap raw LLM grams here; decompose() re-caps after floor/inference.
+        return cap_implausible_portions(fallback_items, slot=meal_time), prompt_sha
 
     async def _invoke(  # noqa: PLR0913 — keyword-only; args are cohesive call params (model, prompt, image, detail, user, max_tokens).
         self,
@@ -948,14 +1611,18 @@ _PREP_METHODS: frozenset[str] = frozenset(
 # 15% is tight enough to catch arithmetic errors while allowing rounding noise.
 _ATWATER_THRESHOLD = 0.15
 
-# USDA oil absorption coefficients by prep method.
-# Source: USDA FDC fat retention studies (deep-fry 8-15%, pan-fry 3-7%, sauté 1-5%).
-_OIL_ABSORPTION_PCT: dict[str, float] = {
-    "deep_fried": 0.11,
-    "fried": 0.05,
-    "sauteed": 0.03,
-}
-_OIL_KCAL_PER_G = 9  # fat = 9 kcal/g (Atwater)
+# OIL_ABSORPTION_PCT and OIL_KCAL_PER_G live in plate_decomposition (domain) —
+# single source of truth (deep_fried=0.12, fried=0.10, sauteed=0.04). Imported above.
+
+# Cap absorbed oil at 10 g per plate (90 kcal). A generous deep-fried portion
+# (200g chicken × 0.10 = 20g) is capped here because the LLM already accounts
+# for visible oil shine in its kcal estimate; injecting more causes MAE regression.
+_OIL_INJECTION_CAP_G = 10.0
+
+# Groups whose fat content is already tracked in their own macros — adding
+# cooking-fat on top would double-count.
+# "grain" added: rice/pasta/bread macros already include any absorbed fat.
+_OIL_SKIP_GROUPS: frozenset[str] = frozenset({"fat", "sweet", "beverage", "fruit", "grain"})
 
 
 def _atwater_correct(
@@ -981,7 +1648,7 @@ def _atwater_correct(
 
 
 def _hidden_calorie_post_pass(items: list[DetectedFoodItem]) -> list[DetectedFoodItem]:
-    """Inject inferred cooking-fat item for fried/sauteed foods.
+    """Inject inferred cooking-fat item for deep-fried and pan-fried foods.
 
     Skips if LLM already detected a cooking_fat role item — no double-counting.
     Aggregates absorbed oil across all fried items into one inferred entry.
@@ -992,8 +1659,11 @@ def _hidden_calorie_post_pass(items: list[DetectedFoodItem]) -> list[DetectedFoo
 
     total_oil_g = 0.0
     for item in items:
-        pct = _OIL_ABSORPTION_PCT.get(item.prep_method or "")
+        pct = OIL_ABSORPTION_PCT.get(item.prep_method or "")
         if pct is None:
+            continue
+        # Skip groups whose fat is already part of their macro profile.
+        if (item.food_group or "other") in _OIL_SKIP_GROUPS:
             continue
         amount_g = float(item.estimated_amount_g)
         if amount_g <= 0:
@@ -1003,10 +1673,12 @@ def _hidden_calorie_post_pass(items: list[DetectedFoodItem]) -> list[DetectedFoo
     if total_oil_g < 1.0:
         return items
 
+    # Hard cap: beyond this the model misclassified a non-fried item.
+    total_oil_g = min(total_oil_g, _OIL_INJECTION_CAP_G)
     oil_g = round(total_oil_g)
-    oil_kcal = round(total_oil_g * _OIL_KCAL_PER_G)
-    oil_kcal_min = round(total_oil_g * 0.8 * _OIL_KCAL_PER_G)
-    oil_kcal_max = round(total_oil_g * 1.4 * _OIL_KCAL_PER_G)
+    oil_kcal = round(total_oil_g * OIL_KCAL_PER_G)
+    oil_kcal_min = round(total_oil_g * 0.8 * OIL_KCAL_PER_G)
+    oil_kcal_max = round(total_oil_g * 1.4 * OIL_KCAL_PER_G)
 
     log.info(
         "vision.hidden_calorie.cooking_fat_injected",
@@ -1042,6 +1714,20 @@ def _parse_items(raw: dict[str, Any]) -> list[DetectedFoodItem]:
             role = str(r.get("role") or "") or None
             prep = str(r.get("prep_method") or "") or None
 
+            # Invalidate physically impossible prep_method/food_group pairs.
+            # These indicate model hallucination: fruit/fat/sweet/beverage items
+            # cannot absorb cooking oil — assigning them a frying prep_method
+            # corrupts both downstream oil injection and food log data.
+            # Applies to ANY food in these groups, not just specific items.
+            if prep in OIL_ABSORPTION_PCT and (group if group in _FOOD_GROUPS else "other") in _OIL_SKIP_GROUPS:
+                log.info(
+                    "vision.parse.prep_method_invalidated",
+                    name=str(r.get("name", "?"))[:60],
+                    food_group=group,
+                    prep_method_llm=prep,
+                )
+                prep = "unknown"
+
             # count: number of identical visible units (2 patties, 3 pancakes…).
             # LLM returns per-unit amounts; we multiply deterministically here
             # so the rest of the pipeline always works with totals.
@@ -1063,8 +1749,40 @@ def _parse_items(raw: dict[str, Any]) -> list[DetectedFoodItem]:
             carbs_g = max(0, int(r["carbs_g"])) * count
             fat_g = max(0, int(r["fat_g"])) * count
             kcal_raw = max(0, int(r["kcal"])) * count
-            amount_g = float(r["estimated_amount_g"]) * count
+            llm_amount_g = float(r["estimated_amount_g"])
 
+            # size_category catalog override — DISABLED 2026-07-25 after 3 live
+            # golden-set runs showed it net-negative: pass rate 39.3%→32.1%→25.0%,
+            # kcal MAE 120→215. The fixed (food_type, size_bucket) gram table is
+            # less accurate than the LLM's own contextual estimate from the actual
+            # photo (a rigid bucket can't tell "rice as sushi roll filling" from
+            # "rice as dinner side"). PORTION_GRAMS/resolve_grams kept in the
+            # codebase for a future recalibration against golden-set ground truth,
+            # but not applied here until re-validated live.
+            amount_g = llm_amount_g * count
+
+            # Physical macro sanity guard: sum of macros cannot exceed food weight.
+            # Dry foods (nuts, grains) have sum ≈ amount_g; wet foods (fruit, veg)
+            # have sum << amount_g (water makes up the rest). Exceeding amount_g is
+            # physically impossible — it means the LLM hallucinated macro values.
+            # When violated, scale all macros down proportionally so the ratios are
+            # preserved but the total becomes physically plausible.
+            macro_sum = protein_g + carbs_g + fat_g
+            if macro_sum > amount_g and macro_sum > 0:
+                scale = amount_g / macro_sum
+                protein_g = int(protein_g * scale)
+                carbs_g = int(carbs_g * scale)
+                fat_g = int(fat_g * scale)
+                log.info(
+                    "vision.parse.macro_overflow_clamped",
+                    name=str(r.get("name", "?"))[:60],
+                    macro_sum_g=round(macro_sum),
+                    amount_g=round(amount_g),
+                    scale=round(scale, 3),
+                )
+
+            # Parse-time Atwater (15%): fixes LLM arithmetic on raw output. Distinct from
+            # macro_grounder.reconcile_kcal_atwater (40%, post-USDA) which only repairs pipeline bugs.
             kcal_best, corrected = _atwater_correct(kcal_raw, protein_g, carbs_g, fat_g)
             if corrected:
                 log.info(
@@ -1149,4 +1867,147 @@ def _parse_items(raw: dict[str, Any]) -> list[DetectedFoodItem]:
                 name=str(r.get("name", "?"))[:60],
             )
             continue
-    return _hidden_calorie_post_pass(out)
+    return _hidden_calorie_post_pass(_dedup_items(out))
+
+
+def _dedup_items(items: list[DetectedFoodItem]) -> list[DetectedFoodItem]:
+    """Merge duplicate items the model emitted multiple times for the same food.
+
+    Duplicates share a normalized name + food_group. Macros and grams are
+    summed; confidence is averaged; bbox is discarded (no longer meaningful
+    for a merged multi-detection). Inferred items are never merged with
+    real detections. Logs when a merge happens so ops can track LLM drift.
+
+    This guards against the class of hallucination where the model lists
+    "salmón a la horno" four times for a single fillet, inflating kcal 4×.
+    The root cause is the LLM re-listing the same food under slight name
+    variants — dedup is the correct defensive layer, not prompt tweaking,
+    because prompt changes are model-version fragile.
+    """
+    def _norm_key(it: DetectedFoodItem) -> str:
+        n = _re.sub(r"[\s\-_/,.()\[\]]+", " ", it.name.lower()).strip()
+        return f"{n}|{it.food_group or 'other'}"
+
+    seen: dict[str, DetectedFoodItem] = {}
+    for it in items:
+        key = _norm_key(it)
+        if key not in seen:
+            seen[key] = it
+            continue
+        existing = seen[key]
+        # Keep first occurrence — duplicates are re-listings of the same food,
+        # not additional portions. Summing grams inflates 4× for one fillet into
+        # 4× kcal. The LLM uses `count` field when there are genuinely multiple
+        # pieces; duplicate *names* mean a single item re-listed.
+        log.info(
+            "vision.parse.dedup_dropped",
+            name=it.name[:60],
+            food_group=it.food_group,
+            kept_g=float(existing.estimated_amount_g),
+            dropped_g=float(it.estimated_amount_g),
+        )
+        seen[key] = _dc_replace(
+            existing,
+            confidence=round((existing.confidence + it.confidence) / 2, 3),
+            bbox=None,
+        )
+    return list(seen.values())
+
+
+# ---------------------------------------------------------------------------
+# Two-pass parsers
+# ---------------------------------------------------------------------------
+
+
+def _parse_identifications(raw: dict[str, Any]) -> list[FoodIdentification]:
+    """Parse Call-1 (identify) JSON into ``FoodIdentification`` objects.
+
+    Malformed rows are logged and skipped — never raise here so a single bad
+    item never drops the whole identification.
+    """
+    out: list[FoodIdentification] = []
+    for r in raw.get("items", []) or []:
+        try:
+            group_raw = str(r.get("group", "other"))
+            group: FoodGroup = group_raw if group_raw in _FOOD_GROUPS else "other"  # type: ignore[assignment]
+
+            role_raw = str(r.get("role") or "") or None
+            role = role_raw if role_raw in _IDENTIFY_ROLES else None
+
+            prep_raw = str(r.get("prep_method") or "") or None
+            prep = prep_raw if prep_raw in _IDENTIFY_PREP_METHODS else None
+
+            count = max(1, int(r.get("count") or 1))
+            portion_kind_raw = str(r.get("portion_kind") or "a_granel").lower()
+            portion_kind = (
+                "pieza_entera"
+                if portion_kind_raw == "pieza_entera"
+                else "a_granel"
+            )
+            # Enforce bulk clamp: a_granel items are ONE portion by weight
+            if portion_kind == "a_granel" and count > 1:
+                count = 1
+
+            confidence = max(0.0, min(1.0, float(r.get("confidence", 0.5))))
+
+            out.append(
+                FoodIdentification(
+                    name=str(r["name"])[:120],
+                    confidence=confidence,
+                    group=group,
+                    role=role,
+                    prep_method=prep,
+                    count=count,
+                    portion_kind=portion_kind,  # type: ignore[arg-type]
+                )
+            )
+        except (KeyError, ValueError, TypeError) as exc:
+            log.info(
+                "vision.identify.skip_row",
+                error=str(exc),
+                name=str(r.get("name", "?"))[:60],
+            )
+            continue
+    return out
+
+
+def _parse_estimates(raw: dict[str, Any]) -> list[PortionEstimate]:
+    """Parse Call-2 (estimate) JSON into ``PortionEstimate`` objects.
+
+    Malformed rows are logged and skipped.
+    """
+    out: list[PortionEstimate] = []
+    for r in raw.get("estimates", []) or []:
+        try:
+            index = int(r["index"])
+            amount_raw = float(r["estimated_amount_g"])
+            # Guard against non-positive amounts from the model
+            if amount_raw <= 0:
+                amount_raw = 1.0
+            amount_g = Decimal(str(round(amount_raw, 1)))
+
+            kcal = max(0, int(r["kcal"]))
+            protein_g = max(0, int(r["protein_g"]))
+            carbs_g = max(0, int(r["carbs_g"]))
+            fat_g = max(0, int(r["fat_g"]))
+            confidence = max(0.0, min(1.0, float(r.get("confidence", 0.5))))
+
+            out.append(
+                PortionEstimate(
+                    index=index,
+                    estimated_amount_g=amount_g,
+                    kcal=kcal,
+                    protein_g=protein_g,
+                    carbs_g=carbs_g,
+                    fat_g=fat_g,
+                    confidence=confidence,
+                )
+            )
+        except (KeyError, ValueError, TypeError, InvalidOperation) as exc:
+            log.info(
+                "vision.estimate.skip_row",
+                error=str(exc),
+                index=str(r.get("index", "?"))[:10],
+            )
+            continue
+    return out

@@ -280,6 +280,7 @@ CALORIC_CONDIMENT_FLOORS: Final[dict[str, tuple[int, int]]] = {
 # the same factor — the per-gram value stays exactly as USDA supplied it. Name-
 # keyed (not food_group) so it never touches a small protein like one fried egg.
 #   name marker → minimum served grams for a main/side portion.
+# NOTE: prompt instructs model to underestimate; floors correct systematic underestimation.
 STAPLE_PORTION_FLOOR_G: Final[dict[str, int]] = {
     # Fries — a McDonald's medium is 117 g, large 150 g; a restaurant side is
     # 150-200 g. Floor at 130 g (below typical) → only lifts gross lows.
@@ -303,6 +304,26 @@ STAPLE_PORTION_FLOOR_G: Final[dict[str, int]] = {
     "pure de papa": 130,
     "mashed potato": 130,
     "mashed potatoes": 130,
+    # ── Protein floors (2026-07-25) ─────────────────────────────────────────
+    # LLM under-estimates protein portions when item is partially obscured or
+    # when it competes visually with sauce/rice. A plated protein main/side is
+    # never <70 g — that would be a child's nibble. Floors deliberately below
+    # typical (120-180 g) so they only lift clear outliers.
+    # Poultry
+    "pollo": 70, "pechuga": 70, "chicken": 70, "muslo": 70, "thigh": 70,
+    # Fish / seafood
+    "salmon": 80, "salmón": 80, "cod": 80, "bacalao": 80, "tilapia": 80,
+    "pescado": 70, "fish": 70, "trucha": 70, "trout": 70,
+    "camaron": 50, "camarón": 50, "shrimp": 50, "prawn": 50,
+    # Red meat
+    "carne": 80, "res": 80, "beef": 80, "cerdo": 80, "pork": 80,
+    "lomo": 80, "bistec": 80, "steak": 80, "chuleta": 80,
+    # Egg — a single large egg is ~60 g; two = 120 g. Floor 50 g (≈1 small egg)
+    # so the model can't report 15 g for a visible fried egg.
+    "huevo": 50, "egg": 50,
+    # Tofu / legumes
+    "tofu": 80, "frijol": 80, "frijoles": 80, "lenteja": 80,
+    "garbanzo": 80, "legumbre": 80,
 }
 # Only lift the grams of a real portion, never a garnish/sauce/sweetener.
 _STAPLE_FLOOR_ROLES: Final[frozenset[str]] = frozenset({"main", "side"})
@@ -331,6 +352,25 @@ STAPLE_PORTION_CEIL_G: Final[dict[str, int]] = {
     "pan de hamburguesa": 130, "pan de hot dog": 130, "pan de pancho": 130,
     "pan de completo": 130, "hamburger bun": 130, "hot dog bun": 130,
     "hotdog bun": 130,
+    # Fish fillets — single plated portion. USDA: restaurant salmon fillet
+    # 200-250 g; home portion 150-180 g. Ceiling 220 g clamps gross overshoots
+    # (480 g "salmón a la horno") without touching realistic servings.
+    "salmon": 220, "salmón": 220, "salmon fillet": 220, "filete de salmon": 220,
+    "cod": 220, "bacalao": 220, "tilapia": 220, "tuna steak": 220, "atun": 220,
+    "white fish": 220, "pescado blanco": 220, "fish fillet": 220, "filete": 220,
+    "trout": 200, "trucha": 200, "surubi": 200, "dorado": 200, "pacu": 200,
+    # Pizza components — single personal/share pizza.
+    "masa de pizza": 180, "pizza dough": 180, "pizza base": 180, "base de pizza": 180,
+    # Sausage — single dinner serving. 2 small sausages ≈ 80-100 g; large bratwurst
+    # ≈ 120 g. Ceiling 120 g avoids 450 kcal overshoots from inflated 125 g slices.
+    "salchicha": 120, "sausage": 120, "chorizo": 100, "bratwurst": 120,
+    # Chicken — single plated serving (breast ~120-180g cooked; pizza/bowl
+    # topping spread across slices). 200g clamps count-hallucination overshoots
+    # (8 pieces × 70g = 560g) without touching a normal grilled breast.
+    "pollo": 200, "pechuga": 200, "chicken": 200,
+    # Jalapeño / chile topping — realistic pizza/taco garnish 10-40g.
+    # 30g ceiling prevents 120g hallucinations on pizza toppings.
+    "jalapeno": 30,
 }
 # Small-role items are never large. Wide ceils → only gross outliers clamp
 # (a garnish read as 400 g, an inferred cooking-oil blob at 200 g).
@@ -352,25 +392,90 @@ _ROLE_PORTION_CEIL_G: Final[dict[str, int]] = {
 # serving sizes scaled up to a very full single-item plate. Specific name/role
 # ceilings above stay as tighter overrides where a documented bound is smaller.
 FOOD_GROUP_PORTION_CEIL_G: Final[dict[str, int]] = {
-    "protein": 500,    # large mixed grill / big steak ≈ 350-450 g
-    "grain": 500,      # very heaped rice / pasta / bread plate ≈ 400-450 g
-    "vegetable": 600,  # big salad / cooked-veg plate
-    "fruit": 500,      # large fruit bowl
-    "dairy": 500,      # ≈ 2 cups yogurt / milk
-    "sweet": 450,      # large dessert
+    # Tightened 2026-07-25: previous 500-600 g rails were too wide, allowing
+    # the model to produce 400-500 g protein/grain estimates that inflated kcal
+    # by 40-80% vs ground truth. New values still sit above the 99th-percentile
+    # real serving (USDA MyPlate + restaurant portion studies) so only gross
+    # hallucinations clamp — never a legitimate large meal.
+    "protein": 300,    # large restaurant steak cooked ≈ 280-320 g; mixed grill ≈ 300 g
+    "grain": 350,      # very heaped rice/pasta plate; specific staple markers tighter
+    "vegetable": 400,  # large salad bowl ≈ 350-400 g; cooked-veg side ≈ 200-300 g
+    "fruit": 250,      # large apple ≈ 200 g; banana ≈ 120 g; fruit cup ≈ 200-250 g
+    "dairy": 350,      # large yogurt cup ≈ 250 g; cheese portion ≈ 80-100 g
+    "sweet": 300,      # generous dessert slice ≈ 200-280 g
     "beverage": 750,   # large drink (~750 ml ≈ 750 g)
     "fat": 100,        # oils / butter are never a large mass
-    "other": 600,
+    "other": 500,      # soups/stews/mixed dishes can be 350-500 g
+}
+
+# ---------------------------------------------------------------------------
+# Slot-aware portion ceilings (2026-07-25)
+#
+# A snack (80-220 kcal) has physically smaller per-item portions than a full
+# lunch (500-750 kcal). Using a single flat ceiling for all slots allows the
+# model to assign 300 g of protein to a snack photo — impossible in context.
+# These per-slot overrides tighten the generic food-group ceiling for smaller
+# meal slots; lunch/dinner reuse the existing FOOD_GROUP_PORTION_CEIL_G as-is.
+#
+# Values are ~45% (snack) and ~65% (breakfast) of the lunch/dinner base,
+# calibrated to the USDA-documented portion ranges for each category.
+# They remain ABOVE the 99th-percentile real serving for that slot, so only
+# gross hallucinations are clamped — never a legitimate portion.
+# ---------------------------------------------------------------------------
+
+_SNACK_GROUP_CEIL_G: Final[dict[str, int]] = {
+    "protein": 120,    # 2 boiled eggs ≈ 120 g; small cheese wedge ≈ 30 g
+    "grain":   120,    # 5 crackers ≈ 50 g; small toast slice ≈ 30 g
+    "vegetable": 180,  # carrot sticks / cucumber ≈ 80-120 g
+    "fruit":   150,    # one medium apple ≈ 130 g; banana ≈ 120 g
+    "dairy":   200,    # small yogurt cup ≈ 150-180 g
+    "sweet":   100,    # one cookie ≈ 12 g; small chocolate ≈ 30-50 g
+    "beverage": 400,   # one glass ≈ 250-350 ml
+    "fat":      35,    # small portion of nuts ≈ 20-30 g
+    "other":   200,    # small mixed snack bowl
+}
+
+_BREAKFAST_GROUP_CEIL_G: Final[dict[str, int]] = {
+    "protein": 200,    # 2 eggs + small ham; Greek yogurt ≈ 170 g
+    "grain":   220,    # bowl of oats/cereal ≈ 180 g; 2 toast slices ≈ 60 g
+    "vegetable": 300,  # small side salad / sliced tomato
+    "fruit":   200,    # 1 fruit + small serving; berries ≈ 80-150 g
+    "dairy":   300,    # glass of milk ≈ 240 ml + yogurt ≈ 150 g
+    "sweet":   160,    # jam spread ≈ 20 g; small pastry ≈ 80-120 g
+    "beverage": 600,   # large glass of juice or coffee beverage
+    "fat":      60,    # butter ≈ 10 g; avocado spread ≈ 50 g
+    "other":   350,    # smoothie bowl / mixed breakfast dish
+}
+
+SLOT_PORTION_CEIL_G: Final[dict[str, dict[str, int]]] = {
+    "snack": _SNACK_GROUP_CEIL_G,
+    "breakfast": _BREAKFAST_GROUP_CEIL_G,
+    "lunch": FOOD_GROUP_PORTION_CEIL_G,
+    "dinner": FOOD_GROUP_PORTION_CEIL_G,
 }
 
 
-def cap_implausible_portions(items: list[DetectedFoodItem]) -> list[DetectedFoodItem]:
+def cap_implausible_portions(
+    items: list[DetectedFoodItem],
+    *,
+    slot: str | None = None,
+) -> list[DetectedFoodItem]:
     """Clamp grams DOWN to a documented plausible maximum — the high-side mirror
     of ``floor_staple_portions``. Guards against the anti-underestimation bias
     overshooting. Resolution is tightest-first: specific name → role → food_group
     (generic safety net). The food_group tier guarantees NO item is ever left
     uncapped. Scales kcal + macros by the same factor so the USDA per-gram value
-    is preserved."""
+    is preserved.
+
+    ``slot`` (breakfast/lunch/dinner/snack) selects tighter per-group ceilings
+    for smaller meal occasions. Defaults to the generic lunch/dinner rails when
+    None or unknown, so existing call sites without a slot are unchanged.
+    """
+    # FIX 3: normalize slot string so "SNACK" / " snack" match the dict keys.
+    slot_key = slot.strip().lower() if slot else None
+    slot_group_ceils = SLOT_PORTION_CEIL_G.get(slot_key or "") if slot_key else None
+    if slot_group_ceils is None:
+        slot_group_ceils = FOOD_GROUP_PORTION_CEIL_G
     out: list[DetectedFoodItem] = []
     for it in items:
         grams = float(it.estimated_amount_g)
@@ -386,8 +491,16 @@ def cap_implausible_portions(items: list[DetectedFoodItem]) -> list[DetectedFood
         if ceil_g is None:
             ceil_g = _ROLE_PORTION_CEIL_G.get(it.role or "")
         if ceil_g is None:
-            # Generic safety net — nothing falls through uncapped.
-            ceil_g = FOOD_GROUP_PORTION_CEIL_G.get(it.food_group or "other")
+            # Generic safety net — uses slot-aware group ceiling so a 300 g
+            # protein item in a snack is caught here even without a name match.
+            ceil_g = slot_group_ceils.get(it.food_group or "other")
+        # FIX 2: apply slot ceiling as an additional upper bound even when
+        # name or role resolved a tighter ceil_g. Without this, arroz (name→400g)
+        # in a snack slot would skip the snack grain ceiling of 120g.
+        if slot_key is not None and ceil_g is not None:
+            slot_group_ceil = slot_group_ceils.get(it.food_group or "other")
+            if slot_group_ceil is not None:
+                ceil_g = min(ceil_g, slot_group_ceil)
         if ceil_g is None or grams <= ceil_g:
             out.append(it)
             continue
@@ -609,22 +722,31 @@ def compute_totals(items: list[DetectedFoodItem]) -> PlateTotals:
     )
 
 
-def decompose(items: list[DetectedFoodItem]) -> tuple[list[DetectedFoodItem], PlateTotals]:
+def decompose(
+    items: list[DetectedFoodItem],
+    *,
+    slot: str | None = None,
+) -> tuple[list[DetectedFoodItem], PlateTotals]:
     """Full post-pass: spice clamp → staple-portion floor → portion ceiling →
     condiment floors → hidden fat (fry) → hidden dairy/oil v2 (cream soups,
     purées, LatAm rice) → re-cap inferred oils → beverage refinement (container
     snap + curated table + alcohol formula) → totals. The staple-portion floor
     runs early so downstream grams-based inferences (e.g. rice-oil per 150 g)
     use the corrected portion; the ceiling trims gross over-estimates both
-    before and after the hidden-fat inferences."""
+    before and after the hidden-fat inferences.
+
+    ``slot`` (breakfast/lunch/dinner/snack) tightens per-group ceilings for
+    smaller meal occasions (see ``SLOT_PORTION_CEIL_G``). Pass ``meal_time``
+    from the job context so a 200 g snack item is caught by the snack rails.
+    """
     from app.vision.domain.beverage_engine import refine_beverages
 
     out = clamp_dry_spices(items)
     out = floor_staple_portions(out)
-    out = cap_implausible_portions(out)  # high-side mirror of the floor
+    out = cap_implausible_portions(out, slot=slot)  # high-side mirror of the floor
     out = floor_caloric_condiments(out)
     out = infer_hidden_cooking_fat(out)
     out = infer_hidden_dairy_and_oil(out)
-    out = cap_implausible_portions(out)  # re-cap inferred oils/dairy
+    out = cap_implausible_portions(out, slot=slot)  # re-cap inferred oils/dairy
     out = refine_beverages(out)
     return out, compute_totals(out)

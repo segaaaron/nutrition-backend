@@ -127,9 +127,16 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     "app/vision/infrastructure/usda_fdc.py": {407, 415, 619},
     # OK4: OpenAI vision wrappers with fallback contracts.
     "app/vision/application/learn_user_correction.py": {175},
-    "app/vision/application/process_vision_job.py": {202, 443, 521, 535},
+    # Line numbers re-synced 2026-07-25 (E2 two-pass guard added ~27 lines);
+    # re-synced again after E2 fixes (FIX 1 added 6 lines shifting all broad-excepts).
+    "app/vision/application/process_vision_job.py": {211, 483, 561, 575},
+    # OK4: Call-2 (estimation) upstream failure — logged via log.exception then
+    # degraded to catalog placeholders so a single provider blip never fails the
+    # whole job. CostCapExceeded is now re-raised before this handler (E2 FIX 3).
+    # Line 109: best-effort hints — OK4. Line 142: estimation degrade — OK4.
+    "app/vision/application/recognise_plate.py": {109, 142},
     # OK4: macro grounding + USDA fallback — DB lookup best-effort.
-    "app/vision/infrastructure/macro_grounder.py": {73},
+    "app/vision/infrastructure/macro_grounder.py": {77, 148},
     # OK4: plan context SQL — best-effort LLM hint.
     "app/vision/infrastructure/plan_context.py": {69},
     # OK4: user profile + portion calibration + portion anchors — Redis/DB best-effort.
@@ -140,7 +147,9 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     "app/vision/infrastructure/inflight_lock.py": {33, 43, 69},
     "app/vision/infrastructure/food_matcher.py": {124},
     # OK4: dark-image enhancement (best-effort PIL), prefilter fail-open, invoke retry.
-    "app/vision/infrastructure/openai_vision.py": {397, 403, 449, 615, 912},
+    # Line numbers re-synced after E2 fixes (FIX 2 index-range filter added ~9 lines
+    # in estimate(), shifting all subsequent broad-excepts by ~3).
+    "app/vision/infrastructure/openai_vision.py": {733, 739, 785, 992, 1271, 1575},
     # OK4: plate explanation is decorative — poll must still serve items.
     "app/vision/presentation/router.py": {174, 219},
     # OK4: voice/food text parser — LLM best-effort.

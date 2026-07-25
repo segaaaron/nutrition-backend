@@ -10,6 +10,9 @@ This module must never be imported by the domain layer.
 from __future__ import annotations
 
 import asyncio
+import json
+import pathlib
+import unicodedata
 from decimal import ROUND_HALF_EVEN, Decimal
 from typing import TYPE_CHECKING
 
@@ -23,6 +26,78 @@ if TYPE_CHECKING:
     pass
 
 log = get_logger("vision.macro_grounder")
+
+# ---------------------------------------------------------------------------
+# Local USDA JSON index (73 LATAM foods, deterministic, no network)
+# ---------------------------------------------------------------------------
+
+_STOPWORDS: frozenset[str] = frozenset({
+    "de", "en", "al", "con", "y", "el", "la", "los", "las", "un", "una", "del",
+    "sin", "grasa", "natural", "a",
+    "crudo", "cruda", "crudos", "crudas",
+    "cocido", "cocida", "cocidos", "cocidas",
+    "asado", "asada", "asados", "asadas",
+    "frito", "frita", "fritos", "fritas",
+    "hervido", "hervida",
+    "horno", "vapor", "plancha", "salteado", "salteada",
+    "relleno", "rellena", "fresco", "fresca",
+    "magro", "magra", "bajo", "baja", "entero", "entera",
+})
+
+# Overlap fraction of key tokens that must appear in query to accept a match.
+# 0.67 allows "lomo de res" (2/3 key tokens) while rejecting weak partial hits.
+_LOCAL_USDA_THRESHOLD = 0.67
+
+
+def _deaccent(s: str) -> str:
+    return "".join(
+        c for c in unicodedata.normalize("NFD", s) if unicodedata.category(c) != "Mn"
+    )
+
+
+def _stem(t: str) -> str:
+    """Minimal Spanish plural stem: remove trailing 'es' or 's'."""
+    if len(t) > 4 and t.endswith("es"):
+        return t[:-2]
+    if len(t) > 3 and t.endswith("s"):
+        return t[:-1]
+    return t
+
+
+def _key_tokens(s: str) -> frozenset[str]:
+    base = s.split("(")[0]
+    normed = _deaccent(base.lower())
+    return frozenset(_stem(t) for t in normed.split() if t not in _STOPWORDS and len(t) > 2)
+
+
+def _load_local_usda() -> dict[str, tuple[frozenset[str], dict]]:
+    path = pathlib.Path(__file__).parents[3] / "data" / "usda" / "usda_ingredient_reference.json"
+    try:
+        raw: dict[str, dict] = json.loads(path.read_text())
+    except Exception:
+        return {}
+    return {name: (_key_tokens(name), val) for name, val in raw.items()}
+
+
+_LOCAL_USDA_INDEX: dict[str, tuple[frozenset[str], dict]] = _load_local_usda()
+
+
+def _local_usda_lookup(name: str) -> dict | None:
+    """Match food name to local USDA reference (token overlap ≥ _LOCAL_USDA_THRESHOLD on key side)."""
+    if not _LOCAL_USDA_INDEX:
+        return None
+    query_tokens = _key_tokens(name)
+    if not query_tokens:
+        return None
+    best_score, best_entry = 0.0, None
+    for _key_name, (key_toks, entry) in _LOCAL_USDA_INDEX.items():
+        if not key_toks:
+            continue
+        overlap = len(key_toks & query_tokens) / len(key_toks)
+        if overlap > best_score:
+            best_score = overlap
+            best_entry = entry
+    return best_entry if best_score >= _LOCAL_USDA_THRESHOLD else None
 
 # USDA FDC SR Legacy averages per 100 g by food_group.
 # Tuple: (kcal, protein_g, carbs_g, fat_g)
@@ -155,11 +230,12 @@ def reconcile_kcal_atwater(items: list[DetectedFoodItem]) -> None:
 
 
 async def apply_group_fallback(items: list[DetectedFoodItem]) -> None:
-    """USDA FDC API lookup then static per-group averages for unmatched items.
+    """USDA lookup then static per-group averages for unmatched items.
 
     Resolution order:
-      1. USDA FDC API search (real per-food data, concurrent fan-out).
-      2. Static USDA group-average table (last resort).
+      1. Local USDA JSON (73 LATAM foods, deterministic, no network).
+      2. USDA FDC API search (real per-food data, concurrent fan-out).
+      3. Static USDA group-average table (last resort).
 
     A >5× gap between fallback kcal and LLM estimate signals a wrong
     food_group; trusts the LLM value in that case.
@@ -175,12 +251,47 @@ async def apply_group_fallback(items: list[DetectedFoodItem]) -> None:
     if not unmatched:
         return
 
+    # --- Step 1: local USDA JSON (deterministic, no network) ---
+    needs_fdc: list[DetectedFoodItem] = []
+    for it in unmatched:
+        local = _local_usda_lookup(it.name)
+        if local and local.get("kcal", 0) > 0:
+            factor = float(it.estimated_amount_g) / 100.0
+            kcal_local = round(local["kcal"] * factor)
+            if it.kcal <= 0 or (it.kcal / 5 <= kcal_local <= it.kcal * 5):
+                it.kcal = kcal_local
+                it.protein_g = round(local.get("protein_g", 0) * factor)
+                it.carbs_g = round(local.get("carbs_g", 0) * factor)
+                it.fat_g = round(local.get("fat_g", 0) * factor)
+                it.fiber_g = round(local.get("fiber_g", 0) * factor)
+                it.sugar_g = round(local.get("sugar_g", 0) * factor)
+                it.kcal_min = round(kcal_local * 0.80)
+                it.kcal_max = round(kcal_local * 1.20)
+                it.match_method = "usda_local"
+                log.info(
+                    "vision.ground.local_usda",
+                    name=it.name[:60],
+                    kcal_local=kcal_local,
+                )
+                continue
+            log.info(
+                "vision.ground.local_usda_rejected",
+                name=it.name[:60],
+                kcal_llm=it.kcal,
+                kcal_local=kcal_local,
+            )
+        needs_fdc.append(it)
+
+    if not needs_fdc:
+        return
+
+    # --- Step 2: USDA FDC API (network, concurrent) ---
     fdc_results = await asyncio.gather(
-        *[usda_fdc.search(it.name) for it in unmatched],
+        *[usda_fdc.search(it.name) for it in needs_fdc],
         return_exceptions=True,
     )
 
-    for it, fdc in zip(unmatched, fdc_results, strict=False):
+    for it, fdc in zip(needs_fdc, fdc_results, strict=False):
         factor = float(it.estimated_amount_g) / 100.0
 
         if isinstance(fdc, BaseException):
@@ -200,6 +311,7 @@ async def apply_group_fallback(items: list[DetectedFoodItem]) -> None:
                 it.match_method = "usda_fdc"
                 continue
 
+        # --- Step 3: static group average ---
         group = it.food_group or "other"
         macro = USDA_FALLBACK_PER_100G.get(group, USDA_FALLBACK_PER_100G["other"])
         kcal_fb = round(macro[0] * factor)

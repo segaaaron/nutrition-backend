@@ -218,19 +218,20 @@ def test_cap_clamps_staple_over_ceiling() -> None:
 
 def test_cap_normal_main_under_group_ceiling_untouched() -> None:
     """A normal 'main' with no staple marker and no role ceiling now falls back
-    to the GENERIC food_group ceiling — but a normal 350 g portion is well under
+    to the GENERIC food_group ceiling — but a normal 300 g portion is well under
     it, so it is left untouched. Proves the generic net does not over-clamp."""
     from app.vision.domain.plate_decomposition import cap_implausible_portions
 
-    it = _item("guiso de res", 600, grams=350.0, role="main")  # group "other" → 600 g
+    it = _item("guiso de res", 480, grams=300.0, role="main")  # group "other" → 400 g
     out = cap_implausible_portions([it])[0]
-    assert float(out.estimated_amount_g) == 350.0
+    assert float(out.estimated_amount_g) == 300.0
 
 
 def test_cap_generic_group_backstop_catches_unlisted_food() -> None:
     """THE fix for the bun-bug class: an un-whitelisted food (no name marker, no
     small role) is NO LONGER uncapped. A 'main' grain read at 900 g is clamped by
-    the generic food_group='grain' ceiling (500 g). Nothing falls through."""
+    the generic food_group='grain' ceiling (350 g, tightened 2026-07-25). Nothing
+    falls through."""
     from app.vision.domain.plate_decomposition import cap_implausible_portions
 
     it = DetectedFoodItem(
@@ -248,8 +249,8 @@ def test_cap_generic_group_backstop_catches_unlisted_food() -> None:
         kcal_max=None,
     )
     out = cap_implausible_portions([it])[0]
-    assert float(out.estimated_amount_g) == 500.0  # generic grain ceiling
-    assert out.kcal == 1000  # 1800 * (500/900)
+    assert float(out.estimated_amount_g) == 350.0  # generic grain ceiling (tightened)
+    assert out.kcal == 700  # 1800 * (350/900)
 
 
 def test_cap_clamps_over_estimated_hamburger_bun() -> None:
@@ -286,3 +287,133 @@ def test_cap_never_clamps_generic_bread() -> None:
     out = cap_implausible_portions([it])[0]
     assert float(out.estimated_amount_g) == 250.0
     assert out.kcal == 660
+
+
+def test_cap_clamps_chicken_count_hallucination() -> None:
+    """Regression (gs-dinner-0003): LLM assigns count=8 × 70g = 560g for pizza
+    chicken topping, already capped to 500g by protein group. 'pollo' ceiling
+    200g fires first (STAPLE > group) and clamps the remaining overshoot.
+    kcal scaled proportionally so USDA per-gram density is preserved."""
+    from app.vision.domain.plate_decomposition import cap_implausible_portions
+
+    it = _item("pollo a la plancha", 864, grams=500.0, role="main")
+    out = cap_implausible_portions([it])[0]
+    assert float(out.estimated_amount_g) == 200.0
+    # 864 * (200/500) = 345.6 → rounds to 346
+    assert out.kcal == 346
+
+
+def test_cap_leaves_normal_chicken_breast_untouched() -> None:
+    """A realistic single chicken breast (180g, 300 kcal) is below the 200g
+    ceiling and must not be clamped — only gross overshoots fire."""
+    from app.vision.domain.plate_decomposition import cap_implausible_portions
+
+    it = _item("pollo sazonado al horno", 300, grams=180.0, role="main")
+    out = cap_implausible_portions([it])[0]
+    assert float(out.estimated_amount_g) == 180.0
+    assert out.kcal == 300
+
+
+def test_cap_clamps_jalapeno_pizza_hallucination() -> None:
+    """Regression (gs-dinner-0003): LLM assigns 120g of jalapeño slices on a
+    pizza topping — implausible for a garnish. 30g ceiling clamps this."""
+    from app.vision.domain.plate_decomposition import cap_implausible_portions
+
+    it = _item("jalapeño en rodajas (encurtido)", 72, grams=120.0, role="garnish")
+    out = cap_implausible_portions([it])[0]
+    assert float(out.estimated_amount_g) == 30.0
+    # 72 * (30/120) = 18.0
+    assert out.kcal == 18
+
+
+def test_cap_pechuga_also_clamped() -> None:
+    """'pechuga' (boneless breast) shares the 200g ceiling with 'pollo'."""
+    from app.vision.domain.plate_decomposition import cap_implausible_portions
+
+    it = _item("pechuga de pollo a la plancha", 500, grams=300.0, role="main")
+    out = cap_implausible_portions([it])[0]
+    assert float(out.estimated_amount_g) == 200.0
+    assert out.kcal == 333  # 500 * (200/300) = 333.3 → 333
+
+
+# ---------------------------------------------------------------------------
+# Protein floor (2026-07-25) — lift under-estimated protein mains
+# ---------------------------------------------------------------------------
+
+def test_floor_protein_lifts_underestimated_chicken() -> None:
+    """LLM reports 30 g chicken breast for a main → lifted to 70 g floor."""
+    from app.vision.domain.plate_decomposition import floor_staple_portions
+
+    it = _item("pollo asado", 52, grams=30.0, role="main")
+    out = floor_staple_portions([it])[0]
+    assert float(out.estimated_amount_g) == 70.0
+    assert out.kcal == round(52 * (70 / 30))
+
+
+def test_floor_protein_leaves_normal_chicken_untouched() -> None:
+    """A realistic 160 g chicken breast is above the 70 g floor → untouched."""
+    from app.vision.domain.plate_decomposition import floor_staple_portions
+
+    it = _item("pollo asado", 280, grams=160.0, role="main")
+    out = floor_staple_portions([it])[0]
+    assert float(out.estimated_amount_g) == 160.0
+    assert out.kcal == 280
+
+
+def test_floor_protein_lifts_underestimated_salmon() -> None:
+    """LLM reports 40 g salmon fillet → lifted to 80 g floor."""
+    from app.vision.domain.plate_decomposition import floor_staple_portions
+
+    it = _item("salmón a la plancha", 57, grams=40.0, role="main")
+    out = floor_staple_portions([it])[0]
+    assert float(out.estimated_amount_g) == 80.0
+    assert out.kcal == round(57 * (80 / 40))
+
+
+def test_floor_protein_does_not_apply_to_garnish() -> None:
+    """Protein floor only fires for role=main/side, never garnish."""
+    from app.vision.domain.plate_decomposition import floor_staple_portions
+
+    it = _item("pollo desmenuzado", 25, grams=20.0, role="garnish")
+    out = floor_staple_portions([it])[0]
+    assert float(out.estimated_amount_g) == 20.0  # untouched
+
+
+# ---------------------------------------------------------------------------
+# Tightened group ceilings (2026-07-25)
+# ---------------------------------------------------------------------------
+
+def test_cap_fruit_group_ceiling_tightened() -> None:
+    """Fruit ceiling is now 250 g (was 500). A 400 g 'fruta mixta' clamps."""
+    from app.vision.domain.plate_decomposition import cap_implausible_portions
+
+    it = DetectedFoodItem(
+        name="fruta mixta",
+        estimated_amount_g=Decimal("400"),
+        kcal=208,
+        protein_g=2, carbs_g=52, fat_g=1,
+        confidence=0.8,
+        food_group="fruit", role="side",
+        prep_method=None, kcal_min=None, kcal_max=None,
+    )
+    out = cap_implausible_portions([it])[0]
+    assert float(out.estimated_amount_g) == 250.0
+    assert out.kcal == round(208 * 250 / 400)
+
+
+def test_cap_protein_group_ceiling_tightened() -> None:
+    """Protein group ceiling is now 300 g (was 500). A generic 450 g protein clamps."""
+    from app.vision.domain.plate_decomposition import cap_implausible_portions
+
+    it = DetectedFoodItem(
+        name="carne mixta desconocida",
+        estimated_amount_g=Decimal("450"),
+        kcal=900,
+        protein_g=90, carbs_g=0, fat_g=40,
+        confidence=0.7,
+        food_group="protein", role="main",
+        prep_method=None, kcal_min=None, kcal_max=None,
+    )
+    out = cap_implausible_portions([it])[0]
+    assert float(out.estimated_amount_g) == 300.0
+    assert out.kcal == round(900 * 300 / 450)

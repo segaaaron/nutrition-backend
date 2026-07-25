@@ -53,9 +53,18 @@ def test_does_not_touch_normal_portion() -> None:
 
 
 def test_ignores_non_staple() -> None:
+    # "ensalada mixta" has no staple or protein floor marker → untouched.
+    it = _item("ensalada mixta", 100, 30, role="main", food_group="vegetable")
+    out = floor_staple_portions([it])[0]
+    assert out is it
+
+
+def test_protein_floor_lifts_underestimated_pechuga() -> None:
+    # pechuga de pollo at 40 g for a main is under the 70 g floor → lifted.
     it = _item("pechuga de pollo", 40, 66, role="main", food_group="protein")
     out = floor_staple_portions([it])[0]
-    assert out is it  # not a staple marker → untouched
+    assert float(out.estimated_amount_g) == 70.0
+    assert out.kcal == round(66 * (70 / 40))
 
 
 def test_ignores_garnish_role() -> None:
@@ -65,9 +74,16 @@ def test_ignores_garnish_role() -> None:
     assert out is it
 
 
-def test_single_fried_egg_untouched() -> None:
-    # A protein main (one egg ~50 g) is NOT a staple marker → no inflation.
-    it = _item("huevo frito", 50, 90, role="main", food_group="protein")
+def test_single_fried_egg_floor_applied() -> None:
+    # huevo frito at 45 g for a main is under the 50 g egg floor → lifted.
+    it = _item("huevo frito", 45, 81, role="main", food_group="protein")
+    out = floor_staple_portions([it])[0]
+    assert float(out.estimated_amount_g) == 50.0
+
+
+def test_single_fried_egg_above_floor_untouched() -> None:
+    # huevo frito at 60 g is above the 50 g floor → untouched.
+    it = _item("huevo frito", 60, 108, role="main", food_group="protein")
     out = floor_staple_portions([it])[0]
     assert out is it
 
@@ -101,5 +117,6 @@ def test_scales_macros_and_range() -> None:
 
 
 def test_floor_table_is_sane() -> None:
-    # Documented minimums stay conservative (below typical serving).
-    assert all(90 <= g <= 160 for g in STAPLE_PORTION_FLOOR_G.values())
+    # Starch floors: 90-160 g (below typical serving to avoid inflating normal ones).
+    # Protein floors (added 2026-07-25): 50-80 g (single egg/shrimp = 50-80 g).
+    assert all(50 <= g <= 160 for g in STAPLE_PORTION_FLOOR_G.values())

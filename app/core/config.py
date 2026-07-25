@@ -10,7 +10,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -147,6 +147,25 @@ class Settings(BaseSettings):
     # Default ON — fail-open on errors (lets through if uncertain or upstream
     # failure).
     vision_food_prefilter_enabled: bool = True
+
+    # --- Two-pass vision pipeline (added 2026-07-25) ---
+    # When True the pipeline runs Call-1 (identity) then Call-2 (estimation)
+    # as separate LLM calls.  Default False — existing single-pass path is
+    # used until the two-pass adapters are fully validated.
+    vision_two_pass_enabled: bool = False
+    # Max output tokens for the identification call (Call-1 only).
+    # Smaller than the combined single-pass budget because no amounts/macros
+    # are returned — item names + metadata only.
+    vision_identify_max_output_tokens: int = 600
+    # Timeout in milliseconds for fetching catalog portion hints before Call-2.
+    # On timeout, Call-2 proceeds without hints (graceful degradation).
+    vision_portion_hints_timeout_ms: int = Field(default=500, ge=100, le=5000)
+    # Self-consistency K for Call-2 (estimation).
+    # 1 = disabled (single call, default).
+    # 3 = enabled: K concurrent estimate calls, median aggregation per item.
+    # Converts coin-flip variance at temperature=1 into stable median estimates.
+    # Cost: K × Call-2 cost (K=3 → 3× estimate calls per photo).
+    vision_self_consistency_k: int = Field(default=1, ge=1, le=5)
 
     # --- Cost cap (ADR-0004) ---
     cost_cap_usd_per_user_per_day: float = 1.50

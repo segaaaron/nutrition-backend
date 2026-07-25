@@ -123,9 +123,16 @@ class ProcessVisionJob:
             settings = get_settings()
             job_meta = await self.repo.get(job_id)
             image_sha = job_meta.image_sha256 if job_meta else ""
-            current_prompt_sha = self.provider.current_prompt_sha256(
-                locale=locale, region=region,
-            )
+            if settings.vision_two_pass_enabled:
+                current_prompt_sha = (
+                    self.provider.identification_prompt_sha256(locale=locale, region=region)
+                    + ":"
+                    + self.provider.estimation_prompt_sha256(locale=locale, region=region)
+                )
+            else:
+                current_prompt_sha = self.provider.current_prompt_sha256(
+                    locale=locale, region=region,
+                )
 
             # Sequential — MUST NOT gather: these three share `self.session`,
             # and one async session (single connection) is not concurrency-safe.
@@ -149,6 +156,7 @@ class ProcessVisionJob:
                 user_id=user_id,
                 locale=locale,
                 region=region,
+                meal_time=meal_time,
                 job_meta=job_meta,
                 settings=settings,
                 current_prompt_sha=current_prompt_sha,
@@ -174,10 +182,11 @@ class ProcessVisionJob:
                     portion_anchors=portion_anchors,
                     settings=settings,
                     user_context=user_context,
+                    meal_time=meal_time,
                 )
 
             await self._triangulate_mains(items)
-            items, plate_totals = decompose(items)
+            items, plate_totals = decompose(items, slot=meal_time)
 
             food_log_ids = await _persist(
                 items,
@@ -217,6 +226,7 @@ class ProcessVisionJob:
         user_id: UUID,
         locale: str,
         region: str,
+        meal_time: str | None = None,
         job_meta: object,
         settings: Settings,
         current_prompt_sha: str,
@@ -291,19 +301,47 @@ class ProcessVisionJob:
                 if waited is not None:
                     return waited[0], waited[1], True
 
-            stage = "primary_only" if settings.vision_cascade_enabled else "auto"
-            items, prompt_sha = await self.provider.recognise(
-                image_bytes=image_bytes,
-                mime=mime,
-                user_id=user_id,
-                locale=locale,
-                region=region,
-                stage=stage,
-                plan_context=plan_context,
-                user_profile=user_profile,
-                portion_history=portion_anchors or [],
-                user_context=user_context,
-            )
+            if settings.vision_two_pass_enabled:
+                from app.vision.application.recognise_plate import (  # noqa: PLC0415
+                    RecognitionContext,
+                    RecognisePlate,
+                )
+
+                service = RecognisePlate(
+                    identifier=self.provider,  # type: ignore[arg-type]
+                    estimator=self.provider,   # type: ignore[arg-type]
+                )
+                outcome = await service(
+                    ctx=RecognitionContext(
+                        image_bytes=image_bytes,
+                        mime=mime,
+                        user_id=user_id,
+                        locale=locale,
+                        region=region,
+                        meal_time=meal_time,
+                        plan_context=plan_context,
+                        user_context=user_context,
+                        user_profile=user_profile,
+                        portion_history=portion_anchors,
+                    )
+                )
+                items = list(outcome.items)
+                prompt_sha = outcome.prompt_sha256
+            else:
+                stage = "primary_only" if settings.vision_cascade_enabled else "auto"
+                items, prompt_sha = await self.provider.recognise(
+                    image_bytes=image_bytes,
+                    mime=mime,
+                    user_id=user_id,
+                    locale=locale,
+                    region=region,
+                    stage=stage,
+                    plan_context=plan_context,
+                    user_profile=user_profile,
+                    portion_history=portion_anchors or [],
+                    user_context=user_context,
+                    meal_time=meal_time,
+                )
             return items, prompt_sha, False
         finally:
             if acquired and redis is not None:
@@ -388,6 +426,7 @@ class ProcessVisionJob:
         portion_anchors: list[str] | None = None,
         settings: Settings,
         user_context: str | None = None,
+        meal_time: str | None = None,
     ) -> tuple[list[DetectedFoodItem], str]:
         """Post-catalog escalation: call full model only when catalog cannot vouch."""
         escalate, esc_reason = needs_full_model(
@@ -408,6 +447,7 @@ class ProcessVisionJob:
             user_profile=user_profile,
             portion_history=portion_anchors or [],
             user_context=user_context,
+            meal_time=meal_time,
         )
         await self._match_and_ground(new_items, locale=locale, user_id=user_id)
         return new_items, new_prompt_sha

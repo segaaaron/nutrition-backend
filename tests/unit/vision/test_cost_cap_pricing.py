@@ -123,9 +123,14 @@ async def test_pre_check_uses_mini_pricing(
     # calls/day under the $1.50 cap — orders of magnitude above the real
     # 10-photos/day rate cap. Floor: 3000 -> 2500 (2026-07-11, counting-accuracy
     # prompt) -> 2400 (2026-07-14, scope + anti-double-count + portion-bias
-    # prompt grew ~another 200 input tokens; still ~2490 calls/day, 249× the cap).
+    # prompt grew ~another 200 input tokens) -> 2250 (2026-07-24, physical macro
+    # overflow guard + oil injection fixes added ~150 input tokens) ->
+    # 2100 (2026-07-24, blended-food density hint added ~60 input tokens) ->
+    # 2000 (2026-07-24, protein second-look + soup decomp + snack small-items
+    # prompts added ~90 more input tokens) ->
+    # 1900 (2026-07-25, size_category field + calibration instructions added ~80 tokens).
     cap = Decimal("1.50")
-    assert cap / est >= 2400, f"estimate={est} too high, only {cap/est:.0f} calls/day"
+    assert cap / est >= 1900, f"estimate={est} too high, only {cap/est:.0f} calls/day"
 
 
 @pytest.mark.asyncio

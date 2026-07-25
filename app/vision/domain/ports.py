@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from typing import Any, Protocol
 from uuid import UUID
 
 from app.vision.domain.entities import DetectedFoodItem, VisionJob
+from app.vision.domain.value_objects import FoodIdentification, PortionEstimate, PortionHint
 
 
 class VisionJobRepository(Protocol):
@@ -50,6 +52,7 @@ class VisionProvider(Protocol):
         locale: str,
         region: str,
         stage: str = "auto",
+        meal_time: str | None = None,
         plan_context: str | None = None,
         user_profile: dict[str, object] | None = None,
         portion_history: list[str] | None = None,
@@ -114,3 +117,51 @@ class JobNotifier(Protocol):
         # Any: SSE payload schema varies per channel (job status, coach hint, etc.).
         payload: dict[str, Any],
     ) -> None: ...
+
+
+# ---------------------------------------------------------------------------
+# Two-pass vision ports (added 2026-07-25 — enabled via VISION_TWO_PASS_ENABLED)
+# ---------------------------------------------------------------------------
+
+
+class VisionIdentificationProvider(Protocol):
+    """CALL 1 — identity only.  MUST NOT return amounts."""
+
+    async def identify(
+        self,
+        *,
+        image_bytes: bytes,
+        mime: str,
+        user_id: UUID | None,
+        locale: str,
+        region: str,
+        meal_time: str | None = None,
+        plan_context: str | None = None,
+        user_context: str | None = None,
+        model: str | None = None,
+    ) -> tuple[list[FoodIdentification], str]: ...
+
+    def identification_prompt_sha256(self, *, locale: str, region: str) -> str: ...
+
+
+class VisionEstimationProvider(Protocol):
+    """CALL 2 — grams/macros for a FIXED item list, from the SAME image."""
+
+    async def estimate(
+        self,
+        *,
+        image_bytes: bytes,
+        mime: str,
+        identifications: Sequence[FoodIdentification],
+        portion_hints: Mapping[int, PortionHint] | None = None,
+        user_id: UUID | None,
+        locale: str,
+        region: str,
+        meal_time: str | None = None,
+        user_profile: dict[str, object] | None = None,
+        portion_history: list[str] | None = None,
+        user_context: str | None = None,
+        model: str | None = None,
+    ) -> tuple[list[PortionEstimate], str]: ...
+
+    def estimation_prompt_sha256(self, *, locale: str, region: str) -> str: ...
