@@ -1064,11 +1064,6 @@
     "carbs_g": 24,
     "fat_g": 1.7
   },
-  "yogur griego descremado ": {
-    "protein_g": 10,
-    "carbs_g": 4,
-    "fat_g": 0
-  },
   "comino molido": {
     "protein_g": 18,
     "carbs_g": 44,
@@ -1259,11 +1254,6 @@
     "carbs_g": 48,
     "fat_g": 4
   },
-  "zucchini ": {
-    "protein_g": 1.2,
-    "carbs_g": 3.1,
-    "fat_g": 0.3
-  },
   "coco rallado sin azúcar": {
     "protein_g": 3.3,
     "carbs_g": 24,
@@ -1419,16 +1409,6 @@
     "carbs_g": 50,
     "fat_g": 2.6
   },
-  "arroz integral crudo ": {
-    "protein_g": 8,
-    "carbs_g": 77,
-    "fat_g": 2.9
-  },
-  "frijoles pintos cocidos ": {
-    "protein_g": 9,
-    "carbs_g": 26,
-    "fat_g": 0.7
-  },
   "batata en cubos": {
     "protein_g": 1.6,
     "carbs_g": 20,
@@ -1453,11 +1433,6 @@
     "protein_g": 0.9,
     "carbs_g": 0.1,
     "fat_g": 81
-  },
-  "arroz blanco de grano corto ": {
-    "protein_g": 6.5,
-    "carbs_g": 79,
-    "fat_g": 0.6
   },
   "frambuesas": {
     "protein_g": 1.2,
@@ -1614,16 +1589,6 @@
     "carbs_g": 6,
     "fat_g": 16
   },
-  "proteína de suero sabor chocolate ": {
-    "protein_g": 82,
-    "carbs_g": 7,
-    "fat_g": 5
-  },
-  "leche de coco ": {
-    "protein_g": 2.3,
-    "carbs_g": 3.3,
-    "fat_g": 21
-  },
   "semillas de girasol": {
     "protein_g": 21,
     "carbs_g": 20,
@@ -1769,26 +1734,6 @@
     "carbs_g": 4,
     "fat_g": 15
   },
-  "carne molida de res magra ": {
-    "protein_g": 26,
-    "carbs_g": 0,
-    "fat_g": 9
-  },
-  "aceite de ajonjolí ": {
-    "protein_g": 0,
-    "carbs_g": 0,
-    "fat_g": 100
-  },
-  "cebollín picado ": {
-    "protein_g": 1.8,
-    "carbs_g": 7.3,
-    "fat_g": 0.7
-  },
-  "coco rallado ": {
-    "protein_g": 3.3,
-    "carbs_g": 24,
-    "fat_g": 33
-  },
   "calabaza": {
     "protein_g": 1,
     "carbs_g": 7,
@@ -1834,16 +1779,6 @@
     "carbs_g": 5,
     "fat_g": 0.6
   },
-  "semillas de lino molidas ": {
-    "protein_g": 18,
-    "carbs_g": 29,
-    "fat_g": 42
-  },
-  "caldo de pollo o vegetales ": {
-    "protein_g": 1,
-    "carbs_g": 0.5,
-    "fat_g": 0.5
-  },
   "queso ricotta bajo en grasa": {
     "protein_g": 10,
     "carbs_g": 5,
@@ -1863,11 +1798,6 @@
     "protein_g": 0.1,
     "carbs_g": 2.6,
     "fat_g": 0
-  },
-  "maíz (maíz) en rodajas ": {
-    "protein_g": 3.4,
-    "carbs_g": 19,
-    "fat_g": 1.5
   },
   "pera con cascara": {
     "protein_g": 0.4,
@@ -1944,11 +1874,6 @@
     "carbs_g": 91,
     "fat_g": 0.1
   },
-  "tortilla de trigo integral ": {
-    "protein_g": 8,
-    "carbs_g": 46,
-    "fat_g": 4
-  },
   "tahini (pasta de sésamo)": {
     "protein_g": 17,
     "carbs_g": 21,
@@ -2014,11 +1939,6 @@
     "carbs_g": 0.9,
     "fat_g": 0
   },
-  "frambuesas congeladas ": {
-    "protein_g": 1.2,
-    "carbs_g": 12,
-    "fat_g": 0.7
-  },
   "cerezas congeladas sin hueso": {
     "protein_g": 1,
     "carbs_g": 16,
@@ -2038,21 +1958,6 @@
     "protein_g": 1.8,
     "carbs_g": 3.7,
     "fat_g": 0.2
-  },
-  "cerdo molido magro ": {
-    "protein_g": 26,
-    "carbs_g": 0,
-    "fat_g": 13
-  },
-  "arroz blanco de grano corto  ": {
-    "protein_g": 6.5,
-    "carbs_g": 79,
-    "fat_g": 0.6
-  },
-  "aceite de coco (para sartén) ": {
-    "protein_g": 0,
-    "carbs_g": 0,
-    "fat_g": 99
   },
   "papas fritas": {
     "protein_g": 3.4,
@@ -2193,5 +2098,100 @@
     "protein_g": 20,
     "carbs_g": 14,
     "fat_g": 15
+  },
+  "yogur griego descremado ": {
+    "protein_g": 10,
+    "carbs_g": 4,
+    "fat_g": 0
+  },
+  "zucchini ": {
+    "protein_g": 1.2,
+    "carbs_g": 3.1,
+    "fat_g": 0.3
+  },
+  "arroz integral crudo ": {
+    "protein_g": 8,
+    "carbs_g": 77,
+    "fat_g": 2.9
+  },
+  "frijoles pintos cocidos ": {
+    "protein_g": 9,
+    "carbs_g": 26,
+    "fat_g": 0.7
+  },
+  "arroz blanco de grano corto ": {
+    "protein_g": 6.5,
+    "carbs_g": 79,
+    "fat_g": 0.6
+  },
+  "proteína de suero sabor chocolate ": {
+    "protein_g": 82,
+    "carbs_g": 7,
+    "fat_g": 5
+  },
+  "leche de coco ": {
+    "protein_g": 2.3,
+    "carbs_g": 3.3,
+    "fat_g": 21
+  },
+  "carne molida de res magra ": {
+    "protein_g": 26,
+    "carbs_g": 0,
+    "fat_g": 9
+  },
+  "aceite de ajonjolí ": {
+    "protein_g": 0,
+    "carbs_g": 0,
+    "fat_g": 100
+  },
+  "cebollín picado ": {
+    "protein_g": 1.8,
+    "carbs_g": 7.3,
+    "fat_g": 0.7
+  },
+  "coco rallado ": {
+    "protein_g": 3.3,
+    "carbs_g": 24,
+    "fat_g": 33
+  },
+  "semillas de lino molidas ": {
+    "protein_g": 18,
+    "carbs_g": 29,
+    "fat_g": 42
+  },
+  "caldo de pollo o vegetales ": {
+    "protein_g": 1,
+    "carbs_g": 0.5,
+    "fat_g": 0.5
+  },
+  "maíz (maíz) en rodajas ": {
+    "protein_g": 3.4,
+    "carbs_g": 19,
+    "fat_g": 1.5
+  },
+  "tortilla de trigo integral ": {
+    "protein_g": 8,
+    "carbs_g": 46,
+    "fat_g": 4
+  },
+  "frambuesas congeladas ": {
+    "protein_g": 1.2,
+    "carbs_g": 12,
+    "fat_g": 0.7
+  },
+  "cerdo molido magro ": {
+    "protein_g": 26,
+    "carbs_g": 0,
+    "fat_g": 13
+  },
+  "arroz blanco de grano corto  ": {
+    "protein_g": 6.5,
+    "carbs_g": 79,
+    "fat_g": 0.6
+  },
+  "aceite de coco (para sartén) ": {
+    "protein_g": 0,
+    "carbs_g": 0,
+    "fat_g": 99
   }
 }
