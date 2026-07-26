@@ -18,7 +18,7 @@ from app.core.db import session_scope
 from app.core.event_bus import EventBus
 from app.core.logging import get_logger
 from app.core.redis import get_redis
-from app.gamification.domain.events import CelebrationTriggered, DayCompleted
+from app.gamification.domain.events import CelebrationTriggered, DayCompleted, StreakBroken
 from app.gamification.infrastructure.anti_cheat_caps import (
     XP_DAILY_CAP,
     XP_PHOTO_CAP,
@@ -186,6 +186,17 @@ async def _check_day_complete(session, *, user_id: UUID) -> bool:
     return int(row[0]) > 0 and int(row[0]) == int(row[1])
 
 
+async def _read_streak_value(session, *, user_id: UUID, stype: str) -> int:
+    """Return current streak value (0 if no row)."""
+    val = (
+        await session.execute(
+            text("SELECT value FROM streaks WHERE user_id = :uid AND type = :t"),
+            {"uid": str(user_id), "t": stype},
+        )
+    ).scalar()
+    return int(val or 0)
+
+
 async def _bump_streak(session, *, user_id: UUID, stype: str) -> int:
     """Append +1 to streak.daily / .fasting / .protein, cap at last_day=yesterday.
 
@@ -240,7 +251,17 @@ def register(bus: EventBus) -> None:  # noqa: PLR0915 — closure-heavy registry
                 bucket_cap=XP_TEXT_CAP,
             )
             if await _check_day_complete(session, user_id=evt.user_id):
+                old_streak = await _read_streak_value(session, user_id=evt.user_id, stype="daily")
                 val = await _bump_streak(session, user_id=evt.user_id, stype="daily")
+                if old_streak >= 3 and val == 1:
+                    await bus.publish(
+                        StreakBroken(
+                            user_id=evt.user_id,
+                            type="daily",
+                            prev_value=old_streak,
+                            at=datetime.now(UTC),
+                        )
+                    )
                 await bus.publish(
                     DayCompleted(
                         user_id=evt.user_id,
@@ -339,7 +360,17 @@ def register(bus: EventBus) -> None:  # noqa: PLR0915 — closure-heavy registry
     async def _on_fasting_completed(evt: FastingCompleted) -> None:
         async with session_scope() as session:
             if evt.achieved:
+                old_fasting = await _read_streak_value(session, user_id=evt.user_id, stype="fasting")
                 val = await _bump_streak(session, user_id=evt.user_id, stype="fasting")
+                if old_fasting >= 3 and val == 1:
+                    await bus.publish(
+                        StreakBroken(
+                            user_id=evt.user_id,
+                            type="fasting",
+                            prev_value=old_fasting,
+                            at=datetime.now(UTC),
+                        )
+                    )
                 if val in (3, 7, 14, 30, 60):
                     await bus.publish(
                         CelebrationTriggered(

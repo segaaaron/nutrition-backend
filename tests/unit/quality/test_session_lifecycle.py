@@ -68,14 +68,15 @@ ALLOWED_SESSION_SCOPE: dict[str, str] = {
     # required and safe.
     "app/core/event_bus.py:344": "OK1 outbox spool — post-commit, independent by design",
     # OK2 — event handlers (deferred bus, post-commit dispatch).
-    "app/gamification/application/event_handlers.py:230": "OK2 event handler (FoodLogged)",
-    "app/gamification/application/event_handlers.py:261": "OK2 event handler (FoodPhotoLogged)",
-    "app/gamification/application/event_handlers.py:305": "OK2 event handler (WaterLogged)",
-    "app/gamification/application/event_handlers.py:340": "OK2 event handler (FastingCompleted)",
-    "app/gamification/application/event_handlers.py:359": "OK2 event handler (FoodLogged achievement)",
-    "app/gamification/application/event_handlers.py:384": "OK2 event handler (FastingCompleted achievement)",
-    "app/gamification/application/event_handlers.py:406": "OK2 event handler (DayCompleted achievement)",
-    "app/gamification/application/event_handlers.py:431": "OK2 event handler (WeightLogged)",
+    # Lines re-synced after E4 StreakBroken detection added ~11 lines per handler.
+    "app/gamification/application/event_handlers.py:241": "OK2 event handler (FoodLogged)",
+    "app/gamification/application/event_handlers.py:282": "OK2 event handler (FoodPhotoLogged)",
+    "app/gamification/application/event_handlers.py:326": "OK2 event handler (WaterLogged)",
+    "app/gamification/application/event_handlers.py:361": "OK2 event handler (FastingCompleted)",
+    "app/gamification/application/event_handlers.py:390": "OK2 event handler (FoodLogged achievement)",
+    "app/gamification/application/event_handlers.py:415": "OK2 event handler (FastingCompleted achievement)",
+    "app/gamification/application/event_handlers.py:437": "OK2 event handler (DayCompleted achievement)",
+    "app/gamification/application/event_handlers.py:462": "OK2 event handler (WeightLogged)",
     "app/nutrition/event_handlers.py:64": "OK2 event handler (BiometricsChanged safety net)",
     "app/nutrition/event_handlers.py:83": "OK2 event handler (WeightLogged recalibration)",
     # OK2 — event handlers spawning their own session (no outer request session).

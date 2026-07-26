@@ -55,10 +55,13 @@ from app.plan.presentation.schemas import (
     PlanMealIngredient,
     PlanMealResponse,
     PlanResponse,
+    RetentionNudge,
     SwapMealRequest,
     SwapMealResponse,
+    TodaySummary,
     WaterSlotResponse,
     WaterTargetResponse,
+    WeekRecap,
     WeightProjectionResponse,
 )
 from app.profile.application.use_cases import CompleteOnboarding
@@ -320,6 +323,146 @@ async def _fetch_latest_tdee(session: AsyncSession, user_id: uuid.UUID) -> int |
         )
     ).scalar()
     return int(row) if row is not None else None
+
+
+async def _compute_retention_context(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    *,
+    _today: "date | None" = None,
+) -> dict:
+    """E4 — lazy retention fields for GET /plans/active. Zero crons; computed on request.
+
+    _today is injectable for unit tests; defaults to date.today().
+    """
+    from datetime import date as _date
+
+    from sqlalchemy import text as _text
+
+    today = _today if _today is not None else _date.today()
+
+    # Last food log date and current daily streak.
+    last_log_scalar = (
+        await session.execute(
+            _text("SELECT MAX(date) FROM food_logs WHERE user_id = :uid"),
+            {"uid": str(user_id)},
+        )
+    ).scalar()
+    days_since: int | None = (today - last_log_scalar).days if last_log_scalar else None
+
+    streak_scalar = (
+        await session.execute(
+            _text("SELECT value FROM streaks WHERE user_id = :uid AND type = 'daily'"),
+            {"uid": str(user_id)},
+        )
+    ).scalar()
+    current_streak = int(streak_scalar or 0)
+
+    # Days since account creation (users.created_at).
+    created_scalar = (
+        await session.execute(
+            _text("SELECT created_at::date FROM users WHERE id = :uid"),
+            {"uid": str(user_id)},
+        )
+    ).scalar()
+    days_active = (today - created_scalar).days if created_scalar else 0
+
+    result: dict = {}
+
+    # H3 — retention_nudge
+    nudge_type: str | None = None
+    if days_since in (1, 2):
+        nudge_type = "streak_at_risk"
+    elif days_since is not None and days_since >= 3:
+        nudge_type = "comeback"
+    elif 7 <= days_active <= 9 and current_streak >= 5:
+        nudge_type = "week1_strong"
+    elif 13 <= days_active <= 16 and days_since == 0:
+        nudge_type = "two_weeks_milestone"
+
+    if nudge_type:
+        if nudge_type == "streak_at_risk":
+            msg_es = f"Tu racha de {current_streak} días está en riesgo. Registra algo hoy."
+            msg_en = f"Your {current_streak}-day streak is at risk. Log something today."
+        elif nudge_type == "comeback":
+            msg_es = f"Llevas {days_since} días sin registrar. Hoy es un buen día para volver."
+            msg_en = f"You've been away {days_since} days. Today's a good day to return."
+        elif nudge_type == "week1_strong":
+            msg_es = "Primera semana fuerte. Sigue así."
+            msg_en = "Strong first week. Keep going."
+        else:
+            msg_es = "Dos semanas cumplidas. Estás formando un hábito."
+            msg_en = "Two weeks done. You're building a habit."
+        result["retention_nudge"] = RetentionNudge(
+            type=nudge_type,  # type: ignore[arg-type]
+            streak_days=current_streak if nudge_type == "streak_at_risk" else None,
+            days_away=days_since if nudge_type == "comeback" else None,
+            message_es=msg_es,
+            message_en=msg_en,
+        )
+
+    # H4 — week_recap (Sundays or every 7th day_active)
+    dow = today.isoweekday()  # 7 = Sunday
+    if dow == 7 or (days_active > 0 and days_active % 7 == 0):
+        days_logged_scalar = (
+            await session.execute(
+                _text(
+                    "SELECT COUNT(DISTINCT date) FROM food_logs"
+                    " WHERE user_id = :uid AND date >= CURRENT_DATE - 6"
+                ),
+                {"uid": str(user_id)},
+            )
+        ).scalar()
+        days_logged = int(days_logged_scalar or 0)
+        if days_logged == 7:
+            msg_es, msg_en = "¡Semana perfecta! 7 de 7 días registrados.", "Perfect week! 7 of 7 days logged."
+        elif days_logged >= 5:
+            msg_es = f"Esta semana registraste {days_logged} de 7 días. ¡Casi perfecto!"
+            msg_en = f"You logged {days_logged} of 7 days this week. Almost perfect!"
+        elif days_logged >= 3:
+            msg_es = f"Registraste {days_logged} de 7 días. Puedes más la próxima semana."
+            msg_en = f"You logged {days_logged} of 7 days. You can do more next week."
+        else:
+            msg_es = f"Solo {days_logged} de 7 días registrados. Esta semana lo mejoramos."
+            msg_en = f"Only {days_logged} of 7 days logged. We improve that this week."
+        result["week_recap"] = WeekRecap(
+            days_logged=days_logged,
+            days_total=7,
+            message_es=msg_es,
+            message_en=msg_en,
+        )
+
+    # H5 — today_summary (kcal progress)
+    kcal_row = (
+        await session.execute(
+            _text(
+                """
+                SELECT (g.kcal_min + g.kcal_max) / 2 AS target,
+                       COALESCE(SUM(fl.kcal), 0)::int AS logged
+                  FROM nutritional_goals g
+                  LEFT JOIN food_logs fl
+                    ON fl.user_id = g.user_id AND fl.date = CURRENT_DATE
+                 WHERE g.user_id = :uid
+                 ORDER BY g.valid_from DESC
+                 LIMIT 1
+                """
+            ),
+            {"uid": str(user_id)},
+        )
+    ).mappings().first()
+    if kcal_row and kcal_row["target"]:
+        target = int(kcal_row["target"])
+        logged = int(kcal_row["logged"] or 0)
+        remaining = max(target - logged, 0)
+        pct = min(int(logged * 100 / target), 100) if target > 0 else 0
+        result["today_summary"] = TodaySummary(
+            kcal_logged=logged,
+            kcal_target=target,
+            kcal_remaining=remaining,
+            pct_complete=pct,
+        )
+
+    return result
 
 
 def _to_resp(
@@ -620,7 +763,15 @@ async def get_active_plan(
     # Sprint A2 — expected-weight-change projection (display).
     tdee = await _fetch_latest_tdee(session, current_user)
     resp = _to_resp(plan, translations=translations, locale=locale, tdee=tdee)
-    resp = resp.model_copy(update={"paywall_signal": paywall_signal})
+
+    # E4 — retention hooks H3/H4/H5 (lazy eval, no cron).
+    retention = await _compute_retention_context(session, current_user)
+    resp = resp.model_copy(
+        update={
+            "paywall_signal": paywall_signal,
+            **retention,
+        }
+    )
     return resp
 
 

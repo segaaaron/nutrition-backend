@@ -74,6 +74,42 @@ MealTime = Literal["breakfast", "lunch", "dinner", "snack"]
 
 _ESCALATE_MIN_ITEM_CONF: float = 0.35
 
+# Maps country names/codes stored in user_profiles.country → ISO-3166-1 alpha-2.
+# Only LATAM countries are needed here; the landlocked check in openai_vision.py
+# only cares about BO and PY. Coastal countries are listed so they correctly
+# fall back to the caller-supplied region (e.g. "latam") — not because the
+# landlocked check would fire for them.
+_COUNTRY_TO_ISO2: dict[str, str] = {
+    # Landlocked LATAM
+    "bolivia": "BO", "bo": "BO",
+    "paraguay": "PY", "py": "PY",
+    # Coastal LATAM — map to their ISO code so callers can be precise
+    "mexico": "MX", "méxico": "MX", "mx": "MX",
+    "colombia": "CO", "co": "CO",
+    "peru": "PE", "perú": "PE", "pe": "PE",
+    "chile": "CL", "cl": "CL",
+    "argentina": "AR", "ar": "AR",
+    "brazil": "BR", "brasil": "BR", "br": "BR",
+    "venezuela": "VE", "ve": "VE",
+    "ecuador": "EC", "ec": "EC",
+    "uruguay": "UY", "uy": "UY",
+    "panama": "PA", "panamá": "PA", "pa": "PA",
+    "costa rica": "CR", "cr": "CR",
+    "guatemala": "GT", "gt": "GT",
+    "honduras": "HN", "hn": "HN",
+    "el salvador": "SV", "sv": "SV",
+    "nicaragua": "NI", "ni": "NI",
+    "cuba": "CU", "cu": "CU",
+    "dominican republic": "DO", "república dominicana": "DO", "do": "DO",
+}
+
+
+def _resolve_region(profile_country: str | None, fallback: str) -> str:
+    """Map profile.country to ISO-3166-1 alpha-2. Returns fallback if unknown."""
+    if not profile_country:
+        return fallback
+    return _COUNTRY_TO_ISO2.get(profile_country.strip().lower(), fallback)
+
 
 def needs_full_model(
     items: list[DetectedFoodItem], *, conf_threshold: float = 0.0
@@ -123,16 +159,6 @@ class ProcessVisionJob:
             settings = get_settings()
             job_meta = await self.repo.get(job_id)
             image_sha = job_meta.image_sha256 if job_meta else ""
-            if settings.vision_two_pass_enabled:
-                current_prompt_sha = (
-                    self.provider.identification_prompt_sha256(locale=locale, region=region)
-                    + ":"
-                    + self.provider.estimation_prompt_sha256(locale=locale, region=region)
-                )
-            else:
-                current_prompt_sha = self.provider.current_prompt_sha256(
-                    locale=locale, region=region,
-                )
 
             # Sequential — MUST NOT gather: these three share `self.session`,
             # and one async session (single connection) is not concurrency-safe.
@@ -147,6 +173,26 @@ class ProcessVisionJob:
             portion_anchors = await load_recent_portion_anchors(
                 user_id=user_id, session=self.session
             )
+
+            # Override region with per-user country BEFORE computing prompt_sha
+            # so the SHA reflects the actual prompt content (e.g. landlocked hint
+            # for BO/PY). Computing SHA with the caller-supplied "latam" and then
+            # recognising with "BO" would make the cache key incorrect.
+            region = _resolve_region(
+                (user_profile or {}).get("country"),  # type: ignore[arg-type]
+                fallback=region,
+            )
+
+            if settings.vision_two_pass_enabled:
+                current_prompt_sha = (
+                    self.provider.identification_prompt_sha256(locale=locale, region=region)
+                    + ":"
+                    + self.provider.estimation_prompt_sha256(locale=locale, region=region)
+                )
+            else:
+                current_prompt_sha = self.provider.current_prompt_sha256(
+                    locale=locale, region=region,
+                )
 
             items, prompt_sha, cache_hit = await self._recognise(
                 job_id=job_id,

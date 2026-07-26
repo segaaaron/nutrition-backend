@@ -26,7 +26,7 @@ _PORTION_CAL_TTL = 3600  # 1 hour
 async def load_user_profile(
     *, user_id: UUID, session: AsyncSession
 ) -> dict[str, object] | None:
-    """Fetch age / sex / weight_kg for LLM portion-calibration hint (F5.2).
+    """Fetch age / sex / weight_kg / country for LLM portion-calibration hint (F5.2).
 
     Returns None when the profile row is missing or on any DB error.
     """
@@ -34,7 +34,7 @@ async def load_user_profile(
         row = (
             await session.execute(
                 text(
-                    "SELECT age, sex, weight_kg"
+                    "SELECT age, sex, weight_kg, country"
                     " FROM user_profiles"
                     " WHERE user_id = :uid"
                 ),
@@ -43,7 +43,7 @@ async def load_user_profile(
         ).first()
         if not row:
             return None
-        return {"age": row[0], "sex": row[1], "weight_kg": row[2]}
+        return {"age": row[0], "sex": row[1], "weight_kg": row[2], "country": row[3]}
     except Exception as exc:  # noqa: BLE001 — OK4: profile is a best-effort LLM hint
         log.debug("vision.user_profile.failed", err=str(exc)[:120])
         return None

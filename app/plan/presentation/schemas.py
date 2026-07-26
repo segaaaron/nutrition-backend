@@ -158,6 +158,35 @@ class WeightProjectionResponse(_Strict):
     ci_high_kg: float
 
 
+# E4 — retention context appended to GET /plans/active (lazy eval, no cron).
+class RetentionNudge(_Strict):
+    """H3 — contextual banner for streak-at-risk / comeback / milestone."""
+
+    type: Literal["streak_at_risk", "comeback", "week1_strong", "two_weeks_milestone"]
+    streak_days: int | None = None
+    days_away: int | None = None
+    message_es: str
+    message_en: str
+
+
+class WeekRecap(_Strict):
+    """H4 — weekly logging summary shown on Sundays or day-N multiples of 7."""
+
+    days_logged: int
+    days_total: int
+    message_es: str
+    message_en: str
+
+
+class TodaySummary(_Strict):
+    """H5 — today's kcal progress exposed in the plan response."""
+
+    kcal_logged: int
+    kcal_target: int
+    kcal_remaining: int
+    pct_complete: int  # 0-100
+
+
 class PlanResponse(_Strict):
     id: UUID
     user_id: UUID
@@ -181,6 +210,10 @@ class PlanResponse(_Strict):
     # Sprint A2 — expected weekly weight change from energy balance (kg/week,
     # negative = loss) with a ±25% honesty band. None when TDEE is unavailable.
     expected_weekly_change: WeightProjectionResponse | None = None
+    # E4 — retention hooks (H3/H4/H5). All optional; omitted when not applicable.
+    retention_nudge: RetentionNudge | None = None
+    week_recap: WeekRecap | None = None
+    today_summary: TodaySummary | None = None
 
 
 class AdvanceRequest(_Strict):

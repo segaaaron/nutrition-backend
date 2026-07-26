@@ -94,7 +94,8 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # OK4: ensure_goals fallback wrapper — logs and re-raises domain error.
     "app/plan/application/create_plan.py": {169, 448},
     # OK4: plan gen rate-limit Redis fail-open — Redis down must not block plan creation.
-    "app/plan/presentation/router.py": {468},
+    # Line re-synced after E4 _compute_retention_context added ~143 lines before this site.
+    "app/plan/presentation/router.py": {611},
     # OK4: taste profile cache fetch — falls through on miss.
     "app/plan/application/taste_profile.py": {48},
     # OK4: plan cache best-effort.
@@ -122,14 +123,15 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # OK4: dish-anchor lookup is a best-effort second opinion (logged).
     "app/vision/infrastructure/dish_anchor.py": {53},
     # OK1: notification handlers — fire-and-forget push, must not propagate.
-    "app/notifications/application/event_handlers.py": {80, 116},
+    # Lines re-synced after E4: fixed DayCompleted import + added H1 (achievement) + H2 (streak_broken).
+    "app/notifications/application/event_handlers.py": {107, 141, 168, 205},
     # OK4: Redis cache helpers + Open Food Facts external API — best-effort, fail-open.
     "app/vision/infrastructure/usda_fdc.py": {407, 415, 619},
     # OK4: OpenAI vision wrappers with fallback contracts.
     "app/vision/application/learn_user_correction.py": {175},
     # Line numbers re-synced 2026-07-25 (E2 two-pass guard added ~27 lines);
     # re-synced again after E2 fixes (FIX 1 added 6 lines shifting all broad-excepts).
-    "app/vision/application/process_vision_job.py": {211, 483, 561, 575},
+    "app/vision/application/process_vision_job.py": {257, 529, 607, 621},
     # OK4: Call-2 (estimation) upstream failure — logged via log.exception then
     # degraded to catalog placeholders so a single provider blip never fails the
     # whole job. CostCapExceeded is now re-raised before this handler (E2 FIX 3).
