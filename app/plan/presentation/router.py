@@ -14,6 +14,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.cache_keys import CacheKeys
+from app.core.metrics import (
+    MEAL_SWAPPED_TOTAL,
+    PLAN_CREATED_TOTAL,
+    RETENTION_NUDGE_SHOWN_TOTAL,
+    WEEK_RECAP_SHOWN_TOTAL,
+)
 from app.core.errors import BusinessRuleViolation, ConflictError
 from app.core.event_bus import get_event_bus
 from app.core.idempotency import (
@@ -400,6 +406,7 @@ async def _compute_retention_context(
             message_es=msg_es,
             message_en=msg_en,
         )
+        RETENTION_NUDGE_SHOWN_TOTAL.labels(nudge_type=nudge_type).inc()
 
     # H4 — week_recap (Sundays or every 7th day_active)
     dow = today.isoweekday()  # 7 = Sunday
@@ -431,6 +438,7 @@ async def _compute_retention_context(
             message_es=msg_es,
             message_en=msg_en,
         )
+        WEEK_RECAP_SHOWN_TOTAL.inc()
 
     # H5 — today_summary (kcal progress)
     kcal_row = (
@@ -692,6 +700,10 @@ async def create_plan(
         except ValueError:
             ready_plan_uuid = None
     is_ready = ready_plan_uuid is not None
+    if is_ready:
+        _goal = str(body.profile.goal) if body.profile and body.profile.goal else "regen"
+        _has_cond = "yes" if body.profile and body.profile.medical_conditions else "no"
+        PLAN_CREATED_TOTAL.labels(goal=_goal, has_condition=_has_cond).inc()
     out_status: Literal["queued", "generating", "ready"] = (
         "ready" if is_ready else "queued"
     )
@@ -857,4 +869,5 @@ async def swap_meal(
         reason_code=body.reason_code,
         candidate_ids=candidate_ids,
     )
+    MEAL_SWAPPED_TOTAL.labels(reason=body.reason_code or "none").inc()
     return SwapMealResponse(alternatives=alts)

@@ -74,7 +74,7 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # OK3: Redis IP rate-limit fail-open on infra error.
     "app/core/ip_rate_limit.py": {116},
     # OK3: arq queue depth probe — returns 0 on any error (health probe).
-    "app/core/metrics.py": {141},
+    "app/core/metrics.py": {177},
     # OK4: catalogue lookup best-effort.
     "app/grocery/use_cases.py": {211},
     # OK4: best-effort metadata read from request.state; PII-safe input repr.
@@ -88,14 +88,14 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # OK3: identity rate-limit fail-open on infra surprise (logged).
     "app/identity/infrastructure/rate_limit.py": {53},
     # OK3: /readyz health probe — reports component status without 500.
-    "app/main.py": {268, 274, 282},
+    "app/main.py": {277, 283, 291},
     # OK1: nutrition event handlers — best-effort with explicit log.
     "app/nutrition/event_handlers.py": {76, 108},
     # OK4: ensure_goals fallback wrapper — logs and re-raises domain error.
     "app/plan/application/create_plan.py": {169, 448},
     # OK4: plan gen rate-limit Redis fail-open — Redis down must not block plan creation.
     # Line re-synced after E4 _compute_retention_context added ~143 lines before this site.
-    "app/plan/presentation/router.py": {611},
+    "app/plan/presentation/router.py": {619},
     # OK4: taste profile cache fetch — falls through on miss.
     "app/plan/application/taste_profile.py": {48},
     # OK4: plan cache best-effort.
@@ -124,7 +124,7 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     "app/vision/infrastructure/dish_anchor.py": {53},
     # OK1: notification handlers — fire-and-forget push, must not propagate.
     # Lines re-synced after E4: fixed DayCompleted import + added H1 (achievement) + H2 (streak_broken).
-    "app/notifications/application/event_handlers.py": {107, 141, 168, 205},
+    "app/notifications/application/event_handlers.py": {108, 142, 170, 208},
     # OK4: Redis cache helpers + Open Food Facts external API — best-effort, fail-open.
     "app/vision/infrastructure/usda_fdc.py": {407, 415, 619},
     # OK4: OpenAI vision wrappers with fallback contracts.

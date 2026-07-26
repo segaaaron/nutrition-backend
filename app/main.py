@@ -253,6 +253,15 @@ def create_app() -> FastAPI:
     # be registered in worker/main.py since plan generation runs there.
     register_profile_handlers(bus, _profile_sessionmaker())
 
+    # Prometheus business counters — stateless, no session needed.
+    from app.core.metrics import USER_REGISTERED_TOTAL
+    from app.identity.domain.events import UserRegistered
+
+    async def _count_user_registered(evt: UserRegistered) -> None:
+        USER_REGISTERED_TOTAL.inc()
+
+    bus.subscribe(UserRegistered, _count_user_registered)
+
     @app.get("/healthz", tags=["ops"])
     async def healthz() -> dict[str, str]:
         return {"status": "ok"}

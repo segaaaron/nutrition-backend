@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.event_bus import EventBus
 from app.core.logging import get_logger
+from app.core.metrics import ACHIEVEMENT_UNLOCKED_TOTAL, STREAK_BROKEN_TOTAL
 from app.gamification.domain.events import AchievementUnlocked, DayCompleted, StreakBroken
 from app.notifications.application.send_notification import SendNotification
 from app.notifications.infrastructure.fcm_client import FcmClient
@@ -165,6 +166,7 @@ def make_achievement_unlocked_handler(
                 sender = SendNotification(session=session, fcm=FcmClient())
                 await sender(user_id=event.user_id, payload=payload)
                 await session.commit()
+            ACHIEVEMENT_UNLOCKED_TOTAL.labels(code=event.code).inc()
         except Exception as exc:  # noqa: BLE001  OK1: handler boundary, must not propagate
             log.warning("notifications.achievement_unlocked.failed", err=str(exc)[:120])
 
@@ -202,6 +204,7 @@ def make_streak_broken_handler(
                 sender = SendNotification(session=session, fcm=FcmClient())
                 await sender(user_id=event.user_id, payload=payload)
                 await session.commit()
+            STREAK_BROKEN_TOTAL.labels(streak_type=event.type).inc()
         except Exception as exc:  # noqa: BLE001  OK1: handler boundary, must not propagate
             log.warning("notifications.streak_broken.failed", err=str(exc)[:120])
 

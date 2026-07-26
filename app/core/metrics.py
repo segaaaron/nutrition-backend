@@ -112,6 +112,42 @@ CATALOG_NULL_RATIO = Gauge(
 )
 
 
+# --- Business / product events (North Star signals) ---
+USER_REGISTERED_TOTAL = Counter(
+    "user_registered_total",
+    "New users who completed OTP verification (= activated accounts)",
+)
+PLAN_CREATED_TOTAL = Counter(
+    "plan_created_total",
+    "Nutrition plans successfully generated",
+    ["goal", "has_condition"],
+)
+MEAL_SWAPPED_TOTAL = Counter(
+    "meal_swapped_total",
+    "Meal swaps executed by users",
+    ["reason"],
+)
+ACHIEVEMENT_UNLOCKED_TOTAL = Counter(
+    "achievement_unlocked_total",
+    "Gamification achievements unlocked",
+    ["code"],
+)
+STREAK_BROKEN_TOTAL = Counter(
+    "streak_broken_total",
+    "Streaks broken (fires when value resets to 1 after prev ≥ 3)",
+    ["streak_type"],
+)
+RETENTION_NUDGE_SHOWN_TOTAL = Counter(
+    "retention_nudge_shown_total",
+    "Retention nudges served via GET /plans/active (H3)",
+    ["nudge_type"],
+)
+WEEK_RECAP_SHOWN_TOTAL = Counter(
+    "week_recap_shown_total",
+    "Week recaps served via GET /plans/active (H4)",
+)
+
+
 class HttpMetricsMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self,
