@@ -318,7 +318,13 @@ def _ingredient_pr(
     return precision, recall
 
 
-def _invoke_vision_pipeline(image_path: Path, *, locale: str, region: str) -> dict[str, Any]:
+def _invoke_vision_pipeline(
+    image_path: Path,
+    *,
+    locale: str,
+    region: str,
+    meal_time: str | None = None,
+) -> dict[str, Any]:
     """Call the real OpenAI vision provider against one golden-set image.
 
     The full ``ProcessVisionJob`` orchestrator wires DB session + Redis +
@@ -343,6 +349,7 @@ def _invoke_vision_pipeline(image_path: Path, *, locale: str, region: str) -> di
     from unittest.mock import AsyncMock, patch
     from uuid import uuid4
 
+    from app.vision.domain.plate_decomposition import decompose
     from app.vision.infrastructure.openai_vision import OpenAIVisionProvider
 
     if not os.getenv("OPENAI_API_KEY"):
@@ -371,8 +378,14 @@ def _invoke_vision_pipeline(image_path: Path, *, locale: str, region: str) -> di
                 user_id=uuid4(),
                 locale=locale,
                 region=region,
+                meal_time=meal_time,
             )
         )
+
+    # Apply the full domain post-pass (floors + hidden fat + total kcal guard).
+    # process_vision_job.py does this in production; the eval must mirror it.
+    # decompose() is pure domain code — no OpenAI calls, no patches needed.
+    items, _totals = decompose(items, slot=meal_time)
 
     detected = [
         {
@@ -408,7 +421,10 @@ def _evaluate(entry: dict[str, Any]) -> EvalResult:
 
     locale = entry.get("locale", "es-419")
     region = gt.get("region", "latam")
-    prediction = _invoke_vision_pipeline(image_path, locale=locale, region=region)
+    meal_time = gt.get("meal_time")
+    prediction = _invoke_vision_pipeline(
+        image_path, locale=locale, region=region, meal_time=meal_time
+    )
 
     kcal_ok = _within(prediction["kcal"], gt["kcal"], tol["kcal_pct"])
     macros_ok = all(

@@ -138,7 +138,7 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # Line 109: best-effort hints — OK4. Line 142: estimation degrade — OK4.
     "app/vision/application/recognise_plate.py": {109, 142},
     # OK4: macro grounding + USDA fallback — DB lookup best-effort.
-    "app/vision/infrastructure/macro_grounder.py": {77, 148},
+    "app/vision/infrastructure/macro_grounder.py": {77, 256},
     # OK4: plan context SQL — best-effort LLM hint.
     "app/vision/infrastructure/plan_context.py": {69},
     # OK4: user profile + portion calibration + portion anchors — Redis/DB best-effort.
@@ -151,7 +151,7 @@ ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
     # OK4: dark-image enhancement (best-effort PIL), prefilter fail-open, invoke retry.
     # Line numbers re-synced after E2 fixes (FIX 2 index-range filter added ~9 lines
     # in estimate(), shifting all subsequent broad-excepts by ~3).
-    "app/vision/infrastructure/openai_vision.py": {733, 739, 785, 992, 1271, 1575},
+    "app/vision/infrastructure/openai_vision.py": {752, 758, 804, 1011, 1290, 1594},
     # OK4: plate explanation is decorative — poll must still serve items.
     "app/vision/presentation/router.py": {174, 219},
     # OK4: voice/food text parser — LLM best-effort.

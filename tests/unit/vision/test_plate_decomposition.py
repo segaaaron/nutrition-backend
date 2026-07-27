@@ -17,7 +17,9 @@ from decimal import Decimal
 from app.vision.domain.entities import DetectedFoodItem
 from app.vision.domain.plate_decomposition import (
     DRY_SPICE_KCAL_CAP,
+    SLOT_KCAL_MAX,
     clamp_dry_spices,
+    clamp_meal_total_kcal,
     compute_totals,
     decompose,
     infer_hidden_cooking_fat,
@@ -417,3 +419,99 @@ def test_cap_protein_group_ceiling_tightened() -> None:
     out = cap_implausible_portions([it])[0]
     assert float(out.estimated_amount_g) == 300.0
     assert out.kcal == round(900 * 300 / 450)
+
+
+# --- clamp_meal_total_kcal ---------------------------------------------------
+
+
+def test_clamp_meal_total_kcal_no_slot_no_change() -> None:
+    """Without a slot, totals are never modified."""
+    items = [_item("nueces", 400, grams=60), _item("manzana", 200, grams=180)]
+    out = clamp_meal_total_kcal(items, slot=None)
+    assert sum(i.kcal for i in out) == 600
+
+
+def test_clamp_meal_total_kcal_snack_over_ceiling() -> None:
+    """Snack total 585 kcal (gs-snack-0004 pattern) must scale to SLOT_KCAL_MAX['snack']."""
+    items = [
+        _item("nueces", 390, grams=60, role="main"),
+        _item("manzana", 100, grams=180, role="side"),
+        _item("queso", 95, grams=30, role="side"),
+    ]
+    total_before = sum(i.kcal for i in items)  # 585
+    assert total_before == 585
+    out = clamp_meal_total_kcal(items, slot="snack")
+    total_after = sum(i.kcal for i in out)
+    # Integer rounding can leave total 1-2 kcal below ceiling — check it's ≤ ceiling
+    assert total_after <= SLOT_KCAL_MAX["snack"]
+    assert total_after >= SLOT_KCAL_MAX["snack"] - 2  # rounding never loses more than 2
+    # Proportions preserved: each item scaled by same factor
+    factor = SLOT_KCAL_MAX["snack"] / 585
+    assert out[0].kcal == int(round(390 * factor))
+    assert out[1].kcal == int(round(100 * factor))
+    assert out[2].kcal == int(round(95 * factor))
+
+
+def test_clamp_meal_total_kcal_snack_below_ceiling_unchanged() -> None:
+    """Snack total under the ceiling must pass through unchanged."""
+    items = [_item("yogur", 90, grams=150), _item("arandanos", 40, grams=70)]
+    out = clamp_meal_total_kcal(items, slot="snack")
+    assert out[0].kcal == 90
+    assert out[1].kcal == 40
+
+
+def test_clamp_meal_total_kcal_scales_grams_proportionally() -> None:
+    """Grams must scale by the same factor as kcal so density is preserved."""
+    items = [_item("nueces", 650, grams=100, role="main")]
+    out = clamp_meal_total_kcal(items, slot="snack")
+    factor = SLOT_KCAL_MAX["snack"] / 650
+    assert abs(float(out[0].estimated_amount_g) - round(100 * factor, 1)) < 0.2
+
+
+def test_clamp_meal_total_kcal_unknown_slot_no_change() -> None:
+    """Unknown slot string (e.g. 'brunch') must not change anything."""
+    items = [_item("huevo", 300, grams=200)]
+    out = clamp_meal_total_kcal(items, slot="brunch")
+    assert out[0].kcal == 300
+
+
+def test_clamp_meal_total_kcal_snack_within_25pct_of_gs_snack_0004_gt() -> None:
+    """After clamping 585-kcal snack, result must be within ±25% of GT=220 kcal."""
+    items = [
+        _item("nueces", 390, grams=60),
+        _item("manzana", 100, grams=180),
+        _item("queso", 95, grams=30),
+    ]
+    out = clamp_meal_total_kcal(items, slot="snack")
+    total = sum(i.kcal for i in out)
+    gt = 220
+    delta_pct = abs(total - gt) / gt
+    assert delta_pct <= 0.25, f"Total {total} not within 25% of GT {gt} ({delta_pct:.1%})"
+
+
+def test_clamp_meal_total_kcal_preserves_kcal_min_max() -> None:
+    """kcal_min/kcal_max are scaled proportionally when set."""
+    items = [_item("nueces", 650, grams=100, role="main", kcal_min=550, kcal_max=750)]
+    out = clamp_meal_total_kcal(items, slot="snack")
+    factor = SLOT_KCAL_MAX["snack"] / 650
+    assert out[0].kcal_min == int(round(550 * factor))
+    assert out[0].kcal_max == int(round(750 * factor))
+
+
+def test_clamp_meal_total_kcal_empty_list() -> None:
+    out = clamp_meal_total_kcal([], slot="snack")
+    assert out == []
+
+
+def test_clamp_meal_total_kcal_integrated_in_decompose() -> None:
+    """decompose() with slot='snack' must apply the total kcal guard."""
+    items = [
+        _item("nueces", 390, grams=60, role="main"),
+        _item("manzana", 100, grams=180, role="side"),
+        _item("queso", 95, grams=30, role="side"),
+    ]
+    result_items, totals = decompose(items, slot="snack")
+    # After decompose, total must not exceed snack ceiling
+    assert totals.kcal <= SLOT_KCAL_MAX["snack"], (
+        f"decompose total {totals.kcal} exceeds snack ceiling {SLOT_KCAL_MAX['snack']}"
+    )

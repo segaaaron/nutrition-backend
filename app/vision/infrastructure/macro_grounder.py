@@ -81,14 +81,94 @@ def _load_local_usda() -> dict[str, tuple[frozenset[str], dict]]:
 
 _LOCAL_USDA_INDEX: dict[str, tuple[frozenset[str], dict]] = _load_local_usda()
 
+# Manual EN→ES query bridge for food names the LLM may return in English.
+# Maps lowercase English name → Spanish query string that matches the USDA index.
+_MANUAL_EN_TO_ES: dict[str, str] = {
+    # proteins
+    "chicken": "pechuga pollo",
+    "chicken breast": "pechuga pollo",
+    "grilled chicken": "pechuga pollo",
+    "beef": "lomo res",
+    "steak": "lomo res",
+    "pork": "lomo cerdo",
+    "turkey": "pavo pechuga",
+    "turkey breast": "pavo pechuga",
+    "cod": "bacalao",
+    "white fish": "bacalao",
+    "salmon": "salmon",
+    "shrimp": "camaron",
+    "prawns": "camaron",
+    "tuna": "atun",
+    "egg": "huevo entero",
+    "eggs": "huevo entero",
+    "fried egg": "huevo frito",
+    "boiled egg": "huevo cocido",
+    # grains
+    "oats": "avena",
+    "oatmeal": "avena",
+    "rolled oats": "avena",
+    "porridge": "porridge avena",
+    "rice": "arroz cocido",
+    "white rice": "arroz cocido",
+    "brown rice": "arroz integral",
+    "pasta": "pasta cocida",
+    "bread": "pan blanco",
+    "quinoa": "quinoa",
+    # vegetables
+    "potato": "papa",
+    "potatoes": "papa",
+    "sweet potato": "camote",
+    "yam": "camote",
+    "broccoli": "brocoli",
+    "spinach": "espinacas",
+    "asparagus": "esparragos",
+    "lettuce": "lechuga",
+    "carrot": "zanahoria",
+    "tomato": "tomate",
+    "onion": "cebolla",
+    "mushroom": "champiñon",
+    "mushrooms": "champiñon",
+    "green beans": "ejotes",
+    "corn": "maiz cocido",
+    "cucumber": "pepino",
+    "zucchini": "calabacin",
+    # fruits
+    "apple": "manzana",
+    "banana": "platano",
+    "avocado": "aguacate",
+    "strawberry": "fresa",
+    "strawberries": "fresa",
+    "mango": "mango",
+    "orange": "naranja",
+    "cranberries": "arandanos",
+    "dried cranberries": "arandanos",
+    "blueberries": "arandanos",
+    "grapes": "uvas",
+    "melon": "melon",
+    # dairy
+    "cheese": "queso fresco",
+    "cottage cheese": "queso fresco",
+    "yogurt": "yogur natural",
+    "yoghurt": "yogur natural",
+    "milk": "leche entera",
+    # fats / nuts
+    "almonds": "almendras",
+    "walnuts": "nueces",
+    "walnut": "nueces",
+    "cashews": "marañon",
+    "peanut butter": "mantequilla mani",
+    "olive oil": "aceite oliva",
+    # legumes
+    "beans": "frijoles negros",
+    "black beans": "frijoles negros",
+    "lentils": "lentejas",
+    "chickpeas": "garbanzo",
+    "peas": "arvejas",
+}
 
-def _local_usda_lookup(name: str) -> dict | None:
-    """Match food name to local USDA reference (token overlap ≥ _LOCAL_USDA_THRESHOLD on key side)."""
-    if not _LOCAL_USDA_INDEX:
-        return None
-    query_tokens = _key_tokens(name)
-    if not query_tokens:
-        return None
+
+def _score_index(query_tokens: frozenset[str]) -> tuple[float, dict | None]:
+    """Return (best_score, best_entry) across the local USDA index."""
     best_score, best_entry = 0.0, None
     for _key_name, (key_toks, entry) in _LOCAL_USDA_INDEX.items():
         if not key_toks:
@@ -97,7 +177,35 @@ def _local_usda_lookup(name: str) -> dict | None:
         if overlap > best_score:
             best_score = overlap
             best_entry = entry
-    return best_entry if best_score >= _LOCAL_USDA_THRESHOLD else None
+    return best_score, best_entry
+
+
+def _local_usda_lookup(name: str) -> dict | None:
+    """Match food name to local USDA reference (token overlap ≥ _LOCAL_USDA_THRESHOLD on key side).
+
+    Falls back to EN→ES bridge when direct Spanish lookup scores below threshold.
+    """
+    if not _LOCAL_USDA_INDEX:
+        return None
+
+    # 1. Direct lookup
+    query_tokens = _key_tokens(name)
+    if query_tokens:
+        best_score, best_entry = _score_index(query_tokens)
+        if best_score >= _LOCAL_USDA_THRESHOLD:
+            return best_entry
+
+    # 2. EN→ES manual bridge (handles English names from LLM)
+    name_lower = name.lower().strip()
+    es_query = _MANUAL_EN_TO_ES.get(name_lower)
+    if es_query:
+        es_tokens = _key_tokens(es_query)
+        if es_tokens:
+            best_score, best_entry = _score_index(es_tokens)
+            if best_score >= _LOCAL_USDA_THRESHOLD:
+                return best_entry
+
+    return None
 
 # USDA FDC SR Legacy averages per 100 g by food_group.
 # Tuple: (kcal, protein_g, carbs_g, fat_g)

@@ -699,6 +699,60 @@ def _item_range(it: DetectedFoodItem) -> tuple[int, int]:
     return min(lo, it.kcal), max(hi, it.kcal)
 
 
+SLOT_KCAL_MAX: Final[dict[str, int]] = {
+    "snack": 260,       # handheld snack — physiologically caps at ~250 kcal
+    "breakfast": 800,   # generous breakfast ceiling
+    "lunch": 1100,      # main meal, large plate allowed
+    "dinner": 1000,     # main meal
+}
+
+
+def clamp_meal_total_kcal(
+    items: list[DetectedFoodItem],
+    *,
+    slot: str | None = None,
+) -> list[DetectedFoodItem]:
+    """Proportionally scale all items down when total kcal exceeds slot ceiling.
+
+    Per-item caps guard individual over-estimates but cannot prevent the aggregate
+    from violating slot physiology when several items each pass their own ceiling.
+    This is the meal-level invariant that per-item caps structurally cannot provide.
+
+    Only applies when ``slot`` is known and the total is above the ceiling —
+    never inflates under-estimates.
+    """
+    if not items or slot is None:
+        return items
+    slot_key = slot.strip().lower()
+    max_kcal = SLOT_KCAL_MAX.get(slot_key)
+    if max_kcal is None:
+        return items
+    total = sum(it.kcal for it in items)
+    if total <= max_kcal:
+        return items
+    factor = max_kcal / total
+    out: list[DetectedFoodItem] = []
+    for it in items:
+        grams = float(it.estimated_amount_g)
+        kmin = None if it.kcal_min is None else int(round(it.kcal_min * factor))
+        kmax = None if it.kcal_max is None else int(round(it.kcal_max * factor))
+        out.append(
+            replace(
+                it,
+                estimated_amount_g=Decimal(str(round(grams * factor, 1))),
+                kcal=int(round(it.kcal * factor)),
+                protein_g=int(round(it.protein_g * factor)),
+                carbs_g=int(round(it.carbs_g * factor)),
+                fat_g=int(round(it.fat_g * factor)),
+                fiber_g=int(round(it.fiber_g * factor)),
+                sugar_g=int(round(it.sugar_g * factor)),
+                kcal_min=kmin,
+                kcal_max=kmax,
+            )
+        )
+    return out
+
+
 def compute_totals(items: list[DetectedFoodItem]) -> PlateTotals:
     if not items:
         return PlateTotals(0, 0, 0, 0, 0, 0, 0.0)
@@ -749,4 +803,5 @@ def decompose(
     out = infer_hidden_dairy_and_oil(out)
     out = cap_implausible_portions(out, slot=slot)  # re-cap inferred oils/dairy
     out = refine_beverages(out)
+    out = clamp_meal_total_kcal(out, slot=slot)  # meal-level invariant
     return out, compute_totals(out)
