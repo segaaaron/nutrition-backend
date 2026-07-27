@@ -58,3 +58,9 @@ data/nova_catalog_v1.json
 
 # One-off scripts (backfills/gen/import/fix) — run once, never committed or deployed
 scripts/oneoff/
+
+# Sprint reports, accuracy benchmarks, competitive analysis — internal only
+reports/
+
+# One-off migration source files — data already loaded into DB
+data/ingredient_translations_es_en.json

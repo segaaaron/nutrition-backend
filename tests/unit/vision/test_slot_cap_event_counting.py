@@ -40,6 +40,12 @@ def _items(n: int) -> list[DetectedFoodItem]:
 async def test_one_photo_with_8_items_counts_1_event_and_inserts_all(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    from app.core.config import get_settings
+    get_settings.cache_clear()
+    monkeypatch.setenv("VISION_TWO_PASS_ENABLED", "false")
+    monkeypatch.setenv("VISION_CASCADE_ENABLED", "false")
+    get_settings.cache_clear()
+
     job_id = uuid4()
     user_id = uuid4()
 

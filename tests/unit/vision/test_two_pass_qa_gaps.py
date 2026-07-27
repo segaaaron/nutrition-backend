@@ -199,6 +199,7 @@ async def test_two_pass_persisted_sha_matches_cache_lookup_key(
     get_settings.cache_clear()
     monkeypatch.setenv("VISION_TWO_PASS_ENABLED", "true")
     monkeypatch.setenv("VISION_CASCADE_ENABLED", "false")
+    monkeypatch.setenv("VISION_SELF_CONSISTENCY_K", "1")
     try:
         job_id, user_id = uuid4(), uuid4()
 

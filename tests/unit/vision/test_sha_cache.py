@@ -94,7 +94,13 @@ async def test_cache_hit_skips_provider() -> None:
 
 
 @pytest.mark.asyncio
-async def test_cache_miss_calls_provider() -> None:
+async def test_cache_miss_calls_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.core.config import get_settings
+    get_settings.cache_clear()
+    monkeypatch.setenv("VISION_TWO_PASS_ENABLED", "false")
+    monkeypatch.setenv("VISION_CASCADE_ENABLED", "false")
+    get_settings.cache_clear()
+
     job_id = uuid4()
     user_id = uuid4()
     sha = "b" * 64
@@ -152,3 +158,4 @@ async def test_cache_miss_calls_provider() -> None:
 
     provider.recognise.assert_awaited_once()
     repo.mark_completed.assert_awaited_once()
+    get_settings.cache_clear()

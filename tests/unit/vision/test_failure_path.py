@@ -18,7 +18,13 @@ from app.vision.domain.events import VisionJobFailed
 
 
 @pytest.mark.asyncio
-async def test_provider_failure_marks_job_failed() -> None:
+async def test_provider_failure_marks_job_failed(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.core.config import get_settings
+    get_settings.cache_clear()
+    monkeypatch.setenv("VISION_TWO_PASS_ENABLED", "false")
+    monkeypatch.setenv("VISION_CASCADE_ENABLED", "false")
+    get_settings.cache_clear()
+
     job_id = uuid4()
     user_id = uuid4()
     sha = "f" * 64

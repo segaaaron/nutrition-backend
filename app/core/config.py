@@ -150,7 +150,7 @@ class Settings(BaseSettings):
     # When True the pipeline runs Call-1 (identity) then Call-2 (estimation)
     # as separate LLM calls.  Default False — existing single-pass path is
     # used until the two-pass adapters are fully validated.
-    vision_two_pass_enabled: bool = False
+    vision_two_pass_enabled: bool = True
     # Max output tokens for the identification call (Call-1 only).
     # Smaller than the combined single-pass budget because no amounts/macros
     # are returned — item names + metadata only.
@@ -163,7 +163,7 @@ class Settings(BaseSettings):
     # 3 = enabled: K concurrent estimate calls, median aggregation per item.
     # Converts coin-flip variance at temperature=1 into stable median estimates.
     # Cost: K × Call-2 cost (K=3 → 3× estimate calls per photo).
-    vision_self_consistency_k: int = Field(default=1, ge=1, le=5)
+    vision_self_consistency_k: int = Field(default=3, ge=1, le=5)
 
     # --- Cost cap (ADR-0004) ---
     cost_cap_usd_per_user_per_day: float = 1.50

@@ -216,18 +216,25 @@ async def test_estimate_failure_degrades_gracefully() -> None:
 
 
 @pytest.mark.asyncio
-async def test_prompt_sha_composite() -> None:
-    """prompt_sha256 must be identify_sha + ':' + estimate_sha."""
-    ids = [_ident("chicken")]
-    ests = [_est(0)]
+async def test_prompt_sha_composite(monkeypatch: pytest.MonkeyPatch) -> None:
+    """prompt_sha256 must be identify_sha + ':' + estimate_sha (K=1, no composite hash)."""
+    from app.core.config import get_settings
+    get_settings.cache_clear()
+    monkeypatch.setenv("VISION_SELF_CONSISTENCY_K", "1")
+    get_settings.cache_clear()
+    try:
+        ids = [_ident("chicken")]
+        ests = [_est(0)]
 
-    service = RecognisePlate(
-        identifier=_MockIdentifier(ids, sha="sha-id-abc"),
-        estimator=_MockEstimator(ests, sha="sha-est-xyz"),
-    )
-    outcome = await service(ctx=_make_ctx())
+        service = RecognisePlate(
+            identifier=_MockIdentifier(ids, sha="sha-id-abc"),
+            estimator=_MockEstimator(ests, sha="sha-est-xyz"),
+        )
+        outcome = await service(ctx=_make_ctx())
 
-    assert outcome.prompt_sha256 == "sha-id-abc:sha-est-xyz"
+        assert outcome.prompt_sha256 == "sha-id-abc:sha-est-xyz"
+    finally:
+        get_settings.cache_clear()
 
 
 @pytest.mark.asyncio

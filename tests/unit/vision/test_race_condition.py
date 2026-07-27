@@ -37,6 +37,11 @@ async def test_concurrent_same_sha_provider_called_once(
     fake_redis,
 ) -> None:
     # Shrink the inflight poll budget so the test doesn't hang.
+    from app.core.config import get_settings
+    get_settings.cache_clear()
+    monkeypatch.setenv("VISION_TWO_PASS_ENABLED", "false")
+    monkeypatch.setenv("VISION_CASCADE_ENABLED", "false")
+    get_settings.cache_clear()
     monkeypatch.setattr(inflight_lock_mod, "_INFLIGHT_WAIT_S", 5)
     monkeypatch.setattr(pvj_mod, "get_redis", lambda: fake_redis)
 
