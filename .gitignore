@@ -33,7 +33,7 @@ data/meals/liquid_batch_*.json
 .git.backup-*
 
 # Claude Code worktree shadow copies (Sprint internal, not for git)
-.claude/worktrees/
+.claude/
 
 # Local ETL state + intermediate outputs (regenerable, not for git)
 .cache/
@@ -44,10 +44,6 @@ scripts/sql/
 # Prod (git→CI→VPS) does NOT run these. Keeping them out of the repo avoids
 # leaking internal ops, strategy, and AI setup to anyone with repo access.
 /CLAUDE.md
-.claude/skills/
-.claude/napkin.md
-.claude/MEMORY.md
-.claude/settings.local.json
 
 # ── Internal docs — SENSITIVE (strategy, moat, competitive, QA, security) ─────
 # Contain competitive strategy, VPS details, security posture. NEVER to git.
