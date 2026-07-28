@@ -624,6 +624,14 @@ ESTIMATE_SCHEMA: dict[str, Any] = {
                 "additionalProperties": False,
                 "properties": {
                     "index": {"type": "integer", "minimum": 0},
+                    # Declared BEFORE estimated_amount_g on purpose: constrained
+                    # decoding generates properties in order, forcing the model to
+                    # classify the visual size (XS/S/M/L/XL) BEFORE committing to
+                    # grams — same anti-bias mechanism as the single-pass schema.
+                    "size_category": {
+                        "type": "string",
+                        "enum": ["XS", "S", "M", "L", "XL"],
+                    },
                     "estimated_amount_g": {"type": "number"},
                     "kcal": {"type": "integer"},
                     "protein_g": {"type": "integer"},
@@ -633,6 +641,7 @@ ESTIMATE_SCHEMA: dict[str, Any] = {
                 },
                 "required": [
                     "index",
+                    "size_category",
                     "estimated_amount_g",
                     "kcal",
                     "protein_g",
@@ -728,14 +737,25 @@ def _estimate_system_prompt(locale: str, region: str) -> str:
         "Tu tarea: para CADA ítem de la lista, estima los gramos VISIBLES EN LA FOTO "
         "y calcula macros con Atwater (kcal = 4·prot + 4·carbs + 9·fat).\n"
         "Responde con un array `estimates` index-alineado a la lista recibida.\n"
+        "CAMPO CRÍTICO `size_category` — va ANTES de `estimated_amount_g` (el schema lo exige): "
+        "XS=muy pequeño, S=pequeño, M=porción normal 1 adulto hogar, L=grande, XL=muy grande. "
+        "MÉTODO: (1) busca objeto de referencia visible (tenedor≈18cm, plato estándar≈26cm Ø, "
+        "mano adulta≈18cm, moneda 25mm, cuchara sopera≈15cm). "
+        "(2) Compara el alimento con esa referencia. "
+        "(3) Asigna XS/S/M/L/XL. "
+        "(4) estimated_amount_g DEBE ser coherente con ese size_category "
+        "(pollo M→120-140g, arroz M→140-160g — si pones M y 40g se contradicen).\n"
         "REGLA MAESTRA: mide lo que REALMENTE hay en el plato — el área que ocupa, "
         "el grosor, la altura del montón. NO asumas una porción 'típica'. "
         "La comida en una foto casera suele ser MÁS PEQUEÑA de lo que parece; "
         "un plato no está lleno hasta el borde.\n"
         "ANCLAS (solo si el tamaño es AMBIGUO u ocluido — nunca como valor por defecto): "
-        "proteína (filete/pechuga) 100-150 g; arroz/pasta cocida 100-160 g; "
-        "verdura cocida 60-110 g; ensalada/hoja 30-70 g; fruta mediana 100-150 g; "
-        "sopa/crema en bol 250-350 g; pan/tostada por rebanada 25-40 g.\n"
+        "proteína (filete/pechuga/lomo) 120-200 g; filete de pescado 130-200 g; "
+        "carne molida/guisada 100-180 g; arroz cocido 130-200 g; pasta cocida 150-220 g; "
+        "papas cocidas 100-180 g; legumbres cocidas 80-150 g; "
+        "verdura cocida 60-130 g; ensalada mixta 80-150 g; "
+        "fruta mediana entera 120-180 g; pan/tostada (rebanada) 30-50 g; "
+        "sopa/crema en bol 250-350 g.\n"
         "Si ves el tamaño con claridad, IGNORA las anclas y reporta lo que ves.\n"
         "confidence: alto si tamaño Y tipo son claros; bajo si ocluido o dudoso.\n"
         "Si la lista incluye referencias de porción típica, úsalas como ancla débil, "

@@ -380,3 +380,34 @@ async def test_degraded_items_carry_zero_kcal_placeholder() -> None:
     assert items[0].protein_g == items[0].carbs_g == items[0].fat_g == 0
     assert items[0].matched_food_id is None
     assert items[0].inferred is False  # must stay eligible for group fallback
+
+
+def test_parse_estimates_ignores_size_category() -> None:
+    """size_category is now required in ESTIMATE_SCHEMA (2026-07-28).
+
+    _parse_estimates must silently ignore it — the field exists only as a
+    constrained-decoding chain-of-thought scaffold and must never leak into
+    the PortionEstimate value object.
+    """
+    from app.vision.infrastructure.openai_vision import _parse_estimates
+
+    raw = {
+        "estimates": [
+            {
+                "index": 0,
+                "size_category": "M",
+                "estimated_amount_g": 150.0,
+                "kcal": 200,
+                "protein_g": 25,
+                "carbs_g": 10,
+                "fat_g": 5,
+                "confidence": 0.85,
+            }
+        ]
+    }
+    result = _parse_estimates(raw)
+    assert len(result) == 1
+    assert result[0].index == 0
+    assert result[0].kcal == 200
+    assert result[0].estimated_amount_g == Decimal("150.0")
+    assert not hasattr(result[0], "size_category")
