@@ -152,9 +152,9 @@ class Settings(BaseSettings):
     # used until the two-pass adapters are fully validated.
     vision_two_pass_enabled: bool = True
     # Max output tokens for the identification call (Call-1 only).
-    # Smaller than the combined single-pass budget because no amounts/macros
-    # are returned — item names + metadata only.
-    vision_identify_max_output_tokens: int = 600
+    # 1400: unit_census + 8-12 items × ~100 tok each. 600 was cutting off
+    # complex plates and causing recall < 0.5 in golden-set eval.
+    vision_identify_max_output_tokens: int = 1400
     # Timeout in milliseconds for fetching catalog portion hints before Call-2.
     # On timeout, Call-2 proceeds without hints (graceful degradation).
     vision_portion_hints_timeout_ms: int = Field(default=500, ge=100, le=5000)

@@ -17,7 +17,11 @@ from app.core.config import get_settings
 from app.core.errors import CostCapExceeded
 from app.core.logging import get_logger
 from app.vision.domain.entities import DetectedFoodItem
-from app.vision.domain.ports import VisionEstimationProvider, VisionIdentificationProvider
+from app.vision.domain.ports import (
+    PortionHintSource,
+    VisionEstimationProvider,
+    VisionIdentificationProvider,
+)
 from app.vision.domain.value_objects import FoodIdentification, PortionEstimate, PortionHint
 
 log = get_logger("vision.recognise_plate")
@@ -73,6 +77,7 @@ class RecognisePlate:
     estimator: VisionEstimationProvider
     hints_timeout_s: float | None = None   # None = read from settings (vision_portion_hints_timeout_ms)
     self_consistency_k: int | None = None  # None = read from settings (vision_self_consistency_k)
+    hint_source: PortionHintSource | None = None  # None = skip catalog hints
 
     async def __call__(self, *, ctx: RecognitionContext) -> RecognitionOutcome:
         # Call 1 — identify
@@ -324,9 +329,13 @@ class RecognisePlate:
     async def _load_hints(
         self, ids: Sequence[FoodIdentification]
     ) -> Mapping[int, PortionHint]:
-        # No DB source wired yet — returns empty. nova-backend-architect
-        # will wire SqlPortionHintSource in a follow-up.
-        return {}
+        if self.hint_source is None:
+            return {}
+        names = [ident.name for ident in ids]
+        name_to_hint = await self.hint_source.load_hints(names)
+        if not name_to_hint:
+            return {}
+        return {i: name_to_hint[ident.name] for i, ident in enumerate(ids) if ident.name in name_to_hint}
 
     @staticmethod
     def _merge(
@@ -353,6 +362,7 @@ class RecognisePlate:
                         prep_method=ident.prep_method,
                         count=ident.count,
                         inferred=ident.inferred,
+                        bbox=ident.bbox,
                     )
                 )
             else:
@@ -370,6 +380,7 @@ class RecognisePlate:
                         prep_method=ident.prep_method,
                         count=ident.count,
                         inferred=ident.inferred,
+                        bbox=ident.bbox,
                     )
                 )
         return items
@@ -391,6 +402,7 @@ class RecognisePlate:
                 prep_method=ident.prep_method,
                 count=ident.count,
                 inferred=ident.inferred,
+                bbox=ident.bbox,
             )
             for ident in ids
         ]

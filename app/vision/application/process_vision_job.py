@@ -352,10 +352,14 @@ class ProcessVisionJob:
                     RecognitionContext,
                     RecognisePlate,
                 )
+                from app.vision.infrastructure.portion_hint_source import (  # noqa: PLC0415
+                    SqlPortionHintSource,
+                )
 
                 service = RecognisePlate(
                     identifier=self.provider,  # type: ignore[arg-type]
                     estimator=self.provider,   # type: ignore[arg-type]
+                    hint_source=SqlPortionHintSource(self.session),
                 )
                 outcome = await service(
                     ctx=RecognitionContext(

@@ -95,7 +95,7 @@ class CircuitBreaker:
 
         try:
             result = await fn()
-        except Exception:
+        except Exception:  # noqa: BLE001 — OK6: wraps arbitrary caller-supplied coroutine; type unknown at design time
             async with self._lock:
                 self._failures += 1
                 _failures_counter.labels(name=self.name).inc()

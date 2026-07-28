@@ -14,7 +14,6 @@ from app.vision.infrastructure.macro_grounder import (
     _stem,
 )
 
-
 # ---------------------------------------------------------------------------
 # _stem
 # ---------------------------------------------------------------------------
@@ -59,7 +58,7 @@ def test_key_tokens_removes_stopwords() -> None:
     assert "de" not in toks
     assert "cruda" not in toks
     # meaningful tokens present
-    assert any(t in toks for t in {"pechuga", "pollo"})
+    assert any(t in toks for t in ("pechuga", "pollo"))
 
 
 def test_key_tokens_stems_plurals() -> None:
@@ -76,8 +75,8 @@ def test_key_tokens_stems_plurals() -> None:
 
 def test_local_usda_index_loaded() -> None:
     # 73 original + 30 added 2026-07-24 (blended foods, dairy, fruits, nuts, vegs)
-    assert len(_LOCAL_USDA_INDEX) >= 103, (
-        f"Expected ≥103 entries, got {len(_LOCAL_USDA_INDEX)}"
+    assert len(_LOCAL_USDA_INDEX) >= 450, (
+        f"Expected ≥450 entries, got {len(_LOCAL_USDA_INDEX)}"
     )
 
 
@@ -124,12 +123,46 @@ def test_local_usda_lookup_positive(query: str, expected_kcal_per_100g: float) -
     "xyz zork mork",
     "galletas crackers",
     "aceite de cocción invisible",   # "aceite" alone hits 1/2 key tokens → below threshold
-    "pizza margherita",
-    "couve collard verde",           # not in 73 items
+    "couve collard verde",           # not in index
+    "platillo extranjero desconocido",
 ])
 def test_local_usda_lookup_negative(query: str) -> None:
     result = _local_usda_lookup(query)
     assert result is None, f"Expected no match for {query!r}, got {result}"
+
+
+# ---------------------------------------------------------------------------
+# Regression guards — token-collision / legacy-key hijacks fixed 2026-07-28.
+# Each of these previously grounded to the WRONG entry (raw instead of fried,
+# a sauce/flour/dish keyed under a generic Spanish head word). The kcal bounds
+# lock the specific-match behaviour: prep methods must survive (frying adds
+# oil), and multi-token queries must beat single-generic-token legacy keys.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("query,lo,hi,forbid_kcal", [
+    # fried egg must NOT collapse to raw egg (143); fried ~196
+    ("huevo frito", 180, 210, 143.0),
+    # fried potato must NOT collapse to raw potato (~77); baked/fried ~164
+    ("papas fritas", 150, 175, 77.0),
+    # pork chop must NOT ground to "Cerdo (tamale)" (174); chop ~231
+    ("chuleta de cerdo", 220, 240, 174.0),
+    # bare "pasta" must NOT ground to marinara SAUCE (45); cooked pasta ~158
+    ("pasta", 150, 165, 45.0),
+    # bare "leche" must NOT ground to cottage CHEESE (84); whole milk ~61
+    ("leche", 55, 70, 84.0),
+    # bare "huevo" must NOT ground to DRIED egg (376/575); fresh ~143
+    ("huevo", 140, 160, 575.0),
+])
+def test_local_usda_lookup_specificity_regression(
+    query: str, lo: float, hi: float, forbid_kcal: float
+) -> None:
+    result = _local_usda_lookup(query)
+    assert result is not None, f"No match for {query!r}"
+    kcal = result.get("kcal")
+    assert kcal != forbid_kcal, (
+        f"{query!r} hijacked by wrong entry ({kcal} kcal) — legacy/collision regression"
+    )
+    assert lo <= kcal <= hi, f"{query!r}: {kcal} kcal outside [{lo},{hi}]"
 
 
 # ---------------------------------------------------------------------------

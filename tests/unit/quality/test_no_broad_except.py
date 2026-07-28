@@ -45,126 +45,16 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
-# Whitelist: {relative_path: {line_no, ...}}.
-# Keep alphabetised by path for stable diffs.
-# When you add a new entry, also add the OK-category in a comment.
-ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {
-    # OK6: generic decorator wrapping arbitrary user-supplied callable.
-    "app/coach/application/chat_message.py": {190, 231},
-    # OK4: best-effort cache miss + LLM call boundary.
-    "app/coach/application/context_builder.py": {162},
-    # OK4: cost-cap soft-skip + best-effort feature lookup.
-    "app/coach/application/features.py": {52, 75, 282},
-    # OK4: best-effort LLM intent classifier — falls back to rule-based.
-    "app/coach/infrastructure/intent_classifier.py": {157, 181, 186},
-    # OK4: OpenAI client wrappers with structured fallback.
-    "app/coach/infrastructure/openai_coach_client.py": {110, 119},
-    # OK4: optional repository read — empty on infra hiccup.
-    "app/coach/infrastructure/repositories.py": {35},
-    # OK6: circuit breaker wraps arbitrary callable.
-    "app/core/circuit_breaker.py": {98},
-    # OK4: tiktoken optional + fallback heuristic for token count.
-    "app/core/cost_cap.py": {104},
-    # OK5: session.commit() rollback wrapper — re-raises after rollback.
-    "app/core/db.py": {92},
-    # OK3: ErrorTracker boundary — tracker must NEVER raise; re-raises original.
-    "app/core/error_tracker.py": {84, 95, 119, 125, 130},
-    # OK1: event bus per-handler boundary + outbox spool fallback.
-    "app/core/event_bus.py": {241, 249, 372},
-    # OK3: Redis IP rate-limit fail-open on infra error.
-    "app/core/ip_rate_limit.py": {116},
-    # OK3: arq queue depth probe — returns 0 on any error (health probe).
-    "app/core/metrics.py": {177},
-    # OK4: catalogue lookup best-effort.
-    "app/grocery/use_cases.py": {211},
-    # OK4: best-effort metadata read from request.state; PII-safe input repr.
-    "app/core/problem_details.py": {444, 448, 489},
-    # OK4: pHash compute is a best-effort cost optimization (logged, returns None).
-    "app/imaging/infrastructure/phash.py": {63},
-    # OK5: identity session rollback wrapper — re-raises.
-    "app/identity/presentation/dependencies.py": {94},
-    # OK4: OAuth verifier collapses provider errors into Unauthenticated.
-    "app/identity/infrastructure/oauth_verifiers.py": {59},
-    # OK3: identity rate-limit fail-open on infra surprise (logged).
-    "app/identity/infrastructure/rate_limit.py": {53},
-    # OK3: /readyz health probe — reports component status without 500.
-    "app/main.py": {277, 283, 291},
-    # OK1: nutrition event handlers — best-effort with explicit log.
-    "app/nutrition/event_handlers.py": {76, 108},
-    # OK4: ensure_goals fallback wrapper — logs and re-raises domain error.
-    "app/plan/application/create_plan.py": {169, 448},
-    # OK4: plan gen rate-limit Redis fail-open — Redis down must not block plan creation.
-    # Line re-synced after E4 _compute_retention_context added ~143 lines before this site.
-    "app/plan/presentation/router.py": {619},
-    # OK4: taste profile cache fetch — falls through on miss.
-    "app/plan/application/taste_profile.py": {48},
-    # OK4: plan cache best-effort.
-    "app/plan/infrastructure/cache.py": {32},
-    # OK4: enqueue-and-wait — wrap a terminal worker failure into 503 (BE-7).
-    "app/plan/infrastructure/plan_enqueuer.py": {68},
-    # OK4: OpenAI coherence client — structured fallback.
-    "app/plan/infrastructure/openai_coherence_client.py": {107, 120, 137, 189, 228},
-    # OK4: taste fetcher SQL best-effort.
-    "app/plan/infrastructure/taste_fetcher.py": {66},
-    # OK1: profile event handler boundary.
-    "app/profile/application/event_handlers.py": {74},
-    # OK4: profile use_case OpenAI wrappers.
-    "app/profile/application/use_cases.py": {135, 259},
-    # OK4: recipes router fallback.
-    "app/recipes/presentation/router.py": {58},
-    # OK4: feature-flags Redis cache fail-open — leaderboard flag gate.
-    "app/gamification/presentation/router.py": {179, 193},
-    # OK4: i18n translation must never break a request + Redis locale cache fail-open.
-    "app/shared/i18n/fastapi_dep.py": {71, 96, 118, 128, 139},
-    # OK1: tracking event handler best-effort cache miss.
-    "app/tracking/event_handlers.py": {21, 32, 43},
-    # OK4: aggregate table optional — fallback path documented.
-    "app/tracking/infrastructure/repositories.py": {80, 108},
-    # OK4: dish-anchor lookup is a best-effort second opinion (logged).
-    "app/vision/infrastructure/dish_anchor.py": {53},
-    # OK1: notification handlers — fire-and-forget push, must not propagate.
-    # Lines re-synced after E4: fixed DayCompleted import + added H1 (achievement) + H2 (streak_broken).
-    "app/notifications/application/event_handlers.py": {108, 142, 170, 208},
-    # OK4: Redis cache helpers + Open Food Facts external API — best-effort, fail-open.
-    "app/vision/infrastructure/usda_fdc.py": {407, 415, 619},
-    # OK4: OpenAI vision wrappers with fallback contracts.
-    "app/vision/application/learn_user_correction.py": {175},
-    # Line numbers re-synced 2026-07-25 (E2 two-pass guard added ~27 lines);
-    # re-synced again after E2 fixes (FIX 1 added 6 lines shifting all broad-excepts).
-    "app/vision/application/process_vision_job.py": {257, 529, 607, 621},
-    # OK4: Call-2 (estimation) upstream failure — logged via log.exception then
-    # degraded to catalog placeholders so a single provider blip never fails the
-    # whole job. CostCapExceeded is now re-raised before this handler (E2 FIX 3).
-    # Line 109: best-effort hints — OK4. Line 142: estimation degrade — OK4.
-    "app/vision/application/recognise_plate.py": {109, 142},
-    # OK4: macro grounding + USDA fallback — DB lookup best-effort.
-    "app/vision/infrastructure/macro_grounder.py": {77, 256},
-    # OK4: plan context SQL — best-effort LLM hint.
-    "app/vision/infrastructure/plan_context.py": {69},
-    # OK4: user profile + portion calibration + portion anchors — Redis/DB best-effort.
-    "app/vision/infrastructure/user_context.py": {47, 69, 91, 96, 126},
-    # OK4: food log INSERT slot-cap Redis fail-open.
-    "app/vision/infrastructure/food_log_writer.py": {60},
-    # OK4: Redis inflight lock — fail-open on acquire/release errors + DB poll skip.
-    "app/vision/infrastructure/inflight_lock.py": {33, 43, 69},
-    "app/vision/infrastructure/food_matcher.py": {124},
-    # OK4: dark-image enhancement (best-effort PIL), prefilter fail-open, invoke retry.
-    # Line numbers re-synced after E2 fixes (FIX 2 index-range filter added ~9 lines
-    # in estimate(), shifting all subsequent broad-excepts by ~3).
-    "app/vision/infrastructure/openai_vision.py": {752, 758, 804, 1011, 1290, 1594},
-    # OK4: plate explanation is decorative — poll must still serve items.
-    "app/vision/presentation/router.py": {174, 219},
-    # OK4: voice/food text parser — LLM best-effort.
-    "app/voice/infrastructure/food_text_parser.py": {261},
-    # OK2: worker task top-level boundaries (Arq retry control).
-    "worker/anomaly_score_task.py": {224},
-    "worker/coach_tasks.py": {62, 79, 96},
-    "worker/nightly_maintenance.py": {87, 102},
-    "worker/outbox_drainer.py": {148},
-    "worker/outbox_listener.py": {56, 71, 78, 87},
-    "worker/plan_tasks.py": {73},
-    "worker/vision_tasks.py": {65},
-}
+# Whitelist de líneas de excepción amplia sin ``# noqa: BLE001``.
+# Desde 2026-07-27: el scanner excluye automáticamente cualquier línea que tenga
+# ``# noqa: BLE001`` — esas líneas ya tienen justificación inline y no necesitan
+# entrada aquí. Por tanto, este dict es vacío: todos los broad-excepts autorizados
+# llevan el comentario noqa en el código fuente.
+#
+# Para autorizar un nuevo broad-except: agrega ``# noqa: BLE001 — OK<N>: razón``
+# en la línea del except. NO agregues entradas aquí a menos que la línea genuinamente
+# no pueda tener el comentario noqa (caso extremadamente raro).
+ALLOWED_BROAD_EXCEPT: dict[str, set[int]] = {}
 
 
 def _is_broad_except_node(node: ast.ExceptHandler) -> bool:
@@ -182,15 +72,25 @@ def _is_broad_except_node(node: ast.ExceptHandler) -> bool:
 
 
 def _scan_file(path: Path) -> set[int]:
-    """Return the set of line numbers where broad except handlers live."""
+    """Return line numbers of broad except handlers that lack a noqa suppression.
+
+    Lines with ``# noqa: BLE001`` are self-documented suppressions — they already
+    carry an inline justification and do not need a separate whitelist entry.
+    Only lines WITHOUT the suppression comment reach the whitelist gate.
+    """
     try:
-        tree = ast.parse(path.read_text(encoding="utf-8"))
+        source = path.read_text(encoding="utf-8")
+        tree = ast.parse(source)
     except SyntaxError:
         return set()
+    source_lines = source.splitlines()
     found: set[int] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.ExceptHandler) and _is_broad_except_node(node):
-            found.add(node.lineno)
+            line_idx = node.lineno - 1  # 0-based
+            line_text = source_lines[line_idx] if line_idx < len(source_lines) else ""
+            if "# noqa: BLE001" not in line_text:
+                found.add(node.lineno)
     return found
 
 

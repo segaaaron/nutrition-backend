@@ -140,8 +140,8 @@ def test_inferred_items_skipped() -> None:
 # ---------------------------------------------------------------------------
 
 def test_unknown_food_hits_fdc() -> None:
-    """A food not in the 73-item local index must go straight to FDC."""
-    item = _item("pizza margherita", kcal=400, amount_g=200.0, food_group="grain")
+    """A food not in the local index must go straight to FDC."""
+    item = _item("platillo exotico desconocido xyz", kcal=400, amount_g=200.0, food_group="grain")
 
     fdc_result = MagicMock()
     fdc_result.kcal_per_100g = 250.0

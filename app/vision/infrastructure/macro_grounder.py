@@ -14,7 +14,7 @@ import json
 import pathlib
 import unicodedata
 from decimal import ROUND_HALF_EVEN, Decimal
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,13 +31,16 @@ log = get_logger("vision.macro_grounder")
 # Local USDA JSON index (73 LATAM foods, deterministic, no network)
 # ---------------------------------------------------------------------------
 
+# Prep methods that do NOT materially change kcal/100g are stopwords (they only
+# add water weight or are cosmetic). Frying is deliberately NOT here: it adds
+# absorbed oil (~60-90 kcal/100g), so "papas fritas" must not collapse to raw
+# "papa". Keeping "frit*" as a distinguishing token lets fried variants win.
 _STOPWORDS: frozenset[str] = frozenset({
     "de", "en", "al", "con", "y", "el", "la", "los", "las", "un", "una", "del",
     "sin", "grasa", "natural", "a",
     "crudo", "cruda", "crudos", "crudas",
     "cocido", "cocida", "cocidos", "cocidas",
     "asado", "asada", "asados", "asadas",
-    "frito", "frita", "fritos", "fritas",
     "hervido", "hervida",
     "horno", "vapor", "plancha", "salteado", "salteada",
     "relleno", "rellena", "fresco", "fresca",
@@ -70,16 +73,16 @@ def _key_tokens(s: str) -> frozenset[str]:
     return frozenset(_stem(t) for t in normed.split() if t not in _STOPWORDS and len(t) > 2)
 
 
-def _load_local_usda() -> dict[str, tuple[frozenset[str], dict]]:
+def _load_local_usda() -> dict[str, tuple[frozenset[str], dict[str, Any]]]:
     path = pathlib.Path(__file__).parents[3] / "data" / "usda" / "usda_ingredient_reference.json"
     try:
-        raw: dict[str, dict] = json.loads(path.read_text())
-    except Exception:
+        raw: dict[str, dict[str, Any]] = json.loads(path.read_text())
+    except Exception:  # noqa: BLE001 — OK4: JSON parse is best-effort; returns empty index on any file/parse error
         return {}
     return {name: (_key_tokens(name), val) for name, val in raw.items()}
 
 
-_LOCAL_USDA_INDEX: dict[str, tuple[frozenset[str], dict]] = _load_local_usda()
+_LOCAL_USDA_INDEX: dict[str, tuple[frozenset[str], dict[str, Any]]] = _load_local_usda()
 
 # Manual EN→ES query bridge for food names the LLM may return in English.
 # Maps lowercase English name → Spanish query string that matches the USDA index.
@@ -108,11 +111,11 @@ _MANUAL_EN_TO_ES: dict[str, str] = {
     "oatmeal": "avena",
     "rolled oats": "avena",
     "porridge": "porridge avena",
-    "rice": "arroz cocido",
-    "white rice": "arroz cocido",
-    "brown rice": "arroz integral",
-    "pasta": "pasta cocida",
-    "bread": "pan blanco",
+    "rice": "arroz blanco cocido",
+    "white rice": "arroz blanco cocido",
+    "brown rice": "arroz integral cocido",
+    "pasta": "pasta espagueti cocida",
+    "bread": "pan molde blanco",
     "quinoa": "quinoa",
     # vegetables
     "potato": "papa",
@@ -167,20 +170,37 @@ _MANUAL_EN_TO_ES: dict[str, str] = {
 }
 
 
-def _score_index(query_tokens: frozenset[str]) -> tuple[float, dict | None]:
-    """Return (best_score, best_entry) across the local USDA index."""
-    best_score, best_entry = 0.0, None
+def _score_index(query_tokens: frozenset[str]) -> tuple[float, dict[str, Any] | None]:
+    """Return (best_score, best_entry) across the local USDA index.
+
+    Score is one-sided key coverage ``|key∩query| / |key|`` (kept as the
+    threshold metric). Ties are broken deterministically toward the MORE
+    SPECIFIC match — the larger intersection size — so e.g. "chuleta de cerdo"
+    ({chuleta, cerdo}) prefers "Chuleta de cerdo" (2 shared tokens) over a
+    generic "Cerdo (tamale)" entry (1 shared token) that would otherwise win
+    the tie by dict insertion order. Absolute overlap count also guards against
+    single-token keys hijacking multi-token queries (fried-rice vs plain rice).
+    """
+    best_score = 0.0
+    best_overlap = 0
+    best_entry: dict[str, Any] | None = None
     for _key_name, (key_toks, entry) in _LOCAL_USDA_INDEX.items():
         if not key_toks:
             continue
-        overlap = len(key_toks & query_tokens) / len(key_toks)
-        if overlap > best_score:
-            best_score = overlap
+        inter = len(key_toks & query_tokens)
+        if inter == 0:
+            continue
+        score = inter / len(key_toks)
+        # Prefer higher coverage; on a coverage tie prefer the larger
+        # intersection (the more specific, multi-token match).
+        if score > best_score or (score == best_score and inter > best_overlap):
+            best_score = score
+            best_overlap = inter
             best_entry = entry
     return best_score, best_entry
 
 
-def _local_usda_lookup(name: str) -> dict | None:
+def _local_usda_lookup(name: str) -> dict[str, Any] | None:
     """Match food name to local USDA reference (token overlap ≥ _LOCAL_USDA_THRESHOLD on key side).
 
     Falls back to EN→ES bridge when direct Spanish lookup scores below threshold.

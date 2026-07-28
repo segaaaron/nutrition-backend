@@ -648,25 +648,69 @@ ESTIMATE_SCHEMA: dict[str, Any] = {
 
 
 def _identify_system_prompt(locale: str, region: str) -> str:
-    """Short, identification-only prompt for Call 1 of the two-pass pipeline.
+    """Identification-only prompt for Call 1 of the two-pass pipeline.
 
-    Does NOT request grams or macros — that is Call 2's job.
+    Full detection power — NO grams or macros (that is Call 2's job).
     Any wording change here changes identification_prompt_sha256 → cache invalidation.
     """
     return (
-        "Eres un experto en nutrición. Analiza la imagen e IDENTIFICA los alimentos.\n"
-        "NO estimes gramos, kcal ni macros — solo identificación.\n"
-        "Descompone platos compuestos en ingredientes individuales visibles.\n"
-        "Por cada alimento escribe: name, confidence (0..1), group, role, prep_method, "
-        "count, portion_kind.\n"
+        "Eres un experto en nutrición y cocina de LatAm/US/EU. "
+        "Analiza la imagen e IDENTIFICA todos los alimentos. "
+        "NO estimes gramos, kcal ni macros — solo identificación exhaustiva.\n"
+        "ALCANCE — SOLO la comida servida que la persona va a comer. "
+        "IGNORA: botellas/frascos de condimentos en la mesa, sachets sin abrir, "
+        "cubiertos, servilletas, packaging, otras porciones de otras personas. "
+        "Un condimento cuenta SOLO si está aplicado sobre/dentro del plato.\n"
+        "DESGLOSE — DOS CASOS DISTINTOS:\n"
+        "CASO 1 — PLATO ARMADO EN CAPAS/SECCIONES: listá cada componente separado. "
+        "Ejemplos: hamburguesa → pan + carne + queso + toppings; "
+        "taco/burrito → tortilla + relleno + salsa; sandwich → pan + proteína + aderezos; "
+        "plato con proteína + guarnición + ensalada en secciones visibles → 3 ítems. "
+        "La clave: componentes APILADOS, ENSAMBLADOS o en SECCIONES FÍSICAMENTE SEPARADAS.\n"
+        "CASO 2 — PREPARACIÓN COCINADA INTEGRADA: listá como UN solo ítem con nombre del plato. "
+        "Ejemplos: arroz con pollo, fideos salteados, guiso de lentejas, paella, locro, "
+        "sopa con ingredientes mezclados, pasta con salsa integrada, revuelto de huevo. "
+        "La clave: ingredientes MEZCLADOS O COCIDOS JUNTOS y no separables visualmente.\n"
+        "CASO 2 + PROTEÍNA VISIBLE APARTE: si el guiso tiene proteína ENTERA aparte "
+        "(ej. muslo de pollo encima del arroz, huevo frito sobre fideos), esa pieza SÍ es ítem separado.\n"
+        "ÍTEMS INVISIBLES A INCLUIR SIEMPRE:\n"
+        "- Aceite en frituras y salteados (cooking_fat).\n"
+        "- Mantequilla en purés, panqueques, tostadas con mantequilla.\n"
+        "- Crema/leche en sopas cremosas.\n"
+        "- Aderezo en ensaladas aliñadas.\n"
+        "- Azúcar en jugos de fruta, postres, avena con azúcar.\n"
+        "NO DOBLE-CONTEO: cada alimento se lista UNA sola vez.\n"
+        "VERIFICACIÓN PROTEÍNA — OBLIGATORIA en almuerzo/cena: "
+        "antes de finalizar, confirmá que hay una fuente proteica principal "
+        "(carne, pollo, pescado, mariscos, huevo, legumbre). "
+        "Si no ves ninguna, REVISÁ — puede estar bajo salsa, semioculta o en el borde. "
+        "Un plato de almuerzo/cena sin proteína es inusual; buscala activamente.\n"
+        "SOPAS/CREMAS CON SÓLIDOS: si el plato base es sopa/crema pero hay sólidos "
+        "VISIBLES (trozos de carne, papa, verdura, legumbre), listalós POR SEPARADO "
+        "además de la base líquida. La base es UN ítem; cada sólido es otro ítem.\n"
+        "SNACK CON MÚLTIPLES INGREDIENTES: en snacks con 2-4 componentes "
+        "(frutas + nueces, queso + crackers, yogur + granola), verificá que TODOS "
+        "estén listados. Nueces, frutos secos y frutos rojos son pequeños y fáciles "
+        "de omitir aunque estén claramente presentes.\n"
+        "CENSO OBLIGATORIO (`unit_census`, va ANTES de `items`): "
+        "una línea con las piezas enteras repetidas — ej. 'carne:2; huevo:1; empanada:3'. "
+        "Copia ese conteo al `count` de cada ítem pieza_entera.\n"
+        "CONTEO DE APILADOS: para piezas enteras repetidas, ubica y cuenta CADA unidad "
+        "incluyendo las apiladas u ocultas detrás de otra. "
+        "Ante duda 1 vs 2+, mira grosor (doble alto=2), bordes (dos contornos=2) "
+        "y sombras entre capas. No asumas 1 por defecto.\n"
+        "ALIMENTOS LICUADOS/MEZCLADOS (batido, smoothie, gachas, porridge, crema, puré): "
+        "listá los ingredientes densos invisibles probables dentro del blend "
+        "(aguacate, plátano, leche entera, mantequilla de maní, miel, semillas) "
+        "como ítems separados con confidence apropiado.\n"
+        "Por cada alimento: name, confidence (0..1), group, role, prep_method, count, portion_kind.\n"
         "group: vegetable|fruit|grain|protein|dairy|fat|sweet|beverage|other\n"
         "role: main|side|sauce|condiment|cooking_fat|garnish|sweetener|beverage_base\n"
         "prep_method: grilled|fried|deep_fried|boiled|raw|baked|sauteed|steamed|stewed|unknown\n"
-        "portion_kind: pieza_entera (piezas enteras contables, ej. medallón, huevo, empanada) "
-        "| a_granel (montón, picado, salsa, líquido).\n"
-        "count: número de unidades idénticas cuando portion_kind=pieza_entera; "
-        "siempre 1 cuando a_granel.\n"
-        "confidence alto solo si la identidad del alimento es clara en la imagen.\n"
+        "portion_kind: pieza_entera (piezas contables idénticas) | a_granel (montón/picado/salsa/líquido).\n"
+        "count: número de unidades cuando pieza_entera; siempre 1 cuando a_granel.\n"
+        "confidence: alto si la identidad es clara; bajo si ocluido, borroso o inferido.\n"
+        "IDIOMA: name en el idioma del Locale — 'en' → inglés; cualquier otro → español.\n"
         f"Locale={locale}. Region={region}. JSON estricto, nunca texto libre."
     )
 
@@ -681,34 +725,39 @@ def _estimate_system_prompt(locale: str, region: str) -> str:
     return (
         "Eres un experto en nutrición y porciones de hogar LatAm/US/EU.\n"
         "Recibirás una lista de alimentos ya identificados y la imagen original.\n"
-        "Tu tarea: para CADA ítem de la lista, estima los gramos visibles en la foto "
+        "Tu tarea: para CADA ítem de la lista, estima los gramos VISIBLES EN LA FOTO "
         "y calcula macros con Atwater (kcal = 4·prot + 4·carbs + 9·fat).\n"
         "Responde con un array `estimates` index-alineado a la lista recibida.\n"
-        "PORCIONES — calibración HOGAR (no restaurante): "
-        "proteína (filete/pechuga) 120-200 g; arroz cocido 120-200 g; "
-        "pasta cocida 150-220 g; verdura cocida 60-130 g; fruta mediana 120-180 g.\n"
+        "REGLA MAESTRA: mide lo que REALMENTE hay en el plato — el área que ocupa, "
+        "el grosor, la altura del montón. NO asumas una porción 'típica'. "
+        "La comida en una foto casera suele ser MÁS PEQUEÑA de lo que parece; "
+        "un plato no está lleno hasta el borde.\n"
+        "ANCLAS (solo si el tamaño es AMBIGUO u ocluido — nunca como valor por defecto): "
+        "proteína (filete/pechuga) 100-150 g; arroz/pasta cocida 100-160 g; "
+        "verdura cocida 60-110 g; ensalada/hoja 30-70 g; fruta mediana 100-150 g; "
+        "sopa/crema en bol 250-350 g; pan/tostada por rebanada 25-40 g.\n"
+        "Si ves el tamaño con claridad, IGNORA las anclas y reporta lo que ves.\n"
         "confidence: alto si tamaño Y tipo son claros; bajo si ocluido o dudoso.\n"
-        "Si la lista incluye referencias de porción típica, úsalas como ancla, "
-        "no como valor final.\n"
-        "RANGOS CALÓRICOS POR COMIDA (hogar individual): "
-        "desayuno 300-550 kcal; almuerzo 500-750 kcal; cena 400-650 kcal; snack 80-220 kcal. "
-        "VERIFICACIÓN FINAL: suma todos tus ítems. "
-        "Si el total supera el rango esperado, revisá las porciones más grandes y ajustá a la baja. "
-        "El error más común es SOBREESTIMAR el gramaje — ante la duda, estimá hacia la porción mediana.\n"
-        "ALIMENTOS LICUADOS/MEZCLADOS (batido, smoothie, licuado, gachas, porridge, crema, puré): "
-        "contienen ingredientes densos INVISIBLES en el blend "
-        "(aguacate, plátano, leche entera, mantequilla de maní, miel, semillas, crema). "
-        "Densidad de referencia: batido de frutas con lácteos 70-90 kcal/100ml; "
-        "batido con aguacate/nuez/coco 100-130 kcal/100ml; "
-        "gachas/porridge con leche 90-120 kcal/100g. "
-        "Si tu estimado es más bajo que estos rangos para una porción visible normal, "
-        "añadí los ingredientes densos más probables como ítems invisibles separados.\n"
-        "SOPAS/CREMAS CON SÓLIDOS: si hay ingredientes sólidos VISIBLES (trozos de carne, "
-        "papa, verdura entera, legumbre), listalós POR SEPARADO además de la base líquida. "
+        "Si la lista incluye referencias de porción típica, úsalas como ancla débil, "
+        "NO como valor final — la evidencia visual manda.\n"
+        "SESGO A CORREGIR: el error #1 de los modelos es SOBREESTIMAR el gramaje. "
+        "Ante la duda, estimá hacia la porción PEQUEÑA-MEDIANA, no la grande.\n"
+        "COTA DE SANIDAD (límite superior, NO objetivo): un total por comida hogar "
+        "raramente supera — desayuno ~550, almuerzo ~750, cena ~650, snack ~220 kcal. "
+        "Son TECHOS: si tu suma se acerca a ellos, revisá que no estés inflando porciones. "
+        "Estar MUY por debajo del techo es normal y correcto.\n"
+        "ALIMENTOS LICUADOS/MEZCLADOS (batido, smoothie, gachas, porridge, crema, puré): "
+        "pueden ocultar ingredientes densos (aguacate, plátano, leche entera, mantequilla "
+        "de maní, miel, semillas, crema). SOLO si tu estimado visible resulta implausiblemente "
+        "bajo (batido con lácteos <70 kcal/100ml; con aguacate/nuez/coco <100 kcal/100ml; "
+        "gachas con leche <90 kcal/100g), añadí el ingrediente denso más probable. "
+        "No agregues densos por defecto — solo para corregir un piso irreal.\n"
+        "SOPAS/CREMAS CON SÓLIDOS: si hay sólidos VISIBLES (trozos de carne, papa, verdura "
+        "entera, legumbre), listalós POR SEPARADO además de la base líquida. "
         "La base líquida es UN ítem; cada sólido identificable es otro ítem adicional.\n"
         "SNACK CON MÚLTIPLES INGREDIENTES: en snacks con 2-4 componentes "
-        "(frutas + nueces, queso + crackers, yogur + granola), verificá que TODOS estén listados. "
-        "Nueces, frutos secos y frutos rojos son pequeños y fáciles de omitir.\n"
+        "(frutas + nueces, queso + crackers, yogur + granola), verificá que TODOS estén listados, "
+        "pero en las porciones PEQUEÑAS propias de un snack (nueces ~15 g, no ~50 g).\n"
         f"Locale={locale}. Region={region}. JSON estricto."
     )
 
@@ -1041,7 +1090,6 @@ class OpenAIVisionProvider:
         Returns ``(identifications, prompt_sha256)`` where ``prompt_sha256``
         is the SHA of the *stable* system prompt (locale + region only).
         """
-        from collections.abc import Sequence  # local to avoid import cycle
 
         s = get_settings()
         effective_model = model or self._primary_model()
@@ -1115,7 +1163,6 @@ class OpenAIVisionProvider:
         Returns ``(estimates, prompt_sha256)`` where ``prompt_sha256``
         is the SHA of the *stable* system prompt (locale + region only).
         """
-        from collections.abc import Mapping as _Mapping, Sequence as _Sequence
 
         s = get_settings()
         effective_model = model or self._primary_model()
@@ -1126,16 +1173,22 @@ class OpenAIVisionProvider:
         # Build system prompt with per-call context (does not affect hash)
         prompt_full = prompt
         if meal_time:
-            _meal_kcal = {
-                "breakfast": "300-550 kcal",
-                "lunch": "500-750 kcal",
-                "dinner": "400-650 kcal",
-                "snack": "80-220 kcal",
+            # Techo de sanidad (NO objetivo) — coherente con la COTA del prompt.
+            # Estar por debajo es normal; el framing evita anclar al alza.
+            _meal_kcal_ceiling = {
+                "breakfast": "~550 kcal",
+                "lunch": "~750 kcal",
+                "dinner": "~650 kcal",
+                "snack": "~220 kcal",
             }
-            kcal_hint = _meal_kcal.get(meal_time, "")
+            kcal_ceiling = _meal_kcal_ceiling.get(meal_time, "")
             prompt_full += (
                 f"\nComida del día: {meal_time}."
-                + (f" Rango calórico esperado: {kcal_hint}." if kcal_hint else "")
+                + (
+                    f" Techo de sanidad (no objetivo): {kcal_ceiling}; estar por debajo es normal."
+                    if kcal_ceiling
+                    else ""
+                )
             )
         if user_profile:
             sex = user_profile.get("sex", "")

@@ -89,7 +89,7 @@ async def session_scope() -> AsyncIterator[AsyncSession]:
         try:
             yield session
             await session.commit()
-        except Exception:
+        except Exception:  # noqa: BLE001 — OK5: session rollback wrapper; re-raises after rollback
             await session.rollback()
             if token is not None:
                 discard_request_scope(token)

@@ -124,6 +124,17 @@ class JobNotifier(Protocol):
 # ---------------------------------------------------------------------------
 
 
+class PortionHintSource(Protocol):
+    """Catalog lookup: typical serving size for an ingredient name.
+
+    Input: normalised ingredient names from Call-1 (Spanish, lower-case).
+    Output: name → PortionHint (typical_serving_g, kcal_per_100g from recipe_components).
+    Missing names are silently omitted from the result dict.
+    """
+
+    async def load_hints(self, names: Sequence[str]) -> Mapping[str, PortionHint]: ...
+
+
 class VisionIdentificationProvider(Protocol):
     """CALL 1 — identity only.  MUST NOT return amounts."""
 

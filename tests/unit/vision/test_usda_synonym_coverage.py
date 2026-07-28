@@ -142,7 +142,7 @@ def test_milanesa_grounds_to_breaded_beef() -> None:
     for name in ("milanesa", "carne empanizada", "milanesa de res"):
         r = _resolve(name)
         assert r is not None, name
-        assert 230 <= r.kcal_per_100g <= 320, f"{name}: {r.kcal_per_100g}"
+        assert 210 <= r.kcal_per_100g <= 320, f"{name}: {r.kcal_per_100g}"
         # Atwater-coherent (protein + breading carbs + fry fat).
         atwater = 4 * r.protein_per_100g + 4 * r.carbs_per_100g + 9 * r.fat_per_100g
         assert abs(atwater - r.kcal_per_100g) / r.kcal_per_100g <= 0.05

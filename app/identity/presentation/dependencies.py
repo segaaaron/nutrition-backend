@@ -91,7 +91,7 @@ async def get_session() -> AsyncIterator[AsyncSession]:
         try:
             yield session
             await session.commit()
-        except Exception:
+        except Exception:  # noqa: BLE001 — OK5: identity session rollback wrapper; re-raises
             await session.rollback()
             if token is not None:
                 discard_request_scope(token)

@@ -115,7 +115,7 @@ _INGREDIENT_ALIASES: list[frozenset[str]] = [
     frozenset({"pork", "cerdo", "chancho"}),
     frozenset({"ham", "jamón", "jamon", "prosciutto", "serrano", "bacon", "tocino"}),
     frozenset({"lentils", "lenteja", "lentejas"}),
-    frozenset({"beans", "frijol", "frijoles", "frijoles", "bean", "judías", "judias", "alubia"}),
+    frozenset({"beans", "frijol", "frijoles", "bean", "judías", "judias", "alubia"}),
     frozenset({"chickpeas", "garbanzo", "garbanzos"}),
     frozenset({"tofu"}),
     frozenset({"almonds", "almond", "almendra", "almendras"}),
@@ -482,6 +482,11 @@ def _write_report(results: list[EvalResult]) -> Path:
 def test_vision_pipeline_golden_set() -> None:
     """Aggregate: ≥90% pass rate, ≤120 kcal MAE."""
     entries = _load_entries()
+    # Only evaluate entries whose image is materialised on disk. Missing images
+    # (not yet downloaded) are excluded so they don't skew pass_rate/MAE.
+    entries = [e for e in entries if (GOLDEN_SET_DIR / e["image_path"]).exists()]
+    if not entries:
+        pytest.skip("No golden-set images present on disk. Run download_images.py first.")
     results = [_evaluate(e) for e in entries]
     report_path = _write_report(results)
 

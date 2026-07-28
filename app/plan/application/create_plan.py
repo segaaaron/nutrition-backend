@@ -166,7 +166,7 @@ class CreatePlan:
                 raise BusinessRuleViolation("nutritional_goals_missing")
             try:
                 await self.ensure_goals(user_id=user_id)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — OK4: ensure_goals is best-effort; plan creation must not fail if goals can't be seeded
                 log.error(
                     "plan.ensure_goals_failed",
                     user_id=str(user_id),

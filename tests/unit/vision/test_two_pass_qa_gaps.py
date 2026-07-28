@@ -139,11 +139,6 @@ async def test_out_of_range_estimate_index_does_not_pollute_conf_avg() -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(
-    strict=True,
-    reason="E2 defect: FoodIdentification.bbox is never propagated to "
-    "DetectedFoodItem, so the two-pass path loses the BE-5 iOS annotation box.",
-)
 async def test_bbox_survives_two_pass_merge() -> None:
     """bbox is part of the identification contract; merge must carry it forward."""
     service = RecognisePlate(
