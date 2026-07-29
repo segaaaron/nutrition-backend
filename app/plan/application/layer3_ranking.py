@@ -15,6 +15,12 @@ band keeps recommendations regionally and operationally relevant. The
 and that the model preferentially picks recipes the user actually completes.
 
 Budget: <400 ms for K=20 candidates.
+
+Condition-scoped bonuses (omega-3, legume, folate) are additive on top of
+the base 1.0 envelope.  For a user with multiple conditions (e.g. fatty_liver
++ pregnancy) the total CAN exceed 1.0 — this is intentional; the score is
+used only for relative ranking (descending sort), never as a probability or
+normalised signal.
 """
 
 from __future__ import annotations
@@ -30,10 +36,12 @@ from app.plan.application.taste_profile import (
     adherence,
     cosine,
     cultural_fit,
+    folate_fit,
     gl_penalty,
     novelty,
     omega3_fit,
     prep_time_fit,
+    sugar_penalty,
 )
 
 # Conditions for which oily fish / omega-3 is first-line diet therapy get a
@@ -57,6 +65,17 @@ _RED_MEAT_PENALTY_WEIGHT = 0.20
 # refined-carb/fructose load MASLD guidance limits. Uses recipes.gl (94% pop).
 _GL_PENALTY_WEIGHT = 0.15
 
+# Folate promotion for pregnancy/lactation (DRI 600 µg/day; NTD prevention).
+# Additive bonus, condition-scoped: lifts folate-dense recipes (leafy greens,
+# legumes, liver) without penalising recipes with missing folate data.
+_FOLATE_PROMOTE_CONDITIONS = frozenset({"pregnancy", "lactation"})
+_FOLATE_BONUS_WEIGHT = 0.12
+
+# General sugar penalty applied to all users — demotes extreme-sugar recipes
+# (>25 g total sugar/serving) softly so plans avoid unnecessary sugar spikes
+# while still allowing fruit-based dishes. Not a hard gate (see Layer 1).
+_SUGAR_PENALTY_WEIGHT = 0.08
+
 
 class _ProfileCtx(Protocol):
     async def get_ranking_context(self, user_id: UUID) -> dict: ...
@@ -79,7 +98,16 @@ class Layer3Ranking:
         ranking_context: dict | None = None,
         embedding_cache: dict[
             UUID,
-            tuple[list[str], int | None, int | None, list[str], float | None, list[float]],
+            tuple[
+                list[str],   # 0: regions
+                int | None,  # 1: prep_min
+                int | None,  # 2: omega3_mg
+                list[str],   # 3: tags
+                float | None,  # 4: gl
+                int | None,  # 5: folate_ug
+                int | None,  # 6: sugar_g
+                list[float],   # 7: embedding
+            ],
         ]
         | None = None,
     ) -> list[tuple[UUID, float]]:
@@ -92,10 +120,12 @@ class Layer3Ranking:
         prep_pref = ranking_context.get("prep_time_pref_min")
         conditions = ranking_context.get("conditions") or []
         promote_omega3 = bool(_OMEGA3_PROMOTE_CONDITIONS.intersection(conditions))
+        promote_folate = bool(_FOLATE_PROMOTE_CONDITIONS.intersection(conditions))
 
         _SQL = text(
             """
-            SELECT id, regions, prep_min, omega3_mg, tags, gl, embedding
+            SELECT id, regions, prep_min, omega3_mg, tags, gl,
+                   folate_ug, sugar_g, embedding
               FROM recipes
              WHERE id = ANY(CAST(:ids AS uuid[]))
         """
@@ -113,6 +143,8 @@ class Layer3Ranking:
                         row["omega3_mg"],
                         list(row["tags"] or []),
                         float(row["gl"]) if row["gl"] is not None else None,
+                        row["folate_ug"],
+                        row["sugar_g"],
                         list(row["embedding"]) if row["embedding"] is not None else [],
                     )
             rows = [
@@ -122,7 +154,9 @@ class Layer3Ranking:
                  "omega3_mg": embedding_cache[cid][2],
                  "tags": embedding_cache[cid][3],
                  "gl": embedding_cache[cid][4],
-                 "embedding": embedding_cache[cid][5]}
+                 "folate_ug": embedding_cache[cid][5],
+                 "sugar_g": embedding_cache[cid][6],
+                 "embedding": embedding_cache[cid][7]}
                 for cid in candidate_ids
                 if cid in embedding_cache
             ]
@@ -174,6 +208,15 @@ class Layer3Ranking:
                     total -= _RED_MEAT_PENALTY_WEIGHT
                 # Push down high glycemic-load dishes (refined carbs / fructose).
                 total -= _GL_PENALTY_WEIGHT * gl_penalty(r["gl"])
+            # Folate promotion for pregnancy/lactation (DRI 600 µg/day, NTD
+            # prevention). Additive bonus; never penalises missing data.
+            if promote_folate:
+                total += _FOLATE_BONUS_WEIGHT * folate_fit(r.get("folate_ug"))
+            # General mild sugar demotion: discourages very-high-sugar recipes
+            # (>25 g total/serving) without hard-blocking them. Applies to all
+            # users — natural fruit sugar is captured here too so the weight is
+            # intentionally low (0.08) to avoid penalising healthy fruit dishes.
+            total -= _SUGAR_PENALTY_WEIGHT * sugar_penalty(r.get("sugar_g"))
             scored.append((rid, total))
         # Stable tie-break by id: equal scores must rank identically
         # across runs for seeded reproducibility.

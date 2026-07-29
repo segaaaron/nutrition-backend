@@ -180,3 +180,37 @@ def gl_penalty(gl: float | None) -> float:
     if gl >= _GL_HIGH:
         return 1.0
     return (gl - _GL_LOW) / (_GL_HIGH - _GL_LOW)
+
+
+# Pregnancy/lactation DRI folate = 600 µg/day (NIH ODS). Per 4-slot plan
+# each meal targets ~150 µg. A recipe ≥200 µg earns the full signal.
+_FOLATE_FULL_UG = 200
+
+
+def folate_fit(folate_ug: int | None) -> float:
+    """0..1 promotion signal for folate content. NULL/0 → 0 (no boost, never
+    a penalty). Used only for pregnancy/lactation where folate is critical
+    (NTD prevention per NIH ODS / Dietary Guidelines 2020 Ch.2)."""
+    if not folate_ug or folate_ug <= 0:
+        return 0.0
+    return min(1.0, folate_ug / _FOLATE_FULL_UG)
+
+
+# General sugar cap: WHO recommends <25 g/day free sugars. The catalog's
+# sugar_g column includes natural fruit sugars (total sugars, not added),
+# so a hard gate would wrongly exclude healthy fruit dishes. Instead, a
+# mild ranking penalty kicks in above 25 g — enough to push extreme
+# smoothies (40–56 g) below their peers without eliminating them for
+# users whose taste vector explicitly prefers sweet meals.
+_SUGAR_PENALTY_LOW = 25   # g — below this: no penalty
+_SUGAR_PENALTY_HIGH = 45  # g — above this: full penalty
+
+
+def sugar_penalty(sugar_g: int | None) -> float:
+    """0..1 penalty for very high total sugar. ≤25 g → 0; ramps to 1 at
+    ≥45 g. NULL/unknown → 0 (never a penalty for missing data)."""
+    if not sugar_g or sugar_g <= _SUGAR_PENALTY_LOW:
+        return 0.0
+    if sugar_g >= _SUGAR_PENALTY_HIGH:
+        return 1.0
+    return (sugar_g - _SUGAR_PENALTY_LOW) / (_SUGAR_PENALTY_HIGH - _SUGAR_PENALTY_LOW)

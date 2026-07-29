@@ -45,16 +45,33 @@ class SqlEmbeddingFetcher:
         return out
 
     async def get_onboarding_centroid(self, user_id: UUID) -> list[float] | None:
-        # Compute centroid of recipes matching the user's preference tags.
+        # Cold-start centroid: average embedding of recipes that match the user's
+        # declared goal (target_goals) and/or region, so new users get a
+        # meaningful taste signal instead of a zero vector.
+        # Falls back to plan preferences (old behavior) when goal+region yield nothing.
         sql = text(
             """
+            WITH profile AS (
+                SELECT COALESCE(goal::text, '')  AS goal,
+                       COALESCE(region,    '')   AS region
+                  FROM user_profiles
+                 WHERE user_id = :uid
+            ),
+            plan_prefs AS (
+                SELECT COALESCE(preferences, '{}'::text[]) AS tags
+                  FROM plans
+                 WHERE user_id = :uid
+                 ORDER BY created_at DESC
+                 LIMIT 1
+            )
             SELECT AVG(r.embedding) AS centroid
-              FROM recipes r
+              FROM recipes r, profile
              WHERE r.embedding IS NOT NULL
-               AND r.tags && (
-                   SELECT COALESCE(preferences, '{}'::text[])
-                     FROM plans WHERE user_id = :uid
-                  ORDER BY created_at DESC LIMIT 1
+               AND r.quarantined_at IS NULL
+               AND (
+                   (profile.goal    <> '' AND profile.goal    = ANY(CAST(r.target_goals AS text[])))
+                OR (profile.region  <> '' AND r.regions && CAST(ARRAY[profile.region] AS char(5)[]))
+                OR r.tags && (SELECT tags FROM plan_prefs)
                )
         """
         )

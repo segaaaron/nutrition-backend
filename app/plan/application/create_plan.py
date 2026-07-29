@@ -248,7 +248,16 @@ class CreatePlan:
         # day 1 per meal_time. Dict populated in-place by Layer3.__call__.
         embedding_cache: dict[
             UUID,
-            tuple[list[str], int | None, int | None, list[str], float | None, list[float]],
+            tuple[
+                list[str],    # 0: regions
+                int | None,   # 1: prep_min
+                int | None,   # 2: omega3_mg
+                list[str],    # 3: tags
+                float | None, # 4: gl
+                int | None,   # 5: folate_ug
+                int | None,   # 6: sugar_g
+                list[float],  # 7: embedding
+            ],
         ] = {}
 
         for d in range(total_days):
@@ -477,7 +486,7 @@ class CreatePlan:
             total_days=total_days,
             current_day=1,
             status="active",
-            goal=str(targets.get("goal") or ""),
+            goal=str(profile.get("goal") or ""),
             # Honest value: the number of slots actually generated (a
             # request for 5 meals clamps to the 4 available slots).
             meals_per_day=len(slots),
@@ -552,6 +561,24 @@ class CreatePlan:
                             kcal_actual=d.kcal_actual,
                             kcal_target=kcal_daily,
                             deviation_pct=round(deviation * 100, 1),
+                        )
+                # Protein daily total validation: checks that the assembled
+                # day delivers ≥90% of the user's protein target. A deficit
+                # here means the catalog pool was too thin to hit the target
+                # through normal slot-level L2 fitting — measuring it is the
+                # first step before implementing slot-retry logic. Emitted
+                # for every goal so we can segment muscle_gain vs others.
+                d.protein_actual = sum(m.protein_g or 0 for m in d.meals)
+                if protein_daily > 0:
+                    protein_ratio = d.protein_actual / protein_daily
+                    if protein_ratio < 0.90:
+                        log.warning(
+                            "plan.day_protein_deficit",
+                            day=d.day_index,
+                            protein_actual=d.protein_actual,
+                            protein_target=protein_daily,
+                            pct_of_target=round(protein_ratio * 100, 1),
+                            goal=goal,
                         )
 
         # Idempotent-by-user invariant (2026-06-11 root-cause fix for iOS

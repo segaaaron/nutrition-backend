@@ -74,6 +74,9 @@ test: ## Run full test suite
 test.unit: ## Run only unit tests
 	$(PY) -m pytest tests/unit/ -v
 
+test.plan: ## Run plan unit tests + catalog (requires .venv — do NOT use system python)
+	$(PY) -m pytest tests/unit/plan/ tests/catalog/ -v
+
 test.vision: ## Run vision tests
 	$(PY) -m pytest tests/unit/vision/ -v
 
