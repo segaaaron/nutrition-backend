@@ -784,7 +784,45 @@ async def get_active_plan(
             **retention,
         }
     )
+
+    # G — weekly review: lazy eval on Sunday, idempotent via Redis.
+    # Replaces the old cron (CRON_JOBS=[]) with zero infrastructure: the
+    # first GET /plans/active on any Sunday triggers the review; subsequent
+    # calls that day are skipped via the Redis NX lock (TTL 8d covers the
+    # full week with a 1-day margin so it never fires twice in one week).
+    await _maybe_send_weekly_review(session, current_user)
+
     return resp
+
+
+async def _maybe_send_weekly_review(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+) -> None:
+    """Fire weekly_review at most once per calendar week, on Sunday, lazy."""
+    from datetime import date as _date
+
+    from app.coach.application.features import weekly_review
+
+    today = _date.today()
+    # isoweekday(): Monday=1 … Sunday=7
+    if today.isoweekday() != 7:
+        return
+    iso_week = today.isocalendar()[1]
+    iso_year = today.isocalendar()[0]
+    redis = get_redis()
+    lock_key = f"wkly_rv:{user_id}:{iso_year}w{iso_week}"
+    # SET NX: only the first caller this week acquires the lock.
+    acquired = await redis.set(lock_key, "1", nx=True, ex=8 * 86400)
+    if not acquired:
+        return
+    try:
+        await weekly_review(session, user_id=user_id)
+    except Exception:  # noqa: BLE001
+        # Release lock so next call can retry; don't let a coach failure
+        # surface as a plan-fetch error.
+        await redis.delete(lock_key)
+        raise
 
 
 @router.post("/plans/{plan_id}/advance", response_model=PlanResponse)

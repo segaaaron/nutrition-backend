@@ -12,7 +12,7 @@
                               push + coach message.
   F) recipe_story_backfill  — nightly batch. Fills recipes.coach_story_translations
                               for recipes missing a story (one mini call/recipe).
-  G) weekly_review          — Sunday 18:00 user-locale. Summary message.
+  G) weekly_review          — Sunday lazy eval on GET /plans/active (no cron). Summary message.
 
 All use cheap gpt-4o-mini (~$0.0003/call). Cost cap applied per user via
 existing pre_check. Each feature persists its output as an assistant
