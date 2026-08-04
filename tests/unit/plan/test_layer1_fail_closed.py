@@ -126,11 +126,14 @@ async def test_fatty_liver_gate_sugar_satfat_fail_closed() -> None:
 
 
 @pytest.mark.asyncio
-async def test_fatty_liver_fiber_promoted_via_coalesce() -> None:
-    # Fiber is bias-INCLUDE: we promote fiber-rich choices, so a row missing
-    # fiber data (NULL → 0) fails the >= floor and is excluded.
+async def test_fatty_liver_fiber_bias_admit() -> None:
+    # Fiber is now bias-ADMIT (2026-08-03): 95% of catalog has NULL fiber_g;
+    # fail-closed shrinks Bolivia+fatty_liver pool below 7-per-slot minimum.
+    # NULL fiber_g passes through; confirmed low-fiber (< 3g) still excluded.
+    # NOT refined_carbs/high_fructose tags provide fallback protection.
     cap = await _run(_PROFILE_FATTY_LIVER)
-    assert "COALESCE(r.fiber_g, 0) >= :fl_fiber_min" in cap.sql, cap.sql
+    assert "r.fiber_g IS NULL OR r.fiber_g >= :fl_fiber_min" in cap.sql, cap.sql
+    assert "COALESCE(r.fiber_g, 0)" not in cap.sql  # old fail-closed must not be present
     assert cap.params.get("fl_fiber_min") == 3
 
 

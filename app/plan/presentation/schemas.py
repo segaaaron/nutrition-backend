@@ -83,6 +83,11 @@ class PlanMealIngredient(_Strict):
     name_localized: str | None = None
     amount_g: Decimal | None
     position: int
+    # Human-readable quantity + prep description (e.g. "¾ taza de quinoa cocida",
+    # "1 pechuga mediana"). When present, iOS shows this instead of amount_g.
+    # NULL → iOS falls back to "{amount_g}g". Populated via modifier field in
+    # recipe_components. Backward-compatible: existing clients ignore new fields.
+    modifier: str | None = None
 
 
 class PlanMealResponse(_Strict):

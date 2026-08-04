@@ -427,6 +427,34 @@ class CreatePlan:
             high_gl_servings=_high_gl,
         )
 
+        # Weekly food group diversity (WHO 2023 + USDA MyPlate / Mediterranean
+        # evidence). Targets: legumes ≥3/wk, fish/omega3 ≥2/wk. Warn-only:
+        # catalog size and allergen filters may make the target unreachable —
+        # the signal drives catalog expansion decisions, not plan rejection.
+        # Pre-Layer4 counts: Layer4 swaps affect <5% of meals and do not
+        # materially change the weekly pattern; telemetry accuracy is sufficient.
+        _weeks = max(1.0, total_days / 7.0)
+        _legume_wk = round(_legume / _weeks, 1)
+        _fish_wk = round(_fish / _weeks, 1)
+        if _legume_wk < 3.0:
+            log.warning(
+                "plan.week_legumes_below_who",
+                legume_servings=_legume,
+                legume_per_week=_legume_wk,
+                target_per_week=3,
+                total_days=total_days,
+                plan_id=str(plan_id),
+            )
+        if _fish_wk < 2.0:
+            log.warning(
+                "plan.week_fish_below_who",
+                fish_servings=_fish,
+                fish_per_week=_fish_wk,
+                target_per_week=2,
+                total_days=total_days,
+                plan_id=str(plan_id),
+            )
+
         # Layer 4 — one LLM call over the whole plan.
         t0 = time.perf_counter()
         candidate_plan_payload = [
@@ -520,7 +548,7 @@ class CreatePlan:
                     row = macros.get(m.recipe_id)
                     if row is None:
                         continue
-                    n_kcal, n_prot, n_carb, n_fat, r_scale_min, r_scale_max = row
+                    n_kcal, n_prot, n_carb, n_fat, r_scale_min, r_scale_max, _fiber, _sodium = row
                     # Portion scaling: use per-recipe bounds when the v3 catalog
                     # supplies them; fall back to global constants for legacy rows.
                     s_min = r_scale_min if r_scale_min is not None else _MIN_SCALE
@@ -580,6 +608,67 @@ class CreatePlan:
                             pct_of_target=round(protein_ratio * 100, 1),
                             goal=goal,
                         )
+
+                # OMS daily fiber/sodium validation (WHO 2023 healthy diet
+                # guidelines). fiber target ≥25 g/day; sodium <2000 mg/day.
+                # Uses scaled values: macros dict carries unscaled recipe data;
+                # m.scaled_factor is the portion multiplier applied in Layer3.
+                # sodium_mg NULL in catalog → treated as 0 for the daily sum
+                # (bias-low: we may undercount, but never false-alarm on good
+                # recipes with missing data). Emits warnings only — not a hard
+                # rejection gate. No DB columns needed: fiber_daily/sodium_daily
+                # live on PlanDay in-memory only.
+                d.fiber_daily = sum(
+                    int(round(
+                        (macros.get(m.recipe_id, (None,) * 8)[6] or 0)
+                        * (m.scaled_factor or 1.0)
+                    ))
+                    for m in d.meals
+                    if m.recipe_id is not None
+                )
+                d.sodium_daily = sum(
+                    int(round(
+                        (macros.get(m.recipe_id, (None,) * 8)[7] or 0)
+                        * (m.scaled_factor or 1.0)
+                    ))
+                    for m in d.meals
+                    if m.recipe_id is not None
+                )
+                if d.fiber_daily < 25:
+                    log.warning(
+                        "plan.day_fiber_below_oms",
+                        day=d.day_index,
+                        fiber_g=d.fiber_daily,
+                        oms_target=25,
+                        goal=goal,
+                    )
+                if d.sodium_daily > 2000:
+                    log.warning(
+                        "plan.day_sodium_above_oms",
+                        day=d.day_index,
+                        sodium_mg=d.sodium_daily,
+                        oms_limit=2000,
+                        goal=goal,
+                    )
+
+                # Food group diversity — protein source per day (WHO MyPlate).
+                # A day without any protein-rich meal (scaled protein_g ≥ 20g)
+                # is nutritionally incomplete regardless of kcal target. Uses
+                # the already-scaled m.protein_g values so portion adjustments
+                # are reflected. Warn-only: tight allergen/condition filters on
+                # small catalogs may make this unavoidable; the signal drives
+                # catalog gap analysis, not plan rejection.
+                _day_has_protein_source = any(
+                    (m.protein_g or 0) >= 20 for m in d.meals
+                )
+                if not _day_has_protein_source:
+                    log.warning(
+                        "plan.day_no_protein_source",
+                        day=d.day_index,
+                        protein_actual=d.protein_actual,
+                        total_meals=len(d.meals),
+                        goal=goal,
+                    )
 
         # Idempotent-by-user invariant (2026-06-11 root-cause fix for iOS
         # plan-create errors). The `one_active_plan` partial unique index

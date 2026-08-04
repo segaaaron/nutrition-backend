@@ -35,8 +35,8 @@ pytestmark = pytest.mark.integration
 
 _RECIPE_IDS: list[UUID] = [uuid4() for _ in range(30)]
 _RECIPE_MACROS: dict[UUID, tuple] = {
-    rid: (400, 30, 45, 12, 0.5, 2.0) for rid in _RECIPE_IDS
-}  # (kcal, prot, carbs, fat, scale_min, scale_max)
+    rid: (400, 30, 45, 12, 0.5, 2.0, None, None) for rid in _RECIPE_IDS
+}  # (kcal, prot, carbs, fat, scale_min, scale_max, fiber_g, sodium_mg)
 
 
 class _StubLayer1:

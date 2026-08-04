@@ -67,6 +67,7 @@ async def _kcal_remaining(session: AsyncSession, user_id: UUID) -> int | None:
                   LEFT JOIN food_logs fl
                     ON fl.user_id = g.user_id AND fl.date = CURRENT_DATE
                  WHERE g.user_id = :uid
+                 GROUP BY g.kcal_min, g.kcal_max, g.valid_from
                  ORDER BY g.valid_from DESC
                  LIMIT 1
             """

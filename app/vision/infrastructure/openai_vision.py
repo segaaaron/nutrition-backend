@@ -1142,16 +1142,38 @@ class OpenAIVisionProvider:
             {"type": "image_url", "image_url": {"url": data_url, "detail": detail}},
         ]
 
-        raw = await self._invoke_with_schema(
-            model=effective_model,
-            sys_prompt=prompt_full,
-            user_content=user_content,
-            detail=detail,
-            user_id=user_id,
-            max_output_tokens=s.vision_identify_max_output_tokens,
-            schema_name="vision_identify",
-            schema=IDENTIFY_SCHEMA,
-        )
+        try:
+            raw = await self._invoke_with_schema(
+                model=effective_model,
+                sys_prompt=prompt_full,
+                user_content=user_content,
+                detail=detail,
+                user_id=user_id,
+                max_output_tokens=s.vision_identify_max_output_tokens,
+                schema_name="vision_identify",
+                schema=IDENTIFY_SCHEMA,
+            )
+        except UpstreamError:
+            fallback_model = self._fallback_model()
+            if effective_model == fallback_model:
+                raise
+            log.warning(
+                "vision.identify.primary_failed_fallback",
+                primary=effective_model,
+                fallback=fallback_model,
+            )
+            VISION_FALLBACK.labels(reason="primary_upstream_error").inc()
+            effective_model = fallback_model
+            raw = await self._invoke_with_schema(
+                model=fallback_model,
+                sys_prompt=prompt_full,
+                user_content=user_content,
+                detail=detail,
+                user_id=user_id,
+                max_output_tokens=s.vision_identify_max_output_tokens,
+                schema_name="vision_identify",
+                schema=IDENTIFY_SCHEMA,
+            )
 
         ids = _parse_identifications(raw)
         log.info(
@@ -1264,16 +1286,38 @@ class OpenAIVisionProvider:
             {"type": "image_url", "image_url": {"url": data_url, "detail": detail}},
         ]
 
-        raw = await self._invoke_with_schema(
-            model=effective_model,
-            sys_prompt=prompt_full,
-            user_content=user_content,
-            detail=detail,
-            user_id=user_id,
-            max_output_tokens=s.vision_max_output_tokens,
-            schema_name="vision_estimate",
-            schema=ESTIMATE_SCHEMA,
-        )
+        try:
+            raw = await self._invoke_with_schema(
+                model=effective_model,
+                sys_prompt=prompt_full,
+                user_content=user_content,
+                detail=detail,
+                user_id=user_id,
+                max_output_tokens=s.vision_max_output_tokens,
+                schema_name="vision_estimate",
+                schema=ESTIMATE_SCHEMA,
+            )
+        except UpstreamError:
+            fallback_model = self._fallback_model()
+            if effective_model == fallback_model:
+                raise
+            log.warning(
+                "vision.estimate.primary_failed_fallback",
+                primary=effective_model,
+                fallback=fallback_model,
+            )
+            VISION_FALLBACK.labels(reason="primary_upstream_error").inc()
+            effective_model = fallback_model
+            raw = await self._invoke_with_schema(
+                model=fallback_model,
+                sys_prompt=prompt_full,
+                user_content=user_content,
+                detail=detail,
+                user_id=user_id,
+                max_output_tokens=s.vision_max_output_tokens,
+                schema_name="vision_estimate",
+                schema=ESTIMATE_SCHEMA,
+            )
 
         raw_estimates = _parse_estimates(raw)
         n_ids = len(identifications)
@@ -1481,14 +1525,33 @@ class OpenAIVisionProvider:
             return cap_implausible_portions(full_items, slot=meal_time), prompt_sha
 
         # --- Primary call ---
-        primary_items = await self._invoke(
-            model=primary_model,
-            sys_prompt=sys_prompt,
-            data_url=data_url,
-            detail=detail,
-            user_id=user_id,
-            max_output_tokens=s.vision_max_output_tokens,
-        )
+        try:
+            primary_items = await self._invoke(
+                model=primary_model,
+                sys_prompt=sys_prompt,
+                data_url=data_url,
+                detail=detail,
+                user_id=user_id,
+                max_output_tokens=s.vision_max_output_tokens,
+            )
+        except UpstreamError:
+            if primary_model != fallback_model:
+                log.warning(
+                    "vision.cascade.primary_failed_fallback",
+                    primary_model=primary_model,
+                    fallback_model=fallback_model,
+                )
+                VISION_FALLBACK.labels(reason="primary_upstream_error").inc()
+                fallback_items = await self._invoke(
+                    model=fallback_model,
+                    sys_prompt=sys_prompt,
+                    data_url=data_url,
+                    detail=detail,
+                    user_id=user_id,
+                    max_output_tokens=s.vision_max_output_tokens,
+                )
+                return cap_implausible_portions(fallback_items, slot=meal_time), prompt_sha
+            raise
 
         if stage == "primary_only":
             if not cascade_enabled:

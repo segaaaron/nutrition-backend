@@ -8,7 +8,7 @@ Two flows:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Protocol
 from uuid import UUID
@@ -437,6 +437,89 @@ class GetCurrentGoals:
 
 
 @dataclass(slots=True)
+class GetWeightInsights:
+    """Compute ideal-weight metrics on-the-fly from biometrics.
+
+    Pure computation — no DB write, no state change. Returns None when
+    biometrics are incomplete (weight_kg, height_cm, sex required).
+    """
+
+    profile_reader: ProfileReader
+
+    async def __call__(self, *, user_id: UUID) -> "WeightInsights | None":
+        from app.nutrition.domain.ideal_weight import (
+            DEFAULT_WEEKLY_RATE,
+            WeightInsights,
+            compute_weight_insights,
+        )
+
+        bio = await self.profile_reader.biometrics(user_id)
+        if not bio:
+            return None
+        weight_kg = bio.get("weight_kg")
+        height_cm = bio.get("height_cm")
+        sex = bio.get("sex")
+        if not all((weight_kg, height_cm, sex)):
+            return None
+        return compute_weight_insights(
+            weight_kg=weight_kg,
+            height_cm=height_cm,
+            sex=sex,
+            goal=bio.get("goal", "weight_maintenance"),
+            is_pregnant=bool(bio.get("pregnant")),
+            weekly_rate_kg=DEFAULT_WEEKLY_RATE,
+        )
+
+
+@dataclass(slots=True)
+class GetWeightProgress:
+    """Compute read-only weight trend from last 14-day weigh-in series.
+
+    Non-fatal: returns None when user has insufficient data (< 7 weight points).
+    Never triggers recalibration — pure observation.
+    """
+
+    profile_reader: ProfileReader
+    tracking_reader: TrackingReader
+
+    async def __call__(self, *, user_id: UUID) -> "WeightProgress | None":
+        from app.nutrition.domain.ideal_weight import (
+            DEFAULT_WEEKLY_RATE,
+            compute_weight_insights,
+        )
+        from app.nutrition.domain.weight_progress import (
+            WeightProgress,
+            compute_weight_progress,
+        )
+
+        bio = await self.profile_reader.biometrics(user_id)
+        if not bio:
+            return None
+
+        weights = await self.tracking_reader.weight_series_14d(user_id)
+
+        # Resolve weight_to_lose_kg from insights if we have enough biometrics
+        weight_to_lose_kg = None
+        if bio.get("weight_kg") and bio.get("height_cm") and bio.get("sex"):
+            wi = compute_weight_insights(
+                weight_kg=bio["weight_kg"],
+                height_cm=bio["height_cm"],
+                sex=bio["sex"],
+                goal=bio.get("goal", "weight_maintenance"),
+                is_pregnant=bool(bio.get("pregnant")),
+                weekly_rate_kg=DEFAULT_WEEKLY_RATE,
+            )
+            weight_to_lose_kg = wi.weight_to_lose_kg
+
+        return compute_weight_progress(
+            weights=weights,
+            weight_to_lose_kg=weight_to_lose_kg,
+            goal=bio.get("goal", "weight_maintenance"),
+            target_weekly_rate_kg=DEFAULT_WEEKLY_RATE,
+        )
+
+
+@dataclass(slots=True)
 class GetGoalsHistory:
     goals_repo: NutritionalGoalsRepository
 
@@ -554,6 +637,13 @@ class GetWeeklySummary:
         ).mappings().first()
         streak_days = int(streak_row["streak"]) if streak_row and streak_row["streak"] else 0
 
+        # kcal logged today — extracted from daily_rows (already fetched above)
+        # Avoids a 5th round-trip; daily_rows covers CURRENT_DATE via >= CURRENT_DATE - 6.
+        _today_row = next((r for r in daily_rows if r["day"] == date.today()), None)
+        kcal_today = int(_today_row["kcal"] or 0) if _today_row else 0
+        # Positive = surplus (ate more than target); negative = deficit (good for weight_loss)
+        kcal_delta_today = kcal_today - kcal_target
+
         return {
             "logged_days": logged_days,
             "window_days": 7,
@@ -564,4 +654,6 @@ class GetWeeklySummary:
             "water_today_ml": water_today_ml,
             "water_target_ml": water_target_ml,
             "streak_days": streak_days,
+            "kcal_today": kcal_today,
+            "kcal_delta_today": kcal_delta_today,
         }

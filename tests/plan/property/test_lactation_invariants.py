@@ -117,10 +117,11 @@ def test_lactation_gate_contributes_sql_with_thresholds() -> None:
     assert params == {}
 
 
-def test_lactation_gate_pregnancy_safe_is_the_only_filter() -> None:
-    """pregnancy_safe=TRUE is the single gate; no micronutrient COALESCE."""
+def test_lactation_gate_pregnancy_safe_and_mercury_exclusion() -> None:
+    """pregnancy_safe=TRUE + high_mercury_fish tag exclusion; no micronutrient COALESCE."""
     sql, params = LactationGate().contribute_sql()
-    assert sql == "(r.pregnancy_safe = TRUE)"
+    assert "r.pregnancy_safe = TRUE" in sql
+    assert "NOT (r.tags && ARRAY['high_mercury_fish']::text[])" in sql
     assert params == {}
 
 

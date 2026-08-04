@@ -1,9 +1,12 @@
 """Unit tests for the FattyLiverGate (NAFLD/NASH) condition gate.
 
 Asserts that the gate's `contribute_sql()` fragment enforces the AASLD 2023 /
-Mediterranean-pattern thresholds: sugar ≤8 g/meal (fail-closed on NULL),
-sat_fat ≤5 g/meal (fail-closed on NULL), fiber ≥3 g/meal (NULL → 0 →
-excluded), and that the gate is registered for `fatty_liver`.
+Mediterranean-pattern thresholds:
+  - sugar ≤8 g/meal (fail-closed on NULL — safety-critical)
+  - sat_fat ≤5 g/meal (fail-closed on NULL — safety-critical)
+  - fiber ≥3 g/meal OR NULL (bias-admit — 95% of catalog has NULL fiber_g;
+    NOT refined_carbs tag provides fallback signal; confirmed low-fiber excluded)
+  - sodium ≤600 mg OR NULL (bias-admit — catalog backfill in progress)
 
 Clinical justification of thresholds lives in the gate's docstring; here we
 validate the structural contract only.
@@ -40,10 +43,13 @@ def test_sql_fragment_includes_satfat_fail_closed() -> None:
     assert params["fl_satfat_max"] == 5
 
 
-def test_sql_fragment_promotes_fiber_floor() -> None:
+def test_sql_fragment_promotes_fiber_floor_bias_admit() -> None:
     sql, params = FattyLiverGate().contribute_sql()
-    # Fiber promotion ≥25 g/day → ≥3 g/meal. NULL → 0 → excluded.
-    assert "COALESCE(r.fiber_g, 0) >= :fl_fiber_min" in sql
+    # Bias-admit: NULL fiber_g passes through (data missing ≠ confirmed low fiber).
+    # Confirmed low-fiber recipes (fiber_g < 3) still excluded.
+    # NOT refined_carbs tag provides fallback exclusion signal.
+    assert "r.fiber_g IS NULL OR r.fiber_g >= :fl_fiber_min" in sql
+    assert "COALESCE(r.fiber_g, 0)" not in sql  # old fail-closed form must not be present
     assert params["fl_fiber_min"] == 3
 
 

@@ -125,10 +125,11 @@ def test_hard_caps_per_condition_present_in_composite(
     sql_blob = " ".join(where)
 
     if "fatty_liver" in frozen:
-        # R6 fail-closed on sugar_g and sat_fat_g; fiber promoted via COALESCE.
+        # R6 fail-closed on sugar_g and sat_fat_g; fiber is bias-admit (NULL OR >=).
         assert "r.sugar_g IS NOT NULL AND r.sugar_g <= :fl_sugar_max" in sql_blob
         assert "r.sat_fat_g IS NOT NULL AND r.sat_fat_g <= :fl_satfat_max" in sql_blob
-        assert "COALESCE(r.fiber_g, 0) >= :fl_fiber_min" in sql_blob
+        assert "r.fiber_g IS NULL OR r.fiber_g >= :fl_fiber_min" in sql_blob
+        assert "COALESCE(r.fiber_g, 0)" not in sql_blob
         assert params["fl_sugar_max"] == 8
         assert params["fl_satfat_max"] == 5
         assert params["fl_fiber_min"] == 3

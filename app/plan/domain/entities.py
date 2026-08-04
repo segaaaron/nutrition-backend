@@ -37,6 +37,13 @@ class PlanDay:
     meals: list[PlanMeal] = field(default_factory=list)
     kcal_actual: int | None = None
     within_band: bool | None = None
+    # Computed at plan generation, not persisted to DB.
+    # protein_actual: daily protein sum (g) — used for ≥90% target check.
+    # fiber_daily: sum of scaled fiber_g across meals (OMS target ≥25 g/day).
+    # sodium_daily: sum of scaled sodium_mg across meals (OMS target <2000 mg/day).
+    protein_actual: int | None = None
+    fiber_daily: int | None = None
+    sodium_daily: int | None = None
 
 
 @dataclass(slots=True)

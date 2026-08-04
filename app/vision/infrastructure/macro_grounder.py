@@ -167,6 +167,20 @@ _MANUAL_EN_TO_ES: dict[str, str] = {
     "lentils": "lentejas",
     "chickpeas": "garbanzo",
     "peas": "arvejas",
+    # desserts / pastry — missing entries caused dairy group_fallback (150 kcal) on 420 kcal foods
+    "buttercream": "crema de mantequilla",
+    "frosting": "crema de mantequilla",
+    "icing": "crema de mantequilla",
+    "cake frosting": "crema de mantequilla",
+    "buttercream frosting": "crema de mantequilla",
+    "chocolate frosting": "cobertura de pastel",
+    "vanilla frosting": "crema de mantequilla",
+    "chocolate cake": "pastel de chocolate con cobertura",
+    "chocolate cake with frosting": "pastel de chocolate con cobertura",
+    "birthday cake": "pastel de cumpleaños",
+    "yellow cake": "torta bizcochuelo",
+    "vanilla cake": "torta bizcochuelo",
+    "layer cake": "pastel de cumpleaños",
 }
 
 

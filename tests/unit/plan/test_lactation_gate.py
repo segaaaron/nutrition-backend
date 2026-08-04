@@ -1,7 +1,11 @@
 """Unit tests for the LactationGate condition gate.
 
-Gate enforces `pregnancy_safe = TRUE`. Micronutrient thresholds (folate/
-calcium/iron) removed — produced empty candidate pool against current catalog.
+Gate enforces:
+  - `pregnancy_safe = TRUE` (catalog flag)
+  - NOT tagged `high_mercury_fish` (defense-in-depth — FDA/EPA 2017/2024)
+
+Micronutrient thresholds (folate/calcium/iron) removed — produced empty
+candidate pool against current catalog.
 """
 
 from __future__ import annotations
@@ -22,6 +26,14 @@ def test_gate_registered_for_lactation() -> None:
 def test_sql_fragment_requires_pregnancy_safe() -> None:
     sql, _ = LactationGate().contribute_sql()
     assert "r.pregnancy_safe = TRUE" in sql
+
+
+def test_sql_excludes_high_mercury_fish_tag() -> None:
+    # Defense-in-depth: any recipe tagged high_mercury_fish is excluded
+    # regardless of pregnancy_safe flag (future catalog additions are caught).
+    sql, _ = LactationGate().contribute_sql()
+    assert "high_mercury_fish" in sql
+    assert "NOT" in sql
 
 
 def test_sql_fragment_no_micronutrient_thresholds() -> None:

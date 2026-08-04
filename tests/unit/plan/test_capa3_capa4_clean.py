@@ -126,7 +126,7 @@ async def test_slot_targets_populated_on_plan() -> None:
     rid = uuid4()
     uc, plans = _build_uc(
         recipe_ids=[rid],
-        macros_by_id={rid: (500, 30, 60, 15, None, None)},
+        macros_by_id={rid: (500, 30, 60, 15, None, None, None, None)},
         targets=_targets(kcal=2000, protein=120),
     )
     plan = await uc(user_id=uuid4(), plan_type="day")  # type: ignore[arg-type]
@@ -152,7 +152,7 @@ async def test_kcal_actual_and_within_band_set_per_day() -> None:
     native_kcal = 600  # 3 slots × 600 = 1800
     uc, plans = _build_uc(
         recipe_ids=[rid],
-        macros_by_id={rid: (native_kcal, 40, 70, 20, None, None)},
+        macros_by_id={rid: (native_kcal, 40, 70, 20, None, None, None, None)},
         targets=_targets(kcal=kcal_daily),
     )
     plan = await uc(user_id=uuid4(), plan_type="day")  # type: ignore[arg-type]
@@ -178,7 +178,7 @@ async def test_within_band_false_when_clamped_by_recipe_bounds() -> None:
     # Day total = 900 vs target 2000 → deviation 55% → within_band=False
     uc, plans = _build_uc(
         recipe_ids=[rid],
-        macros_by_id={rid: (200, 10, 25, 5, None, 1.5)},  # scale_max=1.5
+        macros_by_id={rid: (200, 10, 25, 5, None, 1.5, None, None)},  # scale_max=1.5
         targets=_targets(kcal=kcal_daily),
     )
     plan = await uc(user_id=uuid4(), plan_type="day")  # type: ignore[arg-type]
@@ -203,7 +203,7 @@ async def test_per_recipe_scale_min_overrides_global() -> None:
     # Per-recipe scale_min=0.8 → factor must be clamped UP to 0.8
     uc, plans = _build_uc(
         recipe_ids=[rid],
-        macros_by_id={rid: (1000, 50, 120, 30, 0.8, 2.0)},  # scale_min=0.8
+        macros_by_id={rid: (1000, 50, 120, 30, 0.8, 2.0, None, None)},  # scale_min=0.8
         targets=_targets(kcal=2000),
     )
     plan = await uc(user_id=uuid4(), plan_type="day")  # type: ignore[arg-type]
@@ -227,7 +227,7 @@ async def test_meal_macros_never_null_after_scaling() -> None:
     rid = uuid4()
     uc, plans = _build_uc(
         recipe_ids=[rid],
-        macros_by_id={rid: (600, 40, 80, 20, None, None)},
+        macros_by_id={rid: (600, 40, 80, 20, None, None, None, None)},
         targets=_targets(),
     )
     plan = await uc(user_id=uuid4(), plan_type="week")  # type: ignore[arg-type]
@@ -250,7 +250,7 @@ async def test_slot_targets_sum_equals_daily_kcal() -> None:
     rid = uuid4()
     uc, plans = _build_uc(
         recipe_ids=[rid],
-        macros_by_id={rid: (500, 30, 60, 15, None, None)},
+        macros_by_id={rid: (500, 30, 60, 15, None, None, None, None)},
         targets=_targets(kcal=kcal_daily),
     )
     plan = await uc(user_id=uuid4(), plan_type="day")  # type: ignore[arg-type]
@@ -271,7 +271,7 @@ async def test_corrupted_scale_bounds_fallback_to_global() -> None:
     # native=600, slot target≈600 → factor=1.0 with global bounds
     uc, plans = _build_uc(
         recipe_ids=[rid],
-        macros_by_id={rid: (600, 40, 70, 20, 1.8, 1.2)},
+        macros_by_id={rid: (600, 40, 70, 20, 1.8, 1.2, None, None)},
         targets=_targets(kcal=1800),
     )
     plan = await uc(user_id=uuid4(), plan_type="day")  # type: ignore[arg-type]
@@ -294,7 +294,7 @@ async def test_negative_native_kcal_produces_no_negative_meal_kcal() -> None:
     rid = uuid4()
     uc, plans = _build_uc(
         recipe_ids=[rid],
-        macros_by_id={rid: (-100, -10, -15, -5, None, None)},
+        macros_by_id={rid: (-100, -10, -15, -5, None, None, None, None)},
         targets=_targets(kcal=1800),
     )
     plan = await uc(user_id=uuid4(), plan_type="day")  # type: ignore[arg-type]

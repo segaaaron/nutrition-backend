@@ -98,18 +98,17 @@ class SqlPlanRepository:
 
     async def fetch_recipe_macros(
         self, recipe_ids: list[UUID]
-    ) -> dict[UUID, tuple[int | None, int | None, int | None, int | None, float | None, float | None]]:
-        """Batch-fetch (kcal, protein_g, carbs_g, fat_g, scale_min, scale_max) per recipe id.
+    ) -> dict[UUID, tuple[int | None, int | None, int | None, int | None, float | None, float | None, int | None, int | None]]:
+        """Batch-fetch per-recipe nutrition data used by CreatePlan.
 
-        Used by `CreatePlan` to populate per-meal macros after Layer3 picks
-        a recipe for each slot. A single round-trip avoids N+1 — typical
-        plan has 21 meals but only ~10-15 unique recipes due to weekly
-        repetition. Returns a tuple per id; missing rows are omitted so
-        callers can fall back to `None` safely.
+        Returns (kcal, protein_g, carbs_g, fat_g, scale_min, scale_max,
+        fiber_g, sodium_mg) per recipe id. Single round-trip — typical plan
+        has 21 meals but ~10-15 unique recipes due to weekly repetition.
+        Missing rows are omitted; callers fall back to None safely.
 
-        ``scale_min`` / ``scale_max`` are per-recipe portion bounds from the
-        v3 catalog (migration 0019); NULL for legacy recipes → caller uses
-        the global fallback (_MIN_SCALE / _MAX_SCALE in create_plan).
+        fiber_g / sodium_mg are used for daily OMS validation (≥25 g fiber,
+        <2000 mg sodium). scale_min / scale_max are v3 catalog portion bounds
+        (migration 0019); NULL → caller uses global fallback constants.
         """
         if not recipe_ids:
             return {}
@@ -122,6 +121,8 @@ class SqlPlanRepository:
             RecipeModel.fat_g,
             RecipeModel.scale_min,
             RecipeModel.scale_max,
+            RecipeModel.fiber_g,
+            RecipeModel.sodium_mg,
         ).where(RecipeModel.id.in_(unique_ids))
         rows = (await self.s.execute(stmt)).all()
         return {
@@ -132,6 +133,8 @@ class SqlPlanRepository:
                 row[4],
                 float(row[5]) if row[5] is not None else None,
                 float(row[6]) if row[6] is not None else None,
+                row[7],
+                row[8],
             )
             for row in rows
         }

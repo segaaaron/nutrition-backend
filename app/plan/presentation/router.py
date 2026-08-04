@@ -121,8 +121,8 @@ class _RecipeData:
     sat_fat_g: int | None
     tags: list[str]
     allergens: list[str]
-    # (free_text_name, name_en, amount_g, position) ordered by position — native amounts.
-    components: list[tuple[str | None, str | None, Decimal | None, int]] = field(
+    # (free_text_name, name_en, amount_g, position, modifier) ordered by position.
+    components: list[tuple[str | None, str | None, Decimal | None, int, str | None]] = field(
         default_factory=list
     )
 
@@ -170,15 +170,16 @@ async def _load_recipe_translations(
             RecipeComponentModel.name_en,
             RecipeComponentModel.amount_g,
             RecipeComponentModel.position,
+            RecipeComponentModel.modifier,
         )
         .where(RecipeComponentModel.recipe_id.in_(recipe_ids))
         .order_by(RecipeComponentModel.recipe_id, RecipeComponentModel.position)
     )
-    comps: dict[uuid.UUID, list[tuple[str | None, str | None, Decimal | None, int]]] = defaultdict(
+    comps: dict[uuid.UUID, list[tuple[str | None, str | None, Decimal | None, int, str | None]]] = defaultdict(
         list
     )
     for cr in (await session.execute(comp_stmt)).all():
-        comps[cr[0]].append((cr[1], cr[2], cr[3], cr[4]))
+        comps[cr[0]].append((cr[1], cr[2], cr[3], cr[4], cr[5]))
 
     return {
         row[0]: _RecipeData(
@@ -261,8 +262,9 @@ def _build_meal_resp(
                 name_localized=(name_en if (want_en and name_en) else name),
                 amount_g=amount,
                 position=pos,
+                modifier=modifier,
             )
-            for (name, name_en, amount, pos) in data.components
+            for (name, name_en, amount, pos, modifier) in data.components
         ]
     else:
         instructions = []
@@ -451,6 +453,7 @@ async def _compute_retention_context(
                   LEFT JOIN food_logs fl
                     ON fl.user_id = g.user_id AND fl.date = CURRENT_DATE
                  WHERE g.user_id = :uid
+                 GROUP BY g.kcal_min, g.kcal_max, g.valid_from
                  ORDER BY g.valid_from DESC
                  LIMIT 1
                 """

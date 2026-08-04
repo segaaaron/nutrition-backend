@@ -86,9 +86,11 @@ async def test_fatty_liver_applies_satfat_filter() -> None:
 
 
 @pytest.mark.asyncio
-async def test_fatty_liver_applies_fiber_floor() -> None:
+async def test_fatty_liver_fiber_floor_bias_admit() -> None:
+    # Bias-admit: NULL fiber_g passes through. Confirmed low-fiber excluded.
     cap = await _run(_PROFILE_FATTY_LIVER)
-    assert "COALESCE(r.fiber_g, 0) >= :fl_fiber_min" in cap.sql, cap.sql
+    assert "r.fiber_g IS NULL OR r.fiber_g >= :fl_fiber_min" in cap.sql, cap.sql
+    assert "COALESCE(r.fiber_g, 0)" not in cap.sql
     assert cap.params.get("fl_fiber_min") == 3
 
 

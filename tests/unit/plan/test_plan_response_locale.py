@@ -201,10 +201,10 @@ def test_to_resp_default_locale_is_spanish() -> None:
 
 
 # --- BE-9: ingredient name localization ------------------------------------
-# components tuple = (free_text_name, name_en, amount_g, position)
+# components tuple = (free_text_name, name_en, amount_g, position, modifier)
 _COMPONENTS = [
-    ("Pechuga de pollo", "Chicken breast", Decimal("150"), 1),
-    ("Arroz", None, Decimal("100"), 2),
+    ("Pechuga de pollo", "Chicken breast", Decimal("150"), 1, "1 pechuga mediana"),
+    ("Arroz", None, Decimal("100"), 2, None),
 ]
 
 
@@ -228,3 +228,21 @@ def test_ingredient_name_localized_es_uses_free_text() -> None:
     ings = resp.days[0].lunch.ingredients  # type: ignore[union-attr]
     assert ings[0].name_localized == "Pechuga de pollo"
     assert ings[1].name_localized == "Arroz"
+
+
+def test_modifier_present_passes_through_to_response() -> None:
+    """modifier value in component tuple → ings[i].modifier == that value."""
+    plan, [rid] = _make_plan()
+    translations: dict[UUID, _Entry] = {rid: _entry("Chicken", components=_COMPONENTS)}
+    resp = _to_resp(plan, translations=translations, locale="es")
+    ings = resp.days[0].lunch.ingredients  # type: ignore[union-attr]
+    assert ings[0].modifier == "1 pechuga mediana"
+
+
+def test_modifier_none_passes_through_when_missing() -> None:
+    """modifier=None in component tuple → ings[i].modifier is None."""
+    plan, [rid] = _make_plan()
+    translations: dict[UUID, _Entry] = {rid: _entry("Chicken", components=_COMPONENTS)}
+    resp = _to_resp(plan, translations=translations, locale="es")
+    ings = resp.days[0].lunch.ingredients  # type: ignore[union-attr]
+    assert ings[1].modifier is None
