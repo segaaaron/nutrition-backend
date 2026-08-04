@@ -176,27 +176,18 @@ async def get_job_status(
             groups, total_kcal = [], None
 
     # Macro totals — computed from items directly so they're available even
-    # when the plate explainer fails. kcal_min/max fall back to the point
-    # estimate (kcal) for older cached items that predate Decomposition 2.0.
+    # when the plate explainer fails.
     total_protein_g: int | None = None
     total_carbs_g: int | None = None
     total_fat_g: int | None = None
     total_fiber_g: int | None = None
     total_sugar_g: int | None = None
-    total_kcal_min: int | None = None
-    total_kcal_max: int | None = None
     if job.detected_items:
         total_protein_g = sum(i.protein_g for i in job.detected_items)
         total_carbs_g = sum(i.carbs_g for i in job.detected_items)
         total_fat_g = sum(i.fat_g for i in job.detected_items)
         total_fiber_g = sum(i.fiber_g for i in job.detected_items)
         total_sugar_g = sum(i.sugar_g for i in job.detected_items)
-        total_kcal_min = sum(
-            i.kcal_min if i.kcal_min is not None else i.kcal for i in job.detected_items
-        )
-        total_kcal_max = sum(
-            i.kcal_max if i.kcal_max is not None else i.kcal for i in job.detected_items
-        )
 
     # % of daily kcal goal — single cheap query, fail-silently so a missing
     # nutritional_goals row never breaks the poll response.
@@ -228,8 +219,6 @@ async def get_job_status(
                 count=i.count,
                 estimated_amount_g=i.estimated_amount_g,
                 kcal=i.kcal,
-                kcal_min=i.kcal_min,
-                kcal_max=i.kcal_max,
                 protein_g=i.protein_g,
                 carbs_g=i.carbs_g,
                 fat_g=i.fat_g,
@@ -250,8 +239,6 @@ async def get_job_status(
         ],
         groups=groups,
         total_kcal=total_kcal,
-        total_kcal_min=total_kcal_min,
-        total_kcal_max=total_kcal_max,
         total_protein_g=total_protein_g,
         total_carbs_g=total_carbs_g,
         total_fat_g=total_fat_g,

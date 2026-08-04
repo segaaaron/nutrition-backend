@@ -38,8 +38,6 @@ class DetectedItemDto(BaseModel):
     count: int = 1
     estimated_amount_g: Decimal
     kcal: int
-    kcal_min: int | None = None
-    kcal_max: int | None = None
     protein_g: int
     carbs_g: int
     fat_g: int
@@ -76,11 +74,6 @@ class JobStatusResponse(BaseModel):
     # plate explanation built server-side from the detected items.
     groups: list[PlateGroupDto] = Field(default_factory=list)
     total_kcal: int | None = None
-    # kcal_min/max: caloric range across all items (missing kcal_min/max on
-    # an item falls back to its kcal point estimate so the range is always ≤
-    # kcal_min and ≥ kcal_max from the item perspective).
-    total_kcal_min: int | None = None
-    total_kcal_max: int | None = None
     total_protein_g: int | None = None
     total_carbs_g: int | None = None
     total_fat_g: int | None = None
