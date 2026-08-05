@@ -74,8 +74,8 @@ async def _run(profile: dict[str, Any]) -> _CapturedSQL:
 @pytest.mark.asyncio
 async def test_fatty_liver_applies_sugar_filter() -> None:
     cap = await _run(_PROFILE_FATTY_LIVER)
-    assert "r.sugar_g IS NOT NULL AND r.sugar_g <= :fl_sugar_max" in cap.sql, cap.sql
-    assert cap.params.get("fl_sugar_max") == 8
+    assert "r.added_sugar_g IS NOT NULL AND r.added_sugar_g <= :fl_added_sugar_max" in cap.sql, cap.sql
+    assert cap.params.get("fl_added_sugar_max") == 8
 
 
 @pytest.mark.asyncio
@@ -103,7 +103,7 @@ async def test_fatty_liver_excludes_refined_carbs_tag() -> None:
 @pytest.mark.asyncio
 async def test_no_conditions_profile_does_not_apply_fatty_liver_filters() -> None:
     cap = await _run(_PROFILE_NO_CONDITIONS)
-    assert ":fl_sugar_max" not in cap.sql
+    assert ":fl_added_sugar_max" not in cap.sql
     assert ":fl_satfat_max" not in cap.sql
     assert ":fl_fiber_min" not in cap.sql
-    assert "fl_sugar_max" not in cap.params
+    assert "fl_added_sugar_max" not in cap.params

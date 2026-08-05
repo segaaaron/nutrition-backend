@@ -22,7 +22,7 @@ slot. **Hard** rules (no soft fallback), except region (see 1):
   4. Condition-specific gates (per spec §6 / ADR-0001). In-scope conditions
      only (owner decision 2026-07-09 — NOVA is a general nutrition app, not a
      medical tool):
-       fatty_liver → sugar_g ≤ 8 AND sat_fat_g ≤ 5 AND fiber_g ≥ 3
+       fatty_liver → added_sugar_g ≤ 8 AND sat_fat_g ≤ 5 AND fiber_g ≥ 3
        pregnancy   → pregnancy_safe = TRUE
        lactation   → pregnancy_safe = TRUE
   5. Meal-time match.

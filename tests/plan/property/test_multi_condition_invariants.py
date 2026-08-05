@@ -5,7 +5,7 @@ eligibility composes a SQL WHERE clause purely from registered
 `ConditionGate` strategies in `app/plan/domain/condition_gates/`. Since the
 2026-07-09 scope reduction there are exactly three in-scope conditions:
 
-  fatty_liver → sugar_g ≤ 8 AND sat_fat_g ≤ 5 AND fiber_g ≥ 3
+  fatty_liver → added_sugar_g ≤ 8 AND sat_fat_g ≤ 5 AND fiber_g ≥ 3
   pregnancy   → pregnancy_safe = TRUE
   lactation   → pregnancy_safe = TRUE
 
@@ -40,7 +40,7 @@ _CONDITIONS = (
 
 # Per-condition tokens that MUST appear in the composed gate SQL / params.
 _EXPECTED_GATE_TOKENS: dict[str, list[str]] = {
-    "fatty_liver": ["fl_sugar_max", "fl_satfat_max", "fl_fiber_min"],
+    "fatty_liver": ["fl_added_sugar_max", "fl_satfat_max", "fl_fiber_min"],
     "pregnancy": ["pregnancy_safe"],
     "lactation": ["pregnancy_safe"],
 }
@@ -126,11 +126,11 @@ def test_hard_caps_per_condition_present_in_composite(
 
     if "fatty_liver" in frozen:
         # R6 fail-closed on sugar_g and sat_fat_g; fiber is bias-admit (NULL OR >=).
-        assert "r.sugar_g IS NOT NULL AND r.sugar_g <= :fl_sugar_max" in sql_blob
+        assert "r.added_sugar_g IS NOT NULL AND r.added_sugar_g <= :fl_added_sugar_max" in sql_blob
         assert "r.sat_fat_g IS NOT NULL AND r.sat_fat_g <= :fl_satfat_max" in sql_blob
         assert "r.fiber_g IS NULL OR r.fiber_g >= :fl_fiber_min" in sql_blob
         assert "COALESCE(r.fiber_g, 0)" not in sql_blob
-        assert params["fl_sugar_max"] == 8
+        assert params["fl_added_sugar_max"] == 8
         assert params["fl_satfat_max"] == 5
         assert params["fl_fiber_min"] == 3
     if "pregnancy" in frozen or "lactation" in frozen:
@@ -193,7 +193,7 @@ def test_named_multi_condition_combo_emits_required_gates(
     where, params = _compose_gate_fragments(combo)
     sql_blob = " ".join(where)
     if "fatty_liver" in combo:
-        assert "fl_sugar_max" in params
+        assert "fl_added_sugar_max" in params
         assert "fl_satfat_max" in params
         assert "fl_fiber_min" in params
     if "pregnancy" in combo or "lactation" in combo:

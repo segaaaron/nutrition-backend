@@ -30,9 +30,39 @@ def test_gate_registered_for_fatty_liver() -> None:
 def test_sql_fragment_includes_sugar_fail_closed() -> None:
     sql, params = FattyLiverGate().contribute_sql()
     # AASLD 2023 — added/free sugars <25 g/day → ≤8 g/meal.
-    assert "r.sugar_g IS NOT NULL" in sql
-    assert "r.sugar_g <= :fl_sugar_max" in sql
-    assert params["fl_sugar_max"] == 8
+    assert "r.added_sugar_g IS NOT NULL" in sql
+    assert "r.added_sugar_g <= :fl_added_sugar_max" in sql
+    assert params["fl_added_sugar_max"] == 8
+
+
+def test_gate_uses_added_sugar_not_total_sugar() -> None:
+    """The 8 g threshold is a FREE-sugar figure (WHO 2015 / AASLD 2023).
+
+    Filtering it against `sugar_g` — which stores TOTAL sugars — rejected
+    yogurt-oat-fruit breakfasts whose sugar is entirely intrinsic, exactly the
+    dishes NAFLD guidance recommends. Total sugar is handled as a Layer 3
+    ranking penalty instead. Regression fence for the 2026-08-04 correction.
+    """
+    sql, params = FattyLiverGate().contribute_sql()
+    assert "r.added_sugar_g <= :fl_added_sugar_max" in sql
+    assert params["fl_added_sugar_max"] == 8
+    # The 8 g cap must never be applied to total sugar again.
+    assert "r.sugar_g <= :fl_added_sugar_max" not in sql
+    assert "fl_sugar_max" not in params
+
+
+def test_total_sugar_ceiling_is_a_separate_fructose_dose_limit() -> None:
+    """Total sugar still has a ceiling, but a much higher one and for a
+    different reason: a 57 g blended-fruit smoothie delivers a fructose dose in
+    the sugar-sweetened-beverage range regardless of its source (Jensen 2018).
+    Bias-admit on NULL, matching the sodium clause."""
+    sql, params = FattyLiverGate().contribute_sql()
+    assert "(r.sugar_g IS NULL OR r.sugar_g <= :fl_total_sugar_max)" in sql
+    assert params["fl_total_sugar_max"] == 30
+    assert params["fl_total_sugar_max"] > params["fl_added_sugar_max"], (
+        "the total-sugar ceiling must be looser than the free-sugar cap, or the "
+        "whole-fruit correction is undone"
+    )
 
 
 def test_sql_fragment_includes_satfat_fail_closed() -> None:

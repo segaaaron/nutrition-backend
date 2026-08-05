@@ -92,8 +92,10 @@ async def _run(profile: dict[str, Any]) -> _CapturedSQL:
 
 # ---------------------------------------------------------------------------
 # Fail-closed filters — fragments come from the registry gates. The
-# fatty_liver gate flips sugar_g / sat_fat_g to IS NOT NULL (R6): a catalog
-# row missing either safety-critical macro is excluded, never admitted.
+# fatty_liver gate flips added_sugar_g / sat_fat_g to IS NOT NULL (R6): a
+# catalog row missing either safety-critical macro is excluded, never admitted.
+# The separate total-sugar ceiling IS bias-admit — it is a fructose-dose limit,
+# not a free-sugar safety floor, and NULL total sugar must not shrink the pool.
 # ---------------------------------------------------------------------------
 
 
@@ -101,9 +103,14 @@ async def _run(profile: dict[str, Any]) -> _CapturedSQL:
 async def test_fatty_liver_sugar_filter_excludes_nulls() -> None:
     # FattyLiverGate contributes this fragment via registry.
     cap = await _run(_PROFILE_FATTY_LIVER)
-    assert "r.sugar_g IS NOT NULL AND r.sugar_g <= :fl_sugar_max" in cap.sql, cap.sql
-    assert "r.sugar_g IS NULL OR r.sugar_g <= " not in cap.sql
-    assert cap.params.get("fl_sugar_max") == 8
+    assert "r.added_sugar_g IS NOT NULL AND r.added_sugar_g <= :fl_added_sugar_max" in cap.sql, cap.sql
+    # The FREE-sugar filter is fail-closed: NULL added_sugar_g is excluded, and
+    # must never be relaxed into a bias-admit form.
+    assert "r.added_sugar_g IS NULL OR r.added_sugar_g <= " not in cap.sql
+    assert cap.params.get("fl_added_sugar_max") == 8
+    # The TOTAL-sugar clause is deliberately bias-admit (fructose-dose ceiling).
+    assert "(r.sugar_g IS NULL OR r.sugar_g <= :fl_total_sugar_max)" in cap.sql
+    assert cap.params.get("fl_total_sugar_max") == 30
 
 
 @pytest.mark.asyncio
@@ -118,7 +125,7 @@ async def test_fatty_liver_satfat_filter_excludes_nulls() -> None:
 async def test_fatty_liver_gate_sugar_satfat_fail_closed() -> None:
     cap = await _run(_PROFILE_FATTY_LIVER)
     # From FattyLiverGate.contribute_sql — sugar/sat_fat are IS NOT NULL.
-    assert "r.sugar_g IS NOT NULL AND r.sugar_g <= :fl_sugar_max" in cap.sql, cap.sql
+    assert "r.added_sugar_g IS NOT NULL AND r.added_sugar_g <= :fl_added_sugar_max" in cap.sql, cap.sql
     assert "r.sat_fat_g IS NOT NULL AND r.sat_fat_g <= :fl_satfat_max" in cap.sql, cap.sql
     # Safety-critical macros must never be admitted via COALESCE-to-zero.
     assert "COALESCE(r.sugar_g, 0)" not in cap.sql

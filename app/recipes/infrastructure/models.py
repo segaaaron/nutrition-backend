@@ -108,6 +108,10 @@ class RecipeModel(Base):
     # silently pass "<= max" safety gates. See condition_gates fail-closed.
     fiber_g: Mapped[int | None] = mapped_column(Integer, nullable=True)
     sugar_g: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Free sugars only (migration 0037). FattyLiverGate filters on this,
+    # not on sugar_g: its 8 g threshold is a WHO/AASLD free-sugar figure
+    # that whole-fruit sugar was never meant to count against.
+    added_sugar_g: Mapped[int | None] = mapped_column(Integer, nullable=True)
     sodium_mg: Mapped[int | None] = mapped_column(Integer, nullable=True)
     sat_fat_g: Mapped[int | None] = mapped_column(Integer, nullable=True)
     tags: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
