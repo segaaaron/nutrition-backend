@@ -45,3 +45,5 @@ class NutritionalGoalsModel(Base):
     valid_from: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     valid_to: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    fiber_target_g: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    sodium_target_mg: Mapped[int] = mapped_column(Integer, default=2000, server_default="2000")

@@ -70,6 +70,8 @@ def _to_resp(g: NutritionalGoals, wi: WeightInsights | None = None) -> GoalsResp
         reason=g.reason,
         valid_from=g.valid_from,
         valid_to=g.valid_to,
+        fiber_target_g=g.fiber_target_g,
+        sodium_target_mg=g.sodium_target_mg,
         weight_insights=_weight_insights_out(wi),
     )
 

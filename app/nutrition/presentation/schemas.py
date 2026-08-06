@@ -78,4 +78,9 @@ class GoalsResponse(_Strict):
     reason: str
     valid_from: datetime
     valid_to: datetime | None
+    # Dietary targets for app progress bars.
+    # fiber: 14 g / 1,000 kcal (Dietary Guidelines 2020-2025).
+    # sodium: 2,000 mg/day general population (WHO 2023).
+    fiber_target_g: int = 0
+    sodium_target_mg: int = 2000
     weight_insights: WeightInsightsOut | None = None  # None when biometrics unavailable

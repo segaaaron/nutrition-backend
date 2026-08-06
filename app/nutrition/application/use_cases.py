@@ -21,6 +21,7 @@ from app.core.errors import BusinessRuleViolation, NotFoundError
 from app.core.event_bus import EventBus
 from app.core.logging import get_logger
 from app.nutrition.domain.errors import BmrSafetyFloorViolated
+from app.nutrition.domain.ideal_weight import compute_bmi, compute_peterson_ideal
 from app.nutrition.domain.kcal_range import to_range
 from app.nutrition.domain.macro_partitioning import compute_macros
 from app.nutrition.domain.mifflin_st_jeor import compute_bmr
@@ -162,6 +163,28 @@ def _adjust_and_enforce_floor(
 
 
 _DEFAULT_WEIGHT_KG_FALLBACK: Decimal = Decimal("70")
+_BMI_OBESITY_THRESHOLD: Decimal = Decimal("30")
+
+
+def _protein_weight(weight_kg: Decimal, height_cm: Decimal) -> Decimal:
+    """Adjusted body weight for protein target when BMI ≥ 30.
+
+    Using real weight overestimates protein needs in obesity because adipose
+    tissue is metabolically less active than lean mass. The Hamwi/adjusted-BW
+    formula (ADA Pocket Guide 2017) corrects this:
+        PA = PI + 0.25 × (real − PI)
+    where PI = Peterson (2016) ideal weight at BMI 22 (best validated point
+    estimate on NHANES: Am J Clin Nutr 2016, doi:10.3945/ajcn.115.121178).
+
+    Returns real weight unchanged when BMI < 30 — no adjustment needed.
+    """
+    w = weight_kg if isinstance(weight_kg, Decimal) else Decimal(str(weight_kg))
+    h = height_cm if isinstance(height_cm, Decimal) else Decimal(str(height_cm))
+    bmi = compute_bmi(weight_kg=w, height_cm=h)
+    if bmi < _BMI_OBESITY_THRESHOLD:
+        return w
+    pi = compute_peterson_ideal(height_cm=h)
+    return pi + Decimal("0.25") * (w - pi)
 
 
 def _compute_water_target_ml(
@@ -242,7 +265,12 @@ def _build_goals(
         is_exclusively_breastfeeding=is_exclusively_breastfeeding,
     )
     _bmr_safety_warn(user_id=user_id, kcal_target=kcal_target, bmr=bmr)
-    macros = compute_macros(kcal_target=kcal_target, weight_kg=weight_kg, goal=goal)  # type: ignore[arg-type]
+    # Protein calculation uses adjusted body weight when BMI ≥ 30.
+    # Adipose tissue is metabolically inert; using real weight overestimates
+    # protein by 30-50% in severe obesity, making the target unachievable with
+    # real food. ADA Pocket Guide 2017 adjusted-BW formula via _protein_weight().
+    pw = _protein_weight(weight_kg, height_cm)
+    macros = compute_macros(kcal_target=kcal_target, weight_kg=pw, goal=goal)  # type: ignore[arg-type]
     krange = to_range(kcal_target)
     # NOVA hydration v2 — `calculate_water_target` honours kcal load, climate,
     # pregnancy / lactation, and the CKD/CHF medical override (≤1500 ml).
@@ -256,6 +284,8 @@ def _build_goals(
         pregnant=pregnant,
         lactating=lactating,
     )
+    # Dietary targets for app progress bars (Dietary Guidelines 2020-2025 / WHO 2023).
+    fiber_target_g = max(1, int(round(kcal_target / 1000 * 14)))
     return NutritionalGoals.new(
         user_id=user_id,
         kcal_min=krange.min,
@@ -269,6 +299,8 @@ def _build_goals(
         activity_factor=af,
         reason=reason,  # type: ignore[arg-type]
         valid_from=_now(),
+        fiber_target_g=fiber_target_g,
+        sodium_target_mg=2000,
     )
 
 
@@ -375,8 +407,9 @@ class RecalibrateGoals:
             trimester=bio.get("trimester"),
             is_exclusively_breastfeeding=bio.get("is_exclusively_breastfeeding"),
         )
+        pw = _protein_weight(bio["weight_kg"], bio["height_cm"])
         macros = compute_macros(
-            kcal_target=kcal_target, weight_kg=bio["weight_kg"], goal=bio["goal"]
+            kcal_target=kcal_target, weight_kg=pw, goal=bio["goal"]
         )
         krange = to_range(kcal_target)
         # NOVA hydration v2 — `calculate_water_target` honours kcal load,
@@ -391,7 +424,7 @@ class RecalibrateGoals:
             pregnant=bool(bio.get("pregnant")),
             lactating=bool(bio.get("lactating")),
         )
-
+        fiber_target_g = max(1, int(round(kcal_target / 1000 * 14)))
         new_goals = NutritionalGoals.new(
             user_id=user_id,
             kcal_min=krange.min,
@@ -405,6 +438,8 @@ class RecalibrateGoals:
             activity_factor=af,
             reason=result.reason,
             valid_from=_now(),
+            fiber_target_g=fiber_target_g,
+            sodium_target_mg=2000,
         )
         try:
             await self.goals_repo.expire_current_and_insert(user_id, new_goals)

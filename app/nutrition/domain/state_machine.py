@@ -32,6 +32,11 @@ class NutritionalGoals:
     reason: Reason
     valid_from: datetime
     valid_to: datetime | None = None
+    # Dietary targets surfaced to the app for progress bars.
+    # fiber: 14 g / 1,000 kcal (Dietary Guidelines 2020-2025).
+    # sodium: 2,000 mg/day general population (WHO 2023).
+    fiber_target_g: int = 0
+    sodium_target_mg: int = 2000
 
     @classmethod
     def new(
@@ -49,6 +54,8 @@ class NutritionalGoals:
         activity_factor: Decimal,
         reason: Reason,
         valid_from: datetime,
+        fiber_target_g: int = 0,
+        sodium_target_mg: int = 2000,
     ) -> NutritionalGoals:
         if kcal_max - kcal_min != 200:
             raise ValueError("kcal_max - kcal_min must equal 200")
@@ -67,4 +74,6 @@ class NutritionalGoals:
             reason=reason,
             valid_from=valid_from,
             valid_to=None,
+            fiber_target_g=fiber_target_g,
+            sodium_target_mg=sodium_target_mg,
         )

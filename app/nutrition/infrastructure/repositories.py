@@ -29,6 +29,8 @@ def _from_model(m: NutritionalGoalsModel) -> NutritionalGoals:
         reason=m.reason,  # type: ignore[arg-type]
         valid_from=m.valid_from,
         valid_to=m.valid_to,
+        fiber_target_g=m.fiber_target_g,
+        sodium_target_mg=m.sodium_target_mg,
     )
 
 
@@ -109,6 +111,8 @@ class SqlNutritionalGoalsRepository:
             valid_from=new_goals.valid_from,
             valid_to=None,
             created_at=now,
+            fiber_target_g=new_goals.fiber_target_g,
+            sodium_target_mg=new_goals.sodium_target_mg,
         )
         self.s.add(m)
         await self.s.flush()
