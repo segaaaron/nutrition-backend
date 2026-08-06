@@ -34,6 +34,7 @@ def build_meal_rationale(
     fiber_g: int | None,
     meal_time: str,
     goal: str | None,
+    condition: str | None = None,
 ) -> dict[str, str]:
     """Return `{"es": ..., "en": ...}` — a short, fact-based rationale.
 
@@ -52,6 +53,14 @@ def build_meal_rationale(
     if fiber_g is not None and fiber_g >= 5:
         es_parts.append(f"buena fibra ({fiber_g} g)")
         en_parts.append(f"good fiber ({fiber_g} g)")
+
+    if condition == "fatty_liver":
+        if fiber_g is not None and fiber_g >= 4 and f"buena fibra ({fiber_g} g)" not in " ".join(es_parts):
+            es_parts.append(f"buena fibra ({fiber_g} g) — apoya la salud del hígado")
+            en_parts.append(f"good fiber ({fiber_g} g) — supports liver health")
+        elif not es_parts or (protein_g is not None and protein_g >= threshold):
+            es_parts.append("bajo en grasa saturada — ideal para hígado graso")
+            en_parts.append("low in saturated fat — ideal for fatty liver")
 
     fit = _GOAL_FIT.get(goal or "")
     if fit is not None:

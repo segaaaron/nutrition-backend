@@ -529,9 +529,17 @@ def _to_resp(
                 kcal_actual=d.kcal_actual,
                 within_band=d.within_band,
                 breakfast=_slot(d.meals, "breakfast", tr, locale, goal=p.goal),
+                morning_snack=_slot(d.meals, "morning_snack", tr, locale, goal=p.goal),
                 lunch=_slot(d.meals, "lunch", tr, locale, goal=p.goal),
+                afternoon_snack=_slot(d.meals, "afternoon_snack", tr, locale, goal=p.goal),
                 dinner=_slot(d.meals, "dinner", tr, locale, goal=p.goal),
                 snack=_slot(d.meals, "snack", tr, locale, goal=p.goal),
+                protein_actual=sum(m.protein_g or 0 for m in d.meals),
+                fiber_daily=sum(
+                    int(round((tr[m.recipe_id].fiber_g or 0) * (m.scaled_factor or 1.0)))
+                    for m in d.meals
+                    if m.recipe_id is not None and m.recipe_id in tr
+                ),
             )
             for d in p.days
         ],

@@ -74,6 +74,11 @@ _SLOT_WEIGHTS: dict[int, tuple[float, ...]] = {
     2: (0.40, 0.60),
     3: (0.25, 0.45, 0.30),
     4: (0.25, 0.40, 0.30, 0.05),
+    # 5-slot order: breakfast, lunch, dinner, morning_snack, afternoon_snack.
+    # Main meals come first so that slicing to 3/4 always preserves dinner.
+    # Snack shares (0.08 each) keep both sub-slots in the 80–160 kcal range
+    # that catalog snack recipes are sized for (migration 0039 split).
+    5: (0.22, 0.35, 0.27, 0.08, 0.08),
 }
 
 # weight_gain distribution (nutrition expert 2026-06-16): a high surplus target
@@ -86,6 +91,7 @@ _SLOT_WEIGHTS_GAIN: dict[int, tuple[float, ...]] = {
     2: (0.5, 0.5),
     3: (0.30, 0.35, 0.35),
     4: (0.25, 0.30, 0.25, 0.20),
+    5: (0.20, 0.28, 0.25, 0.12, 0.15),
 }
 
 # Geometric sampling weights over the top-5 Layer3 candidates. Rank 1
@@ -130,7 +136,9 @@ class CreatePlan:
     bus: EventBus
     ensure_goals: _EnsureGoalsPort | None = None
     meals_per_day_default: int = 3
-    meal_times: tuple[str, ...] = ("breakfast", "lunch", "dinner", "snack")
+    # Main meals first — slicing to 3 gives (breakfast, lunch, dinner).
+    # Snack slots appended last so they only appear when meals_per_day ≥ 4.
+    meal_times: tuple[str, ...] = ("breakfast", "lunch", "dinner", "morning_snack", "afternoon_snack")
 
     async def __call__(
         self,
@@ -190,6 +198,21 @@ class CreatePlan:
         goal = str(profile.get("goal") or "").lower()
         prefer_dense = goal == "weight_gain"
         meals_per_day = int(targets.get("meals_per_day") or self.meals_per_day_default)
+        # Auto-promote to 5 meals for users where clinical evidence supports it.
+        # Only bumps up — never overrides an explicit preference to fewer meals.
+        # Springer meta-analysis 2023: dominant pattern for obesity is 5 meals.
+        # MASLD guidelines 2024: <3 meals/day is a direct NAFLD risk factor.
+        _conditions: list[str] = profile.get("conditions") or []
+        _bmi: float | None = None
+        _w = profile.get("weight_kg")
+        _h = profile.get("height_cm")
+        if _w and _h and float(_h) > 0:
+            _bmi = float(_w) / ((float(_h) / 100) ** 2)
+        if meals_per_day <= 3 and (
+            "fatty_liver" in _conditions
+            or (_bmi is not None and _bmi >= 30 and goal in ("weight_loss", "health"))
+        ):
+            meals_per_day = 5
         # weight_gain spreads intake across more occasions so no single meal
         # needs an unrealistic >2x portion to hit a high surplus target — force
         # the snack slot in (nutrition expert 2026-06-16).

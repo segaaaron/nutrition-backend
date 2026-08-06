@@ -18,7 +18,7 @@ class _Strict(BaseModel):
 
 PlanType = Literal["day", "week", "month"]
 PlanStatus = Literal["active", "completed", "cancelled"]
-MealTime = Literal["breakfast", "lunch", "dinner", "snack"]
+MealTime = Literal["breakfast", "lunch", "dinner", "snack", "morning_snack", "afternoon_snack"]
 
 # Preference tag: max 64 chars each, max 20 tags per request.
 _PrefItem = Annotated[str, Field(min_length=1, max_length=64)]
@@ -127,12 +127,17 @@ class PlanDayResponse(_Strict):
     date: date
     completed: bool
     breakfast: PlanMealResponse | None = None
+    morning_snack: PlanMealResponse | None = None
     lunch: PlanMealResponse | None = None
+    afternoon_snack: PlanMealResponse | None = None
     dinner: PlanMealResponse | None = None
     snack: PlanMealResponse | None = None
     # Actual kcal delivered after portion scaling. ±20% of daily target = within_band.
     kcal_actual: int | None = None
     within_band: bool | None = None
+    # Daily protein and fiber totals — computed from scaled meal values.
+    protein_actual: int | None = None
+    fiber_daily: int | None = None
 
 
 class WaterSlotResponse(_Strict):
