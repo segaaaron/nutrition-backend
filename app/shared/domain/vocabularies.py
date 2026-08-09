@@ -74,14 +74,17 @@ GOALS_5: Final[frozenset[str]] = frozenset(
     }
 )
 
-MEAL_TIMES_4: Final[frozenset[str]] = frozenset(
+MEAL_TIMES: Final[frozenset[str]] = frozenset(
     {
         "breakfast",
         "lunch",
         "dinner",
         "snack",
+        "morning_snack",
+        "afternoon_snack",
     }
 )
+MEAL_TIMES_4 = MEAL_TIMES  # backward-compat alias — name was wrong (4 vs 6 slots)
 
 ACTIVITY_LEVELS_5: Final[frozenset[str]] = frozenset(
     {

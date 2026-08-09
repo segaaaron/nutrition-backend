@@ -449,6 +449,8 @@ _BREAKFAST_GROUP_CEIL_G: Final[dict[str, int]] = {
 
 SLOT_PORTION_CEIL_G: Final[dict[str, dict[str, int]]] = {
     "snack": _SNACK_GROUP_CEIL_G,
+    "morning_snack": _SNACK_GROUP_CEIL_G,
+    "afternoon_snack": _SNACK_GROUP_CEIL_G,
     "breakfast": _BREAKFAST_GROUP_CEIL_G,
     "lunch": FOOD_GROUP_PORTION_CEIL_G,
     "dinner": FOOD_GROUP_PORTION_CEIL_G,
@@ -700,10 +702,12 @@ def _item_range(it: DetectedFoodItem) -> tuple[int, int]:
 
 
 SLOT_KCAL_MAX: Final[dict[str, int]] = {
-    "snack": 260,       # handheld snack — physiologically caps at ~250 kcal
-    "breakfast": 800,   # generous breakfast ceiling
-    "lunch": 1100,      # main meal, large plate allowed
-    "dinner": 1000,     # main meal
+    "snack": 260,
+    "morning_snack": 200,   # morning snack is lighter than afternoon
+    "afternoon_snack": 220,
+    "breakfast": 800,
+    "lunch": 1100,
+    "dinner": 1000,
 }
 
 

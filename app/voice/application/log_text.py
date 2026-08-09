@@ -38,7 +38,7 @@ class LogFoodText:
         self,
         *,
         user_id: UUID,
-        meal_time: Literal["breakfast", "lunch", "dinner", "snack"],
+        meal_time: Literal["breakfast", "lunch", "dinner", "snack", "morning_snack", "afternoon_snack"],
         raw_text: str,
         method: Literal["text", "voice"] = "text",
         locale: str = "es",

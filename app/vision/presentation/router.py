@@ -13,18 +13,24 @@ short-circuits replay attacks.
 
 from __future__ import annotations
 
+import asyncio
+import json
+import time
+from collections.abc import AsyncGenerator
 from datetime import datetime, timezone  # noqa: F401 — re-exported for tests
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from arq.connections import ArqRedis, create_pool
 from fastapi import APIRouter, File, Form, Header, Response, UploadFile, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import text
 
 from app.core.config import get_settings
 from app.core.errors import ValidationError
 from app.core.event_bus import get_event_bus
 from app.core.logging import get_logger
+from app.core.redis import get_redis
 from app.identity.presentation.dependencies import CurrentUserDep, SessionDep, assert_owns
 from app.imaging.infrastructure.vips_compressor import VipsImageCompressor
 from app.shared.i18n.fastapi_dep import LocaleDep
@@ -48,6 +54,17 @@ router = APIRouter(tags=["vision"])
 _log = get_logger("vision.router")
 
 _arq_pool: ArqRedis | None = None
+
+_SSE_TIMEOUT = 120  # seconds before the stream closes with a timeout event
+_SSE_HEARTBEAT = 15  # seconds between heartbeat events while job is pending
+
+
+async def _pubsub_next(pubsub) -> dict:  # type: ignore[type-arg]
+    """Block until the next real pubsub message arrives (non-subscribe type)."""
+    while True:
+        msg = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+        if msg is not None:
+            return msg
 
 
 async def _get_arq() -> ArqRedis:
@@ -82,7 +99,7 @@ async def submit_food_photo(  # noqa: PLR0913 — FastAPI endpoint signature: de
     current_user: CurrentUserDep,
     session: SessionDep,
     image: Annotated[UploadFile, File(description="meal photo, max 8MB")],
-    meal_time: Annotated[Literal["breakfast", "lunch", "dinner", "snack"], Form()] = "lunch",
+    meal_time: Annotated[Literal["breakfast", "lunch", "dinner", "snack", "morning_snack", "afternoon_snack"], Form()] = "lunch",
     locale: Annotated[str, Form()] = "en",
     region: Annotated[str, Form()] = "us",
     note: Annotated[
@@ -127,7 +144,7 @@ async def ai_recognize_alias(
     current_user: CurrentUserDep,
     session: SessionDep,
     image: Annotated[UploadFile, File()],
-    meal_time: Annotated[Literal["breakfast", "lunch", "dinner", "snack"], Form()] = "lunch",
+    meal_time: Annotated[Literal["breakfast", "lunch", "dinner", "snack", "morning_snack", "afternoon_snack"], Form()] = "lunch",
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> SubmitPhotoResponse:
     return await submit_food_photo(
@@ -248,6 +265,86 @@ async def get_job_status(
         error_code=job.error_code,
         created_at=job.created_at,
         completed_at=job.completed_at,
+    )
+
+
+@router.get(
+    "/logs/food/jobs/{job_id}/stream",
+    summary="Stream vision job result via SSE (replaces polling)",
+    response_class=StreamingResponse,
+)
+async def stream_job_status(
+    job_id: UUID,
+    current_user: CurrentUserDep,
+    session: SessionDep,
+) -> StreamingResponse:
+    """Server-Sent Events stream for a vision job.
+
+    Events:
+      heartbeat     — emitted every 15 s while the job is still pending
+      vision_update — emitted when the job reaches a terminal status; connection closes
+      timeout       — emitted after 120 s with no terminal event; client should poll
+      error         — emitted when the Redis pubsub subscription fails; client should poll
+
+    The StreamingResponse has Content-Type: text/event-stream, which causes
+    ResponseEnvelopeMiddleware to skip wrapping automatically (non-JSON content type).
+    """
+    uc = GetJobStatus(repo=SqlVisionJobRepository(session))
+    job = await uc(job_id=job_id, user_id=current_user)
+
+    async def _generate() -> AsyncGenerator[str, None]:
+        if job.status in ("completed", "failed", "cancelled"):
+            payload = json.dumps(
+                {"job_id": str(job.id), "status": job.status, "n_items": len(job.detected_items)},
+                default=str,
+            )
+            yield f"event: vision_update\ndata: {payload}\n\n"
+            return
+
+        redis = get_redis()
+        pubsub = redis.pubsub()
+        channel = f"user:{current_user}:vision"
+        try:
+            await pubsub.subscribe(channel)
+        except Exception:  # noqa: BLE001 — OK4: Redis unavailable; client degrades to polling
+            yield 'event: error\ndata: {"code":"stream_unavailable"}\n\n'
+            return
+
+        deadline = time.monotonic() + _SSE_TIMEOUT
+        try:
+            while time.monotonic() < deadline:
+                remaining = deadline - time.monotonic()
+                wait = min(remaining, float(_SSE_HEARTBEAT))
+                try:
+                    msg = await asyncio.wait_for(_pubsub_next(pubsub), timeout=wait)
+                except asyncio.TimeoutError:
+                    yield "event: heartbeat\ndata: {}\n\n"
+                    continue
+
+                try:
+                    data = json.loads(msg["data"])
+                except Exception:  # noqa: BLE001 — OK4: malformed pubsub payload; skip and keep listening
+                    continue
+
+                if str(data.get("job_id")) != str(job_id):
+                    continue
+
+                yield f"event: vision_update\ndata: {json.dumps(data, default=str)}\n\n"
+                if data.get("status") in ("completed", "failed", "cancelled"):
+                    return
+
+            yield "event: timeout\ndata: {}\n\n"
+        finally:
+            try:
+                await pubsub.unsubscribe(channel)
+                await pubsub.aclose()
+            except Exception:  # noqa: BLE001 — OK7: cleanup; ignore close errors
+                pass
+
+    return StreamingResponse(
+        _generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 

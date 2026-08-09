@@ -6,7 +6,7 @@ from typing import Literal
 
 PlanType = Literal["day", "week", "month"]
 PlanStatus = Literal["active", "completed", "cancelled"]
-MealTime = Literal["breakfast", "lunch", "dinner", "snack"]
+MealTime = Literal["breakfast", "lunch", "dinner", "snack", "morning_snack", "afternoon_snack"]
 Difficulty = Literal["easy", "medium", "hard"]
 
 # Spec §6 preferences (closed vocabulary).

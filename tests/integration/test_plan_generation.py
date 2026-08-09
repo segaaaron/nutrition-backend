@@ -215,7 +215,7 @@ async def test_create_plan_happy_path() -> None:
 
 @pytest.mark.anyio
 async def test_create_plan_weight_gain_forces_4_slots() -> None:
-    """weight_gain goal forces snack slot in → ≥4 meals/day."""
+    """weight_gain goal forces ≥4 meals/day (morning_snack in 5-slot system)."""
     use_case, repo, bus = _make_create_plan(goal="weight_gain")
     user_id = uuid4()
 
@@ -224,7 +224,8 @@ async def test_create_plan_weight_gain_forces_4_slots() -> None:
     assert plan.meals_per_day >= 4
     day = plan.days[0]
     meal_times = {m.meal_time for m in day.meals}
-    assert "snack" in meal_times, "weight_gain must include snack slot"
+    _snack_slots = {"snack", "morning_snack", "afternoon_snack"}
+    assert meal_times & _snack_slots, "weight_gain must include at least one snack slot"
 
 
 @pytest.mark.anyio

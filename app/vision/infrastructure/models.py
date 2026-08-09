@@ -24,7 +24,8 @@ from app.identity.infrastructure.models import Base
 # vision_job_status_enum (migration 0002). `create_type=False` mandatory
 # to avoid asyncpg DatatypeMismatchError on INSERT.
 _MEAL_TIME_ENUM = PG_ENUM(
-    "breakfast", "lunch", "dinner", "snack", name="meal_time_enum", create_type=False
+    "breakfast", "lunch", "dinner", "snack", "morning_snack", "afternoon_snack",
+    name="meal_time_enum", create_type=False
 )
 _VISION_JOB_STATUS_ENUM = PG_ENUM(
     "queued",

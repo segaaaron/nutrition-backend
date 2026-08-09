@@ -36,6 +36,6 @@ class FoodLogged(DomainEvent):
     """Stub — implemented in Sprint 5 alongside the Vision IA bounded context."""
 
     user_id: UUID
-    meal_time: Literal["breakfast", "lunch", "dinner", "snack"]
+    meal_time: Literal["breakfast", "lunch", "dinner", "snack", "morning_snack", "afternoon_snack"]
     kcal: int
     at: datetime

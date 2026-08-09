@@ -133,7 +133,7 @@ async def view_today_plan(user_id: UUID, session: AsyncSession, locale: Locale) 
           JOIN plans p ON p.id = pd.plan_id
           LEFT JOIN recipes r ON r.id = pm.recipe_id
          WHERE p.user_id = :uid AND p.status = 'active' AND pd.date = :d
-         ORDER BY array_position(ARRAY['breakfast','lunch','dinner','snack']::text[], pm.meal_time::text)
+         ORDER BY array_position(ARRAY['breakfast','morning_snack','lunch','afternoon_snack','dinner','snack']::text[], pm.meal_time::text)
     """
             ),
             {"uid": str(user_id), "d": utc_today()},
@@ -161,7 +161,7 @@ async def next_meal(user_id: UUID, session: AsyncSession, locale: Locale) -> str
           LEFT JOIN recipes r ON r.id = pm.recipe_id
          WHERE p.user_id = :uid AND p.status = 'active' AND pd.date = :d
            AND pm.completed = false
-         ORDER BY array_position(ARRAY['breakfast','lunch','dinner','snack']::text[], pm.meal_time::text)
+         ORDER BY array_position(ARRAY['breakfast','morning_snack','lunch','afternoon_snack','dinner','snack']::text[], pm.meal_time::text)
          LIMIT 1
     """
             ),

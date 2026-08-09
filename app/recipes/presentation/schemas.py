@@ -37,7 +37,7 @@ class RecipeResponse(_Strict):
     sodium_mg: int
     sat_fat_g: int
     tags: list[str]
-    meal_time: Literal["breakfast", "lunch", "dinner", "snack"] | None
+    meal_time: Literal["breakfast", "lunch", "dinner", "snack", "morning_snack", "afternoon_snack"] | None
     prep_min: int | None
     instructions: list[str]
     regions: list[str]
@@ -56,7 +56,7 @@ class RecipeListResponse(_Strict):
 
 class RecipeSemanticSearchRequest(_Strict):
     q: str = Field(min_length=1, max_length=200)
-    meal_time: Literal["breakfast", "lunch", "dinner", "snack"] | None = None
+    meal_time: Literal["breakfast", "lunch", "dinner", "snack", "morning_snack", "afternoon_snack"] | None = None
     # Filter lists: max 20 items each, each tag/region string max 64 chars.
     regions: list[Annotated[str, Field(max_length=64)]] = Field(default_factory=list, max_length=20)
     allergens_exclude: list[Annotated[str, Field(max_length=64)]] = Field(default_factory=list, max_length=20)

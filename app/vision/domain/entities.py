@@ -61,7 +61,7 @@ class DetectedFoodItem:
 class VisionJob:
     id: UUID = field(default_factory=uuid4)
     user_id: UUID | None = None
-    meal_time: Literal["breakfast", "lunch", "dinner", "snack"] = "lunch"
+    meal_time: Literal["breakfast", "lunch", "dinner", "snack", "morning_snack", "afternoon_snack"] = "lunch"
     status: VisionJobStatus = "queued"
     image_sha256: str = ""
     image_bytes: int = 0

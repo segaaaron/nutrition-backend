@@ -16,6 +16,8 @@ _PROTEIN_HIGHLIGHT: Final[dict[str, int]] = {
     "lunch": 35,
     "dinner": 30,
     "snack": 12,
+    "morning_snack": 12,
+    "afternoon_snack": 10,
 }
 
 _GOAL_FIT: Final[dict[str, tuple[str, str]]] = {

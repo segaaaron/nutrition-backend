@@ -48,14 +48,14 @@ class TextLogRequest(BaseModel):
     # max_length guards against cost/DoS attacks — a realistic STT transcript
     # of a full meal description is well under 500 chars; 2000 is generous.
     text: str = Field(..., min_length=1, max_length=2000)
-    meal_time: Literal["breakfast", "lunch", "dinner", "snack"] = "lunch"
+    meal_time: Literal["breakfast", "lunch", "dinner", "snack", "morning_snack", "afternoon_snack"] = "lunch"
     locale: Literal["es", "en"] = "es"
 
 
 class ManualLogRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    meal_time: Literal["breakfast", "lunch", "dinner", "snack"]
+    meal_time: Literal["breakfast", "lunch", "dinner", "snack", "morning_snack", "afternoon_snack"]
     food_id: UUID | None = None
     free_text_name: str | None = Field(default=None, max_length=200)
     amount_g: Decimal

@@ -45,7 +45,7 @@ class FoodPhotoLogged(DomainEvent):
     """
 
     user_id: UUID
-    meal_time: Literal["breakfast", "lunch", "dinner", "snack"]
+    meal_time: Literal["breakfast", "lunch", "dinner", "snack", "morning_snack", "afternoon_snack"]
     kcal: int
     food_log_ids: tuple[UUID, ...]
     detected_names: tuple[str, ...]  # for coach hint — never logged

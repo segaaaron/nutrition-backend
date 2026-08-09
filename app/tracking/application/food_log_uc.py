@@ -116,6 +116,8 @@ class GetMacrosTrend:
             "protein_g": round(sum(r["protein_g"] for r in rows) / n, 1),
             "carbs_g": round(sum(r["carbs_g"] for r in rows) / n, 1),
             "fat_g": round(sum(r["fat_g"] for r in rows) / n, 1),
+            "fiber_g": round(sum(r.get("fiber_g", 0) for r in rows) / n, 1),
+            "sugar_g": round(sum(r.get("sugar_g", 0) for r in rows) / n, 1),
         }
         return {"window_days": window_days, "points": rows, "rolling_avg": avg}
 

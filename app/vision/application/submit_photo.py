@@ -66,7 +66,7 @@ class SubmitPhoto:
         self,
         *,
         user_id: UUID,
-        meal_time: Literal["breakfast", "lunch", "dinner", "snack"],
+        meal_time: Literal["breakfast", "lunch", "dinner", "snack", "morning_snack", "afternoon_snack"],
         raw_bytes: bytes,
         mime: str,
         idempotency_key: str | None,

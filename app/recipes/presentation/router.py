@@ -124,7 +124,7 @@ async def list_recipes(
     session: SessionDep,
     locale: LocaleDep,
     q: str | None = Query(default=None, max_length=200),
-    meal_time: Literal["breakfast", "lunch", "dinner", "snack"] | None = None,
+    meal_time: Literal["breakfast", "lunch", "dinner", "snack", "morning_snack", "afternoon_snack"] | None = None,
     region: list[str] = Query(default_factory=list),
     allergen_exclude: list[str] = Query(default_factory=list),
     condition: list[str] = Query(default_factory=list),

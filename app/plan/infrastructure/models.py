@@ -36,7 +36,8 @@ _PLAN_STATUS_ENUM = PG_ENUM(
     "active", "completed", "cancelled", name="plan_status_enum", create_type=False
 )
 _MEAL_TIME_ENUM = PG_ENUM(
-    "breakfast", "lunch", "dinner", "snack", name="meal_time_enum", create_type=False
+    "breakfast", "lunch", "dinner", "snack", "morning_snack", "afternoon_snack",
+    name="meal_time_enum", create_type=False
 )
 
 

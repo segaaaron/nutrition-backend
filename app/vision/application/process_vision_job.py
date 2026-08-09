@@ -70,7 +70,7 @@ log = get_logger("vision.process")
 
 # The four meal slots — single source of truth for the Literal used across the
 # pipeline (submission → recognition → completion event).
-MealTime = Literal["breakfast", "lunch", "dinner", "snack"]
+MealTime = Literal["breakfast", "lunch", "dinner", "snack", "morning_snack", "afternoon_snack"]
 
 _ESCALATE_MIN_ITEM_CONF: float = 0.35
 
@@ -144,7 +144,7 @@ class ProcessVisionJob:
         *,
         job_id: UUID,
         user_id: UUID,
-        meal_time: Literal["breakfast", "lunch", "dinner", "snack"],
+        meal_time: Literal["breakfast", "lunch", "dinner", "snack", "morning_snack", "afternoon_snack"],
         image_bytes: bytes,
         mime: str,
         locale: str,

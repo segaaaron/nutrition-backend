@@ -190,7 +190,7 @@ def _build_user_context_hint(ctx: UserVisionContext) -> str:
             "NUNCA como marisco de mar."
         )
 
-    if ctx.meal_time == "snack":
+    if ctx.meal_time in ("snack", "morning_snack", "afternoon_snack"):
         parts.append(
             "SLOT SNACK — PORCIONES PEQUEÑAS POR ÍTEM: fruta 1 pieza (≤150 g), "
             "yogur ≤180 g, queso ≤30 g, nueces ≤25 g, galletitas ≤5 unidades "
@@ -476,6 +476,8 @@ def _system_prompt(
             "lunch": "500-750 kcal",
             "dinner": "400-650 kcal",
             "snack": "80-220 kcal",
+            "morning_snack": "80-200 kcal",
+            "afternoon_snack": "80-220 kcal",
         }
         kcal_hint = _meal_kcal.get(meal_time, "")
         base += (
@@ -1222,6 +1224,8 @@ class OpenAIVisionProvider:
                 "lunch": "~750 kcal",
                 "dinner": "~650 kcal",
                 "snack": "~220 kcal",
+                "morning_snack": "~200 kcal",
+                "afternoon_snack": "~220 kcal",
             }
             kcal_ceiling = _meal_kcal_ceiling.get(meal_time, "")
             prompt_full += (

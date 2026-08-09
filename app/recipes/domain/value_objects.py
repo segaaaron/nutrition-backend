@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-MealTime = Literal["breakfast", "lunch", "dinner", "snack"]
+MealTime = Literal["breakfast", "lunch", "dinner", "snack", "morning_snack", "afternoon_snack"]
 
 
 @dataclass(frozen=True, slots=True)

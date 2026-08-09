@@ -145,10 +145,18 @@ class SqlFoodLogRepository:
               COALESCE(SUM(fl.protein_g),0)::int AS protein_g,
               COALESCE(SUM(fl.carbs_g),0)::int   AS carbs_g,
               COALESCE(SUM(fl.fat_g),0)::int     AS fat_g,
-              COALESCE(SUM(CASE WHEN f.fiber_g IS NOT NULL
-                                THEN (f.fiber_g * COALESCE(fl.amount_g,100) / 100.0) END),0)::int AS fiber_g,
-              COALESCE(SUM(CASE WHEN f.sugar_g IS NOT NULL
-                                THEN (f.sugar_g * COALESCE(fl.amount_g,100) / 100.0) END),0)::int AS sugar_g,
+              COALESCE(SUM(
+                CASE WHEN f.fiber_g IS NOT NULL
+                     THEN (f.fiber_g * COALESCE(fl.amount_g,100) / 100.0)
+                     ELSE fl.fiber_g
+                END
+              ),0)::int AS fiber_g,
+              COALESCE(SUM(
+                CASE WHEN f.sugar_g IS NOT NULL
+                     THEN (f.sugar_g * COALESCE(fl.amount_g,100) / 100.0)
+                     ELSE fl.sugar_g
+                END
+              ),0)::int AS sugar_g,
               COALESCE(SUM(CASE WHEN f.sodium_mg IS NOT NULL
                                 THEN (f.sodium_mg * COALESCE(fl.amount_g,100) / 100.0) END),0)::int AS sodium_mg
               FROM food_logs fl
@@ -182,7 +190,9 @@ class SqlFoodLogRepository:
                    COALESCE(SUM(kcal),0)::int      AS kcal,
                    COALESCE(SUM(protein_g),0)::int AS protein_g,
                    COALESCE(SUM(carbs_g),0)::int   AS carbs_g,
-                   COALESCE(SUM(fat_g),0)::int     AS fat_g
+                   COALESCE(SUM(fat_g),0)::int     AS fat_g,
+                   COALESCE(SUM(fiber_g),0)::int   AS fiber_g,
+                   COALESCE(SUM(sugar_g),0)::int   AS sugar_g
               FROM food_logs
              WHERE user_id = :uid
                AND date >= CURRENT_DATE - CAST(:n AS int)

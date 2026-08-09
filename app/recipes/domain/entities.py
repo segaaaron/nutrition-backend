@@ -14,7 +14,7 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
-MealTime = Literal["breakfast", "lunch", "dinner", "snack"]
+MealTime = Literal["breakfast", "lunch", "dinner", "snack", "morning_snack", "afternoon_snack"]
 
 
 @dataclass(slots=True)

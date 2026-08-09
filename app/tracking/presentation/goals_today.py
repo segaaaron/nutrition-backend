@@ -102,7 +102,7 @@ async def get_today(current_user: CurrentUserDep, session: SessionDep) -> TodayG
                     """
             SELECT id::text, name_en, kcal, protein_g
               FROM recipes
-             WHERE meal_time = 'snack' AND kcal IS NOT NULL AND kcal <= :kgap
+             WHERE meal_time IN ('snack','morning_snack','afternoon_snack') AND kcal IS NOT NULL AND kcal <= :kgap
              ORDER BY (CASE WHEN kcal>0 THEN protein_g::float / kcal ELSE 0 END) DESC
              LIMIT 3
         """
