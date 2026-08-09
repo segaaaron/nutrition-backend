@@ -372,7 +372,7 @@ def _pool_uc(
 ) -> tuple[CreatePlan, _StubPlans, _Layer1Pool, _Layer2Filter]:
     pool = {
         mt: [uuid4() for _ in range(pool_size)]
-        for mt in ("breakfast", "lunch", "dinner", "snack")
+        for mt in ("breakfast", "lunch", "dinner", "morning_snack", "afternoon_snack")
     }
     plans = _StubPlans()
     layer1 = _Layer1Pool(pool)
@@ -431,7 +431,7 @@ async def test_no_recipe_repeats_across_slots_same_day() -> None:
     # Same pool for every slot → without cross-slot dedup the same top
     # recipe would land in breakfast AND lunch AND dinner.
     shared = [uuid4() for _ in range(40)]
-    pool = {mt: list(shared) for mt in ("breakfast", "lunch", "dinner", "snack")}
+    pool = {mt: list(shared) for mt in ("breakfast", "lunch", "dinner", "morning_snack", "afternoon_snack")}
     plans = _StubPlans()
     ctx = _StubUserContext(targets=_valid_targets(), profile={"locale": "es"})
     uc = CreatePlan(
@@ -485,9 +485,9 @@ async def test_kcal_shares_close_to_daily_target_even_with_5_meals() -> None:
     uc, _, _, layer2 = _pool_uc(targets=targets)
     plan = await uc(user_id=uuid4(), plan_type="day", seed=1)  # type: ignore[arg-type]
 
-    # 5 requested → clamped to the 4 available slots.
-    assert plan.meals_per_day == 4
-    assert len(plan.days[0].meals) == 4
+    # 5 requested → all 5 slots generated (no clamping; 5 slots exist).
+    assert plan.meals_per_day == 5
+    assert len(plan.days[0].meals) == 5
 
     kcal_daily = (targets["kcal_min"] + targets["kcal_max"]) // 2
     shares = {mt: k for mt, k, _ in layer2.share_calls}

@@ -578,8 +578,6 @@ class ProcessVisionJob:
                 "status": "completed",
                 "n_items": len(items),
                 "kcal": plate_totals.kcal,
-                "kcal_min": plate_totals.kcal_min,
-                "kcal_max": plate_totals.kcal_max,
                 "confidence": plate_totals.confidence,
             },
         )

@@ -279,7 +279,9 @@ async def ground_macros_from_db(
                            COALESCE(kcal, 0),
                            COALESCE(protein_g, 0),
                            COALESCE(carbs_g, 0),
-                           COALESCE(fat_g, 0)
+                           COALESCE(fat_g, 0),
+                           COALESCE(fiber_g, 0),
+                           COALESCE(sugar_g, 0)
                       FROM foods
                      WHERE id = ANY(CAST(:ids AS uuid[]))
                     """
@@ -291,8 +293,8 @@ async def ground_macros_from_db(
         log.warning("vision.ground.lookup_failed", err=str(exc))
         return
 
-    per100: dict[str, tuple[int, int, int, int]] = {
-        row[0]: (row[1], row[2], row[3], row[4]) for row in rows
+    per100: dict[str, tuple[int, int, int, int, int, int]] = {
+        row[0]: (row[1], row[2], row[3], row[4], row[5], row[6]) for row in rows
     }
 
     for it in matched:
@@ -326,6 +328,8 @@ async def ground_macros_from_db(
         it.fat_g = _scale(macro[3])
         it.kcal_min = int(round(kcal_db * 0.8))
         it.kcal_max = int(round(kcal_db * 1.2))
+        it.fiber_g = _scale(macro[4])
+        it.sugar_g = _scale(macro[5])
 
 
 # Gross-incoherence guard threshold. USDA/catalog kcal uses food-specific

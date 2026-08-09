@@ -301,7 +301,12 @@ def make_logout(session: SessionDep) -> Logout:
 
 
 def make_oauth(session: SessionDep, provider: str) -> OAuthLogin:
-    verifier = GoogleOAuthVerifier() if provider == "google" else AppleOAuthVerifier()
+    redis = get_redis()
+    verifier = (
+        GoogleOAuthVerifier(redis=redis)
+        if provider == "google"
+        else AppleOAuthVerifier(redis=redis)
+    )
     return OAuthLogin(
         users=SqlUserRepository(session),
         refresh_tokens=SqlRefreshTokenRepository(session),

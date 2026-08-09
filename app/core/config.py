@@ -113,9 +113,6 @@ class Settings(BaseSettings):
     vision_confidence_threshold: float = 0.7
     # Per-user daily cap on photo uploads (HTTP 429 on excess).
     vision_photo_uploads_per_day: int = 9999
-    # Backward-compat alias: if old hourly var is set in .env, it is read here
-    # and checked at startup (see app/core/startup.py or similar) to warn operator.
-    vision_photo_uploads_per_hour: int = 0  # 0 = not set; >0 = operator using old var
     # SHA256 dedup window. Re-uses a previous completed job's items when the
     # same compressed image is submitted by ANY user within the TTL.
     vision_cache_ttl_days: int = 90

@@ -12,6 +12,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID, uuid4
 
+from app.core.config import get_settings
 from app.core.errors import (
     BusinessRuleViolation,
     ConflictError,
@@ -51,8 +52,11 @@ _log = get_logger(__name__)
 OTP_TTL = timedelta(minutes=10)
 OTP_MAX_ATTEMPTS = 5
 OTP_LOCK_DURATION = timedelta(minutes=15)
-REFRESH_TTL = timedelta(days=30)
 DELETION_GRACE = timedelta(days=30)
+
+
+def _refresh_ttl() -> timedelta:
+    return timedelta(seconds=get_settings().jwt_refresh_ttl_seconds)
 
 
 def _now() -> datetime:
@@ -207,7 +211,7 @@ async def _issue_token_pair(
         token_hash=refresh_hash,
         family_id=family,
         parent_id=parent_id,
-        expires_at=now + REFRESH_TTL,
+        expires_at=now + _refresh_ttl(),
         created_at=now,
     )
     await refresh_tokens.add(token)

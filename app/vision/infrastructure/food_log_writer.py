@@ -81,11 +81,13 @@ async def persist_food_logs(
                 """
                 INSERT INTO food_logs (
                     id, user_id, date, meal_time, food_id, free_text_name,
-                    amount_g, kcal, protein_g, carbs_g, fat_g, method,
+                    amount_g, kcal, protein_g, carbs_g, fat_g,
+                    fiber_g, sugar_g, method,
                     confidence, prompt_sha256, created_at
                 ) VALUES (
                     :id, :uid, :d, :mt, :fid, :ftn,
-                    :ag, :kc, :pg, :cg, :fg, 'photo',
+                    :ag, :kc, :pg, :cg, :fg,
+                    :fibg, :sug, 'photo',
                     :conf, :psha, now()
                 )
                 """
@@ -102,6 +104,8 @@ async def persist_food_logs(
                 "pg": it.protein_g,
                 "cg": it.carbs_g,
                 "fg": it.fat_g,
+                "fibg": it.fiber_g,
+                "sug": it.sugar_g,
                 "conf": it.confidence,
                 "psha": prompt_sha,
             },

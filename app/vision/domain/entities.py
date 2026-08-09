@@ -2,7 +2,6 @@
 
 `VisionJob` is the aggregate root for one photo→kcal/macros pipeline run.
 `DetectedFoodItem` is the upstream LLM-emitted item with provenance.
-`VisionResult` is the validated, food-matched output persisted to food_logs.
 """
 
 from __future__ import annotations
@@ -56,15 +55,6 @@ class DetectedFoodItem:
     # BE-5: normalized bounding box (x, y, w, h) in 0..1, origin top-left, so
     # iOS can annotate the photo. None when the model can't locate the item.
     bbox: tuple[float, float, float, float] | None = None
-
-
-@dataclass(slots=True)
-class VisionResult:
-    items: list[DetectedFoodItem]
-    total_kcal: int
-    total_protein_g: int
-    total_carbs_g: int
-    total_fat_g: int
 
 
 @dataclass(slots=True)
