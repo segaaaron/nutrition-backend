@@ -77,10 +77,10 @@ ALLOWED_SESSION_SCOPE: dict[str, str] = {
     "app/gamification/application/event_handlers.py:415": "OK2 event handler (FastingCompleted achievement)",
     "app/gamification/application/event_handlers.py:437": "OK2 event handler (DayCompleted achievement)",
     "app/gamification/application/event_handlers.py:462": "OK2 event handler (WeightLogged)",
-    "app/nutrition/event_handlers.py:64": "OK2 event handler (BiometricsChanged safety net)",
-    "app/nutrition/event_handlers.py:83": "OK2 event handler (WeightLogged recalibration)",
+    "app/nutrition/event_handlers.py:107": "OK2 event handler (BiometricsChanged safety net)",
+    "app/nutrition/event_handlers.py:126": "OK2 event handler (WeightLogged recalibration + T-10/T-12)",
     # OK2 — event handlers spawning their own session (no outer request session).
-    "app/coach/application/features.py:270": "OK2 event handler (coach feature lookup)",
+    "app/coach/application/features.py:365": "OK2 event handler (coach feature lookup)",
     "app/tracking/event_handlers.py:30": "OK2 event handler (tracking best-effort)",
     "app/tracking/event_handlers.py:41": "OK2 event handler (tracking best-effort)",
     # OK3 — worker tasks (arq job entry-points, no outer FastAPI session).

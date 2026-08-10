@@ -70,25 +70,12 @@ def upgrade() -> None:
     # Seed feature flags relevant to Sprint 7+8.
     op.execute("""
         INSERT INTO feature_flags (key, enabled, rollout_pct, description) VALUES
-          ('leaderboard_enabled',           false, 0,
-           'Country-scoped weekly leaderboard. Gated until anti-cheat lands.'),
-          ('coach_proactive_alerts',        true,  100,
-           'Coach pushes proactive nudges (Sprint 6 feature G).'),
-          ('vision_2_tier_optimization',    true,  100,
-           'Vision uses cheap tier first, escalates only on low-confidence.'),
-          ('grocery_share_links',           true,  100,
-           'Grocery list signed-share URLs (Sprint 7.C).'),
-          ('billing_trial_enabled',         true,  100,
-           '14-day premium trial on signup.')
+          ('leaderboard_enabled', false, 0,
+           'Country-scoped weekly leaderboard. Gated until anti-cheat lands.')
         ON CONFLICT (key) DO NOTHING
     """)
 
 
 def downgrade() -> None:
     op.execute("DROP TABLE IF EXISTS achievements_catalog")
-    for k in (
-        "leaderboard_enabled", "coach_proactive_alerts",
-        "vision_2_tier_optimization", "grocery_share_links",
-        "billing_trial_enabled",
-    ):
-        op.execute(f"DELETE FROM feature_flags WHERE key = '{k}'")
+    op.execute("DELETE FROM feature_flags WHERE key = 'leaderboard_enabled'")

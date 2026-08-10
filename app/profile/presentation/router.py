@@ -37,6 +37,7 @@ from app.profile.presentation.schemas import (
     PlanJobInfo,
     ProfilePatch,
     ProfileResponse,
+    WeightGoalResponse,
 )
 from app.shared.i18n import LocaleDep
 from app.shared.i18n.fastapi_dep import locale_cache_invalidate
@@ -216,3 +217,228 @@ async def patch_locale(
     uc = UpdateLocale(profiles=SqlProfileRepository(session))
     p = await uc(user_id=current_user, locale=body.locale)
     return LocaleResponse(locale=p.locale)
+
+
+@router.get("/me/weight-goal", response_model=WeightGoalResponse)
+async def get_weight_goal(current_user: CurrentUserDep, session: SessionDep) -> WeightGoalResponse:
+    """Consolidated weight goal + actual progress + ideal weight view.
+
+    Wires together:
+      - Peterson 2016 IBW + WHO BMI range (ideal_weight.py)
+      - OLS 14d slope from weight_logs (weight_progress.py)
+      - Plan deficit projection (weight_projection.py)
+      - goal_weight_kg from user_profiles
+    Zero new DB tables — reads only existing rows.
+    """
+    import math
+    from decimal import Decimal
+
+    from app.nutrition.domain.ideal_weight import compute_weight_insights
+    from app.nutrition.domain.weight_progress import compute_weight_progress
+    from app.nutrition.domain.weight_projection import expected_weekly_change
+    from app.shared.domain.time import utc_day_index
+
+    # ── 1. Profile ───────────────────────────────────────────────────────────
+    profile_uc = GetProfile(profiles=SqlProfileRepository(session))
+    profile = await profile_uc(user_id=current_user)
+    if profile is None:
+        from app.core.errors import NotFoundError
+        raise NotFoundError("profile_not_found")
+
+    weight_kg_profile = profile.weight_kg          # onboarding snapshot
+    height_cm = profile.height_cm
+    sex = profile.sex or "male"
+    goal = profile.goal or "maintain"
+    goal_weight_kg = profile.goal_weight_kg        # may be None
+
+    # ── 2. Weight logs — current, starting, 14d series ───────────────────────
+    rows_14d = (
+        await session.execute(
+            text(
+                """
+        SELECT time, weight_kg FROM weight_logs
+         WHERE user_id = :uid
+           AND time >= now() - INTERVAL '14 days'
+         ORDER BY time ASC
+        """
+            ),
+            {"uid": str(current_user)},
+        )
+    ).all()
+
+    row_first = (
+        await session.execute(
+            text(
+                "SELECT weight_kg FROM weight_logs"
+                " WHERE user_id = :uid ORDER BY time ASC LIMIT 1"
+            ),
+            {"uid": str(current_user)},
+        )
+    ).first()
+
+    row_latest = (
+        await session.execute(
+            text(
+                "SELECT weight_kg FROM weight_logs"
+                " WHERE user_id = :uid ORDER BY time DESC LIMIT 1"
+            ),
+            {"uid": str(current_user)},
+        )
+    ).first()
+
+    # T-11: latest waist measurement (waist_cm column already exists in weight_logs)
+    row_waist = (
+        await session.execute(
+            text(
+                "SELECT waist_cm, time::date FROM weight_logs"
+                " WHERE user_id = :uid AND waist_cm IS NOT NULL"
+                " ORDER BY time DESC LIMIT 1"
+            ),
+            {"uid": str(current_user)},
+        )
+    ).first()
+
+    current_weight = (
+        Decimal(str(row_latest[0])) if row_latest else weight_kg_profile
+    )
+    starting_weight = (
+        Decimal(str(row_first[0])) if row_first else weight_kg_profile
+    )
+
+    # ── 3. TDEE + plan kcal_target ───────────────────────────────────────────
+    goal_row = (
+        await session.execute(
+            text(
+                """
+        SELECT kcal_min, kcal_max FROM nutritional_goals
+         WHERE user_id = :uid AND valid_to IS NULL LIMIT 1
+        """
+            ),
+            {"uid": str(current_user)},
+        )
+    ).first()
+
+    plan_row = (
+        await session.execute(
+            text(
+                """
+        SELECT kcal_target FROM plans
+         WHERE user_id = :uid::uuid AND status = 'active' LIMIT 1
+        """
+            ),
+            {"uid": str(current_user)},
+        )
+    ).first()
+
+    tdee_kcal: int | None = None
+    weekly_projected_kg: float | None = None
+    weeks_to_goal: int | None = None
+
+    if goal_row and plan_row and plan_row[0]:
+        kcal_target = int(plan_row[0])
+        # TDEE estimated as midpoint of goal range (pre-deficit/surplus target)
+        tdee_kcal = (int(goal_row[0]) + int(goal_row[1])) // 2
+        proj = expected_weekly_change(kcal_target=kcal_target, tdee=tdee_kcal)
+        weekly_projected_kg = float(proj.weekly_kg)
+        if (
+            goal_weight_kg is not None
+            and current_weight is not None
+            and weekly_projected_kg != 0
+        ):
+            delta = float(goal_weight_kg - current_weight)
+            if abs(weekly_projected_kg) > 0.001:
+                weeks_raw = abs(delta / weekly_projected_kg)
+                weeks_to_goal = math.ceil(weeks_raw) if weeks_raw < 1000 else None
+
+    # ── 4. OLS progress (weight_progress.py) ────────────────────────────────
+    weight_series: list[tuple[int, float]] = [
+        (utc_day_index(r[0]), float(r[1])) for r in rows_14d
+    ]
+    weight_to_lose: Decimal | None = None
+    if goal_weight_kg is not None and current_weight is not None:
+        diff = current_weight - goal_weight_kg
+        weight_to_lose = diff if diff > 0 else None  # only positive = still to lose
+
+    progress = compute_weight_progress(
+        weights=weight_series,
+        weight_to_lose_kg=weight_to_lose,
+        goal=goal,
+    )
+
+    # ── 5. Ideal weight + BMI (ideal_weight.py) ──────────────────────────────
+    insights = None
+    if current_weight and height_cm:
+        insights = compute_weight_insights(
+            weight_kg=current_weight,
+            height_cm=height_cm,
+            sex=sex,
+            goal=goal,
+        )
+
+    # ── 6. Progress toward user's declared goal ───────────────────────────────
+    delta_kg: float | None = None
+    lost_so_far_kg: float | None = None
+    progress_pct: float | None = None
+    weight_loss_milestone: str | None = None
+
+    if goal_weight_kg is not None and current_weight is not None:
+        delta_kg = round(float(goal_weight_kg - current_weight), 2)
+        if starting_weight is not None:
+            # Distance from starting to current (unsigned) — usable regardless of goal direction
+            distance_from_start = abs(float(starting_weight - current_weight))
+            lost_so_far_kg = round(distance_from_start, 2)
+            total_to_change = abs(float(starting_weight - goal_weight_kg))
+            if total_to_change > 0:
+                progress_pct = round(min(100.0, (distance_from_start / total_to_change) * 100), 1)
+
+            # Milestone: % of starting body weight LOST — weight_loss goal only,
+            # and only when current weight is genuinely below starting (not a gain).
+            # Uses Decimal comparison to avoid float precision issues.
+            if goal == "weight_loss" and starting_weight > current_weight:
+                weight_lost_pct = float(starting_weight - current_weight) / float(starting_weight) * 100
+                if weight_lost_pct >= 20:
+                    weight_loss_milestone = "20%"
+                elif weight_lost_pct >= 15:
+                    weight_loss_milestone = "15%"
+                elif weight_lost_pct >= 10:
+                    weight_loss_milestone = "10%"
+                elif weight_lost_pct >= 5:
+                    weight_loss_milestone = "5%"
+
+    # ── 7. Status ─────────────────────────────────────────────────────────────
+    vs = progress.vs_plan
+    recal = False
+    if vs == "behind" and progress.weight_points >= 7:
+        recal = True
+
+    if vs in ("on_track", "ahead", "behind", "maintain"):
+        status_str = vs
+    else:
+        status_str = "no_data"
+
+    return WeightGoalResponse(
+        current_weight_kg=float(current_weight) if current_weight else None,
+        goal_weight_kg=float(goal_weight_kg) if goal_weight_kg else None,
+        starting_weight_kg=float(starting_weight) if starting_weight else None,
+        ideal_weight_kg=float(insights.peterson_ideal_kg) if insights else None,
+        ideal_weight_min_kg=float(insights.ideal_weight_min_kg) if insights else None,
+        ideal_weight_max_kg=float(insights.ideal_weight_max_kg) if insights else None,
+        bmi=float(insights.bmi) if insights else None,
+        bmi_category=insights.bmi_category if insights else None,
+        obesity_grade=insights.obesity_grade if insights else None,
+        delta_kg=delta_kg,
+        lost_so_far_kg=lost_so_far_kg,
+        progress_pct=progress_pct,
+        weight_loss_milestone=weight_loss_milestone,
+        waist_cm=float(row_waist[0]) if row_waist else None,
+        last_waist_date=str(row_waist[1]) if row_waist else None,
+        weekly_projected_kg=weekly_projected_kg,
+        weeks_to_goal=weeks_to_goal,
+        tdee_kcal=tdee_kcal,
+        actual_weekly_kg=float(progress.slope_kg_per_week) if progress.slope_kg_per_week is not None else None,
+        trend_label=progress.trend_label,
+        vs_plan=progress.vs_plan,
+        weight_points_14d=progress.weight_points,
+        status=status_str,
+        recalibration_suggested=recal,
+    )

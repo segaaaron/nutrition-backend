@@ -357,5 +357,48 @@ class ProfileResponse(_Strict):
     plan_job: PlanJobInfo | None = None
 
 
+class WeightGoalResponse(_Strict):
+    """GET /me/weight-goal — consolidated weight goal + progress view."""
+
+    # Current biometrics
+    current_weight_kg: float | None
+    goal_weight_kg: float | None          # null if user never set one
+    starting_weight_kg: float | None      # first weight_log; fallback: profile snapshot
+
+    # Ideal weight (Peterson 2016 + WHO range)
+    ideal_weight_kg: float | None         # Peterson IBW at BMI 22
+    ideal_weight_min_kg: float | None     # WHO lower bound (BMI 18.5)
+    ideal_weight_max_kg: float | None     # WHO upper bound (BMI 24.9)
+    bmi: float | None
+    bmi_category: str | None             # "underweight"|"healthy"|"overweight"|"obese"
+    obesity_grade: int | None            # 1=30-34.9, 2=35-39.9, 3=≥40; null when not obese (OMS)
+
+    # Progress toward goal_weight_kg
+    delta_kg: float | None               # goal_weight - current (negative = still to lose)
+    lost_so_far_kg: float | None         # starting - current
+    progress_pct: float | None           # (lost_so_far / total_to_lose) * 100
+    # Weight loss milestone from starting weight (5%/10%/15%/20% — health benefit inflection points per OMS/PDF)
+    weight_loss_milestone: str | None    # "5%"|"10%"|"15%"|"20%"|null
+
+    # Waist tracking (PDF: "mide cintura cada 2 semanas")
+    waist_cm: float | None              # latest waist_cm logged, null if never measured
+    last_waist_date: str | None         # ISO date of last waist measurement
+
+    # Plan projection
+    weekly_projected_kg: float | None    # expected weekly change from active plan deficit
+    weeks_to_goal: int | None            # ceil(|delta_kg| / |weekly_projected_kg|)
+    tdee_kcal: int | None                # user's TDEE from nutritional_goals
+
+    # Actual trend from weight_logs (OLS 14d)
+    actual_weekly_kg: float | None       # kg/week from real weigh-ins (negative = losing)
+    trend_label: str | None              # "losing"|"gaining"|"plateau"|"insufficient_data"
+    vs_plan: str | None                  # "on_track"|"ahead"|"behind"|"maintain"|"insufficient_data"
+    weight_points_14d: int               # how many weigh-ins used for OLS
+
+    # Status summary
+    status: str                          # "on_track"|"ahead"|"behind"|"no_data"
+    recalibration_suggested: bool
+
+
 class LocaleResponse(_Strict):
     locale: str

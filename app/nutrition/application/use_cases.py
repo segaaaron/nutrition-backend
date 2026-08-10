@@ -285,7 +285,10 @@ def _build_goals(
         lactating=lactating,
     )
     # Dietary targets for app progress bars (Dietary Guidelines 2020-2025 / WHO 2023).
+    # weight_loss floor: 30g/day (IOM/Dietary Guidelines for satiety + metabolic benefit).
     fiber_target_g = max(1, int(round(kcal_target / 1000 * 14)))
+    if goal == "weight_loss":
+        fiber_target_g = max(fiber_target_g, 30)
     return NutritionalGoals.new(
         user_id=user_id,
         kcal_min=krange.min,
@@ -343,7 +346,9 @@ class RecalibrateGoals:
     goals_repo: NutritionalGoalsRepository
     bus: EventBus
 
-    async def __call__(self, *, user_id: UUID) -> RecalibrationResult | RecalibrationSkipped:
+    async def __call__(
+        self, *, user_id: UUID, skip_cooldown: bool = False
+    ) -> RecalibrationResult | RecalibrationSkipped:
         # Cooldown PRE-FLIGHT (Sprint 3 race fix) — read current goals first
         # to compute cooldown WITHOUT acquiring the advisory lock. If we're
         # inside the 14-day cooldown the recalibration is a guaranteed skip,
@@ -351,11 +356,13 @@ class RecalibrateGoals:
         # callers and (historically) deadlocked the integration suite. The
         # algorithm-level cooldown check inside `recalibrate()` remains as
         # defence in depth.
+        # skip_cooldown=True is set when weight delta since last calibration is
+        # ≥5 kg (PDF rule: "recalculate every 5 kg lost" — BMR changes with mass).
         current = await self.goals_repo.get_current(user_id)
         if current is None:
             return RecalibrationSkipped("no_baseline")
         days_since = max(0, (_now() - current.valid_from).days)
-        if days_since < COOLDOWN_DAYS:
+        if days_since < COOLDOWN_DAYS and not skip_cooldown:
             return RecalibrationSkipped("cooldown")
 
         # Sprint 3 D5 — Serialise concurrent recalibrations per user via
@@ -425,6 +432,8 @@ class RecalibrateGoals:
             lactating=bool(bio.get("lactating")),
         )
         fiber_target_g = max(1, int(round(kcal_target / 1000 * 14)))
+        if bio.get("goal") == "weight_loss":
+            fiber_target_g = max(fiber_target_g, 30)
         new_goals = NutritionalGoals.new(
             user_id=user_id,
             kcal_min=krange.min,

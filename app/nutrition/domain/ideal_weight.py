@@ -33,7 +33,9 @@ from typing import Final, Literal
 
 _BMI_UNDERWEIGHT: Final = Decimal("18.5")
 _BMI_HEALTHY_MAX: Final = Decimal("24.9")
-_BMI_OBESE_MIN: Final = Decimal("30.0")  # WHO: obese ≥ 30.0 (overweight = 25.0–29.99)
+_BMI_OBESE_MIN: Final = Decimal("30.0")   # WHO: obese ≥ 30.0 (overweight = 25.0–29.99)
+_BMI_OBESE_2: Final = Decimal("35.0")     # OMS Obesidad grado II threshold
+_BMI_OBESE_3: Final = Decimal("40.0")     # OMS Obesidad grado III threshold
 
 # Peterson target BMI = centre of WHO healthy range
 _PETERSON_TARGET_BMI: Final = Decimal("22.0")
@@ -87,6 +89,7 @@ class WeightInsights:
     estimated_date: date | None           # None if no goal
 
     latam_context_note: bool              # True when BMI 25.0–27.9 (LATAM misclassification zone)
+    obesity_grade: int | None             # 1=30-34.9, 2=35-39.9, 3=≥40; None when not obese
 
 
 # ── Internal helpers ─────────────────────────────────────────────────────────
@@ -108,6 +111,17 @@ def _bmi_label_es(category: BmiCategory) -> str:
         "overweight":  "Sobrepeso",
         "obese":       "Obesidad",
     }[category]
+
+
+def compute_obesity_grade(bmi: Decimal) -> int | None:
+    """OMS obesity grade (I/II/III). None when BMI < 30.0."""
+    if bmi < _BMI_OBESE_MIN:
+        return None
+    if bmi < _BMI_OBESE_2:
+        return 1
+    if bmi < _BMI_OBESE_3:
+        return 2
+    return 3
 
 
 # ── Public functions ─────────────────────────────────────────────────────────
@@ -216,6 +230,7 @@ def compute_weight_insights(
             estimated_weeks=None,
             estimated_date=None,
             latam_context_note=_latam_note(bmi),
+            obesity_grade=compute_obesity_grade(bmi),
         )
 
     # Determine gap and direction
@@ -259,6 +274,7 @@ def compute_weight_insights(
         estimated_weeks=weeks,
         estimated_date=est_date,
         latam_context_note=_latam_note(bmi),
+        obesity_grade=compute_obesity_grade(bmi),
     )
 
 

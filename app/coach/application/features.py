@@ -234,6 +234,101 @@ async def proactive_deviation(session: AsyncSession, *, user_id: UUID) -> dict[s
 
 
 # ---------------------------------------------------------------------------
+# Feature H — weight behind alert (event-driven, T-12)
+# ---------------------------------------------------------------------------
+
+_BEHIND_COOLDOWN_DAYS = 5  # min days between weight-behind coach messages
+
+
+async def weight_behind_alert(session: AsyncSession, *, user_id: UUID) -> bool:
+    """Push a motivational coach message when the user is behind their weight plan.
+
+    Only fires for weight_loss goal — other goals (muscle_gain, maintain, etc.)
+    have different progress semantics and must not be evaluated as weight loss.
+
+    Idempotent: skips if an assistant message was sent within the last
+    _BEHIND_COOLDOWN_DAYS days, so a single WeightLogged event never floods.
+    Returns True if message was sent.
+
+    Called from nutrition.event_handlers._on_weight_logged (T-12).
+    """
+    from app.nutrition.domain.weight_progress import compute_weight_progress
+    from app.shared.domain.time import utc_day_index
+
+    # 0. Gate on user goal — this alert is weight-loss-specific
+    user_goal = (
+        await session.execute(
+            text("SELECT goal FROM user_profiles WHERE user_id = :uid LIMIT 1"),
+            {"uid": str(user_id)},
+        )
+    ).scalar()
+    if user_goal not in ("weight_loss", "lose_weight"):
+        return False
+
+    # 1. Fetch 14d weight series
+    rows = (
+        await session.execute(
+            text(
+                """
+        SELECT time, weight_kg FROM weight_logs
+         WHERE user_id = :uid
+           AND time >= now() - INTERVAL '14 days'
+         ORDER BY time ASC
+        """
+            ),
+            {"uid": str(user_id)},
+        )
+    ).all()
+
+    if not rows:
+        return False
+
+    weights = [(utc_day_index(r[0]), float(r[1])) for r in rows]
+    progress = compute_weight_progress(
+        weights=weights, weight_to_lose_kg=None, goal=user_goal
+    )
+
+    if progress.vs_plan != "behind" or progress.weight_points < 7:
+        return False
+
+    # 2. Idempotency guard — skip if assistant msg sent < _BEHIND_COOLDOWN_DAYS days ago
+    last_msg_at = (
+        await session.execute(
+            text(
+                """
+        SELECT MAX(cm.created_at) FROM coach_messages cm
+          JOIN coach_conversations cc ON cc.id = cm.conv_id
+         WHERE cc.user_id = :uid AND cm.role = 'assistant'
+        """
+            ),
+            {"uid": str(user_id)},
+        )
+    ).scalar()
+
+    if last_msg_at is not None:
+        last = last_msg_at if last_msg_at.tzinfo else last_msg_at.replace(tzinfo=UTC)
+        if (datetime.now(UTC) - last).days < _BEHIND_COOLDOWN_DAYS:
+            return False
+
+    # 3. Compose message — positive, nutritional, no medical diagnosis (REGLA #1)
+    prompt = (
+        "El usuario lleva 2 semanas registrando peso y va más lento que su meta "
+        "de pérdida. En una frase coach: reconoce el esfuerzo y sugiere UN ajuste "
+        "práctico de alimentación (más proteína, más fibra, menos líquidos calóricos). "
+        "Sin culpa. Sin diagnóstico médico."
+    )
+    msg = await _mini_completion(prompt, user_id=user_id, max_tokens=90)
+    if not msg:
+        msg = (
+            "Vas bien — cada pesaje cuenta. Esta semana prueba agregar "
+            "una porción extra de proteína en el almuerzo y reducir bebidas con azúcar."
+        )
+
+    await _push_assistant_msg(session, user_id=user_id, content=msg)
+    return True
+
+
+# ---------------------------------------------------------------------------
 # Feature F — recipe story backfill (nightly batch)
 # ---------------------------------------------------------------------------
 
