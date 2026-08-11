@@ -114,11 +114,39 @@ load-spike: ## k6 spike (0→500 RPS / 30s). See tests/load/README.md
 		tests/load/k6_spike_500rps_30s.js
 
 # -- Catalog -------------------------------------------------------------------
+#
+# The 2026-08-04 audit found ten classes of wrong data in PROD that every
+# existing check reported as green. The rules now live in three places, by
+# design:
+#
+#   1. CHECK constraints (migration 0038) — consistency, enforced on INSERT.
+#      Bad data cannot be written at all.
+#   2. scripts/recipe_ingest.py — the only way a recipe enters the catalog.
+#      A batch supplies ingredients and prose; every number is derived.
+#   3. `make catalog-audit` — completeness and pool depth, which are
+#      catalog-level properties no single INSERT can judge.
+#
+# Run `catalog-audit` before any deploy that touches the catalog. Run
+# `catalog-repair` when it reports drift.
 
-.PHONY: catalog-audit
+.PHONY: catalog-audit catalog-repair
 
-catalog-audit: ## Audit recipe catalog NULL ratio on R6 critical columns
+catalog-audit: ## Full catalog audit — NULL ratios + 16 integrity gates (exit 1 blocks)
 	$(PY) -m scripts.catalog_completeness_audit
+
+catalog-repair: ## Re-derive everything the audit can flag. Idempotent; dry-run first.
+	@echo "== 1/5 nutrition (recompute from components vs USDA) =="
+	$(PY) scripts/recompute_catalog_nutrition.py --dry-run
+	@echo "== 2/5 allergens (derive from components) =="
+	$(PY) scripts/derive_allergens.py --dry-run
+	@echo "== 3/5 regions (normalise to latam/us/ca) =="
+	$(PY) scripts/retag_regions.py --dry-run
+	@echo "== 4/5 condition tags (reconcile against the runtime gates) =="
+	$(PY) scripts/purge_condition_tags.py --dry-run
+	@echo "== 5/5 metadata (instructions, images, goals, tags) =="
+	$(PY) scripts/backfill_recipe_metadata.py --dry-run
+	@echo
+	@echo "Dry run only. Re-run each script with --apply to write."
 
 # -- Quality -------------------------------------------------------------------
 

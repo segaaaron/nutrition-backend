@@ -40,6 +40,13 @@ jobs:
         # and docs/ops/CATALOG_AUDIT.md §3.1).
         run: pytest tests/unit/catalog -v --tb=short
 
+      - name: Recipe ingestion guard
+        # scripts/recipe_ingest.py is the only sanctioned way into the catalog.
+        # These tests fence the guarantee that a batch cannot assert nutrition
+        # it has not derived — the defect that let 98 recipes validate against
+        # a hardcoded table listing sugar as 0 for oats, yogurt and banana.
+        run: pytest tests/unit/catalog/test_recipe_ingest.py -v --tb=short
+
   integration:
     # Only run on main pushes or PRs explicitly labelled "run-integration".
     # Saves CI cost (Postgres + Redis services) on every PR.
@@ -88,4 +95,13 @@ jobs:
       - name: Alembic migrations
         run: alembic upgrade head
       - name: Pytest integration
-        run: pytest tests/integration -v --tb=short
+        run: pytest tests/integration -v --tb=short --run-integration
+
+      - name: Catalog integrity constraints
+        # Migration 0038 moved the catalog's consistency rules into CHECK
+        # constraints. This proves they are actually attached after a fresh
+        # `alembic upgrade head` — a migration that silently fails to apply
+        # them would otherwise be invisible until bad data reached PROD.
+        run: >-
+          pytest tests/integration/test_recipe_integrity_constraints.py
+          -v --tb=short --run-integration
