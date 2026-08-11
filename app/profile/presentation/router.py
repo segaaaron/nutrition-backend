@@ -139,15 +139,8 @@ async def get_me(current_user: CurrentUserDep, session: SessionDep) -> ProfileRe
     # Fall back to onboarding weight if no log exists yet.
     if starting is None and profile and profile.weight_kg is not None:
         starting = float(profile.weight_kg)
-    # BE-1: recompute onboarding_completed LIVE (profile + ≥1 plan) so GET /me
-    # never disagrees with the auth responses. Matches identity's canonical def.
-    has_plan = (
-        await session.execute(
-            text("SELECT EXISTS(SELECT 1 FROM plans WHERE user_id = :uid)"),
-            {"uid": current_user},
-        )
-    ).scalar()
-    onboarding_completed = profile is not None and bool(has_plan)
+    # BE-1 (2026-08-11): onboarding_completed = profile exists. Plan not required.
+    onboarding_completed = profile is not None
     return _to_resp(
         profile, starting_weight_kg=starting, onboarding_completed=onboarding_completed
     )
@@ -199,6 +192,27 @@ async def onboarding(
     payload.pop("height_m", None)
     profile = await uc(user_id=current_user, payload=payload)
     return _to_resp(profile, plan_job=None)
+
+
+@router.post("/me/onboarding/skip", response_model=ProfileResponse, status_code=status.HTTP_200_OK)
+async def onboarding_skip(
+    current_user: CurrentUserDep,
+    session: SessionDep,
+) -> ProfileResponse:
+    """Mark onboarding as entered without submitting biometrics.
+
+    Called when the user presses "Omitir por ahora" inside the onboarding
+    form. Creates or preserves a user_profiles row so that
+    onboarding_completed returns true on the next auth refresh.
+    Does not compute nutritional goals (no biometrics to compute from).
+    """
+    repo = SqlProfileRepository(session)
+    profile = await repo.get(current_user)
+    if profile is None:
+        profile = UserProfile(user_id=current_user)
+        await repo.upsert(profile)
+        await session.commit()
+    return _to_resp(profile)
 
 
 @router.get("/me/locale", response_model=LocaleResponse)

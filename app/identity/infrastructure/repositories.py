@@ -128,21 +128,13 @@ class SqlUserRepository:
         await self.s.execute(text("DELETE FROM users WHERE id = :id"), {"id": user_id})
 
     async def get_onboarding_completed(self, user_id: UUID) -> bool:
-        # BE-1 (2026-07-10): recompute LIVE instead of reading the cached
-        # `user_profiles.onboarding_completed` flag. Canonical definition
-        # (agreed with iOS): onboarding is complete when the user has a profile
-        # AND at least one generated plan (any status — a cancelled plan still
-        # means they onboarded). The cached flag depended on a PlanCreated
-        # event flip and could return stale `false` on /auth/refresh at cold
-        # launch, bouncing onboarded users back to the form. A live EXISTS pair
-        # is always fresh. Plain text() keeps identity decoupled from the
-        # profile/plan ORM mappers.
+        # BE-1 (2026-08-11): onboarding_completed = profile row exists.
+        # A plan is NOT required — plan generation failures must not trap
+        # users in the onboarding form. Skip button and form submission
+        # both create a user_profiles row; that is the signal.
         row = (
             await self.s.execute(
-                text(
-                    "SELECT EXISTS(SELECT 1 FROM user_profiles WHERE user_id = :uid) "
-                    "   AND EXISTS(SELECT 1 FROM plans WHERE user_id = :uid)"
-                ),
+                text("SELECT EXISTS(SELECT 1 FROM user_profiles WHERE user_id = :uid)"),
                 {"uid": str(user_id)},
             )
         ).first()
