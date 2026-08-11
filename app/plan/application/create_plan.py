@@ -308,13 +308,10 @@ class CreatePlan:
                     top_k=20,
                     prefer_dense=prefer_dense,
                 )
-                if not shortlist and (forbidden[mt] or chosen_today):
-                    # Repetition cap starved the pool (small catalog for
-                    # this user's allergen/condition profile). Variety is
-                    # a preference, not a safety rule — relax history
-                    # first, then same-day dedup, rather than serving a
-                    # partial day. Safety filters live in Layer1 and are
-                    # never relaxed.
+                if not shortlist and forbidden[mt]:
+                    # History window saturated the pool — relax only the
+                    # rolling history (keep same-day dedup). Safety filters
+                    # in Layer1 are never relaxed.
                     shortlist = await self.layer2(
                         candidate_ids=cand_ids,
                         meal_time=mt,
@@ -324,17 +321,12 @@ class CreatePlan:
                         top_k=20,
                         prefer_dense=prefer_dense,
                     )
-                if not shortlist and chosen_today:
-                    shortlist = await self.layer2(
-                        candidate_ids=cand_ids,
-                        meal_time=mt,
-                        kcal_target_share=kcal_share,
-                        protein_target_share=protein_share,
-                        forbidden_ids=set(),
-                        top_k=20,
-                        prefer_dense=prefer_dense,
-                    )
                 _layer_hist.labels(layer="2").observe(time.perf_counter() - t0)
+
+                if not shortlist:
+                    raise BusinessRuleViolation(
+                        f"plan_pool_exhausted:{mt}:day{d}"
+                    )
 
                 t0 = time.perf_counter()
                 ranked = await self.layer3(
@@ -349,10 +341,9 @@ class CreatePlan:
                 _layer_hist.labels(layer="3").observe(time.perf_counter() - t0)
 
                 if not ranked:
-                    # No candidate: skip meal rather than fail-hard. The
-                    # generator surfaces this as a partial day; UI can offer
-                    # manual override.
-                    continue
+                    raise BusinessRuleViolation(
+                        f"plan_pool_exhausted:{mt}:day{d}"
+                    )
                 # Seeded stochastic pick over the top-5: same seed →
                 # same plan (reproducible); new seed → fresh-but-good
                 # plan. Replaces the old deterministic ranked[0] pick
@@ -496,15 +487,40 @@ class CreatePlan:
                 candidate_plan=candidate_plan_payload,
                 alternatives_by_slot=alternatives_by_slot,
             )
+            # Build full set of recipe_ids already in the plan so Layer4
+            # swaps cannot introduce a duplicate. A swap is rejected if
+            # new_recipe_id is already present anywhere in the plan (any
+            # slot, any day) — the original choice is kept instead.
+            used_recipe_ids: set[UUID] = {
+                meal.recipe_id
+                for day in days
+                for meal in day.meals
+            }
             for swap in coherence.get("swaps", []) or []:
                 day_i = int(swap.get("day", -1))
                 mt = swap.get("meal_time")
-                new_rid = swap.get("new_recipe_id")
-                if 0 <= day_i < len(days) and new_rid:
-                    for meal in days[day_i].meals:
-                        if meal.meal_time == mt:
-                            meal.swapped_from = meal.recipe_id
-                            meal.recipe_id = UUID(new_rid)
+                new_rid_str = swap.get("new_recipe_id")
+                if not (0 <= day_i < len(days) and new_rid_str):
+                    continue
+                try:
+                    new_rid = UUID(new_rid_str)
+                except ValueError:
+                    continue
+                if new_rid in used_recipe_ids:
+                    log.warning(
+                        "plan.layer4_swap_rejected_duplicate",
+                        day=day_i,
+                        meal_time=mt,
+                        new_recipe_id=new_rid_str,
+                    )
+                    continue
+                for meal in days[day_i].meals:
+                    if meal.meal_time == mt:
+                        used_recipe_ids.discard(meal.recipe_id)
+                        meal.swapped_from = meal.recipe_id
+                        meal.recipe_id = new_rid
+                        used_recipe_ids.add(new_rid)
+                        break
         except Exception as exc:  # noqa: BLE001
             log.warning("plan.layer4_failed", error=str(exc))
         _layer_hist.labels(layer="4").observe(time.perf_counter() - t0)
@@ -529,6 +545,18 @@ class CreatePlan:
             if water_ml is not None and int(water_ml) > 0
             else None
         )
+
+        # Invariant: no recipe may appear more than once in the same slot
+        # across the whole plan (REGLA #0.5 D). Check after Layer4 so any
+        # swap-introduced duplicate is caught before persistence.
+        slot_seen: dict[str, set[UUID]] = {mt: set() for mt in slots}
+        for day in days:
+            for meal in day.meals:
+                if meal.recipe_id in slot_seen[meal.meal_time]:
+                    raise BusinessRuleViolation(
+                        f"plan_pool_exhausted:{meal.meal_time}:duplicate_recipe:{meal.recipe_id}"
+                    )
+                slot_seen[meal.meal_time].add(meal.recipe_id)
 
         plan = Plan(
             id=plan_id,

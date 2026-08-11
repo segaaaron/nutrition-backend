@@ -21,6 +21,7 @@ from sqlalchemy import text
 from app.core.event_bus import get_event_bus
 from app.core.redis import get_redis
 from app.identity.presentation.dependencies import CurrentUserDep, SessionDep
+from app.shared.i18n import LocaleDep
 from app.tracking.application.food_log_uc import (
     DeleteFoodLog,
     GetDailyTotals,
@@ -63,6 +64,7 @@ class FoodLogPage(BaseModel):
 async def query_food_logs(
     current_user: CurrentUserDep,
     session: SessionDep,
+    locale: LocaleDep,
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
     meal_time: Literal["breakfast", "lunch", "dinner", "snack", "morning_snack", "afternoon_snack"] | None = Query(default=None),
@@ -99,7 +101,11 @@ async def query_food_logs(
             )
         ).all()
         for row in rows:
-            food_names[row.id] = (row.name_translations or {}).get("es") or row.name_en
+            tr = row.name_translations or {}
+            if locale == "en":
+                food_names[row.id] = row.name_en or tr.get("es") or ""
+            else:
+                food_names[row.id] = tr.get(locale) or tr.get("es") or row.name_en or ""
     if recipe_ids:
         rows = (
             await session.execute(
@@ -108,7 +114,11 @@ async def query_food_logs(
             )
         ).all()
         for row in rows:
-            recipe_names[row.id] = (row.name_translations or {}).get("es") or row.name_en
+            tr = row.name_translations or {}
+            if locale == "en":
+                recipe_names[row.id] = row.name_en or tr.get("es") or ""
+            else:
+                recipe_names[row.id] = tr.get(locale) or tr.get("es") or row.name_en or ""
 
     out = [
         FoodLogOut(

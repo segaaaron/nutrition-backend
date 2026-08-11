@@ -213,11 +213,8 @@ def _localize_name(
     entry = translations.get(rid)
     if entry is None:
         return None
-    # BE-6 (2026-07-11): fall back to the Spanish translation (the catalog's
-    # authoritative language) BEFORE the raw name_en. name_en is clean English
-    # but description_en is Spanish for many rows, so falling to the *_en fields
-    # produced a mixed English-name / Spanish-description card. Falling both to
-    # the 'es' translation keeps name and description in the SAME language.
+    if locale == "en":
+        return entry.name_en or entry.name_translations.get("es")
     return (
         entry.name_translations.get(locale)
         or entry.name_translations.get("es")
@@ -235,6 +232,8 @@ def _localize_description(
     entry = translations.get(rid)
     if entry is None:
         return None
+    if locale == "en":
+        return entry.description_en or entry.description_translations.get("es")
     return (
         entry.description_translations.get(locale)
         or entry.description_translations.get("es")

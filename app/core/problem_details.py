@@ -202,6 +202,16 @@ def _classify_business_rule(detail: str) -> tuple[str, str, str, dict[str, Any]]
             "profile_missing",
             {"field": field},
         )
+    if detail.startswith("plan_pool_exhausted:"):
+        parts = detail.split(":")
+        slot = parts[1] if len(parts) > 1 else "unknown"
+        day = parts[2] if len(parts) > 2 else "unknown"
+        return (
+            "plan:generation-yielded-no-meals",
+            "Not enough distinct recipes for your restrictions",
+            "plan_generation_yielded_no_meals",
+            {"slot": slot, "day": day},
+        )
     if detail in _PLAN_RULE_TITLES:
         suffix, title, i18n_key = _PLAN_RULE_TITLES[detail]
         return (suffix, title, i18n_key, {})
