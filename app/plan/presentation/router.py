@@ -687,6 +687,13 @@ async def create_plan(
             # so iOS handles one URN: urn:nova:problem:plan:onboarding-incomplete.
             raise BusinessRuleViolation("onboarding_incomplete")
 
+    # Commit BEFORE enqueueing: the worker runs on a separate DB connection and
+    # reads user_profiles + nutritional_goals immediately after the job lands in
+    # Redis. Without an explicit commit here the SessionDep auto-commit fires
+    # AFTER the route handler returns — AFTER the worker has already read (and
+    # found nothing), causing PlanGenerationFailed 503 on every onboarding POST.
+    await session.commit()
+
     # BE-4a/BE-6: plan content language = the user's app language, NEVER the
     # device Accept-Language header (a Spanish user on an English phone must
     # still get a Spanish plan). Precedence: explicit body locale > stored

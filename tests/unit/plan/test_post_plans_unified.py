@@ -76,6 +76,13 @@ class _InMemRepo:
         self.store[profile.user_id] = profile
 
 
+class _FakeSession:
+    """Minimal AsyncSession stand-in — only commit() is needed by the router."""
+
+    async def commit(self) -> None:
+        pass
+
+
 class _FakeRedis:
     """In-memory Redis stand-in supporting the subset the idempotency
     helpers use (``get``/``set``)."""
@@ -113,7 +120,7 @@ def app(
     app.include_router(plan_router)
 
     async def _override_session():
-        yield None
+        yield _FakeSession()
 
     async def _override_user() -> UUID:
         return FAKE_USER_ID
