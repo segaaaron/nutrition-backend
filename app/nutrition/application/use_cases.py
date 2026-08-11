@@ -379,6 +379,9 @@ class RecalibrateGoals:
         current = await self.goals_repo.get_current(user_id)
         if not bio or not current:
             return RecalibrationSkipped("no_baseline")
+        _REQUIRED_BIO = ("weight_kg", "height_cm", "age", "sex", "goal")
+        if any(bio.get(k) is None for k in _REQUIRED_BIO):
+            return RecalibrationSkipped("incomplete_biometrics")
         days_since = max(0, (_now() - current.valid_from).days)
         weights = await self.tracking_reader.weight_series_14d(user_id)
         kcal_in = await self.tracking_reader.kcal_in_14d(user_id)

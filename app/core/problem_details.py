@@ -161,11 +161,6 @@ _PLAN_RULE_TITLES: dict[str, tuple[str, str, str]] = {
         "Profile incomplete — complete onboarding first",
         "nutritional_goals_unavailable",
     ),
-    "profile_not_found": (
-        "profile:not-found",
-        "Profile not found — complete onboarding first",
-        "profile_not_found",
-    ),
     "no_candidates_for_meal": (
         "plan:no-candidates-for-meal",
         "No recipes match your restrictions for this meal",

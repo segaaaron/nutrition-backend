@@ -247,6 +247,7 @@ def _build_meal_resp(
     tr: Mapping[uuid.UUID, _RecipeData],
     locale: Locale,
     goal: str | None = None,
+    condition: str | None = None,
 ) -> PlanMealResponse:
     from app.plan.domain.entities import PlanMeal as _PlanMeal  # local to avoid cycle
     assert isinstance(m, _PlanMeal)
@@ -275,6 +276,7 @@ def _build_meal_resp(
         fiber_g=data.fiber_g if data is not None else None,
         meal_time=m.meal_time,
         goal=goal,
+        condition=condition,
     )
     rationale = _rat.get(locale) or _rat["es"]
     return PlanMealResponse(
@@ -310,10 +312,11 @@ def _slot(
     tr: Mapping[uuid.UUID, _RecipeData],
     locale: Locale,
     goal: str | None = None,
+    condition: str | None = None,
 ) -> PlanMealResponse | None:
     for m in meals:
         if m.meal_time == slot:
-            return _build_meal_resp(m, tr, locale, goal=goal)
+            return _build_meal_resp(m, tr, locale, goal=goal, condition=condition)
     return None
 
 
@@ -481,8 +484,12 @@ def _to_resp(
     translations: Mapping[uuid.UUID, _RecipeData] | None = None,
     locale: Locale = "es",
     tdee: int | None = None,
+    conditions: list[str] | None = None,
 ) -> PlanResponse:
     tr = translations or {}
+    # Primary condition for per-meal rationale (e.g. fatty_liver adds liver-health clauses).
+    # Only one condition affects rationale currently; pick the first relevant one.
+    primary_condition = next(iter(conditions), None) if conditions else None
     # Sprint A2 — expected weekly weight change when we know the TDEE the plan
     # was built against. Pure display; never gates or alters the plan.
     projection: WeightProjectionResponse | None = None
@@ -528,12 +535,12 @@ def _to_resp(
                 completed=d.completed,
                 kcal_actual=d.kcal_actual,
                 within_band=d.within_band,
-                breakfast=_slot(d.meals, "breakfast", tr, locale, goal=p.goal),
-                morning_snack=_slot(d.meals, "morning_snack", tr, locale, goal=p.goal),
-                lunch=_slot(d.meals, "lunch", tr, locale, goal=p.goal),
-                afternoon_snack=_slot(d.meals, "afternoon_snack", tr, locale, goal=p.goal),
-                dinner=_slot(d.meals, "dinner", tr, locale, goal=p.goal),
-                snack=_slot(d.meals, "snack", tr, locale, goal=p.goal),
+                breakfast=_slot(d.meals, "breakfast", tr, locale, goal=p.goal, condition=primary_condition),
+                morning_snack=_slot(d.meals, "morning_snack", tr, locale, goal=p.goal, condition=primary_condition),
+                lunch=_slot(d.meals, "lunch", tr, locale, goal=p.goal, condition=primary_condition),
+                afternoon_snack=_slot(d.meals, "afternoon_snack", tr, locale, goal=p.goal, condition=primary_condition),
+                dinner=_slot(d.meals, "dinner", tr, locale, goal=p.goal, condition=primary_condition),
+                snack=_slot(d.meals, "snack", tr, locale, goal=p.goal, condition=primary_condition),
                 protein_actual=sum(m.protein_g or 0 for m in d.meals),
                 fiber_daily=sum(
                     int(round((tr[m.recipe_id].fiber_g or 0) * (m.scaled_factor or 1.0)))
@@ -787,7 +794,9 @@ async def get_active_plan(
 
     # Sprint A2 — expected-weight-change projection (display).
     tdee = await _fetch_latest_tdee(session, current_user)
-    resp = _to_resp(plan, translations=translations, locale=locale, tdee=tdee)
+    _profile = await SqlProfileRepository(session).get(current_user)
+    _conditions = list(_profile.medical_conditions) if _profile and _profile.medical_conditions else None
+    resp = _to_resp(plan, translations=translations, locale=locale, tdee=tdee, conditions=_conditions)
 
     # E4 — retention hooks H3/H4/H5 (lazy eval, no cron).
     retention = await _compute_retention_context(session, current_user)
@@ -853,7 +862,9 @@ async def advance_plan(
     await _hydrate_water_view(plan, session, locale)
     translations = await _load_recipe_translations(plan, session)
     tdee = await _fetch_latest_tdee(session, current_user)
-    return _to_resp(plan, translations=translations, locale=locale, tdee=tdee)
+    _profile = await SqlProfileRepository(session).get(current_user)
+    _conditions = list(_profile.medical_conditions) if _profile and _profile.medical_conditions else None
+    return _to_resp(plan, translations=translations, locale=locale, tdee=tdee, conditions=_conditions)
 
 
 @router.patch(
