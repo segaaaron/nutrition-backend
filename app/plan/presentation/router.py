@@ -604,7 +604,7 @@ async def create_plan(
       enqueued (the enqueue step runs only after profile commit succeeds).
     * **Regeneration from inside the app.** Client posts ``{}`` (body empty
       or just plan-shaping fields). The handler reads the existing profile;
-      missing profile → 422 ``profile_not_found``.
+      missing or incomplete profile → 422 ``onboarding_incomplete``.
 
     ``Idempotency-Key`` (UUIDv4) is REQUIRED. Replay within 24 h returns
     the cached 202 body verbatim; same key with a different body
@@ -672,11 +672,13 @@ async def create_plan(
         # Branch B — regeneration. Profile must already exist.
         repo = SqlProfileRepository(session)
         existing = await repo.get(current_user)
-        if existing is None:
-            # 422 (not 404) per the iOS contract — UI shows the
-            # onboarding-required message and routes the user back
-            # rather than a generic "not found" screen.
-            raise BusinessRuleViolation("profile_not_found")
+        if existing is None or not existing.is_complete_enough_for_targets:
+            # 422 — single unambiguous signal for iOS: route user to onboarding.
+            # Covers both missing profile AND profile with incomplete biometrics
+            # (weight/height/age/sex/goal/activity_level all required by the
+            # plan engine). Using onboarding_incomplete (not profile_not_found)
+            # so iOS handles one URN: urn:nova:problem:plan:onboarding-incomplete.
+            raise BusinessRuleViolation("onboarding_incomplete")
 
     # BE-4a/BE-6: plan content language = the user's app language, NEVER the
     # device Accept-Language header (a Spanish user on an English phone must

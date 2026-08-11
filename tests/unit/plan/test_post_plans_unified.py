@@ -9,7 +9,7 @@ source of truth for plan generation. It serves two iOS contexts:
      generation.
   2. **Regeneration from inside the app.** Client sends ``{}`` (body
      empty or just plan-shaping fields). The handler reads the existing
-     profile; missing profile → 422 ``profile_not_found``.
+     profile; missing or incomplete profile → 422 ``onboarding_incomplete``.
 
 Atomicity invariant: if profile save fails, NO plan job is enqueued.
 """
@@ -47,6 +47,22 @@ def _profile_payload() -> dict[str, Any]:
         "dietary_pattern": "omnivore",
         "locale": "es",
     }
+
+
+def _complete_profile() -> UserProfile:
+    """UserProfile with all fields required by is_complete_enough_for_targets."""
+    from decimal import Decimal
+
+    return UserProfile(
+        user_id=FAKE_USER_ID,
+        age=30,
+        sex="male",
+        weight_kg=Decimal("72.0"),
+        height_cm=Decimal("175"),
+        goal="weight_loss",
+        activity_level="moderately_active",
+        dietary_pattern="omnivore",
+    )
 
 
 class _InMemRepo:
@@ -166,9 +182,8 @@ async def test_post_plans_with_profile_data_creates_profile_and_enqueues_plan(
 async def test_post_plans_without_profile_data_uses_existing_profile(
     app: FastAPI, repo: _InMemRepo, enqueue_calls: list[dict[str, Any]]
 ) -> None:
-    """Regen path: empty body + existing profile → enqueues plan."""
-    # Seed an existing profile in the repo.
-    repo.store[FAKE_USER_ID] = UserProfile(user_id=FAKE_USER_ID)
+    """Regen path: empty body + complete existing profile → enqueues plan."""
+    repo.store[FAKE_USER_ID] = _complete_profile()
 
     client = TestClient(app)
     resp = client.post(
@@ -190,7 +205,12 @@ async def test_post_plans_without_profile_data_uses_existing_profile(
 async def test_post_plans_without_profile_data_and_no_profile_returns_422(
     app: FastAPI, enqueue_calls: list[dict[str, Any]]
 ) -> None:
-    """Regen path with no existing profile → 422, no plan job."""
+    """Regen path with no existing profile → 422 onboarding_incomplete, no plan job.
+
+    Reproduces the production incident (2026-08-10): user skipped onboarding,
+    no user_profiles row existed, POST /plans returned profile_not_found but
+    iOS had no handler for it. Fix: unified onboarding_incomplete error.
+    """
     client = TestClient(app)
     resp = client.post(
         "/plans",
@@ -199,7 +219,32 @@ async def test_post_plans_without_profile_data_and_no_profile_returns_422(
     )
 
     assert resp.status_code == 422, resp.text
-    # No plan job enqueued.
+    body = resp.json()
+    assert "onboarding_incomplete" in body.get("type", "") or "onboarding_incomplete" in body.get("detail", "")
+    assert enqueue_calls == []
+
+
+@pytest.mark.asyncio
+async def test_post_plans_incomplete_profile_returns_422(
+    app: FastAPI, repo: _InMemRepo, enqueue_calls: list[dict[str, Any]]
+) -> None:
+    """Regen with profile that has no biometrics (e.g. only locale set) → 422.
+
+    Guards the latent broken state: profile row exists but weight/height/goal/
+    activity_level are NULL — plan engine cannot compute nutritional goals.
+    """
+    repo.store[FAKE_USER_ID] = UserProfile(user_id=FAKE_USER_ID)  # all biometrics None
+
+    client = TestClient(app)
+    resp = client.post(
+        "/plans",
+        json={},
+        headers={"Idempotency-Key": VALID_KEY},
+    )
+
+    assert resp.status_code == 422, resp.text
+    body = resp.json()
+    assert "onboarding_incomplete" in body.get("type", "") or "onboarding_incomplete" in body.get("detail", "")
     assert enqueue_calls == []
 
 
@@ -241,7 +286,7 @@ async def test_post_plans_legacy_body_without_profile_still_works(
 ) -> None:
     """Backward-compat: legacy clients sending only ``{"type": "week"}``
     keep working when the profile already exists."""
-    repo.store[FAKE_USER_ID] = UserProfile(user_id=FAKE_USER_ID)
+    repo.store[FAKE_USER_ID] = _complete_profile()
 
     client = TestClient(app)
     resp = client.post(
@@ -261,7 +306,7 @@ async def test_post_plans_idempotent_replay_returns_cached_body(
 ) -> None:
     """Same idempotency key + same body → second call returns the cached
     200 body without re-enqueueing."""
-    repo.store[FAKE_USER_ID] = UserProfile(user_id=FAKE_USER_ID)
+    repo.store[FAKE_USER_ID] = _complete_profile()
 
     client = TestClient(app)
     r1 = client.post(
