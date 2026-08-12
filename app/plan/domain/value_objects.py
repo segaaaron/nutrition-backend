@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-PlanType = Literal["day", "week", "month"]
+PlanType = Literal["day", "week"]
 PlanStatus = Literal["active", "completed", "cancelled"]
 MealTime = Literal["breakfast", "lunch", "dinner", "snack", "morning_snack", "afternoon_snack"]
 Difficulty = Literal["easy", "medium", "hard"]
@@ -20,4 +20,4 @@ Preference = Literal[
     "low_carb",
 ]
 
-PLAN_TYPE_TO_DAYS: dict[PlanType, int] = {"day": 1, "week": 7, "month": 30}
+PLAN_TYPE_TO_DAYS: dict[str, int] = {"day": 1, "week": 7}

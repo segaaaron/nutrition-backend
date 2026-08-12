@@ -201,9 +201,9 @@ async def test_swap_fails_loudly_when_pool_exhausted() -> None:
 
 
 @pytest.mark.asyncio
-async def test_month_plan_window_spans_14_days() -> None:
-    """Month plans use the 14-day window, so day 0 is out of a day-5 swap's."""
-    plan, meal_id = _plan(total_days=28)
+async def test_swap_week_window_excludes_day0_recipe_at_day5() -> None:
+    """Week window=7: day 0 is inside a day-5 swap's window (|5-0|=5 < 7)."""
+    plan, meal_id = _plan(total_days=7)
     uc, _plans, layer3 = _swap(plan)
 
     await uc(
@@ -213,5 +213,5 @@ async def test_month_plan_window_spans_14_days() -> None:
         candidate_ids=[_LUNCH_B, _FREE],
     )
 
-    # |0 - 5| = 5 <= 13 → still inside the month window.
+    # day 0 recipe is within the 7-day window → must be excluded.
     assert _LUNCH_B not in layer3.seen_candidates

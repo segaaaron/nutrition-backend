@@ -116,15 +116,14 @@ def test_localize_name_returns_locale_when_present() -> None:
     assert _localize_name(rid, translations, "en") == "Grilled Chicken"
 
 
-def test_localize_name_falls_back_to_es_before_en_when_locale_missing() -> None:
-    # BE-6: an absent locale translation falls to the Spanish translation
-    # BEFORE the raw name_en, so name and description stay in the same language
-    # (never English name + Spanish description).
+def test_localize_name_locale_en_returns_name_en() -> None:
+    # Fix 2026-08-11: locale="en" returns name_en directly (not the
+    # Spanish translation). All recipes have name_en in English.
     rid = uuid4()
     translations: dict[UUID, _Entry] = {
         rid: _entry("Grilled Chicken", {"es": "Pollo a la Plancha"}),
     }
-    assert _localize_name(rid, translations, "en") == "Pollo a la Plancha"
+    assert _localize_name(rid, translations, "en") == "Grilled Chicken"
 
 
 def test_localize_name_falls_back_to_en_when_locale_missing() -> None:
@@ -146,10 +145,9 @@ def test_localize_description_locale_priority_then_es_then_en_fallback() -> None
     both = {rid: _entry("EN", {}, "English description", {"es": "Descripción", "en": "English description"})}
     assert _localize_description(rid, both, "es") == "Descripción"
     assert _localize_description(rid, both, "en") == "English description"
-    # BE-6: only es translation → 'en' falls to es (not the raw description_en,
-    # which is Spanish for many catalog rows and would mix languages).
+    # Fix 2026-08-11: locale="en" → description_en first (correct for English users).
     es_only = {rid: _entry("EN", {}, "raw en field", {"es": "Descripción"})}
-    assert _localize_description(rid, es_only, "en") == "Descripción"
+    assert _localize_description(rid, es_only, "en") == "raw en field"
     # No translations at all → raw description_en.
     none = {rid: _entry("EN", {}, "raw en field", {})}
     assert _localize_description(rid, none, "en") == "raw en field"

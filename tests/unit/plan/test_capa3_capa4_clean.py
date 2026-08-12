@@ -65,6 +65,9 @@ class _Layer3PassThrough:
         return [(rid, 1.0) for rid in candidate_ids]
 
 
+_SLOTS = ("breakfast", "lunch", "dinner", "morning_snack", "afternoon_snack")
+
+
 def _build_uc(
     *,
     recipe_ids: list[UUID],
@@ -72,9 +75,24 @@ def _build_uc(
     targets: dict[str, Any],
     profile: dict[str, Any] | None = None,
 ) -> tuple[CreatePlan, Any]:
+    # Give each slot its own unique recipe to avoid cross-slot dedup
+    # (chosen_today) blocking Layer2 when the pool has only 1 item.
+    # If caller supplies 1 recipe, we generate extras with the same macros.
+    base_macros = macros_by_id.get(recipe_ids[0]) if recipe_ids else None
+    slot_recipes: dict[str, UUID] = {}
+    extended_macros = dict(macros_by_id)
+    for slot in _SLOTS:
+        if recipe_ids and slot == "breakfast":
+            slot_recipes[slot] = recipe_ids[0]
+        else:
+            r = uuid4()
+            slot_recipes[slot] = r
+            if base_macros is not None:
+                extended_macros[r] = base_macros
+
     class _Layer1Fixed:
         async def __call__(self, *, user_id: UUID, meal_time: str) -> list[UUID]:
-            return recipe_ids
+            return [slot_recipes[meal_time]]
 
     class _StubPlans:
         def __init__(self) -> None:
@@ -92,7 +110,7 @@ def _build_uc(
         async def fetch_recipe_macros(
             self, recipe_ids: list[UUID]
         ) -> dict[UUID, tuple]:
-            return {rid: macros_by_id[rid] for rid in recipe_ids if rid in macros_by_id}
+            return {rid: extended_macros[rid] for rid in recipe_ids if rid in extended_macros}
 
     plans = _StubPlans()
 
@@ -230,7 +248,7 @@ async def test_meal_macros_never_null_after_scaling() -> None:
         macros_by_id={rid: (600, 40, 80, 20, None, None, None, None)},
         targets=_targets(),
     )
-    plan = await uc(user_id=uuid4(), plan_type="week")  # type: ignore[arg-type]
+    plan = await uc(user_id=uuid4(), plan_type="day")  # type: ignore[arg-type]
 
     for day in plan.days:
         for meal in day.meals:

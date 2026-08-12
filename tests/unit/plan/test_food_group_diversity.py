@@ -96,6 +96,9 @@ def _make_layer3(
     return _Layer3Stub()
 
 
+_SLOT_NAMES = ("breakfast", "lunch", "dinner", "morning_snack", "afternoon_snack")
+
+
 def _build_uc(
     *,
     recipe_ids: list[UUID],
@@ -104,9 +107,27 @@ def _build_uc(
     omega3_mg: int | None = None,
     tags: list[str] | None = None,
 ) -> tuple[CreatePlan, Any]:
+    # Give each slot 7 unique recipes so week plans (7 days) never
+    # exhaust the pool. All recipes in a slot share the same macros/features
+    # so diversity telemetry reflects the intended scenario.
+    base_macros = macros_by_id.get(recipe_ids[0]) if recipe_ids else (500, 30, 50, 15, None, None, None, None)
+    slot_pool: dict[str, list[UUID]] = {}
+    extended_macros = dict(macros_by_id)
+    for slot in _SLOT_NAMES:
+        pool: list[UUID] = []
+        for i in range(7):
+            if slot == "breakfast" and i == 0 and recipe_ids:
+                r = recipe_ids[0]  # keep the original rid for this slot's first entry
+            else:
+                r = uuid4()
+            pool.append(r)
+            if r not in extended_macros and base_macros is not None:
+                extended_macros[r] = base_macros
+        slot_pool[slot] = pool
+
     class _Layer1Fixed:
         async def __call__(self, *, user_id: UUID, meal_time: str) -> list[UUID]:
-            return recipe_ids
+            return slot_pool.get(meal_time, list(recipe_ids))
 
     class _StubPlans:
         def __init__(self) -> None:
@@ -124,7 +145,7 @@ def _build_uc(
         async def fetch_recipe_macros(
             self, recipe_ids: list[UUID]
         ) -> dict[UUID, tuple]:
-            return {rid: macros_by_id[rid] for rid in recipe_ids if rid in macros_by_id}
+            return {rid: extended_macros[rid] for rid in recipe_ids if rid in extended_macros}
 
     plans = _StubPlans()
 

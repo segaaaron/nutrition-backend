@@ -254,10 +254,8 @@ class CreatePlan:
         )
         adherence_rates = await self.plans.recipe_completion_rates(user_id)
 
-        # Rolling forbidden window, by meal_time: 7 days for day/week
-        # plans, 14 for month plans (a 7-day window let deterministic
-        # picks cycle the exact same week 4×).
-        window_days = 7 if total_days <= 7 else 14
+        # Rolling forbidden window per slot: 7 days (day and week plans only).
+        window_days = 7
         forbidden: dict[str, set[UUID]] = {mt: set() for mt in slots}
         forbidden_window: list[tuple[int, str, UUID]] = []  # (day_index, mt, rid)
         alternatives_by_slot: dict[tuple[int, str], list[str]] = {}
@@ -546,17 +544,24 @@ class CreatePlan:
             else None
         )
 
-        # Invariant: no recipe may appear more than once in the same slot
-        # across the whole plan (REGLA #0.5 D). Check after Layer4 so any
-        # swap-introduced duplicate is caught before persistence.
-        slot_seen: dict[str, set[UUID]] = {mt: set() for mt in slots}
-        for day in days:
-            for meal in day.meals:
-                if meal.recipe_id in slot_seen[meal.meal_time]:
+        # Invariant: within the rolling window, no slot may repeat a recipe
+        # (REGLA #0.5 D). Mirrors the forbidden_window logic exactly:
+        # window_days=7 for day/week plans, 14 for month plans.
+        # A month plan may legitimately reuse a recipe on day 15 that appeared
+        # on day 0 (gap=15 > 14-day window) — the check must not fire there.
+        for mt in slots:
+            mt_sequence = [
+                meal.recipe_id
+                for day in days
+                for meal in day.meals
+                if meal.meal_time == mt
+            ]
+            for i, rid in enumerate(mt_sequence):
+                window_start = max(0, i - window_days + 1)
+                if rid in mt_sequence[window_start:i]:
                     raise BusinessRuleViolation(
-                        f"plan_pool_exhausted:{meal.meal_time}:duplicate_recipe:{meal.recipe_id}"
+                        f"plan_pool_exhausted:{mt}:duplicate_recipe:{rid}"
                     )
-                slot_seen[meal.meal_time].add(meal.recipe_id)
 
         plan = Plan(
             id=plan_id,

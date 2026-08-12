@@ -16,7 +16,7 @@ class _Strict(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
 
-PlanType = Literal["day", "week", "month"]
+PlanType = Literal["day", "week"]
 PlanStatus = Literal["active", "completed", "cancelled"]
 MealTime = Literal["breakfast", "lunch", "dinner", "snack", "morning_snack", "afternoon_snack"]
 
