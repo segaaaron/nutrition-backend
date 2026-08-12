@@ -68,7 +68,7 @@ async def query_food_logs(
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
     meal_time: Literal["breakfast", "lunch", "dinner", "snack", "morning_snack", "afternoon_snack"] | None = Query(default=None),
-    method: Literal["photo", "voice", "text", "barcode", "search", "manual"] | None = Query(
+    method: Literal["photo", "voice", "text", "barcode", "search", "manual", "plan"] | None = Query(
         default=None
     ),
     cursor: str | None = Query(default=None),

@@ -150,6 +150,7 @@ class ProcessVisionJob:
         locale: str,
         region: str,
         user_context: str | None = None,
+        persist: bool = True,
     ) -> None:
         """Orchestrate the full vision pipeline for one job."""
         start = datetime.now(UTC)
@@ -234,13 +235,16 @@ class ProcessVisionJob:
             await self._triangulate_mains(items)
             items, plate_totals = decompose(items, slot=meal_time)
 
-            food_log_ids = await _persist(
-                items,
-                user_id=user_id,
-                meal_time=meal_time,
-                prompt_sha=prompt_sha,
-                session=self.session,
-            )
+            if persist:
+                food_log_ids = await _persist(
+                    items,
+                    user_id=user_id,
+                    meal_time=meal_time,
+                    prompt_sha=prompt_sha,
+                    session=self.session,
+                )
+            else:
+                food_log_ids = []
 
             await self.repo.mark_completed(job_id, items=items, prompt_sha256=prompt_sha)
             await self._publish_completion(

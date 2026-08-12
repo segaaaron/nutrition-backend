@@ -73,6 +73,7 @@ class SubmitPhoto:
         locale: str = "en",
         region: str = "us",
         user_context: str | None = None,
+        persist: bool = True,
     ) -> UUID:
         if len(raw_bytes) == 0:
             raise ValidationError("empty_upload")
@@ -138,6 +139,7 @@ class SubmitPhoto:
             locale=locale,
             region=region,
             user_context=clean_context,
+            persist=persist,
         )
 
         await self.bus.publish(

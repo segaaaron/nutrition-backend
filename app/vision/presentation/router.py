@@ -106,6 +106,7 @@ async def submit_food_photo(  # noqa: PLR0913 — FastAPI endpoint signature: de
         str | None,
         Form(description="optional portion cue, e.g. 'plato familiar' / 'es individual'"),
     ] = None,
+    persist: Annotated[bool, Form(description="false = analyze only, do not write to food_logs")] = True,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> SubmitPhotoResponse:
     if not idempotency_key:
@@ -129,6 +130,7 @@ async def submit_food_photo(  # noqa: PLR0913 — FastAPI endpoint signature: de
         locale=locale,
         region=region,
         user_context=note,
+        persist=persist,
     )
     return SubmitPhotoResponse(job_id=job_id)
 

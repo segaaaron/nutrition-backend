@@ -41,21 +41,21 @@ class WeightProgressResponse(_Strict):
 class WeightInsightsOut(_Strict):
     """Weight insights derived on-the-fly from biometrics.
 
-    Embedded inside GoalsResponse. All Decimal fields serialise as numbers.
+    Embedded inside GoalsResponse. All numeric fields serialise as JSON numbers.
     """
 
-    bmi: Decimal
+    bmi: float
     bmi_category: str           # "underweight" | "healthy" | "overweight" | "obese"
     bmi_label_es: str           # Human-readable Spanish label for iOS display
 
-    ideal_weight_min_kg: Decimal
-    ideal_weight_max_kg: Decimal
-    peterson_ideal_kg: Decimal  # Peterson 2016 point estimate — most accurate
-    devine_reference_kg: Decimal | None  # None when height < 152.4 cm
+    ideal_weight_min_kg: float
+    ideal_weight_max_kg: float
+    peterson_ideal_kg: float    # Peterson 2016 point estimate — most accurate
+    devine_reference_kg: float | None  # None when height < 152.4 cm
 
-    weight_to_lose_kg: Decimal | None    # None when already in healthy range or pregnant
+    weight_to_lose_kg: float | None    # None when already in healthy range or pregnant
     weight_gap_direction: str   # "lose" | "gain" | "maintain"
-    weekly_rate_kg: Decimal
+    weekly_rate_kg: float
     weekly_rate_label: str      # "slow" | "moderate" | "fast"
     estimated_weeks: int | None
     estimated_date: date | None

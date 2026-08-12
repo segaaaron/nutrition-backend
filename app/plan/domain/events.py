@@ -24,6 +24,12 @@ class MealCompleted(DomainEvent):
     user_id: UUID
     meal_id: UUID
     at: datetime
+    meal_time: str | None = None
+    recipe_id: UUID | None = None
+    kcal: int | None = None
+    protein_g: int | None = None
+    carbs_g: int | None = None
+    fat_g: int | None = None
 
 
 @dataclass(frozen=True, slots=True)

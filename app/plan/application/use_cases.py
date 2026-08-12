@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from uuid import UUID
 
 from app.core.errors import BusinessRuleViolation, NotFoundError
@@ -72,6 +72,11 @@ class CompleteMeal:
         meal = plan.find_meal(meal_id)
         if meal is None:
             raise NotFoundError("meal_not_found", meal_id=str(meal_id))
+        meal_day = next(
+            (d for d in plan.days if any(m.id == meal_id for m in d.meals)), None
+        )
+        if meal_day is not None and meal_day.date > date.today():
+            raise BusinessRuleViolation("meal_day_in_future")
         await self.plans.mark_meal_completed(meal_id)
         await self.cache.invalidate(plan.user_id)
         now = datetime.now(UTC)
@@ -81,6 +86,12 @@ class CompleteMeal:
                 user_id=plan.user_id,
                 meal_id=meal_id,
                 at=now,
+                meal_time=meal.meal_time,
+                recipe_id=meal.recipe_id,
+                kcal=meal.kcal,
+                protein_g=meal.protein_g,
+                carbs_g=meal.carbs_g,
+                fat_g=meal.fat_g,
             )
         )
         # Day completed when all meals of the meal's day are completed.
