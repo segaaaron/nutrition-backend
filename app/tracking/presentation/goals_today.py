@@ -16,6 +16,7 @@ from sqlalchemy import text
 from app.core.errors import NotFoundError
 from app.identity.presentation.dependencies import CurrentUserDep, SessionDep
 from app.shared.domain.time import utc_today
+from app.tracking.infrastructure.fasting_repository import SqlFastingRepository
 
 router = APIRouter(tags=["goals"])
 
@@ -31,6 +32,7 @@ class TodayGoalsResponse(BaseModel):
     water_consumed_ml: int
     daily_items: list[dict]
     snack_suggestions: list[dict]
+    fasting: dict | None = None  # F4: fasting block — None when preference not set
 
 
 @router.get("/goals/today", response_model=TodayGoalsResponse)
@@ -111,6 +113,37 @@ async def get_today(current_user: CurrentUserDep, session: SessionDep) -> TodayG
             )
         ).all()
 
+    # F4: Fasting block — resolve eligibility + state + streak
+    fasting_block: dict | None = None
+    try:
+        fasting_repo = SqlFastingRepository(session)
+        pref = await fasting_repo.get_preference(current_user)
+
+        # Eligibility: check profile medical_conditions — pregnancy/lactation block fasting
+        conditions_row = (
+            await session.execute(
+                text("SELECT medical_conditions FROM user_profiles WHERE user_id = :uid"),
+                {"uid": str(current_user)},
+            )
+        ).first()
+        conditions: list[str] = list(conditions_row[0] or []) if conditions_row and conditions_row[0] else []
+        available = not any(c in conditions for c in ("pregnancy", "lactation"))
+
+        fasting_block = {"available": available}
+
+        # Add state/streak only when fasting is enabled in preference
+        if pref and pref.enabled and available:
+            from app.tracking.application.fasting_uc import GetFastingActiveState
+            state_uc = GetFastingActiveState(repo=fasting_repo)
+            state_data = await state_uc(user_id=current_user)
+            streak = await fasting_repo.streak_days(current_user)
+            windows_7d = await fasting_repo.windows_completed_7d(current_user)
+            fasting_block["state"] = state_data["state"]
+            fasting_block["streak_days"] = streak
+            fasting_block["windows_completed_7d"] = windows_7d
+    except Exception:  # noqa: BLE001 — fasting block is additive; never break goals/today
+        fasting_block = None
+
     return TodayGoalsResponse(
         kcal_goal=kcal_target,
         kcal_consumed=kcal_consumed,
@@ -124,6 +157,7 @@ async def get_today(current_user: CurrentUserDep, session: SessionDep) -> TodayG
         snack_suggestions=[
             {"recipe_id": r[0], "name": r[1], "kcal": r[2], "protein_g": r[3]} for r in snacks_raw
         ],
+        fasting=fasting_block,
     )
 
 

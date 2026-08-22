@@ -168,6 +168,7 @@ class SqlVisionJobRepository:
             created_at=m.created_at,
             started_at=m.started_at,
             completed_at=m.completed_at,
+            food_log_ids=[UUID(fid) for fid in (m.food_log_ids or [])],
         )
 
     async def mark_running(self, job_id: UUID) -> None:
@@ -183,6 +184,7 @@ class SqlVisionJobRepository:
         *,
         items: list[DetectedFoodItem],
         prompt_sha256: str | None = None,
+        food_log_ids: list[UUID] | None = None,
     ) -> None:
         """Persist the detection AND the prompt sha it was produced with.
 
@@ -206,6 +208,8 @@ class SqlVisionJobRepository:
         # column untouched and let the next real detection populate it.
         if prompt_sha256:
             values["prompt_sha256"] = prompt_sha256
+        if food_log_ids is not None:
+            values["food_log_ids"] = [str(fid) for fid in food_log_ids]
         await self.s.execute(
             update(VisionJobModel).where(VisionJobModel.id == job_id).values(**values)
         )

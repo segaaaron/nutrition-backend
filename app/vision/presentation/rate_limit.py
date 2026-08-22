@@ -44,12 +44,25 @@ class ServiceUnavailable(DomainError):
     title = "Service temporarily unavailable"
 
 
-async def check_photo_upload_rate_limit(user_id: UUID) -> None:
+async def check_photo_upload_rate_limit(user_id: UUID, *, persist: bool = True) -> None:
+    """Rate-limit a photo upload request.
+
+    ``persist=True``  (register scan): bucket ``photo_uploads:{uid}:{day}``,
+                      limit ``vision_photo_uploads_per_day``.
+    ``persist=False`` (preview scan): bucket ``photo_preview:{uid}:{day}``,
+                      limit ``vision_photo_preview_per_day`` (more generous).
+    The two buckets are independent so "just looking" never eats into the
+    registration quota.
+    """
     s = get_settings()
-    limit = s.vision_photo_uploads_per_day
     now = datetime.now(UTC)
     day_bucket = now.strftime("%Y-%m-%d")
-    key = f"photo_uploads:{user_id}:{day_bucket}"
+    if persist:
+        limit = s.vision_photo_uploads_per_day
+        key = f"photo_uploads:{user_id}:{day_bucket}"
+    else:
+        limit = s.vision_photo_preview_per_day
+        key = f"photo_preview:{user_id}:{day_bucket}"
     r = get_redis()
     pipe = r.pipeline()
     pipe.incr(key)

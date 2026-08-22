@@ -3,12 +3,13 @@
 Endpoints:
   POST /logs/food/photo          (multipart, 8MB max, Idempotency-Key)
   GET  /logs/food/jobs/{jobId}   (poll)
-  POST /logs/food/{id}/edit      (user correction → personal learning)
+  POST /logs/food/{id}/edit      (user correction → patches food_log + personal learning)
   POST /ai/recognize             (deprecated alias)
 
-Rate limit: 10/hour/user via Redis counter (bucket key
-`rl:vision:{uid}:{hour}`). Idempotency-Key is mandatory on POST photo and
-short-circuits replay attacks.
+Rate limit: per-user per-day, two independent Redis buckets:
+  photo_uploads:{uid}:{YYYY-MM-DD}  — persist=true  (vision_photo_uploads_per_day)
+  photo_preview:{uid}:{YYYY-MM-DD}  — persist=false (vision_photo_preview_per_day)
+Idempotency-Key is mandatory on POST photo.
 """
 
 from __future__ import annotations
@@ -82,12 +83,12 @@ async def _enqueue(task_name: str, **kwargs: Any) -> None:
     await pool.enqueue_job(task_name, **kwargs)
 
 
-async def _check_rate_limit(user_id: UUID) -> None:
+async def _check_rate_limit(user_id: UUID, *, persist: bool = True) -> None:
     """Thin shim — concrete logic lives in
     ``app.vision.presentation.rate_limit`` for testability."""
     from app.vision.presentation.rate_limit import check_photo_upload_rate_limit
 
-    await check_photo_upload_rate_limit(user_id)
+    await check_photo_upload_rate_limit(user_id, persist=persist)
 
 
 @router.post(
@@ -111,7 +112,7 @@ async def submit_food_photo(  # noqa: PLR0913 — FastAPI endpoint signature: de
 ) -> SubmitPhotoResponse:
     if not idempotency_key:
         raise ValidationError("idempotency_key_required")
-    await _check_rate_limit(current_user)
+    await _check_rate_limit(current_user, persist=persist)
 
     raw = await image.read()
     uc = SubmitPhoto(
@@ -267,6 +268,7 @@ async def get_job_status(
         error_code=job.error_code,
         created_at=job.created_at,
         completed_at=job.completed_at,
+        food_log_ids=[str(fid) for fid in job.food_log_ids],
     )
 
 
@@ -363,6 +365,10 @@ async def edit_food_log(
 ) -> Response:
     # BOLA: verify the food_log belongs to current_user before applying correction.
     await assert_owns(session, table="food_logs", resource_id=food_log_id, user_id=current_user)
+
+    # LearnUserCorrection reads the ORIGINAL amount_g from food_logs to compute
+    # the calibration ratio. Must run BEFORE the UPDATE so it sees the pre-edit
+    # value; otherwise ratio = new_g / new_g = 1.0 on first correction.
     uc = LearnUserCorrection(session=session)
     await uc(
         user_id=current_user,
@@ -370,4 +376,38 @@ async def edit_food_log(
         corrected_food_id=body.corrected_food_id,
         corrected_amount_g=body.corrected_amount_g,
     )
+
+    # B8: patch the food_log record. Scale kcal/macros proportionally from the
+    # stored values so daily totals stay consistent without a foods-table lookup.
+    # amount_g > 0 guard prevents division-by-zero when original is NULL or 0.
+    if body.corrected_amount_g is not None or body.corrected_food_id is not None:
+        await session.execute(
+            text(
+                """
+                UPDATE food_logs
+                   SET amount_g   = CASE WHEN :new_g IS NOT NULL THEN :new_g ELSE amount_g END,
+                       kcal       = CASE WHEN :new_g IS NOT NULL AND amount_g > 0
+                                         THEN round(kcal       * :new_g / amount_g)
+                                         ELSE kcal END,
+                       protein_g  = CASE WHEN :new_g IS NOT NULL AND amount_g > 0
+                                         THEN round(protein_g  * :new_g / amount_g)
+                                         ELSE protein_g END,
+                       carbs_g    = CASE WHEN :new_g IS NOT NULL AND amount_g > 0
+                                         THEN round(carbs_g    * :new_g / amount_g)
+                                         ELSE carbs_g END,
+                       fat_g      = CASE WHEN :new_g IS NOT NULL AND amount_g > 0
+                                         THEN round(fat_g      * :new_g / amount_g)
+                                         ELSE fat_g END,
+                       food_id    = CASE WHEN :new_fid IS NOT NULL THEN :new_fid::uuid ELSE food_id END
+                 WHERE id = :log_id
+                """
+            ),
+            {
+                "new_g": float(body.corrected_amount_g) if body.corrected_amount_g is not None else None,
+                "new_fid": str(body.corrected_food_id) if body.corrected_food_id else None,
+                "log_id": str(food_log_id),
+            },
+        )
+
+    await session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

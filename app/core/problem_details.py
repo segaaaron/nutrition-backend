@@ -181,6 +181,31 @@ _PLAN_RULE_TITLES: dict[str, tuple[str, str, str]] = {
         "Grocery list generation produced no items",
         "grocery_generation_yielded_no_items",
     ),
+    "meal_day_in_future": (
+        "plan:meal-day-in-future",
+        "Cannot complete a meal scheduled for a future day",
+        "meal_day_in_future",
+    ),
+    "fasting:not_available": (
+        "fasting:not-available",
+        "Fasting is not available for your current profile",
+        "fasting_not_available",
+    ),
+    "fasting:window_in_future": (
+        "fasting:window-in-future",
+        "Fasting window cannot be in the future",
+        "fasting_window_in_future",
+    ),
+    "fasting:invalid_protocol": (
+        "fasting:invalid-protocol",
+        "Invalid fasting protocol",
+        "fasting_invalid_protocol",
+    ),
+    "fasting:overlapping_window": (
+        "fasting:overlapping-window",
+        "A fasting window already exists for this period",
+        "fasting_overlapping_window",
+    ),
 }
 
 
@@ -496,6 +521,23 @@ def _safe_input_repr(value: Any) -> str:
     return text[:120] + "…" if len(text) > 120 else text
 
 
+async def translate_for_500(
+    request: Request,
+    title: str,
+    detail: str | None,
+) -> tuple[str, str | None]:
+    """Translate the generic 500 title/detail for the ``main.py`` handler.
+
+    Resolves locale from ``Accept-Language`` header only — no DB. Returns the
+    EN fallback when the translator is not wired (tests, cold start).
+    """
+    locale = _request_locale(request)
+    translator = _translator(request)
+    return await _translate_pair(
+        translator, _SCOPE_ERROR, "internal_server_error", locale, title, detail
+    )
+
+
 def register_problem_handlers(app: FastAPI) -> None:
     """Wire RFC 7807 problem-details handlers into the FastAPI app.
 
@@ -513,4 +555,5 @@ __all__ = [
     "PROBLEM_URN_BASE",
     "ProblemDetails",
     "register_problem_handlers",
+    "translate_for_500",
 ]

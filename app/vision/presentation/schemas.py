@@ -88,6 +88,8 @@ class JobStatusResponse(BaseModel):
     error_code: str | None = None
     created_at: datetime | None = None
     completed_at: datetime | None = None
+    # B7: IDs of food_log rows created by this scan (empty list when persist=false)
+    food_log_ids: list[str] = Field(default_factory=list)
 
 
 class EditDetectedItemRequest(BaseModel):

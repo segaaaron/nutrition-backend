@@ -113,6 +113,9 @@ class Settings(BaseSettings):
     vision_confidence_threshold: float = 0.7
     # Per-user daily cap on photo uploads (HTTP 429 on excess).
     vision_photo_uploads_per_day: int = 9999
+    # Separate, more generous cap for persist=false (preview-only) scans.
+    # These cost an LLM call but write nothing; budget them independently.
+    vision_photo_preview_per_day: int = 9999
     # SHA256 dedup window. Re-uses a previous completed job's items when the
     # same compressed image is submitted by ANY user within the TTL.
     vision_cache_ttl_days: int = 90

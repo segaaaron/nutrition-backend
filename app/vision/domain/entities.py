@@ -73,3 +73,5 @@ class VisionJob:
     created_at: datetime | None = None
     started_at: datetime | None = None
     completed_at: datetime | None = None
+    # B7: IDs of food_log rows created by this job (empty when persist=false)
+    food_log_ids: list[UUID] = field(default_factory=list)

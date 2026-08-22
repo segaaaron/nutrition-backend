@@ -30,7 +30,7 @@ class WeeklySummaryResponse(_Strict):
 class WeightProgressResponse(_Strict):
     """Read-only weight trend — answers "Am I losing weight as planned?"."""
 
-    slope_kg_per_week: Decimal | None   # None when insufficient data
+    slope_kg_per_week: float | None     # None when insufficient data
     trend_label: str                     # "losing" | "gaining" | "plateau" | "insufficient_data"
     weight_points: int                   # weigh-in entries used for trend
     days_tracked_last_14: int

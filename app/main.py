@@ -198,14 +198,23 @@ def create_app() -> FastAPI:
         record_error(exc=exc, path=request.url.path)
         # Never expose exception internals to the client — SQL errors leak table names,
         # file paths, and internal state. Full details are in server logs.
+        # B12: attempt i18n translation using Accept-Language; fall back to EN on any error.
+        title = "Internal server error"
+        detail = "An unexpected error occurred. Please try again later."
+        try:
+            from app.core.problem_details import translate_for_500  # noqa: PLC0415
+            title, detail = await translate_for_500(request, title, detail)
+        except Exception:  # noqa: BLE001 — translation must never break 500 rendering
+            pass
         return JSONResponse(
             status_code=500,
             content={
                 "type": "urn:nova:problem:internal",
-                "title": "Internal server error",
+                "title": title,
                 "status": 500,
-                "detail": "An unexpected error occurred. See server logs.",
-                "message": "An unexpected error occurred. See server logs.",
+                "detail": detail,
+                "message": detail,
+                "i18n_key": "internal_server_error",
             },
             media_type="application/problem+json",
         )

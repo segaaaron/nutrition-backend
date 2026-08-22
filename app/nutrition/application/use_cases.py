@@ -647,7 +647,7 @@ class GetWeeklySummary:
                     """
                     SELECT COALESCE(SUM(ml), 0)::int AS total_ml
                       FROM water_logs
-                     WHERE user_id = :uid AND logged_at::date = CURRENT_DATE
+                     WHERE user_id = :uid AND time::date = CURRENT_DATE
                 """
                 ),
                 {"uid": uid},

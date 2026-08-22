@@ -246,7 +246,7 @@ class ProcessVisionJob:
             else:
                 food_log_ids = []
 
-            await self.repo.mark_completed(job_id, items=items, prompt_sha256=prompt_sha)
+            await self.repo.mark_completed(job_id, items=items, prompt_sha256=prompt_sha, food_log_ids=food_log_ids)
             await self._publish_completion(
                 job_id=job_id,
                 user_id=user_id,

@@ -54,6 +54,8 @@ class VisionJobModel(Base):
     # producer wired 2026-06-11 (near-dup photo dedup + anomaly signal).
     phash_64: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     detected_items: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    # B7: list of food_log UUID strings created by this job; empty when persist=false
+    food_log_ids: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
     error_code: Mapped[str | None] = mapped_column(Text, nullable=True)
     error_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

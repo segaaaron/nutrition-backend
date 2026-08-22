@@ -50,6 +50,7 @@ class FakeRepo:
         *,
         items: list[DetectedFoodItem],
         prompt_sha256: str | None = None,
+        food_log_ids: list[UUID] | None = None,
     ) -> None: ...
     async def mark_failed(self, job_id: UUID, *, error_code: str, detail: str) -> None: ...
     async def find_recent_completed_by_sha(
