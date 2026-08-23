@@ -363,8 +363,24 @@ async def edit_food_log(
     current_user: CurrentUserDep,
     session: SessionDep,
 ) -> Response:
+    # Reject food_id change without amount — macros can't be recalculated proportionally.
+    if body.corrected_food_id is not None and body.corrected_amount_g is None:
+        raise ValidationError(
+            "food_id_change_requires_amount",
+            field="corrected_amount_g",
+        )
+
     # BOLA: verify the food_log belongs to current_user before applying correction.
     await assert_owns(session, table="food_logs", resource_id=food_log_id, user_id=current_user)
+
+    # Fetch the log's date before the update for cache invalidation below.
+    date_row = (
+        await session.execute(
+            text("SELECT date FROM food_logs WHERE id = :id"),
+            {"id": str(food_log_id)},
+        )
+    ).first()
+    log_date = date_row[0] if date_row else None
 
     # LearnUserCorrection reads the ORIGINAL amount_g from food_logs to compute
     # the calibration ratio. Must run BEFORE the UPDATE so it sees the pre-edit
@@ -410,4 +426,10 @@ async def edit_food_log(
         )
 
     await session.commit()
+
+    # Invalidate the daily totals cache so Home reflects the correction immediately.
+    if log_date is not None:
+        from app.tracking.application.food_log_uc import _cache_key_totals
+        await get_redis().delete(_cache_key_totals(current_user, log_date))
+
     return Response(status_code=status.HTTP_204_NO_CONTENT)

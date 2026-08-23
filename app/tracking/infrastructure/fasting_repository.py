@@ -61,6 +61,7 @@ class SqlFastingRepository:
             SELECT id, user_id, method_h, start_ts, end_ts, duration_s, target_s, achieved
               FROM fasting_sessions
              WHERE user_id = :uid AND end_ts IS NULL
+             ORDER BY start_ts DESC
              LIMIT 1
         """
         )
@@ -142,9 +143,8 @@ class SqlFastingRepository:
                 SELECT EXISTS(
                     SELECT 1 FROM fasting_sessions
                      WHERE user_id = :uid
-                       AND end_ts IS NOT NULL
                        AND start_ts < :e
-                       AND end_ts   > :s
+                       AND COALESCE(end_ts, now()) > :s
                        {exclude_clause}
                 )
                 """  # noqa: S608
@@ -239,7 +239,12 @@ class SqlFastingRepository:
         return [_row_to_entity(r) for r in rows], nxt
 
     async def streak_days(self, user_id: UUID) -> int:
-        """Count consecutive days with at least one completed fasting window ending today."""
+        """Count consecutive days with ≥1 achieved fasting window.
+
+        Anchors on CURRENT_DATE or CURRENT_DATE-1 so a live streak stays
+        visible all day even before today's window closes.
+        Only achieved=true windows count; broken fasts are excluded.
+        """
         row = (
             await self.s.execute(
                 text(
@@ -247,16 +252,22 @@ class SqlFastingRepository:
             WITH logged AS (
                 SELECT DISTINCT end_ts::date AS d
                   FROM fasting_sessions
-                 WHERE user_id = :uid AND end_ts IS NOT NULL
+                 WHERE user_id = :uid AND end_ts IS NOT NULL AND achieved = true
             ),
             series AS (
                 SELECT d,
                        d - (ROW_NUMBER() OVER (ORDER BY d))::int * INTERVAL '1 day' AS grp
                   FROM logged
+            ),
+            anchor AS (
+                SELECT grp FROM series
+                 WHERE d IN (CURRENT_DATE, CURRENT_DATE - 1)
+                 ORDER BY d DESC
+                 LIMIT 1
             )
             SELECT COUNT(*) AS streak
               FROM series
-             WHERE grp = (SELECT grp FROM series WHERE d = CURRENT_DATE LIMIT 1)
+              JOIN anchor ON series.grp = anchor.grp
         """
                 ),
                 {"uid": str(user_id)},

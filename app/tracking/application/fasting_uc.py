@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
+
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import BusinessRuleViolation, ConflictError, NotFoundError
 from app.core.event_bus import EventBus
@@ -23,17 +26,34 @@ from app.tracking.infrastructure.fasting_repository import (
 )
 
 
+async def fasting_available_for(session: AsyncSession, user_id: UUID) -> bool:
+    """Returns False when user has pregnancy or lactation; True otherwise (incl. no profile)."""
+    row = (
+        await session.execute(
+            text("SELECT medical_conditions FROM user_profiles WHERE user_id = :uid"),
+            {"uid": str(user_id)},
+        )
+    ).first()
+    conditions: list[str] = list(row[0] or []) if row and row[0] else []
+    return not any(c in conditions for c in ("pregnancy", "lactation"))
+
+
 @dataclass(slots=True)
 class StartFasting:
     repo: SqlFastingRepository
     bus: EventBus
 
     async def __call__(self, *, user_id: UUID, method_h: int) -> FastingSession:
-        if method_h not in (16, 18, 20):
+        if method_h not in (14, 16, 18, 20):
             raise ConflictError(detail="invalid_method")
         active = await self.repo.active_for(user_id)
         if active is not None:
-            raise ConflictError(detail="fasting_already_active", session_id=str(active.id))
+            grace = timedelta(seconds=active.target_s) + timedelta(hours=24)
+            if datetime.now(UTC) > active.start_ts + grace:
+                active.stop()
+                await self.repo.finalize(active)
+            else:
+                raise ConflictError(detail="fasting_already_active", session_id=str(active.id))
         fs = FastingSession.start(
             id_=new_session_id(),
             user_id=user_id,
@@ -156,9 +176,8 @@ class UpsertFastingPreference:
         window_start_local: str | None,
         time_zone: str | None,
         reminders_enabled: bool,
-        medical_conditions: list[str],
     ) -> FastingPreference:
-        if enabled and any(c in medical_conditions for c in ("pregnancy", "lactation")):
+        if enabled and not await fasting_available_for(self.repo.s, user_id):
             raise BusinessRuleViolation("fasting:not_available")
         if protocol is not None and protocol not in VALID_PROTOCOLS:
             raise BusinessRuleViolation("fasting:invalid_protocol")
@@ -187,7 +206,6 @@ class LogFastingWindow:
         ended_at: datetime,
         protocol: str,
         planned_hours: int,
-        completed: bool,
         break_reason: str | None,
     ) -> FastingSession:
         if protocol not in VALID_PROTOCOLS:
@@ -214,7 +232,7 @@ class LogFastingWindow:
             end_ts=ended_at,
             duration_s=duration_s,
             target_s=target_s,
-            achieved=completed,
+            achieved=duration_s >= target_s,
             protocol=protocol,
             break_reason=break_reason,
         )

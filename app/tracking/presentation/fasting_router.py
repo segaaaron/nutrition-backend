@@ -2,15 +2,27 @@
 
 from __future__ import annotations
 
+import json
+import re
+import zoneinfo
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Query, status
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from fastapi import APIRouter, Header, Query, Request, status
+from fastapi.responses import Response
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
-from app.core.errors import NotFoundError
+from app.core.errors import ConflictError, NotFoundError
 from app.core.event_bus import get_event_bus
+from app.core.idempotency import (
+    IdempotencyConflict,
+    cached_to_response,
+    lookup_redis,
+    remember_redis,
+    require_idempotency_key,
+)
+from app.core.redis import get_redis
 from app.identity.presentation.dependencies import CurrentUserDep, SessionDep
-from app.profile.infrastructure.repositories import SqlProfileRepository
 from app.tracking.application.fasting_uc import (
     GetActiveFasting,
     GetFastingActiveState,
@@ -21,6 +33,7 @@ from app.tracking.application.fasting_uc import (
     StartFasting,
     StopFasting,
     UpsertFastingPreference,
+    fasting_available_for,
 )
 from app.tracking.infrastructure.fasting_repository import SqlFastingRepository
 
@@ -30,7 +43,7 @@ router = APIRouter(tags=["fasting"])
 class StartFastingBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    method_h: int = Field(..., description="Fasting protocol — one of 16/18/20")
+    method_h: int = Field(..., description="Fasting protocol — one of 14/16/18/20")
 
 
 class StartFastingOut(BaseModel):
@@ -121,6 +134,24 @@ class FastingPreferencePut(BaseModel):
     time_zone: str | None = None
     reminders_enabled: bool = False
 
+    @model_validator(mode="after")
+    def _validate_fields(self) -> "FastingPreferencePut":
+        if self.window_start_local is not None:
+            m = re.fullmatch(r"(\d{2}):(\d{2})", self.window_start_local)
+            if not m or int(m.group(1)) > 23 or int(m.group(2)) not in (0, 15, 30, 45):
+                raise ValueError("fasting:invalid_window_start — must be HH:mm with minutes in 00/15/30/45")
+        if self.time_zone is not None:
+            try:
+                zoneinfo.ZoneInfo(self.time_zone)
+            except (zoneinfo.ZoneInfoNotFoundError, KeyError):
+                raise ValueError("fasting:invalid_timezone — must be a valid IANA timezone identifier")
+        if self.enabled:
+            if self.protocol is None:
+                raise ValueError("fasting:missing_protocol — protocol required when enabled is true")
+            if self.window_start_local is None:
+                raise ValueError("fasting:missing_window_start — window_start_local required when enabled is true")
+        return self
+
 
 @router.get("/me/fasting-preference", response_model=FastingPreferenceResponse)
 async def get_fasting_preference(
@@ -145,11 +176,6 @@ async def put_fasting_preference(
     current_user: CurrentUserDep,
     session: SessionDep,
 ) -> FastingPreferenceResponse:
-    # Fetch medical conditions to enforce pregnancy/lactation gate
-    profile_repo = SqlProfileRepository(session)
-    profile = await profile_repo.get(current_user)
-    conditions: list[str] = list(profile.medical_conditions) if profile and profile.medical_conditions else []
-
     uc = UpsertFastingPreference(repo=SqlFastingRepository(session))
     pref = await uc(
         user_id=current_user,
@@ -158,7 +184,6 @@ async def put_fasting_preference(
         window_start_local=body.window_start_local,
         time_zone=body.time_zone,
         reminders_enabled=body.reminders_enabled,
-        medical_conditions=conditions,
     )
     await session.commit()
     return FastingPreferenceResponse(
@@ -180,7 +205,7 @@ class FastingLogBody(BaseModel):
     ended_at: AwareDatetime
     protocol: str
     planned_hours: int
-    completed: bool
+    completed: bool  # accepted but ignored — server derives achieved from duration >= target
     break_reason: str | None = None
 
 
@@ -189,7 +214,29 @@ async def log_fasting_window(
     body: FastingLogBody,
     current_user: CurrentUserDep,
     session: SessionDep,
-) -> dict:
+    request: Request,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> Response:
+    """Log a completed fasting window. ``Idempotency-Key`` (UUIDv4) REQUIRED.
+
+    Replay within 24 h returns the cached 201 body verbatim.
+    """
+    key = require_idempotency_key(idempotency_key)
+    raw_body = await request.body()
+    redis = get_redis()
+    try:
+        skey, cached = await lookup_redis(
+            redis=redis,
+            user_id=str(current_user),
+            path=request.url.path,
+            raw_key=key,
+            body=raw_body,
+        )
+    except IdempotencyConflict as exc:
+        raise ConflictError("idempotency_body_mismatch") from exc
+    if cached is not None:
+        return cached_to_response(cached)
+
     uc = LogFastingWindow(repo=SqlFastingRepository(session))
     fs = await uc(
         user_id=current_user,
@@ -197,11 +244,10 @@ async def log_fasting_window(
         ended_at=body.ended_at,
         protocol=body.protocol,
         planned_hours=body.planned_hours,
-        completed=body.completed,
         break_reason=body.break_reason,
     )
     await session.commit()
-    return {
+    payload = {
         "id": str(fs.id),
         "started_at": fs.start_ts.isoformat(),
         "ended_at": fs.end_ts.isoformat() if fs.end_ts else None,
@@ -211,6 +257,18 @@ async def log_fasting_window(
         "completed": fs.achieved,
         "break_reason": fs.break_reason,
     }
+    await remember_redis(
+        redis=redis,
+        storage_key=skey,
+        body=raw_body,
+        response_body=payload,
+        status_code=status.HTTP_201_CREATED,
+    )
+    return Response(
+        content=json.dumps(payload),
+        media_type="application/json",
+        status_code=status.HTTP_201_CREATED,
+    )
 
 
 @router.get("/logs/fasting")

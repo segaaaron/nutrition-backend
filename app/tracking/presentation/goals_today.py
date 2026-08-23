@@ -114,26 +114,20 @@ async def get_today(current_user: CurrentUserDep, session: SessionDep) -> TodayG
         ).all()
 
     # F4: Fasting block — resolve eligibility + state + streak
-    fasting_block: dict | None = None
+    # available always travels; state/streak are additive and can fail silently.
+    fasting_block: dict = {"available": True}
     try:
+        from app.tracking.application.fasting_uc import (
+            GetFastingActiveState,
+            fasting_available_for,
+        )
         fasting_repo = SqlFastingRepository(session)
+
+        available = await fasting_available_for(session, current_user)
+        fasting_block["available"] = available
+
         pref = await fasting_repo.get_preference(current_user)
-
-        # Eligibility: check profile medical_conditions — pregnancy/lactation block fasting
-        conditions_row = (
-            await session.execute(
-                text("SELECT medical_conditions FROM user_profiles WHERE user_id = :uid"),
-                {"uid": str(current_user)},
-            )
-        ).first()
-        conditions: list[str] = list(conditions_row[0] or []) if conditions_row and conditions_row[0] else []
-        available = not any(c in conditions for c in ("pregnancy", "lactation"))
-
-        fasting_block = {"available": available}
-
-        # Add state/streak only when fasting is enabled in preference
         if pref and pref.enabled and available:
-            from app.tracking.application.fasting_uc import GetFastingActiveState
             state_uc = GetFastingActiveState(repo=fasting_repo)
             state_data = await state_uc(user_id=current_user)
             streak = await fasting_repo.streak_days(current_user)
@@ -142,7 +136,7 @@ async def get_today(current_user: CurrentUserDep, session: SessionDep) -> TodayG
             fasting_block["streak_days"] = streak
             fasting_block["windows_completed_7d"] = windows_7d
     except Exception:  # noqa: BLE001 — fasting block is additive; never break goals/today
-        fasting_block = None
+        pass
 
     return TodayGoalsResponse(
         kcal_goal=kcal_target,
