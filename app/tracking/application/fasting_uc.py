@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import BusinessRuleViolation, ConflictError, NotFoundError
@@ -59,7 +60,18 @@ class StartFasting:
             user_id=user_id,
             method=FastingMethod(method_h),
         )
-        await self.repo.insert(fs)
+        try:
+            await self.repo.insert(fs)
+        except IntegrityError as exc:
+            # ix_fasting_one_active (migration 0047) rejected a second open
+            # session. Reaching here means another request inserted between our
+            # active_for() read and this insert — the read-then-write race the
+            # index exists to close. The answer is the same one the guard above
+            # gives, so the caller cannot tell which of the two caught it.
+            await self.repo.s.rollback()
+            active = await self.repo.active_for(user_id)
+            extra = {"session_id": str(active.id)} if active is not None else {}
+            raise ConflictError(detail="fasting_already_active", **extra) from exc
         await self.bus.publish(
             FastingStarted(
                 session_id=fs.id,
