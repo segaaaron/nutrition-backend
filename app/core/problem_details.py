@@ -206,6 +206,39 @@ _PLAN_RULE_TITLES: dict[str, tuple[str, str, str]] = {
         "A fasting window already exists for this period",
         "fasting_overlapping_window",
     ),
+    # BE-11 — portion adjustment
+    "user_factor_out_of_range": (
+        "plan:user-factor-out-of-range",
+        "Portion factor must be between 0.25 and 2.0",
+        "user_factor_out_of_range",
+    ),
+    "user_factor_not_quarter": (
+        "plan:user-factor-not-quarter",
+        "Portion factor must be a multiple of 0.25",
+        "user_factor_not_quarter",
+    ),
+    "meal_already_completed": (
+        "plan:meal-already-completed",
+        "This meal is already completed — portion cannot be adjusted",
+        "meal_already_completed",
+    ),
+    # BE-11 swap
+    "swap_pool_exhausted_for_slot": (
+        "plan:swap-pool-exhausted",
+        "No alternative recipes available for this meal slot",
+        "swap_pool_exhausted_for_slot",
+    ),
+    # B7 — vision confirm
+    "vision_job_not_completed": (
+        "vision:job-not-completed",
+        "Photo analysis not yet complete — try again shortly",
+        "vision_job_not_completed",
+    ),
+    "vision_job_already_confirmed": (
+        "vision:job-already-confirmed",
+        "Photo analysis already logged",
+        "vision_job_already_confirmed",
+    ),
 }
 
 

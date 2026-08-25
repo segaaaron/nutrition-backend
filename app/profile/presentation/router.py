@@ -84,6 +84,7 @@ def _to_resp(
     plan_job: PlanJobInfo | None = None,
     starting_weight_kg: float | None = None,
     onboarding_completed: bool | None = None,
+    role: str = "user",
 ) -> ProfileResponse:
     return ProfileResponse(
         user_id=p.user_id,
@@ -119,6 +120,7 @@ def _to_resp(
         ),
         updated_at=p.updated_at,
         plan_job=plan_job,
+        role=role,
     )
 
 
@@ -141,8 +143,18 @@ async def get_me(current_user: CurrentUserDep, session: SessionDep) -> ProfileRe
         starting = float(profile.weight_kg)
     # BE-1 (2026-08-11): onboarding_completed = profile exists. Plan not required.
     onboarding_completed = profile is not None
+    # C4: role comes from users table (also present in JWT claim; exposing here
+    # avoids a client-side JWT decode for UI gating only).
+    role_row = (
+        await session.execute(
+            text("SELECT role FROM users WHERE id = :uid"),
+            {"uid": str(current_user)},
+        )
+    ).one_or_none()
+    user_role = role_row[0] if role_row else "user"
     return _to_resp(
-        profile, starting_weight_kg=starting, onboarding_completed=onboarding_completed
+        profile, starting_weight_kg=starting, onboarding_completed=onboarding_completed,
+        role=user_role,
     )
 
 
@@ -348,7 +360,7 @@ async def get_weight_goal(current_user: CurrentUserDep, session: SessionDep) -> 
     weekly_projected_kg: float | None = None
     weeks_to_goal: int | None = None
 
-    if goal_row and plan_row and plan_row[0]:
+    if goal_row and goal_row[0] is not None and goal_row[1] is not None and plan_row and plan_row[0]:
         kcal_target = int(plan_row[0])
         # TDEE estimated as midpoint of goal range (pre-deficit/surplus target)
         tdee_kcal = (int(goal_row[0]) + int(goal_row[1])) // 2
@@ -382,12 +394,18 @@ async def get_weight_goal(current_user: CurrentUserDep, session: SessionDep) -> 
     # ── 5. Ideal weight + BMI (ideal_weight.py) ──────────────────────────────
     insights = None
     if current_weight and height_cm:
-        insights = compute_weight_insights(
-            weight_kg=current_weight,
-            height_cm=height_cm,
-            sex=sex,
-            goal=goal,
-        )
+        try:
+            insights = compute_weight_insights(
+                weight_kg=Decimal(str(current_weight)),
+                height_cm=Decimal(str(height_cm)),
+                sex=sex,
+                goal=goal,
+            )
+        except (ValueError, ArithmeticError):
+            # Edge-case biometrics (e.g. weight=0, height=0 from bad onboarding
+            # data) raise ValueError in compute_bmi. Degrade gracefully instead
+            # of 500 — insights fields become null.
+            pass
 
     # ── 6. Progress toward user's declared goal ───────────────────────────────
     delta_kg: float | None = None

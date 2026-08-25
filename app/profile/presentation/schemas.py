@@ -355,6 +355,7 @@ class ProfileResponse(_Strict):
     onboarding_completed: bool
     updated_at: datetime | None
     plan_job: PlanJobInfo | None = None
+    role: str = "user"
 
 
 class WeightGoalResponse(_Strict):

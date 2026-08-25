@@ -465,6 +465,68 @@ ERROR_MESSAGES: Final[dict[str, _ErrorEntry]] = {
             "en": "A fasting window already exists for this period.",
         },
     },
+    # --- BE-11 portion adjustment ---
+    "user_factor_out_of_range": {
+        "title": {
+            "es": "Factor de porción fuera de rango",
+            "en": "Portion factor out of range",
+        },
+        "detail": {
+            "es": "El factor de porción debe estar entre 0.25 y 2.0.",
+            "en": "Portion factor must be between 0.25 and 2.0.",
+        },
+    },
+    "user_factor_not_quarter": {
+        "title": {
+            "es": "Factor de porción inválido",
+            "en": "Invalid portion factor",
+        },
+        "detail": {
+            "es": "El factor de porción debe ser múltiplo de 0.25 (ej: 0.25, 0.50, 0.75, 1.0...).",
+            "en": "Portion factor must be a multiple of 0.25 (e.g. 0.25, 0.50, 0.75, 1.0...).",
+        },
+    },
+    "meal_already_completed": {
+        "title": {
+            "es": "Comida ya completada",
+            "en": "Meal already completed",
+        },
+        "detail": {
+            "es": "Esta comida ya fue completada y no se puede ajustar la porción.",
+            "en": "This meal is already completed — portion cannot be adjusted.",
+        },
+    },
+    "swap_pool_exhausted_for_slot": {
+        "title": {
+            "es": "Sin alternativas disponibles",
+            "en": "No alternatives available",
+        },
+        "detail": {
+            "es": "No hay recetas disponibles para cambiar esta comida con tus restricciones.",
+            "en": "No alternative recipes available for this meal slot with your restrictions.",
+        },
+    },
+    # --- B7 vision confirm ---
+    "vision_job_not_completed": {
+        "title": {
+            "es": "Análisis de foto no completado",
+            "en": "Photo analysis not yet complete",
+        },
+        "detail": {
+            "es": "El análisis de la foto aún no terminó. Espera unos segundos e intenta de nuevo.",
+            "en": "Photo analysis has not finished yet. Wait a moment and try again.",
+        },
+    },
+    "vision_job_already_confirmed": {
+        "title": {
+            "es": "Foto ya registrada",
+            "en": "Photo already logged",
+        },
+        "detail": {
+            "es": "Esta foto ya fue guardada en tu registro de alimentos.",
+            "en": "This photo has already been saved to your food log.",
+        },
+    },
 }
 
 # Pydantic v2 error `type` -> human messages.

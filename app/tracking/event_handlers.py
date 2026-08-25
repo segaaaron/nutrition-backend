@@ -29,10 +29,12 @@ def register(bus: EventBus) -> None:
                         """
                         INSERT INTO food_logs (
                             id, user_id, date, meal_time, recipe_id,
-                            kcal, protein_g, carbs_g, fat_g, method, idempotency_key, created_at
+                            kcal, protein_g, carbs_g, fat_g, method, idempotency_key,
+                            is_adjusted, created_at
                         ) VALUES (
                             :id, :uid, :d, :mt, :rid,
-                            :kc, :pg, :cg, :fg, 'plan', :idem, now()
+                            :kc, :pg, :cg, :fg, 'plan', :idem,
+                            :adj, now()
                         )
                         ON CONFLICT (user_id, idempotency_key)
                         WHERE idempotency_key IS NOT NULL
@@ -50,6 +52,7 @@ def register(bus: EventBus) -> None:
                         "cg": evt.carbs_g,
                         "fg": evt.fat_g,
                         "idem": f"plan-meal:{evt.meal_id}",
+                        "adj": getattr(evt, "is_adjusted", False),
                     },
                 )
             await get_redis().delete(_cache_key_totals(evt.user_id, utc_today()))

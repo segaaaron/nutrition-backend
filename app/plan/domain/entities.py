@@ -23,6 +23,8 @@ class PlanMeal:
     water_ml: int | None = None
     water_pct: float | None = None
     scaled_factor: float | None = None
+    # User-chosen multiplier (BE-11). Default 1.0 = no adjustment.
+    user_factor: float = 1.0
     completed: bool = False
     swapped_from: UUID | None = None
 

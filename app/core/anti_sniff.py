@@ -86,8 +86,9 @@ class AntiSniffMiddleware(BaseHTTPMiddleware):
         if not reasons:
             return await call_next(request)
 
-        # Bypass health/metrics so monitoring doesn't trip on curl/wget.
-        if request.url.path in ("/healthz", "/readyz", "/metrics"):
+        # Bypass health/metrics and static images — recipe images are public
+        # assets that browsers, CDNs, and curl -I must be able to fetch.
+        if request.url.path in ("/healthz", "/readyz", "/metrics") or request.url.path.startswith("/images/"):
             return await call_next(request)
 
         if self._enforce:

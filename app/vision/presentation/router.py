@@ -202,12 +202,18 @@ async def get_job_status(
     total_fat_g: int | None = None
     total_fiber_g: int | None = None
     total_sugar_g: int | None = None
+    total_kcal_min: int | None = None
+    total_kcal_max: int | None = None
     if job.detected_items:
         total_protein_g = sum(i.protein_g for i in job.detected_items)
         total_carbs_g = sum(i.carbs_g for i in job.detected_items)
         total_fat_g = sum(i.fat_g for i in job.detected_items)
         total_fiber_g = sum(i.fiber_g for i in job.detected_items)
         total_sugar_g = sum(i.sugar_g for i in job.detected_items)
+        if all(i.kcal_min is not None for i in job.detected_items):
+            total_kcal_min = sum(i.kcal_min for i in job.detected_items)  # type: ignore[misc]
+        if all(i.kcal_max is not None for i in job.detected_items):
+            total_kcal_max = sum(i.kcal_max for i in job.detected_items)  # type: ignore[misc]
 
     # % of daily kcal goal — single cheap query, fail-silently so a missing
     # nutritional_goals row never breaks the poll response.
@@ -239,6 +245,8 @@ async def get_job_status(
                 count=i.count,
                 estimated_amount_g=i.estimated_amount_g,
                 kcal=i.kcal,
+                kcal_min=i.kcal_min,
+                kcal_max=i.kcal_max,
                 protein_g=i.protein_g,
                 carbs_g=i.carbs_g,
                 fat_g=i.fat_g,
@@ -259,6 +267,8 @@ async def get_job_status(
         ],
         groups=groups,
         total_kcal=total_kcal,
+        total_kcal_min=total_kcal_min,
+        total_kcal_max=total_kcal_max,
         total_protein_g=total_protein_g,
         total_carbs_g=total_carbs_g,
         total_fat_g=total_fat_g,
@@ -353,6 +363,58 @@ async def stream_job_status(
 
 
 @router.post(
+    "/logs/food/jobs/{job_id}/confirm",
+    summary="Confirm a preview-mode vision job — persist detected items as food_logs",
+)
+async def confirm_vision_job(
+    job_id: UUID,
+    current_user: CurrentUserDep,
+    session: SessionDep,
+) -> dict:  # type: ignore[type-arg]
+    """Convert a ``persist=false`` (preview) vision job into food_log rows.
+
+    Idempotent: if the job was already confirmed, returns the existing
+    ``food_log_ids`` without re-inserting.  Raises 422 when the job is not
+    yet completed.
+    """
+    from app.core.errors import BusinessRuleViolation
+    from app.vision.infrastructure.food_log_writer import persist_food_logs
+
+    # BOLA OK: GetJobStatus checks ownership (job.user_id != user_id → Forbidden).
+    uc = GetJobStatus(repo=SqlVisionJobRepository(session))
+    job = await uc(job_id=job_id, user_id=current_user)
+
+    if job.status != "completed":
+        raise BusinessRuleViolation("vision_job_not_completed")
+
+    # Idempotency: already persisted → return existing IDs.
+    if job.food_log_ids:
+        return {"food_log_ids": [str(fid) for fid in job.food_log_ids]}
+
+    food_log_ids = await persist_food_logs(
+        job.detected_items,
+        user_id=current_user,
+        meal_time=job.meal_time,
+        prompt_sha=job.prompt_sha256 or "",
+        session=session,
+    )
+
+    # Write confirmed IDs back so a second call is idempotent.
+    await session.execute(
+        text(
+            "UPDATE vision_jobs SET food_log_ids = :ids::jsonb WHERE id = :jid"
+        ),
+        {
+            "ids": json.dumps([str(fid) for fid in food_log_ids]),
+            "jid": str(job_id),
+        },
+    )
+
+    await session.commit()
+    return {"food_log_ids": [str(fid) for fid in food_log_ids]}
+
+
+@router.post(
     "/logs/food/{food_log_id}/edit",
     status_code=status.HTTP_204_NO_CONTENT,
     response_model=None,
@@ -393,37 +455,106 @@ async def edit_food_log(
         corrected_amount_g=body.corrected_amount_g,
     )
 
-    # B8: patch the food_log record. Scale kcal/macros proportionally from the
-    # stored values so daily totals stay consistent without a foods-table lookup.
-    # amount_g > 0 guard prevents division-by-zero when original is NULL or 0.
+    # B8: patch the food_log record.
+    # When food_id changes: look up fresh macros from the foods table (correct).
+    # When only amount_g changes: scale existing macros proportionally (fast path).
     if body.corrected_amount_g is not None or body.corrected_food_id is not None:
-        await session.execute(
-            text(
-                """
-                UPDATE food_logs
-                   SET amount_g   = CASE WHEN :new_g IS NOT NULL THEN :new_g ELSE amount_g END,
-                       kcal       = CASE WHEN :new_g IS NOT NULL AND amount_g > 0
-                                         THEN round(kcal       * :new_g / amount_g)
-                                         ELSE kcal END,
-                       protein_g  = CASE WHEN :new_g IS NOT NULL AND amount_g > 0
-                                         THEN round(protein_g  * :new_g / amount_g)
-                                         ELSE protein_g END,
-                       carbs_g    = CASE WHEN :new_g IS NOT NULL AND amount_g > 0
-                                         THEN round(carbs_g    * :new_g / amount_g)
-                                         ELSE carbs_g END,
-                       fat_g      = CASE WHEN :new_g IS NOT NULL AND amount_g > 0
-                                         THEN round(fat_g      * :new_g / amount_g)
-                                         ELSE fat_g END,
-                       food_id    = CASE WHEN :new_fid IS NOT NULL THEN :new_fid::uuid ELSE food_id END
-                 WHERE id = :log_id
-                """
-            ),
-            {
-                "new_g": float(body.corrected_amount_g) if body.corrected_amount_g is not None else None,
-                "new_fid": str(body.corrected_food_id) if body.corrected_food_id else None,
-                "log_id": str(food_log_id),
-            },
-        )
+        new_g = float(body.corrected_amount_g) if body.corrected_amount_g is not None else None
+        new_fid = str(body.corrected_food_id) if body.corrected_food_id else None
+
+        if new_fid is not None and new_g is not None:
+            # Food changed: recompute macros from the canonical foods table so the
+            # daily totals reflect the new food's nutritional profile, not a
+            # proportional guess from the old food.
+            food_row = (
+                await session.execute(
+                    text(
+                        "SELECT kcal, protein_g, carbs_g, fat_g, fiber_g, sugar_g, portion_g "
+                        "FROM foods WHERE id = :fid"
+                    ),
+                    {"fid": new_fid},
+                )
+            ).first()
+
+            if food_row and food_row[6] and float(food_row[6]) > 0:
+                ptn_g = float(food_row[6])
+
+                def _macro(val: object) -> int | None:
+                    return round(float(val) / ptn_g * new_g) if val is not None else None  # type: ignore[arg-type]
+
+                await session.execute(
+                    text(
+                        """
+                        UPDATE food_logs
+                           SET amount_g  = :new_g,
+                               kcal      = :kcal,
+                               protein_g = :pg,
+                               carbs_g   = :cg,
+                               fat_g     = :fg,
+                               fiber_g   = :fibg,
+                               sugar_g   = :sug,
+                               food_id   = :fid::uuid
+                         WHERE id = :log_id
+                        """
+                    ),
+                    {
+                        "new_g": new_g,
+                        "kcal": _macro(food_row[0]),
+                        "pg": _macro(food_row[1]),
+                        "cg": _macro(food_row[2]),
+                        "fg": _macro(food_row[3]),
+                        "fibg": _macro(food_row[4]),
+                        "sug": _macro(food_row[5]),
+                        "fid": new_fid,
+                        "log_id": str(food_log_id),
+                    },
+                )
+            else:
+                # No portion_g in foods → fall back to proportional scaling + food_id update.
+                await session.execute(
+                    text(
+                        """
+                        UPDATE food_logs
+                           SET amount_g  = :new_g,
+                               kcal      = CASE WHEN amount_g > 0 THEN round(kcal      * :new_g / amount_g) ELSE kcal END,
+                               protein_g = CASE WHEN amount_g > 0 THEN round(protein_g * :new_g / amount_g) ELSE protein_g END,
+                               carbs_g   = CASE WHEN amount_g > 0 THEN round(carbs_g   * :new_g / amount_g) ELSE carbs_g END,
+                               fat_g     = CASE WHEN amount_g > 0 THEN round(fat_g     * :new_g / amount_g) ELSE fat_g END,
+                               food_id   = :fid::uuid
+                         WHERE id = :log_id
+                        """
+                    ),
+                    {"new_g": new_g, "fid": new_fid, "log_id": str(food_log_id)},
+                )
+        else:
+            # Only amount changed (no food swap): proportional scaling is correct.
+            await session.execute(
+                text(
+                    """
+                    UPDATE food_logs
+                       SET amount_g   = CASE WHEN :new_g IS NOT NULL THEN :new_g ELSE amount_g END,
+                           kcal       = CASE WHEN :new_g IS NOT NULL AND amount_g > 0
+                                             THEN round(kcal       * :new_g / amount_g)
+                                             ELSE kcal END,
+                           protein_g  = CASE WHEN :new_g IS NOT NULL AND amount_g > 0
+                                             THEN round(protein_g  * :new_g / amount_g)
+                                             ELSE protein_g END,
+                           carbs_g    = CASE WHEN :new_g IS NOT NULL AND amount_g > 0
+                                             THEN round(carbs_g    * :new_g / amount_g)
+                                             ELSE carbs_g END,
+                           fat_g      = CASE WHEN :new_g IS NOT NULL AND amount_g > 0
+                                             THEN round(fat_g      * :new_g / amount_g)
+                                             ELSE fat_g END,
+                           food_id    = CASE WHEN :new_fid IS NOT NULL THEN :new_fid::uuid ELSE food_id END
+                     WHERE id = :log_id
+                    """
+                ),
+                {
+                    "new_g": new_g,
+                    "new_fid": new_fid,
+                    "log_id": str(food_log_id),
+                },
+            )
 
     await session.commit()
 

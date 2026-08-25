@@ -82,6 +82,10 @@ class CompleteMeal:
         await self.plans.mark_meal_completed(meal_id)
         await self.cache.invalidate(plan.user_id)
         now = datetime.now(UTC)
+        # BE-11: apply user_factor to macros before logging.
+        uf = meal.user_factor if meal.user_factor != 1.0 else 1.0
+        def _scale(v: int | None) -> int | None:
+            return round(v * uf) if v is not None else None
         await self.bus.publish(
             MealCompleted(
                 plan_id=plan.id,
@@ -90,10 +94,11 @@ class CompleteMeal:
                 at=now,
                 meal_time=meal.meal_time,
                 recipe_id=meal.recipe_id,
-                kcal=meal.kcal,
-                protein_g=meal.protein_g,
-                carbs_g=meal.carbs_g,
-                fat_g=meal.fat_g,
+                kcal=_scale(meal.kcal),
+                protein_g=_scale(meal.protein_g),
+                carbs_g=_scale(meal.carbs_g),
+                fat_g=_scale(meal.fat_g),
+                is_adjusted=(uf != 1.0),
             )
         )
         # Day completed when all meals of the meal's day are completed.
@@ -109,6 +114,73 @@ class CompleteMeal:
                         )
                     )
                 break
+
+
+_VALID_FACTORS = {round(i * 0.25, 2) for i in range(1, 9)}  # 0.25 … 2.0
+
+# Protein threshold per meal for mTORC1 leucine activation (Frontiers Nutrition 2024).
+_LEUCINE_THRESHOLD: dict[str, int] = {
+    "weight_loss": 25,
+    "muscle_gain": 30,
+    "maintain": 20,
+    "health": 20,
+    "weight_gain": 20,
+}
+_MAIN_SLOTS = frozenset({"breakfast", "lunch", "dinner"})
+
+
+@dataclass(slots=True)
+class AdjustPortion:
+    """PATCH /plans/{plan_id}/meals/{meal_id}/portion — BE-11.
+
+    Stores user_factor on plan_meals and updates user_appetite_by_slot for
+    plan-intelligence pre-calibration (Capa 2).  Returns the updated PlanMeal
+    plus any nutritional warnings (non-blocking).
+    """
+
+    plans: SqlPlanRepository
+    cache: ActivePlanCache
+
+    async def __call__(
+        self,
+        *,
+        plan_id: UUID,
+        meal_id: UUID,
+        user_factor: float,
+        user_goal: str | None = None,
+    ) -> tuple["PlanMeal", list[str]]:
+        from decimal import ROUND_HALF_UP, Decimal
+
+        factor = float(Decimal(str(user_factor)).quantize(Decimal("0.01")))
+        if factor < 0.25 or factor > 2.0:
+            raise BusinessRuleViolation("user_factor_out_of_range")
+        if factor not in _VALID_FACTORS:
+            raise BusinessRuleViolation("user_factor_not_quarter")
+
+        plan = await self.plans.get(plan_id)
+        if plan is None:
+            raise NotFoundError("plan_not_found", plan_id=str(plan_id))
+        meal = plan.find_meal(meal_id)
+        if meal is None:
+            raise NotFoundError("meal_not_found", meal_id=str(meal_id))
+        if meal.completed:
+            raise BusinessRuleViolation("meal_already_completed")
+
+        await self.plans.set_user_factor(meal_id, factor)
+        await self.cache.invalidate(plan.user_id)
+
+        # Build warnings (non-blocking — never cause 4xx).
+        warnings: list[str] = []
+
+        # Check protein leucine threshold.
+        if meal.meal_time in _MAIN_SLOTS and meal.protein_g is not None and user_goal:
+            threshold = _LEUCINE_THRESHOLD.get(user_goal, 20)
+            if round(meal.protein_g * factor) < threshold:
+                warnings.append("protein_below_leucine_threshold")
+
+        # Build updated meal for response (mutate local copy only).
+        meal.user_factor = factor
+        return meal, warnings
 
 
 # Anti-repetition window, mirroring CreatePlan: 7 days for day/week plans,

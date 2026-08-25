@@ -39,6 +39,7 @@ from app.plan.application.layer3_ranking import Layer3Ranking
 from app.plan.application.taste_profile import TasteProfileService
 from app.plan.application.use_cases import (
     AdvancePlan,
+    AdjustPortion,
     CompleteMeal,
     GetActivePlan,
     SwapMeal,
@@ -54,6 +55,7 @@ from app.plan.infrastructure.taste_fetcher import SqlEmbeddingFetcher
 from app.plan.infrastructure.user_context import SqlUserContext
 from app.plan.presentation.schemas import (
     AdvanceRequest,
+    AdjustPortionRequest,
     CreatePlanRequest,
     CreatePlanResponse,
     PlanDayResponse,
@@ -62,6 +64,7 @@ from app.plan.presentation.schemas import (
     PlanMealResponse,
     PlanResponse,
     RetentionNudge,
+    SwapAlternative,
     SwapMealRequest,
     SwapMealResponse,
     TodaySummary,
@@ -278,6 +281,11 @@ def _build_meal_resp(
         condition=condition,
     )
     rationale = _rat.get(locale) or _rat["es"]
+    uf = m.user_factor if m.user_factor != 1.0 else 1.0
+
+    def _eff(v: int | None) -> int | None:
+        return round(v * uf) if v is not None else None
+
     return PlanMealResponse(
         id=m.id,
         meal_time=m.meal_time,
@@ -289,6 +297,11 @@ def _build_meal_resp(
         carbs_g=m.carbs_g,
         fat_g=m.fat_g,
         scaled_factor=m.scaled_factor,
+        user_factor=uf,
+        kcal_effective=_eff(m.kcal),
+        protein_effective=_eff(m.protein_g),
+        carbs_effective=_eff(m.carbs_g),
+        fat_effective=_eff(m.fat_g),
         image_url=data.image_url if data is not None else None,
         prep_min=data.prep_min if data is not None else None,
         instructions_localized=instructions,
@@ -890,6 +903,78 @@ async def complete_meal(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+@router.patch(
+    "/plans/{plan_id}/meals/{meal_id}/portion",
+    response_model=PlanMealResponse,
+)
+async def adjust_portion(
+    plan_id: Annotated[uuid.UUID, Path()],
+    meal_id: Annotated[uuid.UUID, Path()],
+    body: AdjustPortionRequest,
+    current_user: CurrentUserDep,
+    session: SessionDep,
+    locale: LocaleDep,
+) -> PlanMealResponse:
+    """BE-11 — Set user portion multiplier for a plan meal.
+
+    user_factor must be a multiple of 0.25 in [0.25, 2.0].
+    Returns the updated PlanMealResponse with effective macros pre-applied and
+    any non-blocking nutritional warnings (leucine threshold, kcal floor).
+    Persists user_appetite_by_slot for plan pre-calibration (Capa 2).
+    """
+    await assert_owns(session, table="plans", resource_id=plan_id, user_id=current_user)
+
+    # Load user goal for leucine threshold check.
+    from sqlalchemy import text as _text
+
+    goal_row = (
+        await session.execute(
+            _text("SELECT goal FROM user_profiles WHERE user_id = :uid"),
+            {"uid": str(current_user)},
+        )
+    ).scalar()
+    user_goal = str(goal_row) if goal_row else None
+
+    cache = ActivePlanCache(get_redis())
+    uc = AdjustPortion(plans=SqlPlanRepository(session), cache=cache)
+    factor = float(body.user_factor)
+    meal, warnings = await uc(
+        plan_id=plan_id,
+        meal_id=meal_id,
+        user_factor=factor,
+        user_goal=user_goal,
+    )
+
+    # Capa 2: update rolling appetite calibration for this slot.
+    await session.execute(
+        _text(
+            """
+            INSERT INTO user_appetite_by_slot (user_id, meal_time, correction_ratio, sample_count, updated_at)
+            VALUES (:uid, :slot, :ratio, 1, now())
+            ON CONFLICT (user_id, meal_time) DO UPDATE
+              SET correction_ratio = (
+                    user_appetite_by_slot.correction_ratio * user_appetite_by_slot.sample_count + :ratio
+                  ) / (user_appetite_by_slot.sample_count + 1),
+                  sample_count = user_appetite_by_slot.sample_count + 1,
+                  updated_at   = now()
+            """
+        ),
+        {"uid": str(current_user), "slot": meal.meal_time, "ratio": factor},
+    )
+
+    # Build response — load recipe translations for the single meal.
+    from app.plan.domain.entities import Plan as _Plan
+
+    plan = await SqlPlanRepository(session).get(plan_id)
+    tr = await _load_recipe_translations(plan, session) if plan else {}
+    _profile = await SqlProfileRepository(session).get(current_user)
+    _conditions = list(_profile.medical_conditions) if _profile and _profile.medical_conditions else None
+    primary_condition = next(iter(_conditions), None) if _conditions else None
+    resp = _build_meal_resp(meal, tr, locale, goal=user_goal, condition=primary_condition)
+    # Attach warnings to response (model_copy since PlanMealResponse is Strict).
+    return resp.model_copy(update={"warnings": warnings})
+
+
 @router.post("/plans/{plan_id}/meals/{meal_id}/swap", response_model=SwapMealResponse)
 async def swap_meal(
     plan_id: Annotated[uuid.UUID, Path()],
@@ -938,4 +1023,41 @@ async def swap_meal(
         candidate_ids=candidate_ids,
     )
     MEAL_SWAPPED_TOTAL.labels(reason=body.reason_code or "none").inc()
-    return SwapMealResponse(alternatives=alts)
+
+    # Enrich alternatives with recipe display data so clients can render a
+    # name + macros picker without a follow-up GET /recipes/{id}.
+    alts_detail: list[SwapAlternative] = []
+    if alts:
+        rows = (
+            await session.execute(
+                select(
+                    RecipeModel.id,
+                    RecipeModel.name_translations,
+                    RecipeModel.name_en,
+                    RecipeModel.kcal,
+                    RecipeModel.protein_g,
+                    RecipeModel.carbs_g,
+                    RecipeModel.fat_g,
+                ).where(RecipeModel.id.in_(alts))
+            )
+        ).all()
+        recipe_map = {r.id: r for r in rows}
+        for rid in alts:
+            r = recipe_map.get(rid)
+            if r is None:
+                alts_detail.append(SwapAlternative(recipe_id=rid))
+                continue
+            name_es = (r.name_translations or {}).get("es") or None
+            alts_detail.append(
+                SwapAlternative(
+                    recipe_id=rid,
+                    name_es=name_es,
+                    name_en=r.name_en,
+                    kcal=r.kcal,
+                    protein_g=r.protein_g,
+                    carbs_g=r.carbs_g,
+                    fat_g=r.fat_g,
+                )
+            )
+
+    return SwapMealResponse(alternatives=alts, alternatives_detail=alts_detail)

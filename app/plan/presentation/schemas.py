@@ -103,6 +103,16 @@ class PlanMealResponse(_Strict):
     # Portion-scaling multiplier vs the recipe's native macros. iOS MUST
     # multiply displayed ingredient amounts by this value. NULL = legacy → 1.0.
     scaled_factor: float | None = None
+    # BE-11: user-chosen portion multiplier [0.25, 2.0]. Default 1.0 (no adjustment).
+    # Effective macros = plan_meals.{macro} * user_factor. iOS displays effective values.
+    user_factor: float = 1.0
+    # BE-11: macros after applying user_factor (what the user will actually consume).
+    kcal_effective: int | None = None
+    protein_effective: int | None = None
+    carbs_effective: int | None = None
+    fat_effective: int | None = None
+    # BE-11: non-blocking nutritional warnings. Never causes 4xx; iOS shows inline.
+    warnings: list[str] = Field(default_factory=list)
     image_url: str | None = None
     prep_min: int | None = None
     instructions_localized: list[str] = Field(default_factory=list)
@@ -119,6 +129,19 @@ class PlanMealResponse(_Strict):
     swapped_from: UUID | None
     # Sprint A1 — short fact-based "why this recipe" line (localized). Display only.
     rationale_localized: str | None = None
+
+
+class AdjustPortionRequest(_Strict):
+    """PATCH /plans/{plan_id}/meals/{meal_id}/portion — BE-11.
+
+    user_factor must be a multiple of 0.25 in [0.25, 2.0].
+    """
+
+    user_factor: Decimal = Field(
+        ge=Decimal("0.25"),
+        le=Decimal("2.0"),
+        json_schema_extra={"example": "0.75", "description": "Multiple of 0.25 between 0.25 and 2.0."},
+    )
 
 
 class PlanDayResponse(_Strict):
@@ -234,5 +257,18 @@ class SwapMealRequest(_Strict):
     reason_code: str = Field(min_length=1, max_length=64)
 
 
+class SwapAlternative(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    recipe_id: UUID
+    name_es: str | None = None
+    name_en: str | None = None
+    kcal: int | None = None
+    protein_g: int | None = None
+    carbs_g: int | None = None
+    fat_g: int | None = None
+
+
 class SwapMealResponse(_Strict):
     alternatives: list[UUID]
+    alternatives_detail: list[SwapAlternative] = Field(default_factory=list)

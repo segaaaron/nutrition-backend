@@ -32,6 +32,7 @@ def _meal_from_model(m: PlanMealModel) -> PlanMeal:
         water_ml=m.water_ml,
         water_pct=float(m.water_pct) if m.water_pct is not None else None,
         scaled_factor=float(m.scaled_factor) if m.scaled_factor is not None else None,
+        user_factor=float(m.user_factor) if m.user_factor is not None else 1.0,
         completed=m.completed,
         swapped_from=m.swapped_from,
     )
@@ -268,6 +269,7 @@ class SqlPlanRepository:
                         water_ml=meal.water_ml,
                         water_pct=meal.water_pct,
                         scaled_factor=meal.scaled_factor,
+                        user_factor=meal.user_factor,
                         completed=meal.completed,
                         swapped_from=meal.swapped_from,
                     )
@@ -291,6 +293,13 @@ class SqlPlanRepository:
     async def mark_meal_completed(self, meal_id: UUID) -> None:
         await self.s.execute(
             update(PlanMealModel).where(PlanMealModel.id == meal_id).values(completed=True)
+        )
+
+    async def set_user_factor(self, meal_id: UUID, user_factor: float) -> None:
+        await self.s.execute(
+            update(PlanMealModel)
+            .where(PlanMealModel.id == meal_id)
+            .values(user_factor=user_factor)
         )
 
     async def swap_meal_recipe(self, meal_id: UUID, new_recipe_id: UUID) -> None:

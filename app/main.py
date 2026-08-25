@@ -69,6 +69,30 @@ class ContentSizeLimitMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+class StaticImageCacheMiddleware(BaseHTTPMiddleware):
+    """Add immutable Cache-Control + ETag to /images/** responses.
+
+    Recipe images are content-addressed (URL contains SHA), so a given URL
+    always returns the same bytes. max-age=31536000 + immutable lets browsers
+    and URLCache skip revalidation entirely — zero extra round-trips.
+    """
+
+    async def dispatch(
+        self,
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
+        response = await call_next(request)
+        if request.url.path.startswith("/images/") and response.status_code == 200:
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+            # ETag derived from path (the SHA segment is already in the URL,
+            # so a weak tag on the path is sufficient for conditional requests).
+            import hashlib
+            etag = hashlib.md5(request.url.path.encode(), usedforsecurity=False).hexdigest()  # noqa: S324
+            response.headers["ETag"] = f'"{etag}"'
+        return response
+
+
 class RequestIdMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self,
@@ -162,6 +186,7 @@ def create_app() -> FastAPI:
         max_age=600,
     )
     app.add_middleware(ContentSizeLimitMiddleware)
+    app.add_middleware(StaticImageCacheMiddleware)
     app.add_middleware(SecurityHeadersMiddleware, is_production=is_prod)
     app.add_middleware(AntiSniffMiddleware, enforce=is_prod)
     app.add_middleware(IpRateLimitMiddleware, limit_per_minute=settings.ip_rate_limit_per_minute)

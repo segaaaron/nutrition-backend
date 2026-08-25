@@ -82,8 +82,8 @@ ALLOWED_SESSION_SCOPE: dict[str, str] = {
     # OK2 — event handlers spawning their own session (no outer request session).
     "app/coach/application/features.py:365": "OK2 event handler (coach feature lookup)",
     "app/tracking/event_handlers.py:26": "OK2 event handler (tracking best-effort)",
-    "app/tracking/event_handlers.py:77": "OK2 event handler (tracking best-effort)",
-    "app/tracking/event_handlers.py:88": "OK2 event handler (tracking best-effort)",
+    "app/tracking/event_handlers.py:80": "OK2 event handler (tracking best-effort)",
+    "app/tracking/event_handlers.py:91": "OK2 event handler (tracking best-effort)",
     # OK3 — worker tasks (arq job entry-points, no outer FastAPI session).
     "worker/plan_tasks.py:49": "OK3 worker task",
     "worker/plan_tasks.py:80": "OK3 worker task",

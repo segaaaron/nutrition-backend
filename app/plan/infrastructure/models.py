@@ -117,6 +117,10 @@ class PlanMealModel(Base):
     # Portion-scaling multiplier vs the recipe's native macros (migration 0018).
     # iOS scales displayed ingredient amounts by this. NULL = legacy → 1.0.
     scaled_factor: Mapped[float | None] = mapped_column(Numeric, nullable=True)
+    # User-chosen portion multiplier [0.25, 2.0] (migration 0050 / BE-11).
+    # effective_kcal = kcal * user_factor. Stored here; never merged into kcal
+    # so the engine value stays clean for plan-intelligence reads (Capa 3).
+    user_factor: Mapped[float] = mapped_column(Numeric, default=1.0)
     completed: Mapped[bool] = mapped_column(Boolean, default=False)
     swapped_from: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), nullable=True)
 

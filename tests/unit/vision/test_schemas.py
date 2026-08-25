@@ -102,3 +102,55 @@ def test_edit_request_minimal_body():
     r = EditDetectedItemRequest(detected_name="rice")
     assert r.corrected_food_id is None
     assert r.corrected_amount_g is None
+
+
+# ── C13: kcal_min / kcal_max ─────────────────────────────────────────────────
+
+def _make_item(name: str, kcal: int, kcal_min: int | None = None, kcal_max: int | None = None) -> DetectedItemDto:
+    return DetectedItemDto(
+        name=name,
+        estimated_amount_g=Decimal("100"),
+        kcal=kcal,
+        kcal_min=kcal_min,
+        kcal_max=kcal_max,
+        protein_g=5,
+        carbs_g=20,
+        fat_g=3,
+        confidence=0.85,
+    )
+
+
+def test_detected_item_dto_kcal_range_populated():
+    d = _make_item("arroz", kcal=260, kcal_min=210, kcal_max=310)
+    assert d.kcal_min == 210
+    assert d.kcal_max == 310
+
+
+def test_detected_item_dto_kcal_range_defaults_none():
+    d = _make_item("arroz", kcal=260)
+    assert d.kcal_min is None
+    assert d.kcal_max is None
+
+
+def test_job_status_total_kcal_range_all_items_have_range():
+    """total_kcal_min/max emitted only when ALL items carry a range."""
+    items = [
+        _make_item("a", kcal=200, kcal_min=160, kcal_max=240),
+        _make_item("b", kcal=100, kcal_min=80, kcal_max=120),
+    ]
+    r = JobStatusResponse(job_id=uuid4(), status="completed", items=items,
+                          total_kcal_min=240, total_kcal_max=360)
+    assert r.total_kcal_min == 240
+    assert r.total_kcal_max == 360
+
+
+def test_job_status_total_kcal_range_none_when_partial():
+    """If any item lacks kcal_min, total must be None — no partial totals."""
+    r = JobStatusResponse(
+        job_id=uuid4(),
+        status="completed",
+        total_kcal_min=None,
+        total_kcal_max=None,
+    )
+    assert r.total_kcal_min is None
+    assert r.total_kcal_max is None

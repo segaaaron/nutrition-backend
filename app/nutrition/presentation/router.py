@@ -155,7 +155,7 @@ async def get_weight_progress(
     if wp is None:
         return None
     return WeightProgressResponse(
-        slope_kg_per_week=wp.slope_kg_per_week,
+        slope_kg_per_week=float(wp.slope_kg_per_week) if wp.slope_kg_per_week is not None else None,
         trend_label=wp.trend_label,
         weight_points=wp.weight_points,
         days_tracked_last_14=wp.days_tracked_last_14,

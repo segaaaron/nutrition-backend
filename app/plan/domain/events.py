@@ -30,6 +30,8 @@ class MealCompleted(DomainEvent):
     protein_g: int | None = None
     carbs_g: int | None = None
     fat_g: int | None = None
+    # BE-11: true when user adjusted portion (user_factor != 1.0).
+    is_adjusted: bool = False
 
 
 @dataclass(frozen=True, slots=True)
