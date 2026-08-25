@@ -198,6 +198,13 @@ class Settings(BaseSettings):
     # --- Regions ---
     default_region: Literal["us", "ca", "latam"] = "us"
 
+    # --- Recipe image storage ---
+    # recipe_image_dir: absolute path where compressed WebP files are written.
+    # Served by nginx as static files at recipe_image_base_url.
+    # In dev both default to temp-like paths; prod sets them via Dokploy env vars.
+    recipe_image_dir: str = "/var/nova/images/recipes"
+    recipe_image_base_url: str = "https://api.ms-tech-stack.cloud/images/recipes"
+
     # --- Billing / Webhooks ---
     stripe_api_key: str = ""
     stripe_webhook_secret: str = ""

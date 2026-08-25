@@ -39,6 +39,7 @@ from app.notifications.presentation.router import router as notifications_router
 from app.nutrition.presentation.router import router as nutrition_router
 from app.plan.presentation.router import router as plan_router
 from app.profile.presentation.router import router as profile_router
+from app.recipes.presentation.admin_router import router as recipes_admin_router
 from app.recipes.presentation.router import router as recipes_router
 from app.tracking.presentation.fasting_router import router as fasting_router
 from app.tracking.presentation.food_log_router import router as food_log_router
@@ -219,11 +220,22 @@ def create_app() -> FastAPI:
             media_type="application/problem+json",
         )
 
+    # Serve compressed recipe images written to disk by UploadRecipeImage use case.
+    # Mount after middleware so StaticFiles responses bypass the JSON envelope.
+    from pathlib import Path
+
+    from fastapi.staticfiles import StaticFiles
+
+    _img_dir = Path(settings.recipe_image_dir)
+    _img_dir.mkdir(parents=True, exist_ok=True)
+    app.mount("/images", StaticFiles(directory=str(_img_dir)), name="recipe-images")
+
     # --- Bounded-context routers ---
     app.include_router(identity_router)
     app.include_router(profile_router)
     app.include_router(nutrition_router)
     app.include_router(recipes_router)
+    app.include_router(recipes_admin_router, prefix="/admin")
     app.include_router(plan_router)
     app.include_router(tracking_router)
     app.include_router(food_log_router)

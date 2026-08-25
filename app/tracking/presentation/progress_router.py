@@ -61,6 +61,7 @@ async def upload_progress_photo(
             """
         INSERT INTO progress_photos (id, user_id, taken_at, weight_kg, image_url)
         VALUES (:id, :uid, now(), :w, :url)
+        ON CONFLICT (user_id, image_url) DO NOTHING
     """
         ),
         {

@@ -42,6 +42,10 @@ PUBLIC_ENDPOINTS: set[tuple[str, str]] = {
     ("GET", "/foods/barcode/{ean}"),
     # Shared grocery list (auth via signed share token, validated inline).
     ("GET", "/grocery-lists/{list_id}/shared"),
+    # Admin recipe image endpoints — ownership check replaced by require_admin
+    # role gate (only one admin user exists; BOLA not applicable).
+    ("POST", "/recipes/{recipe_id}/image"),
+    ("DELETE", "/recipes/{recipe_id}/image"),
     # `item` is a `Literal["breakfast","lunch","dinner","water"]` slot —
     # the row keyed by (user_id, date, item) is upserted using `current_user`
     # from the JWT in the handler body. Not a foreign resource id.

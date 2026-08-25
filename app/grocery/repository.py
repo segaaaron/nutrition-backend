@@ -5,6 +5,7 @@ from __future__ import annotations
 from uuid import UUID, uuid4
 
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.grocery.domain import GroceryCategory, GroceryItem, GroceryList
@@ -39,14 +40,40 @@ class SqlGroceryRepository:
                 items=items,
             )
         lid = uuid4()
-        await self.s.execute(
-            text(
-                """
-            INSERT INTO grocery_lists (id, plan_id) VALUES (:id, :pid)
-        """
-            ),
-            {"id": str(lid), "pid": str(plan_id)},
-        )
+        try:
+            await self.s.execute(
+                text(
+                    """
+                INSERT INTO grocery_lists (id, plan_id) VALUES (:id, :pid)
+            """
+                ),
+                {"id": str(lid), "pid": str(plan_id)},
+            )
+        except IntegrityError:
+            # Concurrent request already inserted — rollback savepoint and re-read.
+            await self.s.rollback()
+            r = (
+                (
+                    await self.s.execute(
+                        text(
+                            """
+                SELECT id, plan_id, generated_at FROM grocery_lists
+                 WHERE plan_id = :pid ORDER BY generated_at DESC LIMIT 1
+            """
+                        ),
+                        {"pid": str(plan_id)},
+                    )
+                )
+                .mappings()
+                .first()
+            )
+            items = await self._items(r["id"])
+            return GroceryList(
+                id=r["id"],
+                plan_id=r["plan_id"],
+                generated_at=r["generated_at"],
+                items=items,
+            )
         return GroceryList(
             id=lid,
             plan_id=plan_id,

@@ -91,3 +91,15 @@ class FoodResponse(_Strict):
 class FoodListResponse(_Strict):
     items: list[FoodResponse]
     next_cursor: str | None
+
+
+class RecipeImageOut(_Strict):
+    recipe_id: UUID
+    image_url: str
+    size_kb: int
+
+
+class PendingRecipeImageItem(_Strict):
+    recipe_id: UUID
+    name_es: str | None
+    meal_time: str | None

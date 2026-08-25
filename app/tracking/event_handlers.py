@@ -29,11 +29,14 @@ def register(bus: EventBus) -> None:
                         """
                         INSERT INTO food_logs (
                             id, user_id, date, meal_time, recipe_id,
-                            kcal, protein_g, carbs_g, fat_g, method, created_at
+                            kcal, protein_g, carbs_g, fat_g, method, idempotency_key, created_at
                         ) VALUES (
                             :id, :uid, :d, :mt, :rid,
-                            :kc, :pg, :cg, :fg, 'plan', now()
+                            :kc, :pg, :cg, :fg, 'plan', :idem, now()
                         )
+                        ON CONFLICT (user_id, idempotency_key)
+                        WHERE idempotency_key IS NOT NULL
+                        DO NOTHING
                         """
                     ),
                     {
@@ -46,11 +49,17 @@ def register(bus: EventBus) -> None:
                         "pg": evt.protein_g,
                         "cg": evt.carbs_g,
                         "fg": evt.fat_g,
+                        "idem": f"plan-meal:{evt.meal_id}",
                     },
                 )
             await get_redis().delete(_cache_key_totals(evt.user_id, utc_today()))
         except Exception as exc:  # noqa: BLE001
-            _log.warning("tracking.meal_completed_log.fail", user_id=str(evt.user_id)[:8], err=str(exc))
+            _log.warning(
+                "tracking.meal_completed_log.fail",
+                user_id=str(evt.user_id)[:8],
+                meal_id=str(evt.meal_id),
+                err=str(exc),
+            )
 
     async def _on_food_logged(evt: FoodLogged) -> None:
         # 1. Invalidate daily totals cache

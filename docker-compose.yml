@@ -81,6 +81,7 @@ services:
       # Container-side path matches JWT_*_KEY_PATH defaults (/secrets/jwt.*).
       - /var/dokploy/secrets/nova/jwt.pem:/secrets/jwt.pem:ro
       - /var/dokploy/secrets/nova/jwt.pub:/secrets/jwt.pub:ro
+      - /var/www/nova/images:/var/nova/images
     depends_on:
       # db intentionally NOT listed — it is profile "local" and prod uses the
       # external managed Postgres. Locally, `restart: unless-stopped` self-heals

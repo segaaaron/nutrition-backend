@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import sys
 import types
+from unittest.mock import AsyncMock, MagicMock
 
 # --- pyvips stub ---------------------------------------------------------- #
 # The vision router imports ``app.imaging.infrastructure.vips_compressor``
@@ -70,8 +71,12 @@ def _build_test_app(authenticated: bool = True) -> FastAPI:
     register_exception_handlers(app)
     app.include_router(router)
 
-    async def _override_session():  # router endpoints never touch the session directly
-        yield None
+    async def _override_session():
+        session = AsyncMock()
+        _exec_result = MagicMock()
+        _exec_result.first.return_value = None
+        session.execute.return_value = _exec_result
+        yield session
 
     async def _override_user_authed() -> UUID:
         return FAKE_USER_ID
@@ -144,7 +149,7 @@ def _patch_submit(monkeypatch: pytest.MonkeyPatch, behaviour):
     monkeypatch.setattr(router_module, "OpenAIVisionProvider", lambda: object())
     monkeypatch.setattr(router_module, "get_event_bus", lambda: object())
 
-    async def _noop_rate_limit(_user_id: UUID) -> None:
+    async def _noop_rate_limit(_user_id: UUID, *, persist: bool = True) -> None:
         return None
 
     monkeypatch.setattr(router_module, "_check_rate_limit", _noop_rate_limit)
@@ -298,7 +303,7 @@ class TestSubmitFoodPhoto:
     ) -> None:
         _patch_submit(monkeypatch, behaviour=uuid4())
 
-        async def _raise(_uid: UUID) -> None:
+        async def _raise(_uid: UUID, *, persist: bool = True) -> None:
             raise RateLimited("rate_limit_exceeded", retry_after=42)
 
         monkeypatch.setattr(router_module, "_check_rate_limit", _raise)

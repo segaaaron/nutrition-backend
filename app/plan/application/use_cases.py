@@ -77,6 +77,8 @@ class CompleteMeal:
         )
         if meal_day is not None and meal_day.date > date.today():
             raise BusinessRuleViolation("meal_day_in_future")
+        if meal.completed:
+            return
         await self.plans.mark_meal_completed(meal_id)
         await self.cache.invalidate(plan.user_id)
         now = datetime.now(UTC)

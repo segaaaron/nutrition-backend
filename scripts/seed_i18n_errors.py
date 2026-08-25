@@ -415,6 +415,56 @@ ERROR_MESSAGES: Final[dict[str, _ErrorEntry]] = {
             "en": "Too many failed attempts. Wait a few minutes before retrying.",
         },
     },
+    "meal_day_in_future": {
+        "title": {
+            "es": "La comida es de un día futuro",
+            "en": "Meal is scheduled for a future day",
+        },
+        "detail": {
+            "es": "No puedes completar una comida programada para un día futuro.",
+            "en": "You cannot complete a meal scheduled for a future day.",
+        },
+    },
+    "fasting:not_available": {
+        "title": {
+            "es": "Ayuno no disponible",
+            "en": "Fasting not available",
+        },
+        "detail": {
+            "es": "El ayuno no está disponible para tu perfil actual.",
+            "en": "Fasting is not available for your current profile.",
+        },
+    },
+    "fasting:window_in_future": {
+        "title": {
+            "es": "Ventana de ayuno en el futuro",
+            "en": "Fasting window in the future",
+        },
+        "detail": {
+            "es": "La ventana de ayuno no puede ser en el futuro.",
+            "en": "The fasting window cannot be in the future.",
+        },
+    },
+    "fasting:invalid_protocol": {
+        "title": {
+            "es": "Protocolo de ayuno inválido",
+            "en": "Invalid fasting protocol",
+        },
+        "detail": {
+            "es": "El protocolo de ayuno seleccionado no es válido.",
+            "en": "The selected fasting protocol is not valid.",
+        },
+    },
+    "fasting:overlapping_window": {
+        "title": {
+            "es": "Ya tienes un ayuno activo",
+            "en": "Fasting window overlaps",
+        },
+        "detail": {
+            "es": "Ya existe una ventana de ayuno para este período.",
+            "en": "A fasting window already exists for this period.",
+        },
+    },
 }
 
 # Pydantic v2 error `type` -> human messages.

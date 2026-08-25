@@ -11,6 +11,7 @@ class CompressionProfile(Enum):
     PROGRESS = ("avif", 60, 1600)
     THUMBNAIL = ("webp", 70, 400)
     AVATAR = ("webp", 80, 512)
+    RECIPE = ("webp", 80, 800)
 
 
 class ImageCompressor(Protocol):
