@@ -1,0 +1,29 @@
+diff --git a/app/tracking/presentation/goals_today.py b/app/tracking/presentation/goals_today.py
+index 451daaf..5e8e689 100644
+--- a/app/tracking/presentation/goals_today.py
++++ b/app/tracking/presentation/goals_today.py
+@@ -113,9 +113,21 @@ async def get_today(current_user: CurrentUserDep, session: SessionDep) -> TodayG
+             )
+         ).all()
+ 
+-    # F4: Fasting block — resolve eligibility + state + streak
+-    # available always travels; state/streak are additive and can fail silently.
+-    fasting_block: dict = {"available": True}
++    # F4: Fasting block — resolve eligibility + state + streak.
++    #
++    # The key starts ABSENT on purpose. Everything below runs inside a `try` whose
++    # `except` swallows the failure, so whatever this dict is initialised to is
++    # what ships when the eligibility query throws — and that value then means two
++    # things at once. It was `True` (fail-open: a failure offered fasting to
++    # someone who may be excluded) and briefly `False`, which is worse: iOS treats
++    # an explicit `false` as a decision and tears the feature down, writing
++    # `enabled: false` back for every device on the account. One 500 here would
++    # disable a healthy user's window everywhere and tell them it was their
++    # profile (iOS `FastingStore.apply(availability:)`).
++    #
++    # Absent means "could not resolve": the client leaves whatever it had standing.
++    # `false` must only ever mean the rule actually resolved to not-eligible.
++    fasting_block: dict = {}
+     try:
+         from app.tracking.application.fasting_uc import (
+             GetFastingActiveState,
