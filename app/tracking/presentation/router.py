@@ -30,7 +30,7 @@ async def log_water(
     session: SessionDep,
 ) -> LogWaterResponse:
     uc = LogWater(repo=SqlWaterLogRepository(session), bus=get_event_bus())
-    total = await uc(user_id=current_user, ml=body.ml)
+    total = await uc(user_id=current_user, ml=body.ml, at=body.at)
     return LogWaterResponse(total_today_ml=total)
 
 

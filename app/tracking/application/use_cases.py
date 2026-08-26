@@ -21,10 +21,10 @@ class LogWater:
     repo: SqlWaterLogRepository
     bus: EventBus
 
-    async def __call__(self, *, user_id: UUID, ml: int) -> int:
-        now = datetime.now(UTC)
-        await self.repo.append(WaterLog(user_id=user_id, time=now, ml=ml))
-        await self.bus.publish(WaterLogged(user_id=user_id, ml=ml, at=now))
+    async def __call__(self, *, user_id: UUID, ml: int, at: datetime | None = None) -> int:
+        ts = at if at is not None else datetime.now(UTC)
+        await self.repo.append(WaterLog(user_id=user_id, time=ts, ml=ml))
+        await self.bus.publish(WaterLogged(user_id=user_id, ml=ml, at=ts))
         return await self.repo.total_today(user_id)
 
 

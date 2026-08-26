@@ -35,7 +35,7 @@ import asyncio
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import ROUND_HALF_EVEN, Decimal
-from typing import Literal
+from typing import ClassVar, Literal
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -586,10 +586,20 @@ class ProcessVisionJob:
             },
         )
 
+    # Maps exception class names to stable error slugs exposed to iOS clients.
+    # Unknown exceptions → vision_internal (never a raw Python class name).
+    _SLUG: ClassVar[dict[str, str]] = {
+        "CostCapExceeded": "vision_cost_cap",
+        "ServiceUnavailable": "vision_provider_unavailable",
+        "RateLimited": "vision_provider_unavailable",
+        "UpstreamError": "vision_provider_unavailable",
+        "TimeoutError": "vision_timeout",
+    }
+
     async def _handle_failure(
         self, *, job_id: UUID, user_id: UUID, exc: Exception
     ) -> None:
-        err_code = exc.__class__.__name__
+        err_code = self._SLUG.get(exc.__class__.__name__, "vision_internal")
         await self.repo.mark_failed(job_id, error_code=err_code, detail=str(exc)[:300])
         await self.bus.publish(
             VisionJobFailed(

@@ -159,13 +159,14 @@ def create_app() -> FastAPI:
             await close_redis()
             log.info("app.shutdown")
 
-    # OWASP API9 — disable interactive docs + raw OpenAPI in production.
+    # OWASP API9 — disable interactive browser UIs in production.
+    # /openapi.json is kept enabled (machine-readable spec for iOS integration).
     app = FastAPI(
         title="NOVA Nutrition API",
         version=settings.app_version,
         docs_url=None if is_prod else "/docs",
         redoc_url=None if is_prod else "/redoc",
-        openapi_url=None if is_prod else "/openapi.json",
+        openapi_url="/openapi.json",
         lifespan=lifespan,
     )
 

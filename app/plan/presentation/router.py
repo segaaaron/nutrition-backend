@@ -250,6 +250,7 @@ def _build_meal_resp(
     locale: Locale,
     goal: str | None = None,
     condition: str | None = None,
+    tag_tr: dict[str, str] | None = None,
 ) -> PlanMealResponse:
     from app.plan.domain.entities import PlanMeal as _PlanMeal  # local to avoid cycle
     assert isinstance(m, _PlanMeal)
@@ -257,6 +258,7 @@ def _build_meal_resp(
     if data is not None:
         instructions = data.instructions_translations.get(locale) or data.instructions_en
         want_en = locale == "en"
+        uf_for_eff = m.user_factor  # amount_g_effective only emitted when != 1.0
         ingredients = [
             PlanMealIngredient(
                 name=name,
@@ -264,6 +266,13 @@ def _build_meal_resp(
                 # exists; otherwise the raw free_text_name (mostly ES).
                 name_localized=(name_en if (want_en and name_en) else name),
                 amount_g=amount,
+                # C19: effective grams after user_factor; NULL when amount_g is
+                # NULL or factor == 1.0 (no-op adjustment → omit to save bytes).
+                amount_g_effective=(
+                    Decimal(str(round(float(amount) * uf_for_eff, 1)))
+                    if amount is not None and uf_for_eff != 1.0
+                    else None
+                ),
                 position=pos,
                 modifier=modifier,
             )
@@ -310,6 +319,10 @@ def _build_meal_resp(
         sodium_mg=data.sodium_mg if data is not None else None,
         sat_fat_g=data.sat_fat_g if data is not None else None,
         tags=data.tags if data is not None else [],
+        tags_localized=[
+            (tag_tr or {}).get(t, t)
+            for t in (data.tags if data is not None else [])
+        ],
         allergens=data.allergens if data is not None else [],
         ingredients=ingredients,
         completed=m.completed,
@@ -325,11 +338,31 @@ def _slot(
     locale: Locale,
     goal: str | None = None,
     condition: str | None = None,
+    tag_tr: dict[str, str] | None = None,
 ) -> PlanMealResponse | None:
     for m in meals:
         if m.meal_time == slot:
-            return _build_meal_resp(m, tr, locale, goal=goal, condition=condition)
+            return _build_meal_resp(m, tr, locale, goal=goal, condition=condition, tag_tr=tag_tr)
     return None
+
+
+async def _load_tag_translations(session: AsyncSession, locale: Locale) -> dict[str, str]:
+    """Bulk-fetch tag slugs → localized labels from i18n_translations (scope='tag').
+
+    Falls back to the slug itself when no translation is found.
+    """
+    from sqlalchemy import text as _text
+
+    rows = (
+        await session.execute(
+            _text(
+                "SELECT key, value FROM i18n_translations "
+                "WHERE scope = 'tag' AND locale = :locale"
+            ),
+            {"locale": locale},
+        )
+    ).all()
+    return {r[0]: r[1] for r in rows}
 
 
 async def _fetch_latest_tdee(session: AsyncSession, user_id: uuid.UUID) -> int | None:
@@ -497,6 +530,7 @@ def _to_resp(
     locale: Locale = "es",
     tdee: int | None = None,
     conditions: list[str] | None = None,
+    tag_tr: dict[str, str] | None = None,
 ) -> PlanResponse:
     tr = translations or {}
     # Primary condition for per-meal rationale (e.g. fatty_liver adds liver-health clauses).
@@ -547,12 +581,12 @@ def _to_resp(
                 completed=d.completed,
                 kcal_actual=d.kcal_actual,
                 within_band=d.within_band,
-                breakfast=_slot(d.meals, "breakfast", tr, locale, goal=p.goal, condition=primary_condition),
-                morning_snack=_slot(d.meals, "morning_snack", tr, locale, goal=p.goal, condition=primary_condition),
-                lunch=_slot(d.meals, "lunch", tr, locale, goal=p.goal, condition=primary_condition),
-                afternoon_snack=_slot(d.meals, "afternoon_snack", tr, locale, goal=p.goal, condition=primary_condition),
-                dinner=_slot(d.meals, "dinner", tr, locale, goal=p.goal, condition=primary_condition),
-                snack=_slot(d.meals, "snack", tr, locale, goal=p.goal, condition=primary_condition),
+                breakfast=_slot(d.meals, "breakfast", tr, locale, goal=p.goal, condition=primary_condition, tag_tr=tag_tr),
+                morning_snack=_slot(d.meals, "morning_snack", tr, locale, goal=p.goal, condition=primary_condition, tag_tr=tag_tr),
+                lunch=_slot(d.meals, "lunch", tr, locale, goal=p.goal, condition=primary_condition, tag_tr=tag_tr),
+                afternoon_snack=_slot(d.meals, "afternoon_snack", tr, locale, goal=p.goal, condition=primary_condition, tag_tr=tag_tr),
+                dinner=_slot(d.meals, "dinner", tr, locale, goal=p.goal, condition=primary_condition, tag_tr=tag_tr),
+                snack=_slot(d.meals, "snack", tr, locale, goal=p.goal, condition=primary_condition, tag_tr=tag_tr),
                 protein_actual=sum(m.protein_g or 0 for m in d.meals),
                 fiber_daily=sum(
                     int(round((tr[m.recipe_id].fiber_g or 0) * (m.scaled_factor or 1.0)))
@@ -815,7 +849,8 @@ async def get_active_plan(
     tdee = await _fetch_latest_tdee(session, current_user)
     _profile = await SqlProfileRepository(session).get(current_user)
     _conditions = list(_profile.medical_conditions) if _profile and _profile.medical_conditions else None
-    resp = _to_resp(plan, translations=translations, locale=locale, tdee=tdee, conditions=_conditions)
+    tag_tr = await _load_tag_translations(session, locale)
+    resp = _to_resp(plan, translations=translations, locale=locale, tdee=tdee, conditions=_conditions, tag_tr=tag_tr)
 
     # E4 — retention hooks H3/H4/H5 (lazy eval, no cron).
     retention = await _compute_retention_context(session, current_user)
@@ -873,9 +908,36 @@ async def advance_plan(
     current_user: CurrentUserDep,
     session: SessionDep,
     locale: LocaleDep,
-) -> PlanResponse:
+    request: Request,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> PlanResponse | Response:
+    # C17: Idempotency — deduplicate retried REGENERATE/CANCEL events (same pattern as create_plan).
+    # The header is optional (not hard-required) to keep backward compatibility with existing clients.
+    redis = get_redis()
+    skey: str | None = None
+    raw_body = await request.body()
+    if idempotency_key:
+        key = require_idempotency_key(idempotency_key)
+        try:
+            skey, cached = await lookup_redis(
+                redis=redis,
+                user_id=str(current_user),
+                path=request.url.path,
+                raw_key=key,
+                body=raw_body,
+            )
+        except IdempotencyConflict as exc:
+            raise ConflictError(
+                "idempotency_body_mismatch",
+                field="Idempotency-Key",
+                key=idempotency_key,
+                reason="Same Idempotency-Key was used with a different request body",
+            ) from exc
+        if cached is not None:
+            return cached_to_response(cached)
+
     await assert_owns(session, table="plans", resource_id=plan_id, user_id=current_user)
-    cache = ActivePlanCache(get_redis())
+    cache = ActivePlanCache(redis)
     uc = AdvancePlan(plans=SqlPlanRepository(session), cache=cache, bus=get_event_bus())
     plan = await uc(plan_id=plan_id, event=body.event)
     await _hydrate_water_view(plan, session, locale)
@@ -883,7 +945,18 @@ async def advance_plan(
     tdee = await _fetch_latest_tdee(session, current_user)
     _profile = await SqlProfileRepository(session).get(current_user)
     _conditions = list(_profile.medical_conditions) if _profile and _profile.medical_conditions else None
-    return _to_resp(plan, translations=translations, locale=locale, tdee=tdee, conditions=_conditions)
+    tag_tr = await _load_tag_translations(session, locale)
+    result = _to_resp(plan, translations=translations, locale=locale, tdee=tdee, conditions=_conditions, tag_tr=tag_tr)
+
+    if skey is not None:
+        await remember_redis(
+            redis=redis,
+            storage_key=skey,
+            body=raw_body,
+            response_body=result.model_dump(mode="json"),
+            status_code=200,
+        )
+    return result
 
 
 @router.patch(
@@ -946,21 +1019,23 @@ async def adjust_portion(
     )
 
     # Capa 2: update rolling appetite calibration for this slot.
-    await session.execute(
-        _text(
-            """
-            INSERT INTO user_appetite_by_slot (user_id, meal_time, correction_ratio, sample_count, updated_at)
-            VALUES (:uid, :slot, :ratio, 1, now())
-            ON CONFLICT (user_id, meal_time) DO UPDATE
-              SET correction_ratio = (
-                    user_appetite_by_slot.correction_ratio * user_appetite_by_slot.sample_count + :ratio
-                  ) / (user_appetite_by_slot.sample_count + 1),
-                  sample_count = user_appetite_by_slot.sample_count + 1,
-                  updated_at   = now()
-            """
-        ),
-        {"uid": str(current_user), "slot": meal.meal_time, "ratio": factor},
-    )
+    # C18: skip when persist_calibration=false (one-off adjustment, e.g. "not hungry today").
+    if body.persist_calibration:
+        await session.execute(
+            _text(
+                """
+                INSERT INTO user_appetite_by_slot (user_id, meal_time, correction_ratio, sample_count, updated_at)
+                VALUES (:uid, :slot, :ratio, 1, now())
+                ON CONFLICT (user_id, meal_time) DO UPDATE
+                  SET correction_ratio = (
+                        user_appetite_by_slot.correction_ratio * user_appetite_by_slot.sample_count + :ratio
+                      ) / (user_appetite_by_slot.sample_count + 1),
+                      sample_count = user_appetite_by_slot.sample_count + 1,
+                      updated_at   = now()
+                """
+            ),
+            {"uid": str(current_user), "slot": meal.meal_time, "ratio": factor},
+        )
 
     # Build response — load recipe translations for the single meal.
     from app.plan.domain.entities import Plan as _Plan
@@ -970,7 +1045,8 @@ async def adjust_portion(
     _profile = await SqlProfileRepository(session).get(current_user)
     _conditions = list(_profile.medical_conditions) if _profile and _profile.medical_conditions else None
     primary_condition = next(iter(_conditions), None) if _conditions else None
-    resp = _build_meal_resp(meal, tr, locale, goal=user_goal, condition=primary_condition)
+    tag_tr = await _load_tag_translations(session, locale)
+    resp = _build_meal_resp(meal, tr, locale, goal=user_goal, condition=primary_condition, tag_tr=tag_tr)
     # Attach warnings to response (model_copy since PlanMealResponse is Strict).
     return resp.model_copy(update={"warnings": warnings})
 

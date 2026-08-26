@@ -113,9 +113,16 @@ async def get_today(current_user: CurrentUserDep, session: SessionDep) -> TodayG
             )
         ).all()
 
-    # F4: Fasting block — resolve eligibility + state + streak
-    # available always travels; state/streak are additive and can fail silently.
-    fasting_block: dict = {"available": True}
+    # F4: Fasting block — resolve eligibility + state + streak.
+    #
+    # Starts ABSENT on purpose. The entire block runs inside a `try` whose
+    # `except` swallows failures, so the init value is what ships on error.
+    # `True` (fail-open) offered fasting to excluded users; `False` (fail-closed)
+    # is worse — iOS treats an explicit `false` as a resolved decision and tears
+    # the feature down for every device on the account.
+    # Absent = "could not resolve; leave whatever the client had standing."
+    # `false` must only mean the rule resolved to not-eligible.
+    fasting_block: dict = {}
     try:
         from app.tracking.application.fasting_uc import (
             GetFastingActiveState,

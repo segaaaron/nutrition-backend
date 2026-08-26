@@ -14,6 +14,7 @@ class _Strict(BaseModel):
 
 class LogWaterRequest(_Strict):
     ml: int = Field(ge=1, le=5000)
+    at: datetime | None = None  # ISO-8601; defaults to server time when absent
 
 
 class LogWaterResponse(_Strict):

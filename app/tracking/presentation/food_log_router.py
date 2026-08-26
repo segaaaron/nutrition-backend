@@ -53,6 +53,7 @@ class FoodLogOut(BaseModel):
     confidence: float | None = None
     source_image_url: str | None = None
     created_at: datetime | None = None
+    is_adjusted: bool = False
 
 
 class FoodLogPage(BaseModel):
@@ -145,6 +146,7 @@ async def query_food_logs(
             confidence=float(i.confidence) if i.confidence is not None else None,
             source_image_url=i.source_image_url,
             created_at=i.created_at,
+            is_adjusted=i.is_adjusted,
         )
         for i in items
     ]

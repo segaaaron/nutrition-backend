@@ -69,7 +69,8 @@ class SqlFoodLogRepository:
             f"""
             SELECT id, user_id, date, meal_time, method, food_id, recipe_id,
                    free_text_name, amount_g, kcal, protein_g, carbs_g, fat_g,
-                   confidence, source_image_url, created_at
+                   confidence, source_image_url, created_at,
+                   COALESCE(is_adjusted, false) AS is_adjusted
               FROM food_logs
              WHERE {where}
              ORDER BY created_at DESC, id DESC
@@ -100,6 +101,7 @@ class SqlFoodLogRepository:
                 confidence=r["confidence"],
                 source_image_url=r["source_image_url"],
                 created_at=r["created_at"],
+                is_adjusted=bool(r["is_adjusted"]),
             )
             for r in rows
         ]

@@ -74,6 +74,7 @@ class PlanMealIngredient(_Strict):
 
     ``amount_g`` is the recipe's *native* gram amount. iOS MUST multiply it
     by the meal's ``scaled_factor`` to show the portion actually served.
+    ``amount_g_effective`` = amount_g × user_factor — the adjusted ration.
     """
 
     name: str | None
@@ -82,6 +83,9 @@ class PlanMealIngredient(_Strict):
     # (mostly ES). `name` keeps the raw free_text_name for backward compat.
     name_localized: str | None = None
     amount_g: Decimal | None
+    # C19: grams after applying user_factor. NULL when amount_g is NULL or
+    # user_factor == 1.0 (no adjustment; iOS falls back to amount_g).
+    amount_g_effective: Decimal | None = None
     position: int
     # Human-readable quantity + prep description (e.g. "¾ taza de quinoa cocida",
     # "1 pechuga mediana"). When present, iOS shows this instead of amount_g.
@@ -123,6 +127,9 @@ class PlanMealResponse(_Strict):
     sodium_mg: int | None = None
     sat_fat_g: int | None = None
     tags: list[str] = Field(default_factory=list)
+    # C6-b: tags translated for the request locale. Same order as `tags`.
+    # Falls back to the raw slug when no translation is seeded for a tag.
+    tags_localized: list[str] = Field(default_factory=list)
     allergens: list[str] = Field(default_factory=list)
     ingredients: list[PlanMealIngredient] = Field(default_factory=list)
     completed: bool
@@ -135,6 +142,9 @@ class AdjustPortionRequest(_Strict):
     """PATCH /plans/{plan_id}/meals/{meal_id}/portion — BE-11.
 
     user_factor must be a multiple of 0.25 in [0.25, 2.0].
+    persist_calibration controls whether the adjustment updates the rolling
+    appetite baseline (user_appetite_by_slot). Pass false for one-off
+    adjustments ("hoy no tengo hambre") that should not shift the baseline.
     """
 
     user_factor: Decimal = Field(
@@ -142,6 +152,7 @@ class AdjustPortionRequest(_Strict):
         le=Decimal("2.0"),
         json_schema_extra={"example": "0.75", "description": "Multiple of 0.25 between 0.25 and 2.0."},
     )
+    persist_calibration: bool = True
 
 
 class PlanDayResponse(_Strict):

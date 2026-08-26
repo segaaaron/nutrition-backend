@@ -41,6 +41,7 @@ class FoodLog:
     confidence: Decimal | None = None
     source_image_url: str | None = None
     created_at: datetime | None = None
+    is_adjusted: bool = False
 
 
 @dataclass(frozen=True, slots=True)
