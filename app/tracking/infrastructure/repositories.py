@@ -13,7 +13,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.tracking.domain.entities import WaterLog, WeightLog
-from app.tracking.infrastructure.models import WaterLogModel, WeightLogModel
+from app.tracking.infrastructure.models import WeightLogModel
 
 
 class SqlWaterLogRepository:
@@ -21,15 +21,24 @@ class SqlWaterLogRepository:
         self.s = session
 
     async def append(self, log: WaterLog) -> None:
-        self.s.add(
-            WaterLogModel(
-                time=log.time,
-                user_id=log.user_id,
-                ml=log.ml,
-                target_ml=log.target_ml,
-            )
+        # Raw INSERT so we can absorb idempotent retries / multi-device syncs
+        # that share the same (user_id, time) key via ON CONFLICT DO NOTHING.
+        # ORM session.add() has no conflict-handling path.
+        await self.s.execute(
+            text(
+                """
+                INSERT INTO water_logs (time, user_id, ml, target_ml)
+                VALUES (:time, :uid, :ml, :target_ml)
+                ON CONFLICT (user_id, time) DO NOTHING
+                """
+            ),
+            {
+                "time": log.time,
+                "uid": str(log.user_id),
+                "ml": log.ml,
+                "target_ml": log.target_ml,
+            },
         )
-        await self.s.flush()
 
     async def total_today(self, user_id: UUID) -> int:
         now = datetime.now(UTC)

@@ -594,6 +594,7 @@ class ProcessVisionJob:
         "RateLimited": "vision_provider_unavailable",
         "UpstreamError": "vision_provider_unavailable",
         "TimeoutError": "vision_timeout",
+        "ImageUnreadable": "vision_image_unreadable",
     }
 
     async def _handle_failure(

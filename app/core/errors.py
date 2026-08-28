@@ -148,6 +148,18 @@ class UpstreamError(DomainError):
     title = "Upstream error"
 
 
+class ImageUnreadable(DomainError):
+    """OpenAI rejected the image with HTTP 400 (bad format, corrupt bytes, content policy).
+
+    Distinct from UpstreamError (5xx/transient) — retrying won't help.
+    Maps to i18n slug 'vision_image_unreadable' via ProcessVisionJob._SLUG.
+    """
+
+    http_status = 422
+    type_slug = "image-unreadable"
+    title = "Image could not be read"
+
+
 class PlanGenerationFailed(DomainError):
     """The plan worker terminally failed (retries exhausted) while the
     synchronous ``POST /plans`` (BE-7) was awaiting it. 503 + Retry-After

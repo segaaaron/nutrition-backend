@@ -160,6 +160,13 @@ ERROR_MESSAGES: Final[dict[str, _ErrorEntry]] = {
             "en": "An upstream service returned an error.",
         },
     },
+    "image_unreadable": {
+        "title": {"es": "Imagen no procesable", "en": "Image could not be read"},
+        "detail": {
+            "es": "No pudimos leer la imagen. Toma otra foto con mejor iluminación.",
+            "en": "Could not read the image. Try a photo with better lighting.",
+        },
+    },
     "plan_generation_failed": {
         "title": {
             "es": "No se pudo crear tu plan",

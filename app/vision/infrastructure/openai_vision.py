@@ -35,7 +35,7 @@ from statistics import fmean
 from typing import Any, Literal
 from uuid import UUID
 
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, BadRequestError as OpenAIBadRequestError
 
 from app.core.circuit_breaker import CircuitBreaker
 from app.core.config import get_settings
@@ -46,7 +46,7 @@ from app.core.cost_cap import (
     pre_check,
     record_usage,
 )
-from app.core.errors import UpstreamError
+from app.core.errors import ImageUnreadable, UpstreamError
 from app.core.logging import get_logger
 from app.core.metrics import (
     VISION_DETAIL_LEVEL,
@@ -1079,6 +1079,9 @@ class OpenAIVisionProvider:
         while attempt <= MAX_RETRIES:
             try:
                 return await _breaker.call(_call)
+            except OpenAIBadRequestError as exc:
+                # HTTP 400 = image-level rejection. Not transient — no retry.
+                raise ImageUnreadable("vision_image_unreadable") from exc
             except Exception as exc:  # noqa: BLE001
                 last_exc = exc
                 attempt += 1
@@ -1731,6 +1734,10 @@ class OpenAIVisionProvider:
                 raw = await _breaker.call(_call)
                 items = _parse_items(raw)
                 return items
+            except OpenAIBadRequestError as exc:
+                # HTTP 400 = image-level rejection (bad format, corrupt bytes,
+                # content policy). Not transient — retrying never helps.
+                raise ImageUnreadable("vision_image_unreadable") from exc
             except Exception as exc:  # noqa: BLE001
                 last_exc = exc
                 attempt += 1

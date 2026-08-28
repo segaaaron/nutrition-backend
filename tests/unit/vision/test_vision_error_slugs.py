@@ -27,6 +27,10 @@ class UpstreamError(Exception):
     pass
 
 
+class ImageUnreadable(Exception):
+    pass
+
+
 @pytest.mark.parametrize(
     "exc_class, expected_slug",
     [
@@ -35,6 +39,7 @@ class UpstreamError(Exception):
         (RateLimited, "vision_provider_unavailable"),
         (UpstreamError, "vision_provider_unavailable"),
         (TimeoutError, "vision_timeout"),
+        (ImageUnreadable, "vision_image_unreadable"),
         (_FakeExc, "vision_internal"),
         (ValueError, "vision_internal"),
     ],
