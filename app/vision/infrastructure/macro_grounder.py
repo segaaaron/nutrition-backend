@@ -244,15 +244,18 @@ def _local_usda_lookup(name: str) -> dict[str, Any] | None:
 # USDA FDC SR Legacy averages per 100 g by food_group.
 # Tuple: (kcal, protein_g, carbs_g, fat_g)
 USDA_FALLBACK_PER_100G: dict[str, tuple[int, int, int, int]] = {
-    "protein":   (165, 25,  0,  7),
-    "grain":     (350,  8, 72,  3),
-    "vegetable": ( 35,  2,  7,  0),
-    "fruit":     ( 60,  1, 15,  0),
-    "dairy":     (150,  8, 12,  8),
-    "fat":       (720,  0,  0, 80),
-    "sweet":     (400,  2, 92,  5),
-    "beverage":  ( 45,  0, 11,  0),
-    "other":     (150,  5, 20,  5),
+    "protein":    (165, 25,  0,  7),
+    "grain":      (350,  8, 72,  3),
+    "vegetable":  ( 35,  2,  7,  0),
+    "fruit":      ( 60,  1, 15,  0),
+    "dairy":      (150,  8, 12,  8),
+    "fat":        (720,  0,  0, 80),
+    "sweet":      (400,  2, 92,  5),
+    "beverage":   ( 45,  0, 11,  0),
+    "other":      (150,  5, 20,  5),
+    # Integrated stew/guiso: protein + root veg + vegetables cooked together.
+    # Carbs from potatoes/legumes, protein from meat, moderate fat from broth.
+    "mixed_dish": (155, 12, 14,  6),
 }
 
 
@@ -493,6 +496,12 @@ async def apply_group_fallback(items: list[DetectedFoodItem]) -> None:
 
         # --- Step 3: static group average ---
         group = it.food_group or "other"
+        # Mixed dishes (guiso, stew, arroz con pollo…) contain carbs from root
+        # vegetables and legumes. Using the raw "protein" group (0g carbs) gives
+        # a nutritionally impossible result. Override to the mixed_dish profile
+        # which reflects the real macro distribution of an integrated preparation.
+        if it.is_mixed_dish and group in ("protein", "grain"):
+            group = "mixed_dish"
         macro = USDA_FALLBACK_PER_100G.get(group, USDA_FALLBACK_PER_100G["other"])
         kcal_fb = round(macro[0] * factor)
         if it.kcal > 0 and not (it.kcal / 5 <= kcal_fb <= it.kcal * 5):

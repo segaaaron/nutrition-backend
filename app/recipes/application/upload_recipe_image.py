@@ -24,6 +24,13 @@ def _write_bytes(path: Path, data: bytes) -> None:
     path.write_bytes(data)
 
 
+def _delete_file_if_exists(path: Path) -> None:
+    try:
+        path.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
 @dataclass(slots=True)
 class UploadRecipeImage:
     session: AsyncSession
@@ -42,14 +49,16 @@ class UploadRecipeImage:
         if len(raw_bytes) > _MAX_BYTES:
             raise ValidationError(f"upload_too_large:{len(raw_bytes)}")
 
-        exists = (
+        row = (
             await self.session.execute(
-                text("SELECT 1 FROM recipes WHERE id = :id"),
+                text("SELECT image_url FROM recipes WHERE id = :id"),
                 {"id": str(recipe_id)},
             )
-        ).scalar()
-        if not exists:
+        ).first()
+        if row is None:
             raise NotFoundError("recipe_not_found", recipe_id=str(recipe_id))
+
+        old_url: str | None = row[0]
 
         compressed = await self.compressor.compress(raw_bytes, profile=CompressionProfile.RECIPE)
 
@@ -66,5 +75,10 @@ class UploadRecipeImage:
             text("UPDATE recipes SET image_url = :url WHERE id = :id"),
             {"url": image_url, "id": str(recipe_id)},
         )
+
+        # Delete old file only when it differs from the new one (same SHA = same file already written)
+        if old_url and old_url != image_url:
+            old_path = Path(settings.recipe_image_dir) / str(recipe_id) / Path(old_url).name
+            await asyncio.to_thread(_delete_file_if_exists, old_path)
 
         return recipe_id, image_url, compressed.size_bytes // 1024

@@ -371,33 +371,33 @@ class WeightGoalResponse(_Strict):
     ideal_weight_min_kg: float | None     # WHO lower bound (BMI 18.5)
     ideal_weight_max_kg: float | None     # WHO upper bound (BMI 24.9)
     bmi: float | None
-    bmi_category: str | None             # "underweight"|"healthy"|"overweight"|"obese"
+    bmi_category: Literal["underweight", "healthy", "overweight", "obese"] | None
     obesity_grade: int | None            # 1=30-34.9, 2=35-39.9, 3=≥40; null when not obese (OMS)
+    latam_context_note: bool             # True when BMI 25.0–27.9 (LATAM elevated risk per Sci Reports 2024)
 
     # Progress toward goal_weight_kg
     delta_kg: float | None               # goal_weight - current (negative = still to lose)
     lost_so_far_kg: float | None         # starting - current
     progress_pct: float | None           # (lost_so_far / total_to_lose) * 100
-    # Weight loss milestone from starting weight (5%/10%/15%/20% — health benefit inflection points per OMS/PDF)
-    weight_loss_milestone: str | None    # "5%"|"10%"|"15%"|"20%"|null
+    weight_loss_milestone: Literal["5%", "10%", "15%", "20%"] | None
 
-    # Waist tracking (PDF: "mide cintura cada 2 semanas")
-    waist_cm: float | None              # latest waist_cm logged, null if never measured
-    last_waist_date: str | None         # ISO date of last waist measurement
+    # Waist tracking
+    waist_cm: float | None
+    last_waist_date: str | None
 
     # Plan projection
-    weekly_projected_kg: float | None    # expected weekly change from active plan deficit
-    weeks_to_goal: int | None            # ceil(|delta_kg| / |weekly_projected_kg|)
-    tdee_kcal: int | None                # user's TDEE from nutritional_goals
+    weekly_projected_kg: float | None
+    weeks_to_goal: int | None
+    tdee_kcal: int | None
 
     # Actual trend from weight_logs (OLS 14d)
-    actual_weekly_kg: float | None       # kg/week from real weigh-ins (negative = losing)
-    trend_label: str | None              # "losing"|"gaining"|"plateau"|"insufficient_data"
-    vs_plan: str | None                  # "on_track"|"ahead"|"behind"|"maintain"|"insufficient_data"
-    weight_points_14d: int               # how many weigh-ins used for OLS
+    actual_weekly_kg: float | None
+    trend_label: Literal["losing", "gaining", "plateau", "insufficient_data"] | None
+    vs_plan: Literal["on_track", "ahead", "behind", "maintain", "insufficient_data"] | None
+    weight_points_14d: int
 
     # Status summary
-    status: str                          # "on_track"|"ahead"|"behind"|"no_data"
+    status: Literal["on_track", "ahead", "behind", "no_data"]
     recalibration_suggested: bool
 
 

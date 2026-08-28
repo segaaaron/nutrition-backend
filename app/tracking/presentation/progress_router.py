@@ -25,6 +25,37 @@ from app.imaging.infrastructure.vips_compressor import VipsImageCompressor
 router = APIRouter(tags=["progress"])
 
 
+class WeightTrendPoint(BaseModel):
+    day: str
+    weight_kg: float
+
+
+class BodyCompositionOut(BaseModel):
+    time: datetime | None = None
+    weight_kg: float | None = None
+    body_fat_pct: float | None = None
+    waist_cm: float | None = None
+
+
+class GoalOut(BaseModel):
+    goal: str | None = None
+    kcal_target: int | None = None
+
+
+class RecentPhotoOut(BaseModel):
+    id: str
+    taken_at: str
+    image_url: str | None = None
+    weight_kg: float | None = None
+
+
+class ProgressDashboardResponse(BaseModel):
+    weight_trend: list[WeightTrendPoint]
+    body_composition: BodyCompositionOut | None
+    goal: GoalOut | None
+    recent_photos: list[RecentPhotoOut]
+
+
 class ProgressPhotoOut(BaseModel):
     id: UUID
     taken_at: datetime
@@ -162,7 +193,7 @@ async def delete_progress_photo(
         text(
             """
         INSERT INTO audit_log (actor_type, user_id, action, target_type, target_id, metadata)
-        VALUES ('user', :uid::uuid, 'progress_photo.delete', 'progress_photo', :tid, '{}'::jsonb)
+        VALUES ('user', :uid, 'progress_photo.delete', 'progress_photo', :tid, '{}'::jsonb)
     """
         ),
         {"uid": str(current_user), "tid": str(photo_id)},
@@ -171,11 +202,11 @@ async def delete_progress_photo(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.get("/progress")
+@router.get("/progress", response_model=ProgressDashboardResponse)
 async def progress_dashboard(
     current_user: CurrentUserDep,
     session: SessionDep,
-) -> dict:
+) -> ProgressDashboardResponse:
     # Weight trend (last 30d)
     trend = (
         (
@@ -219,7 +250,7 @@ async def progress_dashboard(
                 text(
                     """
         SELECT goal, kcal_target FROM plans
-         WHERE user_id = :uid::uuid AND status = 'active' LIMIT 1
+         WHERE user_id = :uid AND status = 'active' LIMIT 1
     """
                 ),
                 {"uid": str(current_user)},
@@ -243,19 +274,28 @@ async def progress_dashboard(
         .mappings()
         .all()
     )
-    return {
-        "weight_trend": [
-            {"day": r["day"].isoformat(), "weight_kg": float(r["weight_kg_mean"])} for r in trend
+    return ProgressDashboardResponse(
+        weight_trend=[
+            WeightTrendPoint(day=r["day"].isoformat(), weight_kg=float(r["weight_kg_mean"]))
+            for r in trend
         ],
-        "body_composition": dict(latest) if latest else None,
-        "goal": dict(goal) if goal else None,
-        "recent_photos": [
-            {
-                "id": str(p["id"]),
-                "taken_at": p["taken_at"].isoformat(),
-                "image_url": p["image_url"],
-                "weight_kg": float(p["weight_kg"]) if p["weight_kg"] is not None else None,
-            }
+        body_composition=BodyCompositionOut(
+            time=latest["time"] if latest else None,
+            weight_kg=float(latest["weight_kg"]) if latest and latest["weight_kg"] is not None else None,
+            body_fat_pct=float(latest["body_fat_pct"]) if latest and latest["body_fat_pct"] is not None else None,
+            waist_cm=float(latest["waist_cm"]) if latest and latest["waist_cm"] is not None else None,
+        ) if latest else None,
+        goal=GoalOut(
+            goal=goal["goal"] if goal else None,
+            kcal_target=int(goal["kcal_target"]) if goal and goal["kcal_target"] is not None else None,
+        ) if goal else None,
+        recent_photos=[
+            RecentPhotoOut(
+                id=str(p["id"]),
+                taken_at=p["taken_at"].isoformat(),
+                image_url=p["image_url"],
+                weight_kg=float(p["weight_kg"]) if p["weight_kg"] is not None else None,
+            )
             for p in photos
         ],
-    }
+    )

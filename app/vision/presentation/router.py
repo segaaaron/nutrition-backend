@@ -426,7 +426,7 @@ async def confirm_vision_job(
     # Write confirmed IDs back so a second call is idempotent.
     await session.execute(
         text(
-            "UPDATE vision_jobs SET food_log_ids = :ids::jsonb WHERE id = :jid"
+            "UPDATE vision_jobs SET food_log_ids = CAST(:ids AS jsonb) WHERE id = :jid"
         ),
         {
             "ids": json.dumps([str(fid) for fid in food_log_ids]),
@@ -517,7 +517,7 @@ async def edit_food_log(
                                fat_g     = :fg,
                                fiber_g   = :fibg,
                                sugar_g   = :sug,
-                               food_id   = :fid::uuid
+                               food_id   = :fid
                          WHERE id = :log_id
                         """
                     ),
@@ -544,7 +544,7 @@ async def edit_food_log(
                                protein_g = CASE WHEN amount_g > 0 THEN round(protein_g * :new_g / amount_g) ELSE protein_g END,
                                carbs_g   = CASE WHEN amount_g > 0 THEN round(carbs_g   * :new_g / amount_g) ELSE carbs_g END,
                                fat_g     = CASE WHEN amount_g > 0 THEN round(fat_g     * :new_g / amount_g) ELSE fat_g END,
-                               food_id   = :fid::uuid
+                               food_id   = :fid
                          WHERE id = :log_id
                         """
                     ),
@@ -569,7 +569,7 @@ async def edit_food_log(
                            fat_g      = CASE WHEN :new_g IS NOT NULL AND amount_g > 0
                                              THEN round(fat_g      * :new_g / amount_g)
                                              ELSE fat_g END,
-                           food_id    = CASE WHEN :new_fid IS NOT NULL THEN :new_fid::uuid ELSE food_id END
+                           food_id    = CASE WHEN :new_fid IS NOT NULL THEN CAST(:new_fid AS uuid) ELSE food_id END
                      WHERE id = :log_id
                     """
                 ),

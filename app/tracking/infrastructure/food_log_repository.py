@@ -120,7 +120,7 @@ class SqlFoodLogRepository:
             text(
                 """
                 INSERT INTO audit_log (actor_type, user_id, action, target_type, target_id, metadata)
-                VALUES ('user', :uid::uuid, 'food_log.delete', 'food_log', :tid, :payload::jsonb)
+                VALUES ('user', :uid, 'food_log.delete', 'food_log', :tid, CAST(:payload AS jsonb))
             """
             ),
             {

@@ -96,7 +96,7 @@ class SqlBillingRepository:
             text(
                 """
             INSERT INTO webhook_events (event_id, provider, payload)
-            VALUES (:eid, :p, :pl::jsonb)
+            VALUES (:eid, :p, CAST(:pl AS jsonb))
             ON CONFLICT (event_id) DO NOTHING RETURNING 1
         """
             ),

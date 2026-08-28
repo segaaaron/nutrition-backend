@@ -349,8 +349,8 @@ async def get_weight_goal(current_user: CurrentUserDep, session: SessionDep) -> 
             text(
                 """
         SELECT kcal_target FROM plans
-         WHERE user_id = :uid::uuid AND status = 'active' LIMIT 1
-        """
+         WHERE user_id = :uid AND status = 'active' LIMIT 1
+"""
             ),
             {"uid": str(current_user)},
         )
@@ -458,6 +458,7 @@ async def get_weight_goal(current_user: CurrentUserDep, session: SessionDep) -> 
         bmi=float(insights.bmi) if insights else None,
         bmi_category=insights.bmi_category if insights else None,
         obesity_grade=insights.obesity_grade if insights else None,
+        latam_context_note=insights.latam_context_note if insights else False,
         delta_kg=delta_kg,
         lost_so_far_kg=lost_so_far_kg,
         progress_pct=progress_pct,

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -13,12 +12,14 @@ class _Strict(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
 
-class ComponentResponse(_Strict):
+class ComponentResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     id: UUID
     food_id: UUID | None
     sub_recipe_id: UUID | None
     free_text_name: str | None
-    amount_g: Decimal | None
+    amount_g: float | None
     modifier: str | None
     position: int
 
@@ -69,20 +70,22 @@ class RecipeSemanticSearchRequest(_Strict):
     cursor: str | None = None
 
 
-class FoodResponse(_Strict):
+class FoodResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     id: UUID
     name: str
     brand: str | None
     country: str | None
-    portion_g: Decimal | None
-    kcal: Decimal | None
-    protein_g: Decimal | None
-    carbs_g: Decimal | None
-    fat_g: Decimal | None
-    fiber_g: Decimal | None
-    sugar_g: Decimal | None
-    sodium_mg: Decimal | None
-    sat_fat_g: Decimal | None
+    portion_g: float | None
+    kcal: int | None
+    protein_g: int | None
+    carbs_g: int | None
+    fat_g: int | None
+    fiber_g: int | None
+    sugar_g: int | None
+    sodium_mg: int | None
+    sat_fat_g: int | None
     barcode: str | None
     verified: bool
     score: float | None = None

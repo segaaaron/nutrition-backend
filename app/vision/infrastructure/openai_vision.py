@@ -158,17 +158,22 @@ class UserVisionContext:
 # Ecuador) — treating the whole region as landlocked would wrongly suppress
 # ocean seafood identification for the vast majority of LATAM users.
 # Owner decision required before any region mapping is implemented.
+def _L(locale: str, es: str, en: str) -> str:
+    """Return the string in the user's locale language: en-* → English, else Spanish."""
+    return en if locale.startswith("en") else es
+
+
 _LANDLOCKED_LATAM_REGIONS: frozenset[str] = frozenset(
     {"BO", "BOLIVIA", "PY", "PARAGUAY"}
 )
 
 
-def _build_user_context_hint(ctx: UserVisionContext) -> str:
+def _build_user_context_hint(ctx: UserVisionContext, locale: str = "es") -> str:
     """Generate additional context to append to the vision system prompt.
 
     Returns an empty string when no useful signals are present so the caller
     can skip the append with a simple truthiness check.  Pure function —
-    no I/O, no state.
+    no I/O, no state. Bilingual: locale 'en*' → English instructions.
 
     Signals handled:
     - Landlocked LATAM region → instruct model to never identify ocean seafood.
@@ -178,33 +183,46 @@ def _build_user_context_hint(ctx: UserVisionContext) -> str:
       anchors (complements the gramaje anchors in portion_history, focusing
       on IDENTITY rather than amount).
     """
+    L = lambda es, en: _L(locale, es, en)  # noqa: E731
     parts: list[str] = []
 
     region_key = (ctx.region or "").upper().strip()
     if region_key in _LANDLOCKED_LATAM_REGIONS:
-        parts.append(
-            "REGIÓN SIN COSTA MARÍTIMA: este usuario NO consume camarones, "
-            "langostinos, langosta, cangrejo, pulpo, calamar ni ningún otro "
-            "marisco de mar. Cuando detectes una proteína acuática, identificala "
-            "como trucha, tilapia, surubí, pacú u otro pez de río o lago — "
-            "NUNCA como marisco de mar."
-        )
+        parts.append(L(
+            "REGIÓN SIN COSTA MARÍTIMA: este usuario NO consume mariscos de mar "
+            "ni crustáceos oceánicos. Cuando detectes una proteína acuática, "
+            "identificala como pez de río, lago o acuicultura — "
+            "NUNCA como marisco de mar.",
+            "LANDLOCKED REGION: this user does NOT consume ocean seafood "
+            "or oceanic crustaceans. When you detect an aquatic protein, "
+            "identify it as a river fish, lake fish, or farmed fish — "
+            "NEVER as ocean seafood.",
+        ))
 
     if ctx.meal_time in ("snack", "morning_snack", "afternoon_snack"):
-        parts.append(
-            "SLOT SNACK — PORCIONES PEQUEÑAS POR ÍTEM: fruta 1 pieza (≤150 g), "
-            "yogur ≤180 g, queso ≤30 g, nueces ≤25 g, galletitas ≤5 unidades "
-            "(≤50 g total), proteína cocida ≤120 g. Si algún ítem supera estas "
-            "referencias en un snack, revisá si el gramaje es correcto y reducilo."
-        )
+        parts.append(L(
+            "SLOT SNACK — PORCIONES PEQUEÑAS POR ÍTEM: "
+            "fruta 1 pieza (≤150 g), lácteo ≤180 g, queso ≤30 g, "
+            "frutos secos ≤25 g, galletas ≤5 unidades (≤50 g total), "
+            "proteína cocida ≤120 g. Si algún ítem supera estas "
+            "referencias en un snack, revisá si el gramaje es correcto y reducilo.",
+            "SNACK SLOT — SMALL PORTIONS PER ITEM: "
+            "fruit 1 piece (≤150 g), dairy ≤180 g, cheese ≤30 g, "
+            "nuts/seeds ≤25 g, crackers ≤5 units (≤50 g total), "
+            "cooked protein ≤120 g. If any item exceeds these "
+            "references in a snack, check if the weight is correct and reduce it.",
+        ))
 
     if ctx.portion_history:
         top3 = ", ".join(ctx.portion_history[:3])
-        parts.append(
+        parts.append(L(
             f"ALIMENTOS HABITUALES DE ESTE USUARIO (por frecuencia de corrección): "
             f"{top3}. Si alguno aparece en la imagen, prioriza esa identificación y "
-            f"calibra el gramaje a su patrón histórico."
-        )
+            f"calibra el gramaje a su patrón histórico.",
+            f"FREQUENT FOODS FOR THIS USER (by correction frequency): "
+            f"{top3}. If any appears in the image, prioritize that identification and "
+            f"calibrate the weight to their historical pattern.",
+        ))
 
     return "\n".join(parts)
 
@@ -224,9 +242,9 @@ VISION_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
     "properties": {
-        # Plate-level flag: True when the dish is an integrated mixed preparation
-        # (guiso, arroz con pollo, paella, locro) where ingredients cannot be
-        # separated visually. Parser propagates this to every DetectedFoodItem so
+        # Plate-level flag: True when the dish is an integrated preparation where
+        # all ingredients share a common cooking matrix (liquid/sauce/oil) and
+        # cannot be visually separated. Parser propagates to every DetectedFoodItem;
         # macro_grounder widens the kcal range to ±30% (vs ±20% for clean plates).
         "is_mixed_dish": {"type": "boolean"},
         # Declared FIRST on purpose: strict constrained-decoding emits properties
@@ -372,140 +390,282 @@ def _system_prompt(
     # plan_context, user_profile, and portion_history are intentionally
     # EXCLUDED from the hash (they are user-specific and change per request;
     # hashing them would defeat the cross-user SHA cache). Injected at call time only.
+    L = lambda es, en: _L(locale, es, en)  # noqa: E731
     base = (
-        "Eres un experto en nutrición, planes alimenticios y cocina de LatAm/US/EU. "
-        "PROCESO por ítem: (1) identifica el alimento, (2) busca un objeto de referencia "
-        "de tamaño conocido en la imagen para anclar la escala, (3) estima el volumen 3D "
-        "(área × profundidad), (4) asigna macros basado en peso real estimado.\n"
-        "ALCANCE — SOLO la comida servida en el plato/porción que la persona va a "
-        "comer. IGNORA por completo (NO son ítems): botellas/frascos de condimentos "
-        "sobre la mesa, sachets/sobres sin abrir, posavasos, cubiertos, servilletas, "
-        "el fondo, otras porciones o mesas, packaging, y cualquier envase o "
-        "condimento que NO esté aplicado sobre la comida. Un condimento cuenta SOLO "
-        "si está sobre/dentro del plato (ej. kétchup untado en el pan) — una botella "
-        "de kétchup en la mesa NO cuenta. Menos ítems irrelevantes = respuesta más "
-        "rápida y precisa.\n"
-        "Descompone la COMIDA DEL PLATO — visible e inferido:\n"
-        "1) Visibles: principal, guarniciones, salsas/aderezos aplicados, toppings, bebida servida.\n"
-        "2) INVISIBLES: aceite en frituras/salteados, mantequilla en purés, "
-        "crema en sopas, azúcar en jugos/postres, aderezo en ensaladas aliñadas.\n"
-        "3) Especias secas (comino, pimienta, orégano) ≤5 kcal y 1-3 g. "
-        "Condimentos calóricos (mayonesa, crema, chimichurri, ketchup) con gramaje real.\n"
-        "NO DOBLE-CONTEO (CRÍTICO): cada gramo y cada kcal se cuenta UNA sola vez. "
-        "DESGLOSE OBLIGATORIO: todo alimento armado cuyas partes se distingan DEBE "
-        "listarse por COMPONENTES separados, nunca como un ítem con el nombre del "
-        "conjunto (ej. hamburguesa → pan + carne(s) + queso + toppings; taco → "
-        "tortilla + relleno). Son ejemplos, no lista cerrada: aplica el principio a "
-        "cualquier plato armado. PROHIBIDO el conjunto como ítem único cuando sus "
-        "partes se ven — ya están contadas en las partes. Plato como UN ítem SÓLO "
-        "si sus partes son indistinguibles/homogéneas (sopa licuada, batido, "
-        "puré).\n"
-        "Por ítem (SOLO estos campos, nada más — menos campos = respuesta más rápida): "
-        "name, estimated_amount_g, size_category, kcal, protein_g, carbs_g, fat_g, "
-        "confidence (0-1), "
-        "food_group (vegetable|fruit|grain|protein|dairy|fat|sweet|beverage|other), "
-        "role (main|side|sauce|condiment|cooking_fat|garnish|sweetener|beverage_base), "
-        "prep_method (deep_fried|fried|sauteed|grilled|boiled|steamed|baked|stewed|raw|unknown).\n"
-        "CAMPO CRÍTICO `size_category` — OBLIGATORIO en TODOS los ítems: "
-        "XS=muy pequeño (mitad de porción chica), S=pequeño, M=porción normal hogar 1 adulto, "
-        "L=grande, XL=muy grande. "
-        "MÉTODO: (1) detecta objeto de referencia visible (tenedor≈18cm, cuchara sopera≈15cm, "
-        "plato estándar≈26cm Ø, mano adulta≈18cm, moneda 25mm). "
-        "(2) Compara el alimento con esa referencia para juzgar el tamaño VISUAL. "
-        "(3) Asigna XS/S/M/L/XL ANTES de escribir estimated_amount_g. "
-        "(4) estimated_amount_g debe ser COHERENTE con size_category "
-        "(ej. pollo M → 120-140g, arroz M → 140-160g, NO pongas M y 40g — se contradicen).\n"
-        "COHERENCIA: `kcal`≈4·protein_g+4·carbs_g+9·fat_g (Atwater) — que cuadren. "
-        "`prep_method` afecta kcal (frito absorbe aceite; a la plancha no). "
-        "`confidence`: alto SOLO si identidad "
-        "Y tamaño son claros; bajo si ocluido, borroso o dudoso.\n"
-        "PORCIONES — calibración HOGAR LATAM (no restaurante): si hay mano, moneda, "
-        "cubierto u otro objeto conocido → úsalo como calibrador PRINCIPAL. "
-        "Otras referencias: plato Ø26cm, plato hondo 400ml, "
-        "cuchara sopera 15ml, vaso 250ml, taza 240ml, lata 355ml. "
-        "Estima profundidad del montículo, no solo área. "
-        "ANCLAS DE PORCIÓN INDIVIDUAL (cocina de hogar LATAM, UNA persona): "
-        "proteína (filete/pechuga/lomo) 120-200g; filete de pescado 130-200g; "
-        "carne molida/guisada 100-180g; "
-        "arroz cocido 120-200g; pasta cocida 150-220g; papas cocidas 100-180g; "
-        "legumbres cocidas 80-150g; masa de pizza (pizza personal entera) 120-170g; "
-        "queso en pizza 60-90g; verdura cocida por tipo 60-130g; ensalada mixta 80-150g; "
-        "pan/tostada (rebanada) 30-50g; fruta mediana entera 120-180g. "
-        "RANGOS CALÓRICOS ESPERADOS por comida (hogar individual): "
-        "desayuno 300-550 kcal; almuerzo 500-750 kcal; cena 400-650 kcal; snack 80-220 kcal. "
-        "⚠️ VERIFICACIÓN FINAL OBLIGATORIA: suma todos tus ítems. "
-        "Si el total supera el rango esperado para esa comida, "
-        "REVISÁ las porciones MÁS GRANDES y ajustá a la baja antes de responder. "
-        "El error más común es SOBREESTIMAR el gramaje — un plato parece grande visualmente "
-        "pero la porción real es moderada. Ante la duda, estimá hacia la porción MEDIANA del rango. "
-        "EXCEPCIÓN — ALIMENTOS LICUADOS/MEZCLADOS (batido, smoothie, licuado, gachas, porridge, "
-        "sémola, crema, potaje, puré): contienen ingredientes densos INVISIBLES en el blend "
-        "(aguacate, plátano, leche entera, mantequilla de maní, miel, semillas, crema). "
-        "Densidad de referencia: batido de frutas con lácteos 70-90 kcal/100ml; "
-        "batido con aguacate/nuez/coco 100-130 kcal/100ml; "
-        "gachas/porridge con leche 90-120 kcal/100g. "
-        "Si tu estimado es MÁS BAJO que estos rangos para una porción visible de tamaño normal, "
-        "AÑADÍ los ingredientes densos más probables (leche entera, aguacate, miel) como ítems "
-        "invisibles separados antes de finalizar.\n"
-        "PROTEÍNA FALTANTE — DOBLE VERIFICACIÓN: en platos de almuerzo/cena, "
-        "antes de finalizar verificá que hayas incluido la proteína principal "
-        "(carne, pollo, pescado, mariscos, huevo, legumbre). Si no ves ninguna, "
-        "REVISÁ la imagen — puede estar bajo salsa, semioculta, con color similar "
-        "al plato, o en el borde. Un plato principal sin proteína es inusual.\n"
-        "SOPAS/CREMAS CON SÓLIDOS: si el plato base es sopa o crema pero hay "
-        "ingredientes sólidos VISIBLES (trozos de carne, papa, verdura entera, "
-        "legumbre), listalós POR SEPARADO además de la base líquida. No los "
-        "absorba en 'sopa cremosa general' — la base líquida es UN ítem, cada "
-        "sólido identificable es otro ítem adicional.\n"
-        "SNACK CON MÚLTIPLES INGREDIENTES: en snacks con 2-4 componentes "
-        "(frutas + nueces, queso + crackers, yogur + granola), verificá que "
-        "TODOS estén listados. Nueces, frutos secos y frutos rojos son "
-        "pequeños y fáciles de omitir aunque estén claramente presentes.\n"
-        "CONTEO CRÍTICO — LOCALIZA Y CUENTA ANTES DE RESPONDER: para CADA "
-        "alimento que venga en piezas enteras repetidas, primero ubica y numera "
-        "cada unidad una por una (unidad 1, unidad 2, …), incluyendo las APILADAS, "
-        "superpuestas u ocultas detrás de otra (ej. dos carnes de hamburguesa "
-        "apiladas, panqueques, empanadas, salchichas). "
-        "Reporta ese total en `count`=N y `estimated_amount_g`= peso de UNA sola "
-        "unidad. NUNCA multipliques tú — la app multiplica.\n"
-        "CLASIFICA cada ítem con `portion_kind` ANTES de `count`: "
-        "`pieza_entera` = piezas enteras idénticas que levantarías de a una con "
-        "tenedor (carnes de burger, panqueques, huevos, empanadas) → `count` = "
-        "cuántas hay. `a_granel` = picado/en trozos/rodajas o aros sueltos/guiso/"
-        "montón (carne salteada, papas fritas, cebolla en aros) y salsas/aceites → "
-        "`count`=1, `estimated_amount_g` = peso TOTAL del montón. Pan base+tapa = "
-        "`pieza_entera`, `count`=1.\n"
-        "DESAMBIGUACIÓN de apilados: ante duda 1 vs 2+, mira GROSOR (alto doble=2), "
-        "BORDES (dos contornos=2) y SOMBRAS entre capas. No asumas 1 por defecto.\n"
-        "CAMPO `disambiguations` (OPCIONAL): llena SOLO cuando tengas duda real sobre "
-        "la identidad de un alimento (confidence < 0.7). "
-        "item_index = posición 0-based en `items`; options = 2-4 nombres alternativos "
-        "en el mismo idioma que el `name` del ítem. "
-        "Omite completamente cuando no haya ambigüedad.\n"
-        "CAMPO `is_mixed_dish` (OBLIGATORIO, va ANTES del censo): "
-        "`true` si el plato es una preparación INTEGRADA donde los ingredientes "
-        "se cocinan juntos y no se separan visualmente "
-        "(guiso/stew, arroz con pollo/rice with chicken, fideos salteados/stir-fry, "
-        "paella, locro, sopa con sólidos mezclados, pasta con salsa integrada, "
-        "revuelto/scramble). "
-        "`false` si los componentes son VISUALMENTE SEPARADOS o el plato está armado "
-        "en capas/secciones (hamburguesa, plato con proteína + guarnición aparte, "
-        "snack con ingredientes distintos). La app usa este campo para calibrar el "
-        "rango de incertidumbre — ponlo correctamente.\n"
-        "CENSO (`unit_census`, OBLIGATORIO, va ANTES de `items`): UNA línea breve "
-        "con las PIEZAS ENTERAS repetidas — ej. 'carne:2; queso:2; huevo:1'. Copia "
-        "al `count` de cada `pieza_entera`. Sé breve.\n"
-        "IDIOMA DEL NOMBRE: escribe cada `name` en el idioma del Locale — "
-        "Locale que empieza con 'en' → nombres en INGLÉS (ej: 'grilled chicken "
-        "breast'); cualquier otro → ESPAÑOL (ej: 'pechuga de pollo a la plancha'). "
-        "Nombres genéricos y claros, sin marcas.\n"
-        "BBOX por ítem `{x,y,w,h}` en fracciones 0-1 de la imagen: `x,y`=esquina "
-        "SUPERIOR-IZQUIERDA (no el centro), `w,h`=ancho/alto, con `x+w`≤1 y "
-        "`y+h`≤1. Caja ajustada a la extensión visible del alimento; si "
-        "`count`>1 cubre el grupo entero. `bbox`:null OBLIGATORIO si no tiene "
-        "posición visible clara (inferidos/invisibles: aceite, mantequilla en "
-        "puré; salsa mezclada; ingrediente disperso). Nunca inventes coords.\n"
-        f"Locale={locale}. Region={region}. JSON estricto, nunca texto libre."
+        L(
+            "Eres un experto en nutrición, planes alimenticios y cocina de LatAm/US/EU. "
+            "PROCESO por ítem: (1) identifica el alimento, (2) busca un objeto de referencia "
+            "de tamaño conocido en la imagen para anclar la escala, (3) estima el volumen 3D "
+            "(área × profundidad), (4) asigna macros basado en peso real estimado.\n",
+            "You are a nutrition, meal planning, and culinary expert for LatAm/US/EU. "
+            "PROCESS per item: (1) identify the food, (2) find a known-size reference object "
+            "in the image to anchor the scale, (3) estimate 3D volume "
+            "(area × depth), (4) assign macros based on real estimated weight.\n",
+        )
+        + L(
+            "ALCANCE — SOLO la comida servida en el plato/porción que la persona va a "
+            "comer. IGNORA por completo (NO son ítems): botellas/frascos de condimentos "
+            "sobre la mesa, sachets/sobres sin abrir, posavasos, cubiertos, servilletas, "
+            "el fondo, otras porciones o mesas, packaging, y cualquier envase o "
+            "condimento que NO esté aplicado sobre la comida. Un condimento cuenta SOLO "
+            "si está sobre/dentro del plato — una botella de condimento en la mesa NO cuenta. "
+            "Menos ítems irrelevantes = respuesta más rápida y precisa.\n",
+            "SCOPE — ONLY the food served on the plate/portion the person is going to eat. "
+            "COMPLETELY IGNORE (NOT items): condiment bottles/jars on the table, unopened sachets, "
+            "coasters, cutlery, napkins, background, other people's portions, "
+            "packaging, and any container or condiment NOT applied to the food. "
+            "A condiment only counts if it is on/inside the plate — a condiment bottle on the table does NOT count. "
+            "Fewer irrelevant items = faster and more accurate response.\n",
+        )
+        + L(
+            "Descompone la COMIDA DEL PLATO — visible e inferido:\n"
+            "1) Visibles: principal, guarniciones, salsas/aderezos aplicados, toppings, bebida servida.\n"
+            "2) INVISIBLES: aceite en frituras/salteados, grasa en purés/horneados, "
+            "crema en sopas, azúcar en jugos/postres, aderezo en ensaladas aliñadas.\n"
+            "3) Especias secas ≤5 kcal y 1-3 g. "
+            "Condimentos calóricos (salsas densas, crema, aderezos) con gramaje real.\n",
+            "Decompose the FOOD ON THE PLATE — visible and inferred:\n"
+            "1) Visible: main item, sides, applied sauces/dressings, toppings, served beverage.\n"
+            "2) INVISIBLE: oil in fried/sauteed foods, fat in pureed/baked items, "
+            "cream in soups, sugar in juices/desserts, dressing in dressed salads.\n"
+            "3) Dry spices ≤5 kcal and 1-3 g. "
+            "Caloric condiments (dense sauces, cream, dressings) with real weight.\n",
+        )
+        + L(
+            "NO DOBLE-CONTEO (CRÍTICO): cada gramo y cada kcal se cuenta UNA sola vez. "
+            "DESGLOSE OBLIGATORIO: todo alimento armado cuyas partes se distingan DEBE "
+            "listarse por COMPONENTES separados. Son ejemplos, no lista cerrada: aplica el principio a "
+            "cualquier plato armado. PROHIBIDO el conjunto como ítem único cuando sus "
+            "partes se ven — ya están contadas en las partes. Plato como UN ítem SÓLO "
+            "si sus partes son indistinguibles/homogéneas (preparación licuada, batido, puré).\n",
+            "NO DOUBLE-COUNTING (CRITICAL): each gram and each kcal is counted ONCE only. "
+            "MANDATORY BREAKDOWN: any assembled food whose parts can be distinguished MUST "
+            "be listed as separate COMPONENTS. These are principles, not a closed list: apply to "
+            "any assembled plate. FORBIDDEN to list as one item when parts are visible — "
+            "they are already counted as parts. Plate as ONE item ONLY "
+            "if its parts are indistinguishable/homogeneous (blended preparation, smoothie, puree).\n",
+        )
+        + L(
+            "Por ítem (SOLO estos campos, nada más — menos campos = respuesta más rápida): "
+            "name, estimated_amount_g, size_category, kcal, protein_g, carbs_g, fat_g, "
+            "confidence (0-1), "
+            "food_group (vegetable|fruit|grain|protein|dairy|fat|sweet|beverage|other), "
+            "role (main|side|sauce|condiment|cooking_fat|garnish|sweetener|beverage_base), "
+            "prep_method (deep_fried|fried|sauteed|grilled|boiled|steamed|baked|stewed|raw|unknown).\n",
+            "Per item (ONLY these fields, nothing more — fewer fields = faster response): "
+            "name, estimated_amount_g, size_category, kcal, protein_g, carbs_g, fat_g, "
+            "confidence (0-1), "
+            "food_group (vegetable|fruit|grain|protein|dairy|fat|sweet|beverage|other), "
+            "role (main|side|sauce|condiment|cooking_fat|garnish|sweetener|beverage_base), "
+            "prep_method (deep_fried|fried|sauteed|grilled|boiled|steamed|baked|stewed|raw|unknown).\n",
+        )
+        + L(
+            "CAMPO CRÍTICO `size_category` — OBLIGATORIO en TODOS los ítems: "
+            "XS=muy pequeño, S=pequeño, M=porción normal hogar 1 adulto, L=grande, XL=muy grande. "
+            "MÉTODO: (1) detecta objeto de referencia visible (tenedor≈18cm, cuchara sopera≈15cm, "
+            "plato estándar≈26cm Ø, mano adulta≈18cm, moneda 25mm). "
+            "(2) Compara el alimento con esa referencia para juzgar el tamaño VISUAL. "
+            "(3) Asigna XS/S/M/L/XL ANTES de escribir estimated_amount_g. "
+            "(4) estimated_amount_g debe ser COHERENTE con size_category "
+            "(proteína cocida M→120-140g, grano cocido M→140-160g — si pones M y 40g se contradicen).\n"
+            "COHERENCIA: `kcal`≈4·protein_g+4·carbs_g+9·fat_g (Atwater) — que cuadren. "
+            "`prep_method` afecta kcal (frito absorbe aceite; a la plancha no). "
+            "`confidence`: alto SOLO si identidad Y tamaño son claros; bajo si ocluido, borroso o dudoso.\n",
+            "CRITICAL FIELD `size_category` — MANDATORY on ALL items: "
+            "XS=very small, S=small, M=normal portion 1 adult home, L=large, XL=very large. "
+            "METHOD: (1) detect visible reference object (fork≈18cm, soup spoon≈15cm, "
+            "standard plate≈26cm Ø, adult hand≈18cm, coin 25mm). "
+            "(2) Compare the food to that reference to judge VISUAL size. "
+            "(3) Assign XS/S/M/L/XL BEFORE writing estimated_amount_g. "
+            "(4) estimated_amount_g must be CONSISTENT with size_category "
+            "(cooked protein M→120-140g, cooked grain M→140-160g — if you put M and 40g they contradict).\n"
+            "CONSISTENCY: `kcal`≈4·protein_g+4·carbs_g+9·fat_g (Atwater) — they must align. "
+            "`prep_method` affects kcal (frying absorbs oil; grilling does not). "
+            "`confidence`: high ONLY if identity AND size are clear; low if occluded, blurry, or uncertain.\n",
+        )
+        + L(
+            "PORCIONES — calibración HOGAR (no restaurante): si hay mano, moneda, "
+            "cubierto u otro objeto conocido → úsalo como calibrador PRINCIPAL. "
+            "Otras referencias: plato Ø26cm, plato hondo 400ml, "
+            "cuchara sopera 15ml, vaso 250ml, taza 240ml, lata 355ml. "
+            "Estima profundidad del montículo, no solo área. "
+            "ANCLAS DE PORCIÓN INDIVIDUAL (cocina de hogar, UNA persona): "
+            "proteína animal cocida, pieza sólida 120-200g; proteína animal picada/molida 100-180g; "
+            "proteína acuática, filete 130-200g; "
+            "grano cocido hidratado 120-220g; tubérculo cocido 100-180g; legumbre cocida 80-150g; "
+            "queso fundido/gratinado 60-90g; masa horneada, porción individual 120-170g; "
+            "verdura cocida 60-130g; hoja/ensalada cruda mixta 80-150g; "
+            "pan en rebanada 30-50g; fruta mediana entera 120-180g. "
+            "RANGOS CALÓRICOS ESPERADOS por comida (hogar individual): "
+            "desayuno 300-550 kcal; almuerzo 500-750 kcal; cena 400-650 kcal; snack 80-220 kcal. "
+            "⚠️ VERIFICACIÓN FINAL OBLIGATORIA: suma todos tus ítems. "
+            "Si el total supera el rango esperado, REVISÁ las porciones MÁS GRANDES y ajustá. "
+            "El error más común es SOBREESTIMAR el gramaje. Ante la duda, estimá hacia la porción MEDIANA.\n",
+            "PORTIONS — HOME calibration (not restaurant): if there is a hand, coin, "
+            "cutlery, or other known object → use it as PRIMARY calibrator. "
+            "Other references: Ø26cm plate, deep bowl 400ml, "
+            "soup spoon 15ml, glass 250ml, cup 240ml, can 355ml. "
+            "Estimate mound depth, not only area. "
+            "SINGLE PORTION ANCHORS (home cooking, ONE person): "
+            "cooked animal protein, solid piece 120-200g; chopped/ground animal protein 100-180g; "
+            "aquatic protein, fillet 130-200g; "
+            "hydrated cooked grain 120-220g; cooked tuber 100-180g; cooked legume 80-150g; "
+            "melted/gratinated cheese 60-90g; baked dough, individual portion 120-170g; "
+            "cooked vegetable 60-130g; raw leaf/mixed salad 80-150g; "
+            "bread slice 30-50g; whole medium fruit 120-180g. "
+            "EXPECTED CALORIC RANGES per meal (individual home): "
+            "breakfast 300-550 kcal; lunch 500-750 kcal; dinner 400-650 kcal; snack 80-220 kcal. "
+            "⚠️ MANDATORY FINAL CHECK: sum all your items. "
+            "If total exceeds expected range, REVIEW the LARGEST portions and adjust down. "
+            "Most common error is OVERESTIMATING weight. When uncertain, estimate toward MEDIAN portion.\n",
+        )
+        + L(
+            "EXCEPCIÓN — ALIMENTOS LICUADOS/MEZCLADOS (batido, licuado, gachas, papilla, "
+            "crema, potaje, puré): pueden contener ingredientes de alta densidad energética "
+            "INVISIBLES en el blend (grasas, frutos oleaginosos, lácteos enteros, azúcares concentrados). "
+            "Densidad de referencia según composición visual: "
+            "base frutal con lácteo bajo en grasa 70-90 kcal/100ml; "
+            "base con grasa visible o frutos oleaginosos 100-130 kcal/100ml; "
+            "preparación espesa de grano con lácteo 90-120 kcal/100g. "
+            "Si tu estimado es MÁS BAJO que estos rangos, "
+            "AÑADÍ el ingrediente denso más probable como ítem invisible separado antes de finalizar.\n",
+            "EXCEPTION — BLENDED/MIXED FOODS (smoothie, blended drink, porridge, papilla, "
+            "cream, thick soup, puree): may contain high-energy-density ingredients "
+            "INVISIBLE in the blend (fats, oil-rich nuts/seeds, whole dairy, concentrated sugars). "
+            "Reference density by visual composition: "
+            "fruit base with low-fat dairy 70-90 kcal/100ml; "
+            "base with visible fat or oil-rich ingredients 100-130 kcal/100ml; "
+            "thick grain preparation with dairy 90-120 kcal/100g. "
+            "If your estimate is LOWER than these ranges, "
+            "ADD the most probable dense ingredient as a separate invisible item before finalizing.\n",
+        )
+        + L(
+            "PROTEÍNA FALTANTE — DOBLE VERIFICACIÓN: en platos de almuerzo/cena, "
+            "verificá que hayas incluido la proteína principal "
+            "(proteína animal, proteína acuática, huevo, legumbre). Si no ves ninguna, "
+            "REVISÁ la imagen — puede estar bajo salsa, semioculta o en el borde. "
+            "Un plato principal sin proteína es inusual.\n",
+            "MISSING PROTEIN — DOUBLE CHECK: for lunch/dinner plates, "
+            "verify you have included the main protein source "
+            "(animal protein, aquatic protein, egg, legume). If you see none, "
+            "LOOK AGAIN — it may be under sauce, semi-hidden, or at the edge. "
+            "A main plate without protein is unusual.\n",
+        )
+        + L(
+            "GUARNICIONES EN PREPARACIONES INTEGRADAS — REGLA VISUAL: cuando el plato "
+            "tiene una base cocinada conjunta (ingredientes en una matriz compartida de "
+            "líquido, salsa u aceite) Y además hay ingredientes visibles colocados APARTE "
+            "o ENCIMA sin cocinarlos junto con esa base, esos ingredientes son ítems "
+            "SEPARADOS sin importar qué son. "
+            "PRUEBA: ¿podés levantarlo sin desintegrar la base? Sí → ítem separado. "
+            "No → parte de la base. Aplica a cualquier alimento, sin excepciones de tipo.\n",
+            "GARNISHES ON INTEGRATED PREPARATIONS — VISUAL RULE: when the plate "
+            "has a jointly cooked base (ingredients in a shared matrix of "
+            "liquid, sauce, or oil) AND there are visible ingredients placed APART "
+            "or ON TOP without being cooked together with the base, those are SEPARATE items. "
+            "TEST: can you lift it without breaking the base? Yes → separate item. "
+            "No → part of the base. Applies to any food, no exceptions by type.\n",
+        )
+        + L(
+            "SOPAS/CREMAS CON SÓLIDOS: si hay ingredientes sólidos VISIBLES, listalós "
+            "POR SEPARADO además de la base líquida. La base líquida es UN ítem; "
+            "cada sólido identificable es otro ítem adicional.\n"
+            "SNACK CON MÚLTIPLES COMPONENTES: verificá que TODOS estén listados. "
+            "Los componentes pequeños son fáciles de omitir aunque estén claramente presentes.\n",
+            "SOUPS/CREAMS WITH SOLIDS: if there are VISIBLE solid ingredients, list them "
+            "SEPARATELY in addition to the liquid base. The liquid base is ONE item; "
+            "each identifiable solid is an additional item.\n"
+            "MULTI-COMPONENT SNACK: verify ALL components are listed. "
+            "Small components are easy to miss even when clearly present.\n",
+        )
+        + L(
+            "CONTEO CRÍTICO — LOCALIZA Y CUENTA ANTES DE RESPONDER: para CADA "
+            "alimento en piezas enteras repetidas, ubica y numera cada unidad "
+            "incluyendo las APILADAS, superpuestas u ocultas. "
+            "Reporta el total en `count`=N y `estimated_amount_g`= peso de UNA sola "
+            "unidad. NUNCA multipliques tú — la app multiplica.\n"
+            "CLASIFICA cada ítem con `portion_kind` ANTES de `count`: "
+            "`pieza_entera` = piezas enteras idénticas contables → `count` = cuántas hay. "
+            "`a_granel` = picado/en trozos/montón/salsas/aceites → "
+            "`count`=1, `estimated_amount_g` = peso TOTAL del montón.\n"
+            "DESAMBIGUACIÓN de apilados: ante duda 1 vs 2+, mira GROSOR (alto doble=2), "
+            "BORDES (dos contornos=2) y SOMBRAS entre capas. No asumas 1 por defecto.\n",
+            "CRITICAL COUNT — LOCATE AND COUNT BEFORE RESPONDING: for EACH "
+            "food in repeated whole pieces, locate and number each unit "
+            "including STACKED, overlapping, or hidden ones. "
+            "Report the total in `count`=N and `estimated_amount_g`= weight of ONE single "
+            "unit. NEVER multiply yourself — the app multiplies.\n"
+            "CLASSIFY each item with `portion_kind` BEFORE `count`: "
+            "`pieza_entera` = countable identical whole pieces → `count` = how many. "
+            "`a_granel` = chopped/chunks/heap/sauces/oils → "
+            "`count`=1, `estimated_amount_g` = TOTAL weight of the heap.\n"
+            "STACKED DISAMBIGUATION: when unsure 1 vs 2+, look at THICKNESS (double height=2), "
+            "EDGES (two outlines=2) and SHADOWS between layers. Do not assume 1 by default.\n",
+        )
+        + L(
+            "CAMPO `disambiguations` (OPCIONAL): llena SOLO cuando tengas duda real sobre "
+            "la identidad de un alimento (confidence < 0.7). "
+            "item_index = posición 0-based en `items`; options = 2-4 nombres alternativos "
+            "en el mismo idioma que el `name` del ítem. "
+            "Omite completamente cuando no haya ambigüedad.\n",
+            "`disambiguations` FIELD (OPTIONAL): fill ONLY when you have real doubt about "
+            "an item's identity (confidence < 0.7). "
+            "item_index = 0-based position in `items`; options = 2-4 alternative names "
+            "in the same language as the item's `name`. "
+            "Omit completely when there is no ambiguity.\n",
+        )
+        + L(
+            "CAMPO `is_mixed_dish` (OBLIGATORIO, va ANTES del censo): "
+            "Evaluá SOLO por criterios VISUALES y ESTRUCTURALES — sin importar el nombre "
+            "del plato ni la cultura culinaria. "
+            "`true` cuando se cumplen AMBAS condiciones: (A) los ingredientes comparten "
+            "una matriz común (mismo líquido, salsa, aceite o cocción conjunta) Y (B) no "
+            "se pueden separar visualmente con una cuchara sin desintegrar el conjunto. "
+            "`false` cuando los componentes tienen BORDES VISIBLES CLAROS entre sí "
+            "(cada elemento ocupa su propia zona del plato) o la preparación tiene "
+            "una sola textura dominante sin ingredientes múltiples integrados. "
+            "La app usa este campo para calibrar la banda de incertidumbre calórica "
+            "(±30% si true, ±20% si false) — ponlo con rigor visual, no por el nombre.\n",
+            "`is_mixed_dish` FIELD (MANDATORY, goes BEFORE census): "
+            "Evaluate ONLY by VISUAL and STRUCTURAL criteria — regardless of the dish name "
+            "or culinary culture. "
+            "`true` when BOTH conditions are met: (A) ingredients share "
+            "a common matrix (same liquid, sauce, oil, or joint cooking) AND (B) they "
+            "cannot be visually separated with a spoon without breaking the whole. "
+            "`false` when components have CLEARLY VISIBLE BORDERS between them "
+            "(each element occupies its own zone on the plate) or the preparation has "
+            "a single dominant texture without multiple integrated ingredients. "
+            "The app uses this field to calibrate the caloric uncertainty band "
+            "(±30% if true, ±20% if false) — set it with visual rigor, not by name.\n",
+        )
+        + L(
+            "CENSO (`unit_census`, OBLIGATORIO, va ANTES de `items`): UNA línea breve "
+            "con las PIEZAS ENTERAS repetidas — ej. 'pieza A:2; pieza B:1'. Copia "
+            "al `count` de cada `pieza_entera`. Sé breve.\n",
+            "CENSUS (`unit_census`, MANDATORY, goes BEFORE `items`): ONE brief line "
+            "with repeated whole pieces — e.g. 'piece A:2; piece B:1'. Copy "
+            "to `count` of each `pieza_entera`. Keep it brief.\n",
+        )
+        + L(
+            "IDIOMA DEL NOMBRE: escribe cada `name` en el idioma del Locale — "
+            "Locale que empieza con 'en' → nombres en INGLÉS; "
+            "cualquier otro → ESPAÑOL. Nombres genéricos y claros, sin marcas.\n",
+            "NAME LANGUAGE: write each `name` in the locale language — "
+            "Locale starting with 'en' → names in ENGLISH; "
+            "any other → SPANISH. Generic and clear names, no brand names.\n",
+        )
+        + L(
+            "BBOX por ítem `{x,y,w,h}` en fracciones 0-1 de la imagen: `x,y`=esquina "
+            "SUPERIOR-IZQUIERDA (no el centro), `w,h`=ancho/alto, con `x+w`≤1 y "
+            "`y+h`≤1. Caja ajustada a la extensión visible del alimento; si "
+            "`count`>1 cubre el grupo entero. `bbox`:null OBLIGATORIO si no tiene "
+            "posición visible clara (inferidos/invisibles). Nunca inventes coords.\n",
+            "BBOX per item `{x,y,w,h}` in 0-1 fractions of the image: `x,y`=TOP-LEFT "
+            "corner (not center), `w,h`=width/height, with `x+w`≤1 and `y+h`≤1. "
+            "Box fitted to the visible extent of the food; if `count`>1 covers the whole group. "
+            "`bbox`:null MANDATORY if no clear visible position (inferred/invisible items). Never invent coords.\n",
+        )
+        + f"Locale={locale}. Region={region}. Strict JSON, never free text."
     )
     if meal_time:
         _meal_kcal = {
@@ -517,46 +677,61 @@ def _system_prompt(
             "afternoon_snack": "80-220 kcal",
         }
         kcal_hint = _meal_kcal.get(meal_time, "")
-        base += (
+        base += L(
             f"\nCOMIDA DEL DÍA: {meal_time}."
             + (f" Rango calórico esperado: {kcal_hint}." if kcal_hint else "")
-            + " Si tu suma excede este rango, ajustá las porciones mayores a la baja."
+            + " Si tu suma excede este rango, ajustá las porciones mayores a la baja.",
+            f"\nMEAL OF THE DAY: {meal_time}."
+            + (f" Expected caloric range: {kcal_hint}." if kcal_hint else "")
+            + " If your sum exceeds this range, adjust the largest portions down.",
         )
     if user_profile:
         sex = user_profile.get("sex", "")
         age = user_profile.get("age", "")
         weight = user_profile.get("weight_kg", "")
-        base += (
+        base += L(
             f"\nPERFIL DEL USUARIO: {sex}, {age} años, {weight}kg. "
             "Calibra las porciones típicas para este perfil — una persona más grande "
-            "generalmente sirve porciones más grandes."
+            "generalmente sirve porciones más grandes.",
+            f"\nUSER PROFILE: {sex}, {age} years old, {weight}kg. "
+            "Calibrate typical portions for this profile — a larger person "
+            "generally serves larger portions.",
         )
     if plan_context:
-        base += (
+        base += L(
             f"\nCONTEXTO DEL PLAN: El usuario planificó comer: {plan_context}. "
             "Úsalo como referencia para calibrar porciones — si ves los mismos "
             "ingredientes, estima qué fracción del plan está en el plato. "
-            "No inventes ítems que no estén visibles."
+            "No inventes ítems que no estén visibles.",
+            f"\nPLAN CONTEXT: The user planned to eat: {plan_context}. "
+            "Use it as reference to calibrate portions — if you see the same "
+            "ingredients, estimate what fraction of the plan is on the plate. "
+            "Do not invent items that are not visible.",
         )
     if portion_history:
         anchors = ", ".join(portion_history)
-        base += (
+        base += L(
             f"\nHISTORIAL DE PORCIONES: Este usuario suele servirse: {anchors}. "
             "Si reconoces los mismos alimentos, ajusta el gramaje estimado al patrón "
-            "histórico de este usuario."
+            "histórico de este usuario.",
+            f"\nPORTION HISTORY: This user typically serves themselves: {anchors}. "
+            "If you recognize the same foods, adjust the estimated weight to this user's "
+            "historical pattern.",
         )
     if user_context:
-        # Free-text note the user attached to THIS photo (e.g. "plato familiar
-        # para compartir", "es individual", "porción de niño"). Portion size is
+        # Free-text note the user attached to THIS photo. Portion size is
         # the single biggest error source, so this per-photo cue is the strongest
         # calibration signal — weigh it above generic priors. It only calibrates
         # AMOUNTS; never let it invent items that aren't visible.
-        base += (
+        base += L(
             f"\nCONTEXTO DE ESTA FOTO (dicho por el usuario): «{user_context}». "
             "Es la señal MÁS FUERTE para calibrar el TAMAÑO de las porciones — "
-            "priorízala sobre supuestos genéricos (ej. 'para compartir'/'familiar' "
-            "→ subí el gramaje; 'individual'/'de niño' → bajalo). Úsalo SOLO para el "
-            "gramaje; nunca agregues alimentos que no se vean en la imagen."
+            "priorízala sobre supuestos genéricos. Úsalo SOLO para el "
+            "gramaje; nunca agregues alimentos que no se vean en la imagen.",
+            f"\nPHOTO CONTEXT (stated by the user): «{user_context}». "
+            "This is the STRONGEST signal to calibrate PORTION SIZE — "
+            "prioritize it over generic priors. Use it ONLY for "
+            "weight; never add foods that are not visible in the image.",
         )
     # Per-user context hint: landlocked region, slot-specific size anchors,
     # user's most-corrected foods.  Build from the caller-provided signals;
@@ -566,7 +741,8 @@ def _system_prompt(
             region=region,
             meal_time=meal_time,
             portion_history=tuple(portion_history) if portion_history else None,
-        )
+        ),
+        locale=locale,
     )
     if user_ctx_hint:
         base += f"\n{user_ctx_hint}"
@@ -702,72 +878,210 @@ def _identify_system_prompt(locale: str, region: str) -> str:
 
     Full detection power — NO grams or macros (that is Call 2's job).
     Any wording change here changes identification_prompt_sha256 → cache invalidation.
+    Bilingual: locale starting with 'en' → English instructions; otherwise Spanish.
     """
+    L = lambda es, en: _L(locale, es, en)  # noqa: E731
     return (
-        "Eres un experto en nutrición y cocina de LatAm/US/EU. "
-        "Analiza la imagen e IDENTIFICA todos los alimentos. "
-        "NO estimes gramos, kcal ni macros — solo identificación exhaustiva.\n"
-        "ALCANCE — SOLO la comida servida que la persona va a comer. "
-        "IGNORA: botellas/frascos de condimentos en la mesa, sachets sin abrir, "
-        "cubiertos, servilletas, packaging, otras porciones de otras personas. "
-        "Un condimento cuenta SOLO si está aplicado sobre/dentro del plato.\n"
-        "DESGLOSE — DOS CASOS DISTINTOS:\n"
-        "CASO 1 — PLATO ARMADO EN CAPAS/SECCIONES: listá cada componente separado. "
-        "Ejemplos: hamburguesa → pan + carne + queso + toppings; "
-        "taco/burrito → tortilla + relleno + salsa; sandwich → pan + proteína + aderezos; "
-        "plato con proteína + guarnición + ensalada en secciones visibles → 3 ítems. "
-        "La clave: componentes APILADOS, ENSAMBLADOS o en SECCIONES FÍSICAMENTE SEPARADAS.\n"
-        "CASO 2 — PREPARACIÓN COCINADA INTEGRADA: listá como UN solo ítem con nombre del plato. "
-        "Ejemplos: arroz con pollo, fideos salteados, guiso de lentejas, paella, locro, "
-        "sopa con ingredientes mezclados, pasta con salsa integrada, revuelto de huevo. "
-        "La clave: ingredientes MEZCLADOS O COCIDOS JUNTOS y no separables visualmente.\n"
-        "CASO 2 + PROTEÍNA VISIBLE APARTE: si el guiso tiene proteína ENTERA aparte "
-        "(ej. muslo de pollo encima del arroz, huevo frito sobre fideos), esa pieza SÍ es ítem separado.\n"
-        "ÍTEMS INVISIBLES A INCLUIR SIEMPRE:\n"
-        "- Aceite en frituras y salteados (cooking_fat).\n"
-        "- Mantequilla en purés, panqueques, tostadas con mantequilla.\n"
-        "- Crema/leche en sopas cremosas.\n"
-        "- Aderezo en ensaladas aliñadas.\n"
-        "- Azúcar en jugos de fruta, postres, avena con azúcar.\n"
-        "NO DOBLE-CONTEO: cada alimento se lista UNA sola vez.\n"
-        "VERIFICACIÓN PROTEÍNA — OBLIGATORIA en almuerzo/cena: "
-        "antes de finalizar, confirmá que hay una fuente proteica principal "
-        "(carne, pollo, pescado, mariscos, huevo, legumbre). "
-        "Si no ves ninguna, REVISÁ — puede estar bajo salsa, semioculta o en el borde. "
-        "Un plato de almuerzo/cena sin proteína es inusual; buscala activamente.\n"
-        "SOPAS/CREMAS CON SÓLIDOS: si el plato base es sopa/crema pero hay sólidos "
-        "VISIBLES (trozos de carne, papa, verdura, legumbre), listalós POR SEPARADO "
-        "además de la base líquida. La base es UN ítem; cada sólido es otro ítem.\n"
-        "SNACK CON MÚLTIPLES INGREDIENTES: en snacks con 2-4 componentes "
-        "(frutas + nueces, queso + crackers, yogur + granola), verificá que TODOS "
-        "estén listados. Nueces, frutos secos y frutos rojos son pequeños y fáciles "
-        "de omitir aunque estén claramente presentes.\n"
-        "CAMPO `is_mixed_dish` (OBLIGATORIO, va ANTES del censo): "
-        "`true` si los ingredientes están MEZCLADOS/COCIDOS JUNTOS y no separables "
-        "visualmente (guiso/stew, arroz con pollo/rice with chicken, "
-        "fideos salteados/stir-fry, locro, sopa mixta/mixed soup); "
-        "`false` si los componentes se ven separados (plato con proteína + guarnición "
-        "aparte, hamburguesa/burger, snack con ingredientes distintos).\n"
-        "CENSO OBLIGATORIO (`unit_census`, va ANTES de `items`): "
-        "una línea con las piezas enteras repetidas — ej. 'carne:2; huevo:1; empanada:3'. "
-        "Copia ese conteo al `count` de cada ítem pieza_entera.\n"
-        "CONTEO DE APILADOS: para piezas enteras repetidas, ubica y cuenta CADA unidad "
-        "incluyendo las apiladas u ocultas detrás de otra. "
-        "Ante duda 1 vs 2+, mira grosor (doble alto=2), bordes (dos contornos=2) "
-        "y sombras entre capas. No asumas 1 por defecto.\n"
-        "ALIMENTOS LICUADOS/MEZCLADOS (batido, smoothie, gachas, porridge, crema, puré): "
-        "listá los ingredientes densos invisibles probables dentro del blend "
-        "(aguacate, plátano, leche entera, mantequilla de maní, miel, semillas) "
-        "como ítems separados con confidence apropiado.\n"
-        "Por cada alimento: name, confidence (0..1), group, role, prep_method, count, portion_kind.\n"
-        "group: vegetable|fruit|grain|protein|dairy|fat|sweet|beverage|other\n"
-        "role: main|side|sauce|condiment|cooking_fat|garnish|sweetener|beverage_base\n"
-        "prep_method: grilled|fried|deep_fried|boiled|raw|baked|sauteed|steamed|stewed|unknown\n"
-        "portion_kind: pieza_entera (piezas contables idénticas) | a_granel (montón/picado/salsa/líquido).\n"
-        "count: número de unidades cuando pieza_entera; siempre 1 cuando a_granel.\n"
-        "confidence: alto si la identidad es clara; bajo si ocluido, borroso o inferido.\n"
-        "IDIOMA: name en el idioma del Locale — 'en' → inglés; cualquier otro → español.\n"
-        f"Locale={locale}. Region={region}. JSON estricto, nunca texto libre."
+        L(
+            "Eres un experto en nutrición y cocina de LatAm/US/EU. "
+            "Analiza la imagen e IDENTIFICA todos los alimentos. "
+            "NO estimes gramos, kcal ni macros — solo identificación exhaustiva.\n",
+            "You are a nutrition and culinary expert for LatAm/US/EU. "
+            "Analyze the image and IDENTIFY all foods. "
+            "DO NOT estimate grams, kcal or macros — identification only.\n",
+        )
+        + L(
+            "PASO 0 — ESCANEO ESPACIAL SISTEMÁTICO (hacelo ANTES de escribir el JSON): "
+            "divide mentalmente la imagen en cuatro cuadrantes (superior-izq, superior-der, "
+            "inferior-izq, inferior-der) y en el centro. Para CADA zona anota qué alimento "
+            "ves. Esto evita omitir ítems en los bordes, debajo de otros o en ángulos. "
+            "Recién cuando hayas barrido las 5 zonas, construí la lista de ítems.\n",
+            "STEP 0 — SYSTEMATIC SPATIAL SCAN (do this BEFORE writing JSON): "
+            "mentally divide the image into four quadrants (top-left, top-right, "
+            "bottom-left, bottom-right) and the center. For EACH zone, note what food "
+            "you see. This prevents missing items at edges, under others, or at angles. "
+            "Only after scanning all 5 zones, build the item list.\n",
+        )
+        + L(
+            "ALCANCE — SOLO la comida servida que la persona va a comer. "
+            "IGNORA: botellas/frascos de condimentos en la mesa, sachets sin abrir, "
+            "cubiertos, servilletas, packaging, otras porciones de otras personas. "
+            "Un condimento cuenta SOLO si está aplicado sobre/dentro del plato.\n",
+            "SCOPE — ONLY the food served that the person is going to eat. "
+            "IGNORE: condiment bottles/jars on the table, unopened sachets, "
+            "cutlery, napkins, packaging, other people's portions. "
+            "A condiment only counts if applied on/inside the plate.\n",
+        )
+        + L(
+            "MÉTODO DE COCCIÓN — SEÑALES VISUALES UNIVERSALES (asigna `prep_method` basado en esto): "
+            "• deep_fried/fried: color dorado-marrón uniforme, superficie rugosa/crujiente, posible pooling de aceite. "
+            "• grilled/sauteed: marcas de rejilla o dorado irregular en parches, bordes oscurecidos. "
+            "• boiled/steamed: color brillante o más pálido que crudo, superficie húmeda sin dorado. "
+            "• stewed: trozos en caldo visible, color uniforme cocido, bordes redondeados. "
+            "• baked: costra seca, dorado superficial uniforme, sin aceite visible. "
+            "• raw: color vivo, textura firme y brillante. "
+            "Detectar el método correctamente es crítico — frito absorbe grasa, plancha no.\n",
+            "COOKING METHOD — UNIVERSAL VISUAL SIGNALS (assign `prep_method` based on this): "
+            "• deep_fried/fried: uniform golden-brown color, rough/crispy surface, possible oil pooling. "
+            "• grilled/sauteed: grill marks or irregular patchy browning, darkened edges. "
+            "• boiled/steamed: bright or paler than raw color, moist surface without browning. "
+            "• stewed: pieces in visible broth, uniform cooked color, rounded edges. "
+            "• baked: dry crust, uniform surface browning, no visible oil. "
+            "• raw: vivid color, firm and shiny texture. "
+            "Detecting the method correctly is critical — frying absorbs fat, grilling does not.\n",
+        )
+        + L(
+            "DESGLOSE — DOS CASOS DISTINTOS:\n"
+            "CASO 1 — PLATO ARMADO EN CAPAS/SECCIONES: listá cada componente separado. "
+            "Criterio visual: cada componente tiene BORDES CLAROS Y PROPIOS, ocupa una zona "
+            "distinta del plato o está apilado con capas identificables. "
+            "Contar por zona visual: zona A + zona B + zona C = 3 ítems. "
+            "La clave: componentes APILADOS, ENSAMBLADOS o en SECCIONES FÍSICAMENTE SEPARADAS.\n"
+            "CASO 2 — PREPARACIÓN COCINADA INTEGRADA: listá como UN solo ítem con nombre del plato. "
+            "Criterio visual: los ingredientes comparten una MATRIZ ÚNICA (mismo líquido, salsa "
+            "o aceite de cocción) y no se pueden separar sin desintegrar el conjunto. "
+            "La textura general es homogénea o semi-homogénea, sin bordes claros entre componentes. "
+            "La clave: ingredientes MEZCLADOS O COCIDOS JUNTOS y no separables visualmente.\n"
+            "CASO 2 — REGLA CRÍTICA SOBRE GUARNICIONES: una preparación integrada puede tener "
+            "ingredientes COLOCADOS ENCIMA O AL LADO que NO se cocinaron juntos con la base "
+            "— son guarniciones añadidas después. "
+            "PRUEBA VISUAL: ¿podés levantar ese ingrediente sin desintegrar el resto? "
+            "Sí → ítem SEPARADO. No → parte del ítem compuesto. "
+            "Este principio aplica a CUALQUIER tipo de alimento: proteína, vegetal, "
+            "lácteo, fruta, lo que sea. Solo la base cocinada conjunta es el ítem compuesto.\n",
+            "BREAKDOWN — TWO DISTINCT CASES:\n"
+            "CASE 1 — LAYERED/SECTIONED PLATE: list each component separately. "
+            "Visual criterion: each component has CLEAR OWN BORDERS, occupies a different "
+            "zone on the plate, or is stacked with identifiable layers. "
+            "Count by visual zone: zone A + zone B + zone C = 3 items. "
+            "Key: components STACKED, ASSEMBLED, or in PHYSICALLY SEPARATE SECTIONS.\n"
+            "CASE 2 — INTEGRATED COOKED PREPARATION: list as ONE single item with the dish name. "
+            "Visual criterion: ingredients share a SINGLE MATRIX (same liquid, sauce "
+            "or cooking oil) and cannot be separated without breaking the whole. "
+            "General texture is homogeneous or semi-homogeneous, no clear borders between components. "
+            "Key: ingredients MIXED OR COOKED TOGETHER and not visually separable.\n"
+            "CASE 2 — CRITICAL RULE ON GARNISHES: an integrated preparation may have "
+            "ingredients PLACED ON TOP OR BESIDE IT that were NOT cooked together with the base "
+            "— these are garnishes added after. "
+            "VISUAL TEST: can you lift that ingredient without breaking the rest? "
+            "Yes → SEPARATE item. No → part of the compound item. "
+            "This applies to ANY type of food: protein, vegetable, "
+            "dairy, fruit, anything. Only the jointly cooked base is the compound item.\n",
+        )
+        + L(
+            "LÍMITES ENTRE ÍTEMS — ANÁLISIS DE FRONTERAS: dos zonas visuales son ítems DISTINTOS si: "
+            "(a) tienen textura o color claramente diferente, Y "
+            "(b) existe un límite físico entre ellas (borde de plato, hoja, papel, capa de salsa, "
+            "espacio vacío) o podrían servirse por separado. "
+            "Si ambas condiciones son verdaderas → dos ítems. Si alguna es falsa → probablemente uno.\n",
+            "ITEM BOUNDARIES — BORDER ANALYSIS: two visual zones are DISTINCT items if: "
+            "(a) they have clearly different texture or color, AND "
+            "(b) there is a physical boundary between them (plate edge, leaf, paper, sauce layer, "
+            "empty space) or they could be served separately. "
+            "If both conditions are true → two items. If either is false → probably one.\n",
+        )
+        + L(
+            "ÍTEMS INVISIBLES A INCLUIR SIEMPRE:\n"
+            "- Aceite en frituras y salteados (cooking_fat).\n"
+            "- Grasa en preparaciones horneadas o salteadas con mantequilla.\n"
+            "- Crema/leche en sopas cremosas.\n"
+            "- Aderezo en ensaladas aliñadas.\n"
+            "- Azúcar en jugos de fruta, postres, cereales endulzados.\n"
+            "NO DOBLE-CONTEO: cada alimento se lista UNA sola vez.\n",
+            "INVISIBLE ITEMS TO ALWAYS INCLUDE:\n"
+            "- Oil in fried and sauteed foods (cooking_fat).\n"
+            "- Fat in baked or butter-sauteed preparations.\n"
+            "- Cream/milk in creamy soups.\n"
+            "- Dressing in dressed salads.\n"
+            "- Sugar in fruit juices, desserts, sweetened cereals.\n"
+            "NO DOUBLE-COUNTING: each food is listed ONCE only.\n",
+        )
+        + L(
+            "VERIFICACIÓN PROTEÍNA — OBLIGATORIA en almuerzo/cena: "
+            "antes de finalizar, confirmá que hay una fuente proteica principal "
+            "(proteína animal, proteína acuática, huevo, legumbre). "
+            "Si no ves ninguna, REVISÁ — puede estar bajo salsa, semioculta o en el borde. "
+            "Un plato de almuerzo/cena sin proteína es inusual; buscala activamente.\n",
+            "PROTEIN CHECK — MANDATORY for lunch/dinner: "
+            "before finalizing, confirm there is a main protein source "
+            "(animal protein, aquatic protein, egg, legume). "
+            "If you see none, LOOK AGAIN — it may be under sauce, semi-hidden, or at the edge. "
+            "A lunch/dinner plate without protein is unusual; search for it actively.\n",
+        )
+        + L(
+            "SOPAS/CREMAS CON SÓLIDOS: si el plato base es sopa/crema pero hay sólidos "
+            "VISIBLES, listalós POR SEPARADO además de la base líquida. "
+            "La base es UN ítem; cada sólido identificable es otro ítem.\n",
+            "SOUPS/CREAMS WITH SOLIDS: if the base is soup/cream but there are visible solids, "
+            "list them SEPARATELY in addition to the liquid base. "
+            "The base is ONE item; each identifiable solid is another item.\n",
+        )
+        + L(
+            "SNACK CON MÚLTIPLES COMPONENTES: verificá que TODOS estén listados. "
+            "Los componentes pequeños (frutos secos, bayas, semillas) son fáciles "
+            "de omitir aunque estén claramente presentes.\n",
+            "MULTI-COMPONENT SNACK: verify ALL components are listed. "
+            "Small components (nuts, berries, seeds) are easy to miss even when clearly present.\n",
+        )
+        + L(
+            "CAMPO `is_mixed_dish` (OBLIGATORIO, va ANTES del censo): "
+            "Evaluá SOLO por criterios VISUALES — sin importar el nombre ni la cultura "
+            "del plato. `true` cuando: (A) ingredientes comparten una matriz visible "
+            "(líquido, salsa, aceite, cocción conjunta) Y (B) no separables visualmente "
+            "sin desintegrar el conjunto. `false` cuando los componentes tienen BORDES "
+            "CLAROS entre sí o el plato es de un solo ingrediente/textura dominante. "
+            "Este campo calibra la incertidumbre calórica — evaluarlo por imagen, no por nombre.\n",
+            "`is_mixed_dish` FIELD (MANDATORY, goes BEFORE census): "
+            "Evaluate ONLY by VISUAL criteria — regardless of the dish name or culinary culture. "
+            "`true` when: (A) ingredients share a visible matrix "
+            "(liquid, sauce, oil, joint cooking) AND (B) not visually separable "
+            "without breaking the whole. `false` when components have "
+            "CLEAR BORDERS between them or the plate is a single ingredient/dominant texture. "
+            "This field calibrates caloric uncertainty — evaluate by image, not by name.\n",
+        )
+        + L(
+            "CENSO OBLIGATORIO (`unit_census`, va ANTES de `items`): "
+            "una línea con las piezas enteras repetidas — ej. 'pieza A:2; pieza B:1'. "
+            "Copia ese conteo al `count` de cada ítem pieza_entera.\n"
+            "CONTEO DE APILADOS: ubica y cuenta CADA unidad incluyendo las apiladas u ocultas. "
+            "Ante duda 1 vs 2+, mira grosor (doble alto=2), bordes (dos contornos=2) "
+            "y sombras entre capas. No asumas 1 por defecto.\n",
+            "MANDATORY CENSUS (`unit_census`, goes BEFORE `items`): "
+            "one brief line with repeated whole pieces — e.g. 'piece A:2; piece B:1'. "
+            "Copy that count to `count` of each pieza_entera item.\n"
+            "STACKED COUNT: locate and count EACH unit including stacked or hidden ones. "
+            "When unsure 1 vs 2+, look at thickness (double height=2), edges (two outlines=2) "
+            "and shadows between layers. Do not assume 1 by default.\n",
+        )
+        + L(
+            "ALIMENTOS LICUADOS/MEZCLADOS (batido, licuado, gachas, crema, puré): "
+            "listá los ingredientes de alta densidad energética invisibles probables dentro del blend "
+            "(grasas, frutos oleaginosos, lácteos enteros, azúcares concentrados) "
+            "como ítems separados con confidence apropiado.\n",
+            "BLENDED/MIXED FOODS (smoothie, blended drink, porridge, cream, puree): "
+            "list probable high-energy-density invisible ingredients inside the blend "
+            "(fats, oil-rich nuts/seeds, whole dairy, concentrated sugars) "
+            "as separate items with appropriate confidence.\n",
+        )
+        + L(
+            "Por cada alimento: name, confidence (0..1), group, role, prep_method, count, portion_kind.\n"
+            "group: vegetable|fruit|grain|protein|dairy|fat|sweet|beverage|other\n"
+            "role: main|side|sauce|condiment|cooking_fat|garnish|sweetener|beverage_base\n"
+            "prep_method: grilled|fried|deep_fried|boiled|raw|baked|sauteed|steamed|stewed|unknown\n"
+            "portion_kind: pieza_entera (piezas contables idénticas) | a_granel (montón/picado/salsa/líquido).\n"
+            "count: número de unidades cuando pieza_entera; siempre 1 cuando a_granel.\n"
+            "confidence: alto si la identidad es clara; bajo si ocluido, borroso o inferido.\n"
+            "IDIOMA: name en el idioma del Locale — 'en' → inglés; cualquier otro → español.\n",
+            "Per food: name, confidence (0..1), group, role, prep_method, count, portion_kind.\n"
+            "group: vegetable|fruit|grain|protein|dairy|fat|sweet|beverage|other\n"
+            "role: main|side|sauce|condiment|cooking_fat|garnish|sweetener|beverage_base\n"
+            "prep_method: grilled|fried|deep_fried|boiled|raw|baked|sauteed|steamed|stewed|unknown\n"
+            "portion_kind: pieza_entera (countable identical pieces) | a_granel (heap/chopped/sauce/liquid).\n"
+            "count: number of units when pieza_entera; always 1 when a_granel.\n"
+            "confidence: high if identity is clear; low if occluded, blurry, or inferred.\n"
+            "LANGUAGE: name in the locale language — 'en' → English; any other → Spanish.\n",
+        )
+        + f"Locale={locale}. Region={region}. Strict JSON, never free text."
     )
 
 
@@ -777,55 +1091,159 @@ def _estimate_system_prompt(locale: str, region: str) -> str:
     The specific item list is injected as user-message content at call time so
     this template stays stable and its hash is a valid cache-invalidation key.
     Any wording change here changes estimation_prompt_sha256 → cache invalidation.
+    Bilingual: locale starting with 'en' → English instructions; otherwise Spanish.
     """
+    L = lambda es, en: _L(locale, es, en)  # noqa: E731
     return (
-        "Eres un experto en nutrición y porciones de hogar LatAm/US/EU.\n"
-        "Recibirás una lista de alimentos ya identificados y la imagen original.\n"
-        "Tu tarea: para CADA ítem de la lista, estima los gramos VISIBLES EN LA FOTO "
-        "y calcula macros con Atwater (kcal = 4·prot + 4·carbs + 9·fat).\n"
-        "Responde con un array `estimates` index-alineado a la lista recibida.\n"
-        "CAMPO CRÍTICO `size_category` — va ANTES de `estimated_amount_g` (el schema lo exige): "
-        "XS=muy pequeño, S=pequeño, M=porción normal 1 adulto hogar, L=grande, XL=muy grande. "
-        "MÉTODO: (1) busca objeto de referencia visible (tenedor≈18cm, plato estándar≈26cm Ø, "
-        "mano adulta≈18cm, moneda 25mm, cuchara sopera≈15cm). "
-        "(2) Compara el alimento con esa referencia. "
-        "(3) Asigna XS/S/M/L/XL. "
-        "(4) estimated_amount_g DEBE ser coherente con ese size_category "
-        "(pollo M→120-140g, arroz M→140-160g — si pones M y 40g se contradicen).\n"
-        "REGLA MAESTRA: mide lo que REALMENTE hay en el plato — el área que ocupa, "
-        "el grosor, la altura del montón. NO asumas una porción 'típica'. "
-        "La comida en una foto casera suele ser MÁS PEQUEÑA de lo que parece; "
-        "un plato no está lleno hasta el borde.\n"
-        "ANCLAS (solo si el tamaño es AMBIGUO u ocluido — nunca como valor por defecto): "
-        "proteína (filete/pechuga/lomo) 120-200 g; filete de pescado 130-200 g; "
-        "carne molida/guisada 100-180 g; arroz cocido 130-200 g; pasta cocida 150-220 g; "
-        "papas cocidas 100-180 g; legumbres cocidas 80-150 g; "
-        "verdura cocida 60-130 g; ensalada mixta 80-150 g; "
-        "fruta mediana entera 120-180 g; pan/tostada (rebanada) 30-50 g; "
-        "sopa/crema en bol 250-350 g.\n"
-        "Si ves el tamaño con claridad, IGNORA las anclas y reporta lo que ves.\n"
-        "confidence: alto si tamaño Y tipo son claros; bajo si ocluido o dudoso.\n"
-        "Si la lista incluye referencias de porción típica, úsalas como ancla débil, "
-        "NO como valor final — la evidencia visual manda.\n"
-        "SESGO A CORREGIR: el error #1 de los modelos es SOBREESTIMAR el gramaje. "
-        "Ante la duda, estimá hacia la porción PEQUEÑA-MEDIANA, no la grande.\n"
-        "COTA DE SANIDAD (límite superior, NO objetivo): un total por comida hogar "
-        "raramente supera — desayuno ~550, almuerzo ~750, cena ~650, snack ~220 kcal. "
-        "Son TECHOS: si tu suma se acerca a ellos, revisá que no estés inflando porciones. "
-        "Estar MUY por debajo del techo es normal y correcto.\n"
-        "ALIMENTOS LICUADOS/MEZCLADOS (batido, smoothie, gachas, porridge, crema, puré): "
-        "pueden ocultar ingredientes densos (aguacate, plátano, leche entera, mantequilla "
-        "de maní, miel, semillas, crema). SOLO si tu estimado visible resulta implausiblemente "
-        "bajo (batido con lácteos <70 kcal/100ml; con aguacate/nuez/coco <100 kcal/100ml; "
-        "gachas con leche <90 kcal/100g), añadí el ingrediente denso más probable. "
-        "No agregues densos por defecto — solo para corregir un piso irreal.\n"
-        "SOPAS/CREMAS CON SÓLIDOS: si hay sólidos VISIBLES (trozos de carne, papa, verdura "
-        "entera, legumbre), listalós POR SEPARADO además de la base líquida. "
-        "La base líquida es UN ítem; cada sólido identificable es otro ítem adicional.\n"
-        "SNACK CON MÚLTIPLES INGREDIENTES: en snacks con 2-4 componentes "
-        "(frutas + nueces, queso + crackers, yogur + granola), verificá que TODOS estén listados, "
-        "pero en las porciones PEQUEÑAS propias de un snack (nueces ~15 g, no ~50 g).\n"
-        f"Locale={locale}. Region={region}. JSON estricto."
+        L(
+            "Eres un experto en nutrición y porciones de hogar LatAm/US/EU.\n"
+            "Recibirás una lista de alimentos ya identificados y la imagen original.\n"
+            "Tu tarea: para CADA ítem de la lista, estima los gramos VISIBLES EN LA FOTO "
+            "y calcula macros con Atwater (kcal = 4·prot + 4·carbs + 9·fat).\n"
+            "Responde con un array `estimates` index-alineado a la lista recibida.\n",
+            "You are a nutrition and home-portion expert for LatAm/US/EU.\n"
+            "You will receive a list of already-identified foods and the original image.\n"
+            "Your task: for EACH item in the list, estimate the VISIBLE GRAMS IN THE PHOTO "
+            "and calculate macros using Atwater (kcal = 4·prot + 4·carbs + 9·fat).\n"
+            "Respond with an `estimates` array index-aligned to the received list.\n",
+        )
+        + L(
+            "CAMPO CRÍTICO `size_category` — va ANTES de `estimated_amount_g` (el schema lo exige): "
+            "XS=muy pequeño, S=pequeño, M=porción normal 1 adulto hogar, L=grande, XL=muy grande. "
+            "MÉTODO: (1) busca objeto de referencia visible (tenedor≈18cm, plato estándar≈26cm Ø, "
+            "mano adulta≈18cm, moneda 25mm, cuchara sopera≈15cm). "
+            "(2) Compara el alimento con esa referencia. "
+            "(3) Asigna XS/S/M/L/XL. "
+            "(4) estimated_amount_g DEBE ser coherente con ese size_category "
+            "(proteína cocida M→120-140g, grano cocido M→140-160g — si pones M y 40g se contradicen).\n",
+            "CRITICAL FIELD `size_category` — goes BEFORE `estimated_amount_g` (schema requires it): "
+            "XS=very small, S=small, M=normal portion 1 adult home, L=large, XL=very large. "
+            "METHOD: (1) find visible reference object (fork≈18cm, standard plate≈26cm Ø, "
+            "adult hand≈18cm, coin 25mm, soup spoon≈15cm). "
+            "(2) Compare food to that reference. "
+            "(3) Assign XS/S/M/L/XL. "
+            "(4) estimated_amount_g MUST be consistent with size_category "
+            "(cooked protein M→120-140g, cooked grain M→140-160g — if you put M and 40g they contradict).\n",
+        )
+        + L(
+            "PROTOCOLO VOLUMÉTRICO 3D — para cada ítem, razona en este orden:\n"
+            "  (A) ÁREA: qué fracción del plato/mesa ocupa visualmente. "
+            "Un plato estándar Ø26cm tiene ≈530 cm²; un bol hondo ≈380 cm². "
+            "Referencia: proteína típica ocupa 20-35% del plato (≈106-185 cm²); "
+            "grano 25-40% (≈130-210 cm²); verdura 15-30%.\n"
+            "  (B) PROFUNDIDAD: estimá la altura/grosor del alimento. "
+            "Señales: sombra en los bordes indica altura; capas visibles = contar capas × grosor. "
+            "Referencia por textura: proteína o tubérculo compacto 2-4 cm; "
+            "grano cocido húmedo 2-4 cm; vegetal esponjoso/hoja 3-6 cm; salsa o líquido 1-2 cm.\n"
+            "  (C) DENSIDAD por tipo de alimento: "
+            "muy denso (carnes, tubérculos, granos cocidos) ≈ 0.8-1.2 g/cm³; "
+            "moderado (verdura cocida, legumbres) ≈ 0.5-0.7 g/cm³; "
+            "aireado (pan de miga, ensalada cruda) ≈ 0.1-0.3 g/cm³; "
+            "líquido/sopa ≈ 1.0 g/cm³.\n"
+            "  (D) PESO estimado = área × profundidad × densidad. "
+            "Si el resultado es muy distinto de las anclas conocidas, revisá profundidad.\n",
+            "3D VOLUMETRIC PROTOCOL — for each item, reason in this order:\n"
+            "  (A) AREA: what fraction of the plate/table it visually occupies. "
+            "A standard Ø26cm plate has ≈530 cm²; a deep bowl ≈380 cm². "
+            "Reference: typical protein occupies 20-35% of plate (≈106-185 cm²); "
+            "grain 25-40% (≈130-210 cm²); vegetable 15-30%.\n"
+            "  (B) DEPTH: estimate the height/thickness of the food. "
+            "Signals: shadow at edges indicates height; visible layers = count layers × thickness. "
+            "Reference by texture: compact protein or tuber 2-4 cm; "
+            "moist cooked grain 2-4 cm; spongy vegetable/leaf 3-6 cm; sauce or liquid 1-2 cm.\n"
+            "  (C) DENSITY by food type: "
+            "very dense (meats, root vegetables, cooked grains) ≈ 0.8-1.2 g/cm³; "
+            "moderate (cooked vegetables, legumes) ≈ 0.5-0.7 g/cm³; "
+            "airy (bread crumb, raw salad) ≈ 0.1-0.3 g/cm³; "
+            "liquid/soup ≈ 1.0 g/cm³.\n"
+            "  (D) ESTIMATED WEIGHT = area × depth × density. "
+            "If the result differs greatly from known anchors, revise depth.\n",
+        )
+        + L(
+            "AJUSTE POR MÉTODO DE COCCIÓN (aplica DESPUÉS de estimar el peso base): "
+            "• frito/rebozado: sumá aceite absorbido (rebozado pesado +12-18 g/100g; "
+            "frito superficial +4-7 g/100g) → reflejalo en los macros de fat_g. "
+            "• plancha/vapor/hervido/horneado: sin grasa añadida visible → fat_g mínimo salvo que haya salsa. "
+            "• preparación en caldo o líquido sin fritura: el líquido aporta poca grasa salvo aceite visible en superficie.\n",
+            "COOKING METHOD ADJUSTMENT (apply AFTER estimating base weight): "
+            "• fried/battered: add absorbed oil (heavy batter +12-18 g/100g; "
+            "light surface fry +4-7 g/100g) → reflect in fat_g macros. "
+            "• grilled/steamed/boiled/baked: no added fat → minimal fat_g unless there is sauce. "
+            "• preparation in broth or liquid without frying: liquid contributes little fat unless oil is visible on surface.\n",
+        )
+        + L(
+            "REGLA MAESTRA: mide lo que REALMENTE hay en el plato — el área que ocupa, "
+            "el grosor, la altura del montón. NO asumas una porción 'típica'. "
+            "La comida en una foto casera suele ser MÁS PEQUEÑA de lo que parece; "
+            "un plato no está lleno hasta el borde.\n",
+            "MASTER RULE: measure what is ACTUALLY on the plate — the area it occupies, "
+            "the thickness, the height of the mound. DO NOT assume a 'typical' portion. "
+            "Food in a home photo is usually SMALLER than it looks; "
+            "a plate is not full to the rim.\n",
+        )
+        + L(
+            "ANCLAS (solo si el tamaño es AMBIGUO u ocluido — nunca como valor por defecto): "
+            "proteína animal cocida, pieza sólida 120-200 g; proteína animal picada/molida 100-180 g; "
+            "proteína acuática, filete 130-200 g; "
+            "grano cocido hidratado 130-220 g; tubérculo cocido 100-180 g; legumbre cocida 80-150 g; "
+            "verdura cocida 60-130 g; hoja/ensalada cruda 80-150 g; "
+            "fruta mediana entera 120-180 g; pan en rebanada 30-50 g; "
+            "preparación líquida en bol 250-350 g.\n"
+            "Si ves el tamaño con claridad, IGNORA las anclas y reporta lo que ves.\n"
+            "confidence: alto si tamaño Y tipo son claros; bajo si ocluido o dudoso.\n"
+            "Si la lista incluye referencias de porción típica, úsalas como ancla débil, "
+            "NO como valor final — la evidencia visual manda.\n",
+            "ANCHORS (only if size is AMBIGUOUS or occluded — never as default): "
+            "cooked animal protein, solid piece 120-200 g; chopped/ground animal protein 100-180 g; "
+            "aquatic protein, fillet 130-200 g; "
+            "hydrated cooked grain 130-220 g; cooked tuber 100-180 g; cooked legume 80-150 g; "
+            "cooked vegetable 60-130 g; raw leaf/mixed salad 80-150 g; "
+            "whole medium fruit 120-180 g; bread slice 30-50 g; "
+            "liquid preparation in bowl 250-350 g.\n"
+            "If you can see the size clearly, IGNORE anchors and report what you see.\n"
+            "confidence: high if size AND type are clear; low if occluded or uncertain.\n"
+            "If the list includes typical portion references, use them as weak anchors, "
+            "NOT as final values — visual evidence takes precedence.\n",
+        )
+        + L(
+            "SESGO A CORREGIR: el error #1 de los modelos es SOBREESTIMAR el gramaje. "
+            "Ante la duda, estimá hacia la porción PEQUEÑA-MEDIANA, no la grande.\n"
+            "COTA DE SANIDAD (límite superior, NO objetivo): un total por comida hogar "
+            "raramente supera — desayuno ~550, almuerzo ~750, cena ~650, snack ~220 kcal. "
+            "Son TECHOS: si tu suma se acerca a ellos, revisá que no estés inflando porciones. "
+            "Estar MUY por debajo del techo es normal y correcto.\n",
+            "BIAS TO CORRECT: the #1 model error is OVERESTIMATING weight. "
+            "When uncertain, estimate toward the SMALL-MEDIUM portion, not the large.\n"
+            "SANITY CEILING (upper limit, NOT target): a home meal total "
+            "rarely exceeds — breakfast ~550, lunch ~750, dinner ~650, snack ~220 kcal. "
+            "These are CEILINGS: if your sum approaches them, check you're not inflating portions. "
+            "Being well below the ceiling is normal and correct.\n",
+        )
+        + L(
+            "ALIMENTOS LICUADOS/MEZCLADOS (batido, licuado, gachas, crema, puré): "
+            "pueden ocultar ingredientes de alta densidad energética (grasas, frutos oleaginosos, "
+            "lácteos enteros, azúcares concentrados). SOLO si tu estimado visible resulta "
+            "implausiblemente bajo (base frutal con lácteo <70 kcal/100ml; "
+            "base con grasa visible <100 kcal/100ml; preparación espesa de grano con lácteo <90 kcal/100g), "
+            "añadí el ingrediente denso más probable. No agregues densos por defecto — solo para corregir un piso irreal.\n",
+            "BLENDED/MIXED FOODS (smoothie, blended drink, porridge, cream, puree): "
+            "may conceal high-energy-density ingredients (fats, oil-rich nuts/seeds, "
+            "whole dairy, concentrated sugars). ONLY if your visible estimate is implausibly "
+            "low (fruit-based with low-fat dairy <70 kcal/100ml; "
+            "fat-base visible <100 kcal/100ml; thick grain with dairy <90 kcal/100g), "
+            "add the most probable dense ingredient. Do not add dense items by default — only to correct an unreal floor.\n",
+        )
+        + L(
+            "SOPAS/CREMAS CON SÓLIDOS: si hay sólidos VISIBLES, listalós POR SEPARADO "
+            "además de la base líquida. La base líquida es UN ítem; cada sólido identificable es otro ítem adicional.\n"
+            "SNACK CON MÚLTIPLES COMPONENTES: verificá que TODOS estén listados, "
+            "en las porciones PEQUEÑAS propias de un snack.\n",
+            "SOUPS/CREAMS WITH SOLIDS: if there are VISIBLE solids, list them SEPARATELY "
+            "in addition to the liquid base. The liquid base is ONE item; each identifiable solid is an additional item.\n"
+            "MULTI-COMPONENT SNACK: verify ALL components are listed "
+            "in the SMALL portions appropriate for a snack.\n",
+        )
+        + f"Locale={locale}. Region={region}. Strict JSON."
     )
 
 
