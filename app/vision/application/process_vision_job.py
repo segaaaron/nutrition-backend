@@ -151,6 +151,7 @@ class ProcessVisionJob:
         region: str,
         user_context: str | None = None,
         persist: bool = True,
+        servings: int = 1,
     ) -> None:
         """Orchestrate the full vision pipeline for one job."""
         start = datetime.now(UTC)
@@ -242,6 +243,7 @@ class ProcessVisionJob:
                     meal_time=meal_time,
                     prompt_sha=prompt_sha,
                     session=self.session,
+                    servings=servings,
                 )
             else:
                 food_log_ids = []

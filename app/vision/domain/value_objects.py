@@ -61,6 +61,7 @@ class FoodIdentification:
     portion_kind: PortionKind = "a_granel"
     bbox: tuple[float, float, float, float] | None = None
     inferred: bool = False
+    is_mixed_dish: bool = False
 
     def __post_init__(self) -> None:
         if not (0.0 <= self.confidence <= 1.0):

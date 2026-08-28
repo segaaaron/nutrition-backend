@@ -56,6 +56,10 @@ def _items_to_jsonb(items: list[DetectedFoodItem]) -> list[dict[str, Any]]:
             # BE-5: normalized bounding box [x, y, w, h] or null. Image-bound,
             # shareable via the SHA cache.
             "bbox": list(i.bbox) if i.bbox else None,
+            # G2: mixed dish flag — widens kcal range to ±30%.
+            "is_mixed_dish": i.is_mixed_dish,
+            # G3: disambiguation chips — empty list = no ambiguity.
+            "ambiguous_options": i.ambiguous_options,
         }
         for i in items
     ]
@@ -122,6 +126,9 @@ def _items_from_jsonb(raw: list[dict[str, Any]] | None) -> list[DetectedFoodItem
                     if isinstance(d.get("bbox"), list | tuple) and len(d["bbox"]) == 4
                     else None
                 ),
+                # G2/G3: older JSONB rows lack these fields → safe defaults.
+                is_mixed_dish=bool(d.get("is_mixed_dish", False)),
+                ambiguous_options=[str(o) for o in (d.get("ambiguous_options") or []) if o],
             )
         )
     return out
@@ -143,6 +150,7 @@ class SqlVisionJobRepository:
                 image_bytes=job.image_bytes,
                 idempotency_key=job.idempotency_key,
                 prompt_sha256=job.prompt_sha256,
+                servings=job.servings,
                 created_at=job.created_at or now,
             )
         )
@@ -162,6 +170,7 @@ class SqlVisionJobRepository:
             image_bytes=m.image_bytes,
             idempotency_key=m.idempotency_key,
             prompt_sha256=m.prompt_sha256,
+            servings=int(m.servings) if m.servings else 1,
             detected_items=_items_from_jsonb(m.detected_items),  # type: ignore[arg-type]
             error_code=m.error_code,
             error_detail=m.error_detail,

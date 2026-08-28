@@ -57,6 +57,24 @@ class DetectedItemDto(BaseModel):
     # BE-5: normalized bounding box for annotating the item on the photo.
     # null when the model could not locate it (mixed dish / sauce).
     bbox: BBoxDto | None = None
+    # G2: plate-level mixed dish flag. True → client knows kcal range is ±30%.
+    is_mixed_dish: bool = False
+    # G3: alternative names when model is uncertain (confidence < 0.7).
+    # Empty list = no ambiguity. Client renders as tap-chips.
+    ambiguous_options: list[str] = Field(default_factory=list)
+
+
+class PerServingDto(BaseModel):
+    """Plate-level macros divided by `servings`. Null when servings == 1."""
+
+    kcal: int
+    kcal_min: int | None = None
+    kcal_max: int | None = None
+    protein_g: int
+    carbs_g: int
+    fat_g: int
+    fiber_g: int = 0
+    sugar_g: int = 0
 
 
 class PlateGroupDto(BaseModel):
@@ -94,6 +112,10 @@ class JobStatusResponse(BaseModel):
     completed_at: datetime | None = None
     # B7: IDs of food_log rows created by this scan (empty list when persist=false)
     food_log_ids: list[str] = Field(default_factory=list)
+    # Number of people sharing the plate (1..8). Null / absent = 1 (solo plate).
+    servings: int = 1
+    # Per-serving breakdown. Null when servings == 1 (no division needed).
+    per_serving: PerServingDto | None = None
 
 
 class EditDetectedItemRequest(BaseModel):

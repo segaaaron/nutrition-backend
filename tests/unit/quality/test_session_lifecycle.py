@@ -88,11 +88,11 @@ ALLOWED_SESSION_SCOPE: dict[str, str] = {
     "worker/plan_tasks.py:49": "OK3 worker task",
     "worker/plan_tasks.py:80": "OK3 worker task",
     "worker/outbox_drainer.py:121": "OK3 worker task",
-    "worker/vision_tasks.py:51": "OK3 worker task",
+    "worker/vision_tasks.py:52": "OK3 worker task",
     # OK3 — fresh session for failure bookkeeping AFTER the main job
     # session rolled back (mark_failed + deadletter must survive the
     # rollback or the vision job stays 'running' forever).
-    "worker/vision_tasks.py:90": "OK3 worker task (post-rollback failure bookkeeping)",
+    "worker/vision_tasks.py:91": "OK3 worker task (post-rollback failure bookkeeping)",
     "worker/leaderboard_audit_purge_task.py:55": "OK3 worker task",
     "worker/idempotency_tasks.py:16": "OK3 worker task",
     "worker/anomaly_score_task.py:211": "OK3 worker task",

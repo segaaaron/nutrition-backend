@@ -74,6 +74,7 @@ class SubmitPhoto:
         region: str = "us",
         user_context: str | None = None,
         persist: bool = True,
+        servings: int = 1,
     ) -> UUID:
         if len(raw_bytes) == 0:
             raise ValidationError("empty_upload")
@@ -125,6 +126,7 @@ class SubmitPhoto:
             image_sha256=sha,
             image_bytes=len(compressed.bytes_),
             idempotency_key=idempotency_key,
+            servings=max(1, min(8, servings)),
             created_at=now,
         )
         await self.repo.save(job)
@@ -140,6 +142,7 @@ class SubmitPhoto:
             region=region,
             user_context=clean_context,
             persist=persist,
+            servings=job.servings,
         )
 
         await self.bus.publish(

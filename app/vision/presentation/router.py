@@ -46,6 +46,7 @@ from app.vision.presentation.schemas import (
     DetectedItemDto,
     EditDetectedItemRequest,
     JobStatusResponse,
+    PerServingDto,
     PlateGroupDto,
     SubmitPhotoResponse,
 )
@@ -107,6 +108,7 @@ async def submit_food_photo(  # noqa: PLR0913 — FastAPI endpoint signature: de
         str | None,
         Form(description="optional portion cue, e.g. 'plato familiar' / 'es individual'"),
     ] = None,
+    servings: Annotated[int, Form(ge=1, le=8, description="people sharing the plate (1–8, default 1)")] = 1,
     persist: Annotated[bool, Form(description="false = analyze only, do not write to food_logs")] = True,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> SubmitPhotoResponse:
@@ -132,6 +134,7 @@ async def submit_food_photo(  # noqa: PLR0913 — FastAPI endpoint signature: de
         region=region,
         user_context=note,
         persist=persist,
+        servings=servings,
     )
     return SubmitPhotoResponse(job_id=job_id)
 
@@ -232,9 +235,25 @@ async def get_job_status(
             if row and row[0] and row[1]:
                 kcal_target = (int(row[0]) + int(row[1])) // 2
                 if kcal_target > 0:
-                    pct_daily_kcal = round(total_kcal / kcal_target * 100, 1)
+                    # Use per-serving kcal: the user ate 1/servings of the plate.
+                    kcal_eaten = total_kcal / max(1, job.servings)
+                    pct_daily_kcal = round(kcal_eaten / kcal_target * 100, 1)
         except Exception:  # noqa: BLE001 — decorative field; never break the poll
             _log.warning("vision.pct_daily_kcal.query_failed", job_id=str(job_id))
+
+    s = max(1, job.servings)
+    per_serving: PerServingDto | None = None
+    if s > 1 and total_kcal is not None:
+        per_serving = PerServingDto(
+            kcal=round((total_kcal or 0) / s),
+            kcal_min=round(total_kcal_min / s) if total_kcal_min is not None else None,
+            kcal_max=round(total_kcal_max / s) if total_kcal_max is not None else None,
+            protein_g=round((total_protein_g or 0) / s),
+            carbs_g=round((total_carbs_g or 0) / s),
+            fat_g=round((total_fat_g or 0) / s),
+            fiber_g=round((total_fiber_g or 0) / s),
+            sugar_g=round((total_sugar_g or 0) / s),
+        )
 
     return JobStatusResponse(
         job_id=job.id,
@@ -262,6 +281,8 @@ async def get_job_status(
                 bbox=BBoxDto(x=i.bbox[0], y=i.bbox[1], w=i.bbox[2], h=i.bbox[3])
                 if i.bbox
                 else None,
+                is_mixed_dish=i.is_mixed_dish,
+                ambiguous_options=i.ambiguous_options,
             )
             for i in job.detected_items
         ],
@@ -279,6 +300,8 @@ async def get_job_status(
         created_at=job.created_at,
         completed_at=job.completed_at,
         food_log_ids=[str(fid) for fid in job.food_log_ids],
+        servings=s,
+        per_serving=per_serving,
     )
 
 
@@ -397,6 +420,7 @@ async def confirm_vision_job(
         meal_time=job.meal_time,
         prompt_sha=job.prompt_sha256 or "",
         session=session,
+        servings=job.servings,
     )
 
     # Write confirmed IDs back so a second call is idempotent.

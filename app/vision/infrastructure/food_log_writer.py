@@ -35,6 +35,7 @@ async def persist_food_logs(
     meal_time: str,
     prompt_sha: str,
     session: AsyncSession,
+    servings: int = 1,
 ) -> list[UUID]:
     """Slot-cap gate + INSERT food_logs for auto-insertable items.
 
@@ -73,6 +74,8 @@ async def persist_food_logs(
         )
         return []
 
+    s = max(1, servings)  # guard: servings=0 would divide-by-zero
+
     food_log_ids: list[UUID] = []
     for it in insertable:
         flog_id = uuid4()
@@ -99,13 +102,13 @@ async def persist_food_logs(
                 "mt": meal_time,
                 "fid": str(it.matched_food_id) if it.matched_food_id else None,
                 "ftn": it.name if it.matched_food_id is None else None,
-                "ag": float(it.estimated_amount_g),
-                "kc": it.kcal,
-                "pg": it.protein_g,
-                "cg": it.carbs_g,
-                "fg": it.fat_g,
-                "fibg": it.fiber_g,
-                "sug": it.sugar_g,
+                "ag": round(float(it.estimated_amount_g) / s, 1),
+                "kc": round(it.kcal / s),
+                "pg": round(it.protein_g / s),
+                "cg": round(it.carbs_g / s),
+                "fg": round(it.fat_g / s),
+                "fibg": round(it.fiber_g / s),
+                "sug": round(it.sugar_g / s),
                 "conf": it.confidence,
                 "psha": prompt_sha,
             },

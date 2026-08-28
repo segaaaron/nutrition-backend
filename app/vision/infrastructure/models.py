@@ -56,6 +56,9 @@ class VisionJobModel(Base):
     detected_items: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     # B7: list of food_log UUID strings created by this job; empty when persist=false
     food_log_ids: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    # Number of people sharing the plate (1..8). Stored so GET status + confirm
+    # can divide amounts without the client re-sending servings on every poll.
+    servings: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     error_code: Mapped[str | None] = mapped_column(Text, nullable=True)
     error_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

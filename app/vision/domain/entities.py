@@ -55,6 +55,14 @@ class DetectedFoodItem:
     # BE-5: normalized bounding box (x, y, w, h) in 0..1, origin top-left, so
     # iOS can annotate the photo. None when the model can't locate the item.
     bbox: tuple[float, float, float, float] | None = None
+    # True when the plate is an integrated mixed preparation (guiso, arroz con
+    # pollo, fideos salteados) where ingredients are not separable visually.
+    # Signals higher kcal estimation uncertainty → ±30% range instead of ±20%.
+    is_mixed_dish: bool = False
+    # G3: 2-4 alternative food names when the model is uncertain about identity
+    # (confidence < 0.7). Empty list = no ambiguity. Client renders as tap-chips
+    # so the user can correct in one tap without opening the full edit flow.
+    ambiguous_options: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -75,3 +83,6 @@ class VisionJob:
     completed_at: datetime | None = None
     # B7: IDs of food_log rows created by this job (empty when persist=false)
     food_log_ids: list[UUID] = field(default_factory=list)
+    # Number of people sharing the plate (1..8). Detection items represent the
+    # full plate; this value divides amounts at food_log write and in the response.
+    servings: int = 1

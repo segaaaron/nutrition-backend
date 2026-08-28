@@ -256,6 +256,17 @@ USDA_FALLBACK_PER_100G: dict[str, tuple[int, int, int, int]] = {
 }
 
 
+def _kcal_range(kcal: int, is_mixed_dish: bool) -> tuple[int, int]:
+    """Return (kcal_min, kcal_max) for an item.
+
+    Mixed dishes have inherently higher uncertainty (ingredients blended/cooked
+    together, portions hard to separate visually) so the band widens to ±30%.
+    Clean single-ingredient items use the standard ±20%.
+    """
+    lo, hi = (0.70, 1.30) if is_mixed_dish else (0.80, 1.20)
+    return int(round(kcal * lo)), int(round(kcal * hi))
+
+
 async def ground_macros_from_db(
     items: list[DetectedFoodItem], *, session: AsyncSession
 ) -> None:
@@ -312,22 +323,48 @@ async def ground_macros_from_db(
         kcal_db = _scale(macro[0])
         if kcal_db <= 0:
             continue
+
+        # Disagreement guard — stratified by match confidence.
+        #
+        # "personal" (user explicitly corrected this food) and "trigram"
+        # (pg_trgm similarity ≥ 0.45, strong lexical evidence) are
+        # high-confidence matches: DB is almost certainly right when they
+        # disagree with the LLM, because the LLM's #1 bias is portion
+        # over-estimation (already documented in the system prompt).  We apply
+        # DB values unconditionally and let reconcile_kcal_atwater catch any
+        # genuine corruption downstream.
+        #
+        # "embedding" (cosine similarity ≥ 0.70) is medium-confidence: a
+        # semantic match may grab a related-but-different food (e.g.
+        # "arroz con leche" → "arroz blanco").  Keep the existing 2× guard
+        # so a wrong match doesn't silently corrupt kcal.
+        high_confidence = it.match_method in ("personal", "trigram")
         if it.kcal > 0 and not (it.kcal / 2 <= kcal_db <= it.kcal * 2):
-            log.info(
-                "vision.ground.match_disagreement",
-                name=it.name[:60],
-                kcal_llm=it.kcal,
-                kcal_db=kcal_db,
-                method=it.match_method,
-            )
-            continue
+            if high_confidence:
+                # DB wins — the LLM over/under-estimated the portion.
+                # Log at warning level so PROD dashboards can surface the delta.
+                log.warning(
+                    "vision.ground.high_conf_override",
+                    name=it.name[:60],
+                    kcal_llm=it.kcal,
+                    kcal_db=kcal_db,
+                    method=it.match_method,
+                )
+            else:
+                log.info(
+                    "vision.ground.match_disagreement",
+                    name=it.name[:60],
+                    kcal_llm=it.kcal,
+                    kcal_db=kcal_db,
+                    method=it.match_method,
+                )
+                continue
 
         it.kcal = kcal_db
         it.protein_g = _scale(macro[1])
         it.carbs_g = _scale(macro[2])
         it.fat_g = _scale(macro[3])
-        it.kcal_min = int(round(kcal_db * 0.8))
-        it.kcal_max = int(round(kcal_db * 1.2))
+        it.kcal_min, it.kcal_max = _kcal_range(kcal_db, it.is_mixed_dish)
         it.fiber_g = _scale(macro[4])
         it.sugar_g = _scale(macro[5])
 
@@ -371,8 +408,7 @@ def reconcile_kcal_atwater(items: list[DetectedFoodItem]) -> None:
             method=it.match_method,
         )
         it.kcal = macro_kcal
-        it.kcal_min = int(round(macro_kcal * 0.80))
-        it.kcal_max = int(round(macro_kcal * 1.20))
+        it.kcal_min, it.kcal_max = _kcal_range(macro_kcal, it.is_mixed_dish)
 
 
 async def apply_group_fallback(items: list[DetectedFoodItem]) -> None:
@@ -411,8 +447,7 @@ async def apply_group_fallback(items: list[DetectedFoodItem]) -> None:
                 it.fat_g = round(local.get("fat_g", 0) * factor)
                 it.fiber_g = round(local.get("fiber_g", 0) * factor)
                 it.sugar_g = round(local.get("sugar_g", 0) * factor)
-                it.kcal_min = round(kcal_local * 0.80)
-                it.kcal_max = round(kcal_local * 1.20)
+                it.kcal_min, it.kcal_max = _kcal_range(kcal_local, it.is_mixed_dish)
                 it.match_method = "usda_local"
                 log.info(
                     "vision.ground.local_usda",
@@ -452,8 +487,7 @@ async def apply_group_fallback(items: list[DetectedFoodItem]) -> None:
                 it.fat_g = round(fdc.fat_per_100g * factor)
                 it.fiber_g = round(fdc.fiber_per_100g * factor)
                 it.sugar_g = round(fdc.sugar_per_100g * factor)
-                it.kcal_min = round(kcal_fb * 0.80)
-                it.kcal_max = round(kcal_fb * 1.20)
+                it.kcal_min, it.kcal_max = _kcal_range(kcal_fb, it.is_mixed_dish)
                 it.match_method = "usda_fdc"
                 continue
 
@@ -468,8 +502,7 @@ async def apply_group_fallback(items: list[DetectedFoodItem]) -> None:
         it.protein_g = round(macro[1] * factor)
         it.carbs_g = round(macro[2] * factor)
         it.fat_g = round(macro[3] * factor)
-        it.kcal_min = round(kcal_fb * 0.75)
-        it.kcal_max = round(kcal_fb * 1.25)
+        it.kcal_min, it.kcal_max = _kcal_range(kcal_fb, it.is_mixed_dish)
         it.match_method = "group_fallback"
         log.info(
             "vision.ground.group_fallback",

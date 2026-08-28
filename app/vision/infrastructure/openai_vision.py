@@ -224,6 +224,11 @@ VISION_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
     "properties": {
+        # Plate-level flag: True when the dish is an integrated mixed preparation
+        # (guiso, arroz con pollo, paella, locro) where ingredients cannot be
+        # separated visually. Parser propagates this to every DetectedFoodItem so
+        # macro_grounder widens the kcal range to ±30% (vs ±20% for clean plates).
+        "is_mixed_dish": {"type": "boolean"},
         # Declared FIRST on purpose: strict constrained-decoding emits properties
         # in declaration order, so the model must write this unit-count scratchpad
         # BEFORE `items` — a forced chain-of-thought that makes it enumerate every
@@ -330,8 +335,25 @@ VISION_SCHEMA: dict[str, Any] = {
                 ],
             },
         },
+        # G3: disambiguation chips — OPTIONAL, only when model is genuinely
+        # uncertain about an item's identity (confidence < 0.7). item_index is
+        # the 0-based position in `items`; options are 2-4 alternative names.
+        # Parser maps these onto DetectedFoodItem.ambiguous_options so the iOS
+        # client can show tap-chips without a full edit flow.
+        "disambiguations": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "item_index": {"type": "integer", "minimum": 0},
+                    "options": {"type": "array", "items": {"type": "string"}},
+                },
+                "required": ["item_index", "options"],
+            },
+        },
     },
-    "required": ["unit_census", "items"],
+    "required": ["is_mixed_dish", "unit_census", "items"],
 }
 
 
@@ -455,6 +477,21 @@ def _system_prompt(
         "`pieza_entera`, `count`=1.\n"
         "DESAMBIGUACIÓN de apilados: ante duda 1 vs 2+, mira GROSOR (alto doble=2), "
         "BORDES (dos contornos=2) y SOMBRAS entre capas. No asumas 1 por defecto.\n"
+        "CAMPO `disambiguations` (OPCIONAL): llena SOLO cuando tengas duda real sobre "
+        "la identidad de un alimento (confidence < 0.7). "
+        "item_index = posición 0-based en `items`; options = 2-4 nombres alternativos "
+        "en el mismo idioma que el `name` del ítem. "
+        "Omite completamente cuando no haya ambigüedad.\n"
+        "CAMPO `is_mixed_dish` (OBLIGATORIO, va ANTES del censo): "
+        "`true` si el plato es una preparación INTEGRADA donde los ingredientes "
+        "se cocinan juntos y no se separan visualmente "
+        "(guiso/stew, arroz con pollo/rice with chicken, fideos salteados/stir-fry, "
+        "paella, locro, sopa con sólidos mezclados, pasta con salsa integrada, "
+        "revuelto/scramble). "
+        "`false` si los componentes son VISUALMENTE SEPARADOS o el plato está armado "
+        "en capas/secciones (hamburguesa, plato con proteína + guarnición aparte, "
+        "snack con ingredientes distintos). La app usa este campo para calibrar el "
+        "rango de incertidumbre — ponlo correctamente.\n"
         "CENSO (`unit_census`, OBLIGATORIO, va ANTES de `items`): UNA línea breve "
         "con las PIEZAS ENTERAS repetidas — ej. 'carne:2; queso:2; huevo:1'. Copia "
         "al `count` de cada `pieza_entera`. Sé breve.\n"
@@ -544,6 +581,8 @@ IDENTIFY_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
     "properties": {
+        # Plate-level flag — same semantics as in VISION_SCHEMA.
+        "is_mixed_dish": {"type": "boolean"},
         "items": {
             "type": "array",
             "items": {
@@ -612,7 +651,7 @@ IDENTIFY_SCHEMA: dict[str, Any] = {
             },
         }
     },
-    "required": ["items"],
+    "required": ["is_mixed_dish", "items"],
 }
 
 ESTIMATE_SCHEMA: dict[str, Any] = {
@@ -703,6 +742,12 @@ def _identify_system_prompt(locale: str, region: str) -> str:
         "(frutas + nueces, queso + crackers, yogur + granola), verificá que TODOS "
         "estén listados. Nueces, frutos secos y frutos rojos son pequeños y fáciles "
         "de omitir aunque estén claramente presentes.\n"
+        "CAMPO `is_mixed_dish` (OBLIGATORIO, va ANTES del censo): "
+        "`true` si los ingredientes están MEZCLADOS/COCIDOS JUNTOS y no separables "
+        "visualmente (guiso/stew, arroz con pollo/rice with chicken, "
+        "fideos salteados/stir-fry, locro, sopa mixta/mixed soup); "
+        "`false` si los componentes se ven separados (plato con proteína + guarnición "
+        "aparte, hamburguesa/burger, snack con ingredientes distintos).\n"
         "CENSO OBLIGATORIO (`unit_census`, va ANTES de `items`): "
         "una línea con las piezas enteras repetidas — ej. 'carne:2; huevo:1; empanada:3'. "
         "Copia ese conteo al `count` de cada ítem pieza_entera.\n"
@@ -877,10 +922,12 @@ def _enhance_if_dark(image_bytes: bytes, mime: str) -> tuple[bytes, str]:
 
 
 def _should_fallback(items: list[DetectedFoodItem], threshold: float) -> tuple[bool, str]:
-    """Return (escalate?, reason). reason ∈ {empty, min_below_threshold,
-    low_confidence, ""}."""
+    """Return (escalate?, reason). reason ∈ {empty, mixed_dish,
+    min_below_threshold, low_confidence, ""}."""
     if not items:
         return True, "empty"
+    if any(it.is_mixed_dish for it in items):
+        return True, "mixed_dish"
     confidences = [i.confidence for i in items]
     min_c = min(confidences)
     if min_c < MIN_ITEM_CONFIDENCE_FLOOR:
@@ -1873,6 +1920,7 @@ def _hidden_calorie_post_pass(items: list[DetectedFoodItem]) -> list[DetectedFoo
 
 
 def _parse_items(raw: dict[str, Any]) -> list[DetectedFoodItem]:
+    is_mixed_dish = bool(raw.get("is_mixed_dish", False))
     out: list[DetectedFoodItem] = []
     for r in raw.get("items", []) or []:
         try:
@@ -2018,6 +2066,7 @@ def _parse_items(raw: dict[str, Any]) -> list[DetectedFoodItem]:
                     kcal_max=kcal_max,
                     count=count,
                     bbox=bbox,
+                    is_mixed_dish=is_mixed_dish,
                 )
             )
         except (KeyError, ValueError, TypeError, InvalidOperation) as exc:
@@ -2033,6 +2082,18 @@ def _parse_items(raw: dict[str, Any]) -> list[DetectedFoodItem]:
                 name=str(r.get("name", "?"))[:60],
             )
             continue
+    # G3: apply disambiguation chips — map item_index → ambiguous_options on
+    # the parsed items. Best-effort: malformed entries are silently skipped so
+    # a bad disambiguation never drops a valid detection.
+    for d in raw.get("disambiguations", []) or []:
+        try:
+            idx = int(d["item_index"])
+            opts = [str(o).strip() for o in (d.get("options") or []) if str(o).strip()][:4]
+            if 0 <= idx < len(out) and len(opts) >= 2:
+                out[idx].ambiguous_options = opts
+        except (KeyError, ValueError, TypeError):
+            continue
+
     return _hidden_calorie_post_pass(_dedup_items(out))
 
 
@@ -2091,6 +2152,7 @@ def _parse_identifications(raw: dict[str, Any]) -> list[FoodIdentification]:
     Malformed rows are logged and skipped — never raise here so a single bad
     item never drops the whole identification.
     """
+    is_mixed_dish = bool(raw.get("is_mixed_dish", False))
     out: list[FoodIdentification] = []
     for r in raw.get("items", []) or []:
         try:
@@ -2125,6 +2187,7 @@ def _parse_identifications(raw: dict[str, Any]) -> list[FoodIdentification]:
                     prep_method=prep,
                     count=count,
                     portion_kind=portion_kind,  # type: ignore[arg-type]
+                    is_mixed_dish=is_mixed_dish,
                 )
             )
         except (KeyError, ValueError, TypeError) as exc:
