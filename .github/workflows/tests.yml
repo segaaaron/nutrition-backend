@@ -47,6 +47,58 @@ jobs:
         # a hardcoded table listing sugar as 0 for oats, yogurt and banana.
         run: pytest tests/unit/catalog/test_recipe_ingest.py -v --tb=short
 
+  migrations:
+    # Aplica TODAS las migraciones desde cero, en cada PR y en cada push.
+    #
+    # Por qué existe como job aparte: `integration` ya hacía `alembic upgrade
+    # head`, pero solo corre en push a main (o con la etiqueta run-integration).
+    # Como Dokploy despliega en ESE MISMO push, el fallo de una migración llegaba
+    # a la vez que el despliegue roto, no antes. El 2026-08-29 la 0057 usó
+    # CREATE INDEX CONCURRENTLY dentro de la transacción de Alembic, el arranque
+    # abortó en bucle y PROD estuvo caída hasta que alguien lo miró a mano.
+    #
+    # Este job es barato (un contenedor, sin Redis, sin tests) y su único trabajo
+    # es contestar: ¿esta rama arranca desde una base vacía?
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: timescale/timescaledb-ha:pg16
+        env:
+          POSTGRES_USER: nova
+          POSTGRES_PASSWORD: novapass
+          POSTGRES_DB: nova_migrations
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nova -d nova_migrations"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+asyncpg://nova:novapass@localhost:5432/nova_migrations
+      ENV: dev
+      BILLING_SUCCESS_URL: https://test.example.com/billing/success
+      BILLING_CANCEL_URL: https://test.example.com/billing/cancel
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e .[dev]
+      - name: Alembic upgrade head — base vacía
+        # Es exactamente lo que hace docker/entrypoint.sh al arrancar el
+        # contenedor. Si falla aquí, el contenedor no arranca en PROD.
+        run: alembic upgrade head
+      - name: Alembic downgrade -1 y volver a subir
+        # Una migración sin downgrade utilizable convierte cualquier rollback en
+        # una restauración de backup. Se comprueba solo el último escalón: es el
+        # que se acaba de escribir y el único que nadie ha ejercitado nunca.
+        run: |
+          alembic downgrade -1
+          alembic upgrade head
+
   integration:
     # Only run on main pushes or PRs explicitly labelled "run-integration".
     # Saves CI cost (Postgres + Redis services) on every PR.
