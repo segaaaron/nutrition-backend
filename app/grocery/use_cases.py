@@ -54,22 +54,36 @@ class GenerateGroceryList:
             .mappings()
             .all()
         )
-        # Re-run: simpler query — components only
+        # Re-run: simpler query — components from generated meals UNION custom meal items.
         rows = (
             (
                 await self.session.execute(
                     text(
                         """
-            SELECT COALESCE(f.name_en, rc.free_text_name) AS name,
-                   COALESCE(SUM(rc.amount_g), 0) AS total_g
-              FROM plan_meals pm
-              JOIN plan_days pd ON pd.id = pm.plan_day_id
-              JOIN recipes r ON r.id = pm.recipe_id
-              JOIN recipe_components rc ON rc.recipe_id = r.id
-              LEFT JOIN foods f ON f.id = rc.food_id
-             WHERE pd.plan_id = :pid
-               AND (f.name_en IS NOT NULL OR rc.free_text_name IS NOT NULL)
-             GROUP BY COALESCE(f.name_en, rc.free_text_name)
+            SELECT name, SUM(total_g) AS total_g
+              FROM (
+                -- Generated meals: ingredients from recipe_components
+                SELECT COALESCE(f.name_en, rc.free_text_name) AS name,
+                       rc.amount_g AS total_g
+                  FROM plan_meals pm
+                  JOIN plan_days pd ON pd.id = pm.plan_day_id
+                  JOIN recipes r ON r.id = pm.recipe_id
+                  JOIN recipe_components rc ON rc.recipe_id = r.id
+                  LEFT JOIN foods f ON f.id = rc.food_id
+                 WHERE pd.plan_id = :pid
+                   AND (f.name_en IS NOT NULL OR rc.free_text_name IS NOT NULL)
+                UNION ALL
+                -- Custom meals: items from plan_meal_items
+                SELECT COALESCE(f2.name_en, pmi.free_text_name) AS name,
+                       pmi.grams AS total_g
+                  FROM plan_meals pm2
+                  JOIN plan_days pd2 ON pd2.id = pm2.plan_day_id
+                  JOIN plan_meal_items pmi ON pmi.plan_meal_id = pm2.id
+                  LEFT JOIN foods f2 ON f2.id = pmi.food_id
+                 WHERE pd2.plan_id = :pid
+                   AND (f2.name_en IS NOT NULL OR pmi.free_text_name IS NOT NULL)
+              ) AS combined
+             GROUP BY name
              ORDER BY name
         """
                     ),

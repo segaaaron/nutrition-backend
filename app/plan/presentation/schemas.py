@@ -98,6 +98,8 @@ class PlanMealResponse(_Strict):
     id: UUID
     meal_time: MealTime
     recipe_id: UUID | None
+    # "custom" when the user composed this meal themselves (recipe_id IS NULL).
+    source: Literal["generated", "custom"] = "generated"
     name_localized: str | None = None
     description_localized: str | None = None
     kcal: int | None
@@ -283,3 +285,40 @@ class SwapAlternative(BaseModel):
 class SwapMealResponse(_Strict):
     alternatives: list[UUID]
     alternatives_detail: list[SwapAlternative] = Field(default_factory=list)
+
+
+# ── Custom meal (user-composed) ──────────────────────────────────────────────
+
+class CustomMealItemIn(_Strict):
+    """One food item the user adds to a custom meal."""
+    food_id: UUID
+    grams: Decimal = Field(gt=Decimal("0"), le=Decimal("5000"))
+
+
+class SaveCustomMealRequest(_Strict):
+    """Body for PUT /plans/{plan_id}/days/{date}/meals/{meal_time}."""
+    items: list[CustomMealItemIn] = Field(min_length=1, max_length=30)
+
+
+class ValidateMealItemResult(BaseModel):
+    """Per-item nutrition breakdown returned by POST /plans/meals/validate."""
+    model_config = ConfigDict(extra="forbid")
+
+    food_id: UUID
+    name: str | None
+    grams: Decimal
+    kcal: int | None
+    protein_g: int | None
+    carbs_g: int | None
+    fat_g: int | None
+
+
+class ValidateMealResponse(BaseModel):
+    """Aggregated + per-item nutrition for POST /plans/meals/validate."""
+    model_config = ConfigDict(extra="forbid")
+
+    kcal: int
+    protein_g: int
+    carbs_g: int
+    fat_g: int
+    items: list[ValidateMealItemResult]

@@ -58,16 +58,20 @@ from app.plan.presentation.schemas import (
     AdjustPortionRequest,
     CreatePlanRequest,
     CreatePlanResponse,
+    CustomMealItemIn,
     PlanDayResponse,
     PlanJobRef,
     PlanMealIngredient,
     PlanMealResponse,
     PlanResponse,
     RetentionNudge,
+    SaveCustomMealRequest,
     SwapAlternative,
     SwapMealRequest,
     SwapMealResponse,
     TodaySummary,
+    ValidateMealItemResult,
+    ValidateMealResponse,
     WaterSlotResponse,
     WaterTargetResponse,
     WeekRecap,
@@ -299,6 +303,7 @@ def _build_meal_resp(
         id=m.id,
         meal_time=m.meal_time,
         recipe_id=m.recipe_id,
+        source="custom" if m.recipe_id is None else "generated",
         name_localized=_localize_name(m.recipe_id, tr, locale),
         description_localized=_localize_description(m.recipe_id, tr, locale),
         kcal=m.kcal,
@@ -1137,3 +1142,271 @@ async def swap_meal(
             )
 
     return SwapMealResponse(alternatives=alts, alternatives_detail=alts_detail)
+
+
+# ── Custom meal endpoints ─────────────────────────────────────────────────────
+
+@router.post("/plans/meals/validate", response_model=ValidateMealResponse)
+async def validate_custom_meal(
+    body: SaveCustomMealRequest,
+    _current_user: CurrentUserDep,
+    session: SessionDep,
+) -> ValidateMealResponse:
+    """Compute aggregated nutrition for a list of food items WITHOUT saving.
+
+    The server is the single source of nutritional truth — clients never
+    compute macros locally. Call this before PUT …/meals/{meal_time} to show
+    the user a preview.
+    """
+    from sqlalchemy import text as _text
+
+    food_ids = [str(it.food_id) for it in body.items]
+    rows = (
+        await session.execute(
+            _text(
+                "SELECT id, name_en, kcal, protein_g, carbs_g, fat_g "
+                "FROM foods WHERE id = ANY(:ids::uuid[])"
+            ),
+            {"ids": food_ids},
+        )
+    ).mappings().all()
+    food_map = {r["id"]: r for r in rows}
+
+    items_out: list[ValidateMealItemResult] = []
+    total_kcal = total_prot = total_carbs = total_fat = 0
+
+    for item in body.items:
+        row = food_map.get(item.food_id)
+        if row is None:
+            from app.core.errors import NotFoundError
+            raise NotFoundError(detail=f"food_not_found:{item.food_id}")
+        ratio = float(item.grams) / 100.0
+        kcal = round(float(row["kcal"] or 0) * ratio) if row["kcal"] is not None else None
+        prot = round(float(row["protein_g"] or 0) * ratio) if row["protein_g"] is not None else None
+        carbs = round(float(row["carbs_g"] or 0) * ratio) if row["carbs_g"] is not None else None
+        fat = round(float(row["fat_g"] or 0) * ratio) if row["fat_g"] is not None else None
+        total_kcal += kcal or 0
+        total_prot += prot or 0
+        total_carbs += carbs or 0
+        total_fat += fat or 0
+        items_out.append(ValidateMealItemResult(
+            food_id=item.food_id,
+            name=row["name_en"],
+            grams=item.grams,
+            kcal=kcal,
+            protein_g=prot,
+            carbs_g=carbs,
+            fat_g=fat,
+        ))
+
+    return ValidateMealResponse(
+        kcal=total_kcal,
+        protein_g=total_prot,
+        carbs_g=total_carbs,
+        fat_g=total_fat,
+        items=items_out,
+    )
+
+
+@router.put(
+    "/plans/{plan_id}/days/{date}/meals/{meal_time}",
+    response_model=PlanMealResponse,
+)
+async def save_custom_meal(
+    plan_id: Annotated[uuid.UUID, Path()],
+    date: Annotated[str, Path(pattern=r"^\d{4}-\d{2}-\d{2}$")],
+    meal_time: Annotated[str, Path()],
+    body: SaveCustomMealRequest,
+    current_user: CurrentUserDep,
+    session: SessionDep,
+    locale: LocaleDep,
+    request: Request,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> PlanMealResponse:
+    """Replace a plan meal slot with a user-composed custom meal.
+
+    - Idempotency-Key required (UUIDv4). Same key + same body → replays the
+      204 body verbatim for up to 24 h.
+    - Past days are rejected (422 past_day_not_editable). Swap/complete share
+      this invariant: a logged day is testimony, not an editable menu.
+    - Concurrent writes to the same slot: last-write-wins. The Idempotency-Key
+      handles retries; optimistic locking is not applied (single-user app,
+      concurrent same-slot edits are degenerate).
+    - Returns 404 when the plan is not found or not active.
+    """
+    from datetime import date as _date
+    from decimal import Decimal as _D
+    from sqlalchemy import text as _text
+
+    key = require_idempotency_key(idempotency_key)
+    redis = get_redis()
+    raw_body = await request.body()
+
+    try:
+        skey, cached = await lookup_redis(
+            redis=redis,
+            user_id=str(current_user),
+            path=request.url.path,
+            raw_key=key,
+            body=raw_body,
+        )
+    except IdempotencyConflict as exc:
+        raise ConflictError(
+            "idempotency_body_mismatch",
+            field="Idempotency-Key",
+            key=key,
+            reason="Same Idempotency-Key was used with a different request body",
+        ) from exc
+    if cached is not None:
+        return cached_to_response(cached)
+
+    await assert_owns(session, table="plans", resource_id=plan_id, user_id=current_user)
+
+    # Reject past days — logged days are testimony, not an editable menu.
+    try:
+        target_date = _date.fromisoformat(date)
+    except ValueError:
+        raise BusinessRuleViolation("invalid_date")
+    if target_date < _date.today():
+        raise BusinessRuleViolation("past_day_not_editable")
+
+    # Verify plan is active and find the target day + meal.
+    plan_row = (
+        await session.execute(
+            _text("SELECT status FROM plans WHERE id = :pid"),
+            {"pid": str(plan_id)},
+        )
+    ).scalar()
+    if plan_row != "active":
+        from app.core.errors import NotFoundError
+        raise NotFoundError(detail="plan_not_active")
+
+    day_row = (
+        await session.execute(
+            _text(
+                "SELECT id FROM plan_days WHERE plan_id = :pid AND date = :d"
+            ),
+            {"pid": str(plan_id), "d": date},
+        )
+    ).mappings().first()
+    if day_row is None:
+        from app.core.errors import NotFoundError
+        raise NotFoundError(detail="plan_day_not_found")
+    day_id = day_row["id"]
+
+    meal_row = (
+        await session.execute(
+            _text(
+                "SELECT id FROM plan_meals WHERE plan_day_id = :did AND meal_time = :mt"
+            ),
+            {"did": str(day_id), "mt": meal_time},
+        )
+    ).mappings().first()
+    if meal_row is None:
+        from app.core.errors import NotFoundError
+        raise NotFoundError(detail="plan_meal_not_found")
+    meal_id = meal_row["id"]
+
+    # Resolve + denormalize nutrition for each food item.
+    food_ids = [str(it.food_id) for it in body.items]
+    food_rows = (
+        await session.execute(
+            _text(
+                "SELECT id, name_en, kcal, protein_g, carbs_g, fat_g "
+                "FROM foods WHERE id = ANY(:ids::uuid[])"
+            ),
+            {"ids": food_ids},
+        )
+    ).mappings().all()
+    food_map = {r["id"]: r for r in food_rows}
+
+    total_kcal = total_prot = total_carbs = total_fat = 0
+    item_rows: list[dict] = []
+    for pos, item in enumerate(body.items):
+        row = food_map.get(item.food_id)
+        if row is None:
+            from app.core.errors import NotFoundError
+            raise NotFoundError(detail=f"food_not_found:{item.food_id}")
+        ratio = float(item.grams) / 100.0
+        kcal = round(float(row["kcal"] or 0) * ratio) if row["kcal"] is not None else None
+        prot = round(float(row["protein_g"] or 0) * ratio) if row["protein_g"] is not None else None
+        carbs = round(float(row["carbs_g"] or 0) * ratio) if row["carbs_g"] is not None else None
+        fat = round(float(row["fat_g"] or 0) * ratio) if row["fat_g"] is not None else None
+        total_kcal += kcal or 0
+        total_prot += prot or 0
+        total_carbs += carbs or 0
+        total_fat += fat or 0
+        item_rows.append({
+            "plan_meal_id": str(meal_id),
+            "food_id": str(item.food_id),
+            "free_text_name": row["name_en"],
+            "grams": float(item.grams),
+            "kcal": kcal,
+            "protein_g": prot,
+            "carbs_g": carbs,
+            "fat_g": fat,
+            "position": pos,
+        })
+
+    # Write: replace slot.
+    await session.execute(
+        _text(
+            "UPDATE plan_meals "
+            "SET recipe_id = NULL, kcal = :kcal, protein_g = :prot, "
+            "    carbs_g = :carbs, fat_g = :fat, scaled_factor = NULL "
+            "WHERE id = :mid"
+        ),
+        {
+            "mid": str(meal_id),
+            "kcal": total_kcal,
+            "prot": total_prot,
+            "carbs": total_carbs,
+            "fat": total_fat,
+        },
+    )
+    await session.execute(
+        _text("DELETE FROM plan_meal_items WHERE plan_meal_id = :mid"),
+        {"mid": str(meal_id)},
+    )
+    if item_rows:
+        await session.execute(
+            _text(
+                "INSERT INTO plan_meal_items "
+                "(plan_meal_id, food_id, free_text_name, grams, kcal, protein_g, carbs_g, fat_g, position) "
+                "VALUES (:plan_meal_id, :food_id::uuid, :free_text_name, :grams, "
+                "        :kcal, :protein_g, :carbs_g, :fat_g, :position)"
+            ),
+            item_rows,
+        )
+    await session.commit()
+
+    # Invalidate active plan cache so next GET sees the updated slot.
+    cache = ActivePlanCache(redis)
+    await cache.invalidate(current_user)
+
+    # Build response — custom meal has no recipe data.
+    from app.plan.domain.entities import PlanMeal as _PlanMeal
+
+    meal_entity = _PlanMeal(
+        id=meal_id,
+        plan_day_id=day_id,
+        meal_time=meal_time,  # type: ignore[arg-type]
+        recipe_id=None,
+        kcal=total_kcal,
+        protein_g=total_prot,
+        carbs_g=total_carbs,
+        fat_g=total_fat,
+        completed=False,
+        swapped_from=None,
+    )
+    resp = _build_meal_resp(meal_entity, {}, locale)
+
+    if skey is not None:
+        await remember_redis(
+            redis=redis,
+            storage_key=skey,
+            body=raw_body,
+            response_body=resp.model_dump(mode="json"),
+            status_code=200,
+        )
+    return resp

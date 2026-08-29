@@ -65,14 +65,14 @@ def _to_recipe_resp(r: Recipe, locale: str, score: float | None = None) -> Recip
         name=r.translated_name(locale),
         description=r.translated_description(locale),
         image_url=r.image_url,
-        kcal=r.kcal,
-        protein_g=r.protein_g,
-        carbs_g=r.carbs_g,
-        fat_g=r.fat_g,
-        fiber_g=r.fiber_g,
-        sugar_g=r.sugar_g,
-        sodium_mg=r.sodium_mg,
-        sat_fat_g=r.sat_fat_g,
+        kcal=_round_int(r.kcal),
+        protein_g=_round_int(r.protein_g),
+        carbs_g=_round_int(r.carbs_g),
+        fat_g=_round_int(r.fat_g),
+        fiber_g=_round_int(r.fiber_g) if r.fiber_g is not None else 0,
+        sugar_g=_round_int(r.sugar_g) if r.sugar_g is not None else 0,
+        sodium_mg=_round_int(r.sodium_mg) if r.sodium_mg is not None else 0,
+        sat_fat_g=_round_int(r.sat_fat_g) if r.sat_fat_g is not None else 0,
         tags=r.tags,
         meal_time=r.meal_time,
         prep_min=r.prep_min,
@@ -98,21 +98,28 @@ def _to_recipe_resp(r: Recipe, locale: str, score: float | None = None) -> Recip
     )
 
 
+def _round_int(v: object) -> int | None:
+    if v is None:
+        return None
+    from decimal import Decimal as _D
+    return int(_D(str(v)).to_integral_value())
+
+
 def _to_food_resp(f: Food, locale: str, score: float | None = None) -> FoodResponse:
     return FoodResponse(
         id=f.id,
         name=f.translated_name(locale),
         brand=f.brand,
         country=f.country,
-        portion_g=f.portion_g,
-        kcal=f.kcal,
-        protein_g=f.protein_g,
-        carbs_g=f.carbs_g,
-        fat_g=f.fat_g,
-        fiber_g=f.fiber_g,
-        sugar_g=f.sugar_g,
-        sodium_mg=f.sodium_mg,
-        sat_fat_g=f.sat_fat_g,
+        portion_g=float(f.portion_g) if f.portion_g is not None else None,
+        kcal=_round_int(f.kcal),
+        protein_g=_round_int(f.protein_g),
+        carbs_g=_round_int(f.carbs_g),
+        fat_g=_round_int(f.fat_g),
+        fiber_g=_round_int(f.fiber_g),
+        sugar_g=_round_int(f.sugar_g),
+        sodium_mg=_round_int(f.sodium_mg),
+        sat_fat_g=_round_int(f.sat_fat_g),
         barcode=f.barcode,
         verified=f.verified,
         score=score,

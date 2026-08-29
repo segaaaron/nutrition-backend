@@ -125,6 +125,26 @@ class PlanMealModel(Base):
     swapped_from: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), nullable=True)
 
 
+class PlanMealItemModel(Base):
+    """One food item composing a user-built custom meal (migration 0056)."""
+
+    __tablename__ = "plan_meal_items"
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    plan_meal_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("plan_meals.id", ondelete="CASCADE"), nullable=False
+    )
+    food_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("foods.id", ondelete="RESTRICT"), nullable=True
+    )
+    free_text_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    grams: Mapped[float] = mapped_column(Numeric(8, 2), nullable=False)
+    kcal: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    protein_g: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    carbs_g: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fat_g: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
 class PlanGenerationSeedModel(Base):
     __tablename__ = "plan_generation_seeds"
     plan_id: Mapped[UUID] = mapped_column(
