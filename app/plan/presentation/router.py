@@ -1173,6 +1173,7 @@ async def validate_custom_meal(
     food_map = {r["id"]: r for r in rows}
 
     items_out: list[ValidateMealItemResult] = []
+    incomplete_items: list[str] = []
     total_kcal = total_prot = total_carbs = total_fat = 0
 
     for item in body.items:
@@ -1181,14 +1182,18 @@ async def validate_custom_meal(
             from app.core.errors import NotFoundError
             raise NotFoundError(detail=f"food_not_found:{item.food_id}")
         ratio = float(item.grams) / 100.0
-        kcal = round(float(row["kcal"] or 0) * ratio) if row["kcal"] is not None else None
-        prot = round(float(row["protein_g"] or 0) * ratio) if row["protein_g"] is not None else None
-        carbs = round(float(row["carbs_g"] or 0) * ratio) if row["carbs_g"] is not None else None
-        fat = round(float(row["fat_g"] or 0) * ratio) if row["fat_g"] is not None else None
-        total_kcal += kcal or 0
-        total_prot += prot or 0
-        total_carbs += carbs or 0
-        total_fat += fat or 0
+        kcal = round(float(row["kcal"]) * ratio) if row["kcal"] is not None else None
+        prot = round(float(row["protein_g"]) * ratio) if row["protein_g"] is not None else None
+        carbs = round(float(row["carbs_g"]) * ratio) if row["carbs_g"] is not None else None
+        fat = round(float(row["fat_g"]) * ratio) if row["fat_g"] is not None else None
+        # kcal NULL → item is incomplete: name it, exclude from totals.
+        if kcal is None:
+            incomplete_items.append(row["name_en"] or str(item.food_id))
+        else:
+            total_kcal += kcal
+            total_prot += prot or 0
+            total_carbs += carbs or 0
+            total_fat += fat or 0
         items_out.append(ValidateMealItemResult(
             food_id=item.food_id,
             name=row["name_en"],
@@ -1205,6 +1210,7 @@ async def validate_custom_meal(
         carbs_g=total_carbs,
         fat_g=total_fat,
         items=items_out,
+        incomplete_items=incomplete_items,
     )
 
 
@@ -1235,7 +1241,6 @@ async def save_custom_meal(
     - Returns 404 when the plan is not found or not active.
     """
     from datetime import date as _date
-    from decimal import Decimal as _D
     from sqlalchemy import text as _text
 
     key = require_idempotency_key(idempotency_key)

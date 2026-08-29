@@ -322,3 +322,6 @@ class ValidateMealResponse(BaseModel):
     carbs_g: int
     fat_g: int
     items: list[ValidateMealItemResult]
+    # Food names whose kcal is NULL in the catalog — excluded from the totals.
+    # iOS shows "total does not include: X" so the user knows the sum is partial.
+    incomplete_items: list[str] = Field(default_factory=list)

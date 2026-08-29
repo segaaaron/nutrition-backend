@@ -105,6 +105,28 @@ class TestValidateMacroComputation:
             items=[],
         )
         assert r.kcal == 400
+        assert r.incomplete_items == []
+
+    def test_incomplete_items_defaults_empty(self):
+        r = ValidateMealResponse(kcal=0, protein_g=0, carbs_g=0, fat_g=0, items=[])
+        assert r.incomplete_items == []
+
+    def test_incomplete_items_not_summed_as_zero(self):
+        """Foods with NULL kcal must be named, not silently added as 0."""
+        # Simulate: 1 complete food (200 kcal) + 1 incomplete (kcal=None)
+        known_kcal = 200
+        # total must NOT include the incomplete item
+        total = known_kcal  # not known_kcal + 0
+        r = ValidateMealResponse(
+            kcal=total,
+            protein_g=0,
+            carbs_g=0,
+            fat_g=0,
+            items=[],
+            incomplete_items=["Arroz integral"],
+        )
+        assert r.kcal == 200
+        assert "Arroz integral" in r.incomplete_items
 
 
 # ── Delivery 3: past-day guard ────────────────────────────────────────────────

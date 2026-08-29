@@ -57,7 +57,10 @@ class _FakeSession:
     async def execute(self, stmt, params=None):  # type: ignore[override]
         sql = str(stmt)
         self.executed_sql.append(sql)
-        if "SUM(rc.amount_g)" in sql:
+        # Detect the combined UNION query (new) or legacy SUM(rc.amount_g) (old).
+        # The UNION query contains "UNION ALL" + "plan_meal_items"; the legacy had
+        # "SUM(rc.amount_g)" at the top level. Both are the "components aggregate" call.
+        if "UNION ALL" in sql or "SUM(rc.amount_g)" in sql:
             return _FakeResult(rows=self._components_rows)
         if "DELETE FROM grocery_items" in sql:
             return _FakeResult()
