@@ -14,7 +14,7 @@ depends_on = None
 
 def upgrade() -> None:
     op.execute(
-        "CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_foods_name_es_trgm "
+        "CREATE INDEX IF NOT EXISTS ix_foods_name_es_trgm "
         "ON foods USING gin ((lower(name_translations->>'es')) gin_trgm_ops)"
     )
 
