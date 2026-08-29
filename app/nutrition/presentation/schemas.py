@@ -62,6 +62,13 @@ class WeightInsightsOut(_Strict):
 
     latam_context_note: bool    # True for BMI 25–27.9 (LATAM risk zone — Sci Reports 2024)
 
+    # Actual projected weekly change from the plan's real kcal deficit/surplus
+    # (Wishnofsky 1958: 7700 kcal/kg). Negative = loss, positive = gain.
+    # Distinct from weekly_rate_kg (the declared target rate) because safety
+    # caps (min(500 kcal, 25% TDEE)) can produce a smaller deficit than the
+    # target implies. None when goal is maintenance or biometrics are absent.
+    projected_weekly_kg_actual: float | None = None
+
 
 class GoalsResponse(_Strict):
     id: UUID

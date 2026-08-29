@@ -40,6 +40,7 @@ class RecipeSearchQuery:
 @dataclass(frozen=True, slots=True)
 class FoodSearchQuery:
     q: str | None = None
+    locale: str = "es"
     country: str | None = None
     verified_only: bool = False
     limit: int = 20

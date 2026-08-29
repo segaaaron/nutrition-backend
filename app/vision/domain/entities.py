@@ -63,6 +63,10 @@ class DetectedFoodItem:
     # (confidence < 0.7). Empty list = no ambiguity. Client renders as tap-chips
     # so the user can correct in one tap without opening the full edit flow.
     ambiguous_options: list[str] = field(default_factory=list)
+    # Plate-level dish name extracted from the LLM output and propagated to all
+    # items. Used ONLY by the triangulation engine for catalog lookup — never
+    # shown to users or stored in food_logs.
+    plate_dish_name: str | None = None
 
 
 @dataclass(slots=True)

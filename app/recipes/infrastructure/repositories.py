@@ -273,9 +273,13 @@ class SqlFoodRepository:
             where.append("(f.country = :country OR f.country IS NULL)")
         if query.verified_only:
             where.append("f.verified = true")
-        score_expr = "GREATEST(similarity(f.name_norm, :q), 0.0)" if query.q else "0.0"
+        if query.locale == "es":
+            name_col = "lower(COALESCE(f.name_translations->>'es', ''))"
+        else:
+            name_col = "f.name_norm"
+        score_expr = f"GREATEST(similarity({name_col}, :q), 0.0)" if query.q else "0.0"
         if query.q:
-            where.append("similarity(f.name_norm, :q) > 0.15")
+            where.append(f"similarity({name_col}, :q) > 0.25")
         if query.cursor_last_score is not None and query.cursor_last_id:
             where.append(f"({score_expr}, f.id::text) < (:cursor_score, :cursor_id)")
         where_sql = ("WHERE " + " AND ".join(where)) if where else ""

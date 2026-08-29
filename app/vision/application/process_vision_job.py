@@ -32,7 +32,7 @@ SQL / Redis concerns live in app/vision/infrastructure/:
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from decimal import ROUND_HALF_EVEN, Decimal
 from typing import ClassVar, Literal
@@ -515,11 +515,52 @@ class ProcessVisionJob:
     _TRIANGULATE_ROLES = frozenset({"main", "sauce", "condiment", "cooking_fat"})
 
     async def _triangulate_mains(self, items: list[DetectedFoodItem]) -> None:
-        """Top-down catalog anchor + physics arbiter for high-cal roles (F5.1)."""
+        """Top-down catalog anchor + physics arbiter for high-cal roles (F5.1).
+
+        For mixed dishes (soups, stews, guisos): ONE plate-level lookup by
+        dish_name — scales all items proportionally to the catalog total.
+        For non-mixed plates: per-item lookup (existing behavior).
+        """
         try:
             from app.vision.infrastructure.dish_anchor import SqlDishAnchor
 
             anchor_repo = SqlDishAnchor(self.session)
+
+            # --- Plate-level lookup for mixed/integrated dishes ---
+            plate_dish_name = next(
+                (it.plate_dish_name for it in items if it.plate_dish_name), None
+            )
+            is_mixed = any(it.is_mixed_dish for it in items)
+
+            if is_mixed and plate_dish_name:
+                total_llm_kcal = sum(it.kcal for it in items)
+                total_grams = sum(float(it.estimated_amount_g) for it in items)
+                plate_anchor = await anchor_repo.lookup(plate_dish_name)
+                if (
+                    plate_anchor is not None
+                    and plate_anchor.similarity >= 0.60
+                    and total_llm_kcal > 0
+                ):
+                    catalog_total = plate_anchor.scaled_kcal(total_grams)
+                    if catalog_total and catalog_total > 0:
+                        rel_gap = abs(catalog_total - total_llm_kcal) / max(total_llm_kcal, 1)
+                        if rel_gap <= 0.70:  # both within 70% → trust catalog heavily
+                            # 70% catalog, 30% LLM — catalog is audited nutritional data
+                            blended = int(round(0.30 * total_llm_kcal + 0.70 * catalog_total))
+                            scale = blended / max(total_llm_kcal, 1)
+                            for idx, it in enumerate(items):
+                                items[idx] = replace(it, kcal=max(1, round(it.kcal * scale)))
+                            log.info(
+                                "vision.triangulation.plate_adjusted",
+                                dish_name=plate_dish_name[:60],
+                                kcal_llm=total_llm_kcal,
+                                kcal_catalog=catalog_total,
+                                kcal_blended=blended,
+                                anchor_sim=round(plate_anchor.similarity, 2),
+                            )
+                            return  # per-item pass not needed — plate already corrected
+
+            # --- Per-item lookup (non-mixed dishes) ---
             for idx, it in enumerate(items):
                 if it.role not in self._TRIANGULATE_ROLES or it.inferred:
                     continue

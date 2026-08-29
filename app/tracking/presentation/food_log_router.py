@@ -1,6 +1,7 @@
 """Food-log REST endpoints (Sprint 7.A).
 
 Routes:
+  - POST   /logs/food                  manual log (recipe or food)
   - GET    /logs/food                  paginated, filtered
   - DELETE /logs/food/{id}             soft-delete via audit_log
   - GET    /logs/food/totals/today
@@ -12,15 +13,17 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from typing import Literal
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Body, Query, Response, status
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import text
 
+from app.core.errors import NotFoundError, ValidationError
 from app.core.event_bus import get_event_bus
 from app.core.redis import get_redis
 from app.identity.presentation.dependencies import CurrentUserDep, SessionDep
+from app.shared.domain.time import utc_today
 from app.shared.i18n import LocaleDep
 from app.tracking.application.food_log_uc import (
     DeleteFoodLog,
@@ -28,11 +31,141 @@ from app.tracking.application.food_log_uc import (
     GetMacrosTrend,
     GetMicrosToday,
     QueryFoodLogs,
+    _cache_key_totals,
 )
 from app.tracking.domain.food_log import FoodLogSearchQuery
 from app.tracking.infrastructure.food_log_repository import SqlFoodLogRepository
 
 router = APIRouter(tags=["tracking-food"])
+
+
+class ManualFoodLogRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    recipe_id: UUID | None = None
+    food_id: UUID | None = None
+    meal_time: Literal["breakfast", "lunch", "dinner", "snack", "morning_snack", "afternoon_snack"]
+    servings: float = Field(default=1.0, gt=0, le=20)
+    amount_g: float | None = Field(default=None, gt=0, le=5000)
+    log_date: date | None = None
+
+    @model_validator(mode="after")
+    def _exactly_one_source(self) -> "ManualFoodLogRequest":
+        if (self.recipe_id is None) == (self.food_id is None):
+            raise ValueError("provide exactly one of recipe_id or food_id")
+        if self.food_id is not None and self.amount_g is None:
+            raise ValueError("amount_g is required when logging a food item")
+        return self
+
+
+class ManualFoodLogResponse(BaseModel):
+    food_log_id: UUID
+
+
+@router.post("/logs/food", response_model=ManualFoodLogResponse, status_code=status.HTTP_201_CREATED)
+async def create_manual_food_log(
+    body: ManualFoodLogRequest,
+    current_user: CurrentUserDep,
+    session: SessionDep,
+) -> ManualFoodLogResponse:
+    """Log a recipe or food item manually (no photo required).
+
+    recipe_id: log a full recipe scaled by servings.
+    food_id:   log an individual food item; amount_g required.
+    """
+    log_date = body.log_date or utc_today()
+    flog_id = uuid4()
+
+    if body.recipe_id is not None:
+        row = (
+            await session.execute(
+                text(
+                    "SELECT kcal, protein_g, carbs_g, fat_g, fiber_g, sugar_g, sodium_mg "
+                    "FROM recipes WHERE id = :rid"
+                ),
+                {"rid": str(body.recipe_id)},
+            )
+        ).first()
+        if row is None:
+            raise NotFoundError("recipe_not_found")
+        s = body.servings
+        await session.execute(
+            text(
+                """
+                INSERT INTO food_logs (
+                    id, user_id, date, meal_time, recipe_id,
+                    kcal, protein_g, carbs_g, fat_g, fiber_g, sugar_g,
+                    method, created_at
+                ) VALUES (
+                    :id, :uid, :d, :mt, :rid,
+                    :kc, :pg, :cg, :fg, :fibg, :sug,
+                    'manual', now()
+                )
+                """
+            ),
+            {
+                "id": str(flog_id),
+                "uid": str(current_user),
+                "d": log_date,
+                "mt": body.meal_time,
+                "rid": str(body.recipe_id),
+                "kc": round((row.kcal or 0) * s),
+                "pg": round((row.protein_g or 0) * s),
+                "cg": round((row.carbs_g or 0) * s),
+                "fg": round((row.fat_g or 0) * s),
+                "fibg": round((row.fiber_g or 0) * s),
+                "sug": round((row.sugar_g or 0) * s),
+            },
+        )
+
+    else:
+        # food_id path — amount_g required (validated above)
+        row = (
+            await session.execute(
+                text(
+                    "SELECT kcal, protein_g, carbs_g, fat_g, fiber_g, sugar_g, portion_g "
+                    "FROM foods WHERE id = :fid"
+                ),
+                {"fid": str(body.food_id)},
+            )
+        ).first()
+        if row is None:
+            raise NotFoundError("food_not_found")
+        portion = float(row.portion_g or 100) or 100.0
+        ratio = body.amount_g / portion  # type: ignore[operator]
+        await session.execute(
+            text(
+                """
+                INSERT INTO food_logs (
+                    id, user_id, date, meal_time, food_id, amount_g,
+                    kcal, protein_g, carbs_g, fat_g, fiber_g, sugar_g,
+                    method, created_at
+                ) VALUES (
+                    :id, :uid, :d, :mt, :fid, :ag,
+                    :kc, :pg, :cg, :fg, :fibg, :sug,
+                    'manual', now()
+                )
+                """
+            ),
+            {
+                "id": str(flog_id),
+                "uid": str(current_user),
+                "d": log_date,
+                "mt": body.meal_time,
+                "fid": str(body.food_id),
+                "ag": body.amount_g,
+                "kc": round((row.kcal or 0) * ratio),
+                "pg": round((row.protein_g or 0) * ratio),
+                "cg": round((row.carbs_g or 0) * ratio),
+                "fg": round((row.fat_g or 0) * ratio),
+                "fibg": round((row.fiber_g or 0) * ratio),
+                "sug": round((row.sugar_g or 0) * ratio),
+            },
+        )
+
+    await session.commit()
+    await get_redis().delete(_cache_key_totals(current_user, log_date))
+    return ManualFoodLogResponse(food_log_id=flog_id)
 
 
 class FoodLogOut(BaseModel):

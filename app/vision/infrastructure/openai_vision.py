@@ -242,12 +242,16 @@ VISION_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
     "properties": {
+        # Declared FIRST: constrained-decoding commits to the dish name before
+        # listing components. Parser propagates to all DetectedFoodItem via
+        # plate_dish_name for catalog triangulation — never shown to users.
+        "dish_name": {"type": "string"},
         # Plate-level flag: True when the dish is an integrated preparation where
         # all ingredients share a common cooking matrix (liquid/sauce/oil) and
         # cannot be visually separated. Parser propagates to every DetectedFoodItem;
         # macro_grounder widens the kcal range to ±30% (vs ±20% for clean plates).
         "is_mixed_dish": {"type": "boolean"},
-        # Declared FIRST on purpose: strict constrained-decoding emits properties
+        # Declared BEFORE `items`: strict constrained-decoding emits properties
         # in declaration order, so the model must write this unit-count scratchpad
         # BEFORE `items` — a forced chain-of-thought that makes it enumerate every
         # repeated/stacked unit (per-food, e.g. "carne: u1+u2=2; pan:2") before it
@@ -371,7 +375,7 @@ VISION_SCHEMA: dict[str, Any] = {
             },
         },
     },
-    "required": ["is_mixed_dish", "unit_census", "items"],
+    "required": ["dish_name", "is_mixed_dish", "unit_census", "items"],
 }
 
 
@@ -396,11 +400,25 @@ def _system_prompt(
             "Eres un experto en nutrición, planes alimenticios y cocina de LatAm/US/EU. "
             "PROCESO por ítem: (1) identifica el alimento, (2) busca un objeto de referencia "
             "de tamaño conocido en la imagen para anclar la escala, (3) estima el volumen 3D "
-            "(área × profundidad), (4) asigna macros basado en peso real estimado.\n",
+            "(área × profundidad), (4) asigna macros basado en peso real estimado.\n"
+            "NOMBRES LATAM — OBLIGATORIO: usa la terminología local correcta. "
+            "El cítrico verde pequeño y ácido que se usa como condimento en LATAM se llama 'limón' "
+            "(no 'lima' — lima es otra fruta diferente en LATAM). "
+            "El cítrico amarillo grande se llama 'limón amarillo'. "
+            "Plátano maduro frito = 'tostones' o 'plátano frito' (no banana). "
+            "Yuca/mandioca = 'yuca' (no cassava). "
+            "Choclo/elote/jojoto = 'maíz' o 'choclo'.\n",
             "You are a nutrition, meal planning, and culinary expert for LatAm/US/EU. "
             "PROCESS per item: (1) identify the food, (2) find a known-size reference object "
             "in the image to anchor the scale, (3) estimate 3D volume "
-            "(area × depth), (4) assign macros based on real estimated weight.\n",
+            "(area × depth), (4) assign macros based on real estimated weight.\n"
+            "LATAM NAMES — MANDATORY: use correct local terminology. "
+            "The small, green, tart citrus used as a condiment in LATAM is called 'limón' "
+            "(not 'lime' or 'lima' — lima is a different, sweeter fruit). "
+            "The large yellow citrus is 'limón amarillo'. "
+            "Fried ripe plantain = 'plátano frito' or 'tostones' (not banana). "
+            "Yuca/manioc = 'yuca' (not cassava). "
+            "Corn on the cob = 'maíz' or 'choclo'.\n",
         )
         + L(
             "ALCANCE — SOLO la comida servida en el plato/porción que la persona va a "
@@ -567,11 +585,33 @@ def _system_prompt(
             "No → part of the base. Applies to any food, no exceptions by type.\n",
         )
         + L(
+            "SOPAS/CALDOS — IDENTIFICACIÓN OBLIGATORIA ANTES DE DESCOMPONER: "
+            "ante cualquier sopa, caldo, potaje o preparación líquida, PRIMERO decide qué plato es "
+            "y cuál es su base, porque el error calórico más grande viene de adivinar mal la base.\n"
+            "BASES y su impacto: "
+            "agua/caldo simple → poca grasa; "
+            "sofrito+aceite en base → añade 40-80 kcal invisibles; "
+            "crema/leche → añade 80-150 kcal invisibles; "
+            "maní/sésamo/frutos secos → añade 150-300 kcal invisibles; "
+            "leche de coco → añade 120-200 kcal invisibles; "
+            "almidón disuelto (maíz, papa, yuca licuada) → añade 60-120 kcal.\n"
+            "Un caldo opaco o espeso SIEMPRE tiene ingredientes invisibles — listalós.\n"
             "SOPAS/CREMAS CON SÓLIDOS: si hay ingredientes sólidos VISIBLES, listalós "
             "POR SEPARADO además de la base líquida. La base líquida es UN ítem; "
             "cada sólido identificable es otro ítem adicional.\n"
             "SNACK CON MÚLTIPLES COMPONENTES: verificá que TODOS estén listados. "
             "Los componentes pequeños son fáciles de omitir aunque estén claramente presentes.\n",
+            "SOUPS/BROTHS — MANDATORY IDENTIFICATION BEFORE DECOMPOSING: "
+            "for any soup, broth, stew, or liquid preparation, FIRST decide what dish it is "
+            "and what its base is, because the biggest caloric error comes from guessing the base wrong.\n"
+            "BASES and their impact: "
+            "water/simple broth → little fat; "
+            "sofrito+oil base → adds 40-80 kcal invisible; "
+            "cream/milk → adds 80-150 kcal invisible; "
+            "peanut/sesame/nuts → adds 150-300 kcal invisible; "
+            "coconut milk → adds 120-200 kcal invisible; "
+            "dissolved starch (corn, potato, blended yuca) → adds 60-120 kcal.\n"
+            "An opaque or thick broth ALWAYS has invisible ingredients — list them.\n"
             "SOUPS/CREAMS WITH SOLIDS: if there are VISIBLE solid ingredients, list them "
             "SEPARATELY in addition to the liquid base. The liquid base is ONE item; "
             "each identifiable solid is an additional item.\n"
@@ -613,6 +653,20 @@ def _system_prompt(
             "item_index = 0-based position in `items`; options = 2-4 alternative names "
             "in the same language as the item's `name`. "
             "Omit completely when there is no ambiguity.\n",
+        )
+        + L(
+            "CAMPO `dish_name` (OBLIGATORIO, PRIMER campo): nombre específico del plato principal "
+            "en el idioma del locale actual. Usa el nombre local más preciso posible. "
+            "Ejemplos: 'sopa de maní', 'pollo empanizado con arroz y maíz', 'ceviche de pescado', "
+            "'avena con manzana', 'arroz con leche'. "
+            "Si hay varios platos separados, nombra el principal. "
+            "NO uses términos genéricos como 'comida' o 'plato mixto' — siempre el nombre real.\n",
+            "`dish_name` FIELD (MANDATORY, FIRST field): specific name of the main dish "
+            "in the current locale language. Use the most precise local name possible. "
+            "Examples: 'peanut soup', 'fried breaded chicken with rice and corn', 'fish ceviche', "
+            "'oatmeal with apple', 'rice pudding'. "
+            "If there are multiple separate dishes, name the main one. "
+            "Do NOT use generic terms like 'food' or 'mixed plate' — always the real name.\n",
         )
         + L(
             "CAMPO `is_mixed_dish` (OBLIGATORIO, va ANTES del censo): "
@@ -2339,6 +2393,7 @@ def _hidden_calorie_post_pass(items: list[DetectedFoodItem]) -> list[DetectedFoo
 
 def _parse_items(raw: dict[str, Any]) -> list[DetectedFoodItem]:
     is_mixed_dish = bool(raw.get("is_mixed_dish", False))
+    plate_dish_name = str(raw.get("dish_name", "") or "").strip()[:120] or None
     out: list[DetectedFoodItem] = []
     for r in raw.get("items", []) or []:
         try:
@@ -2433,8 +2488,10 @@ def _parse_items(raw: dict[str, Any]) -> list[DetectedFoodItem]:
                     amount_g_total=amount_g,
                 )
 
-            # kcal_min/max: widen range to encompass both LLM estimate and
-            # Atwater correction so uncertainty is honestly represented.
+            # kcal_min/max: internal triangulation signals only — never shown
+            # to the user. The API exposes a single `kcal` best-estimate.
+            # Widen when LLM returned explicit bounds.
+            confidence_raw = max(0.0, min(1.0, float(r["confidence"])))
             kcal_min_raw = r.get("kcal_min")
             kcal_max_raw = r.get("kcal_max")
             kcal_min: int | None = None
@@ -2476,7 +2533,7 @@ def _parse_items(raw: dict[str, Any]) -> list[DetectedFoodItem]:
                     # fiber_g/sugar_g: new in schema v3; old cached rows return 0 (safe default).
                     fiber_g=max(0, int(r.get("fiber_g") or 0)) * count,
                     sugar_g=max(0, int(r.get("sugar_g") or 0)) * count,
-                    confidence=max(0.0, min(1.0, float(r["confidence"]))),
+                    confidence=confidence_raw,
                     food_group=group if group in _FOOD_GROUPS else "other",  # type: ignore[arg-type]
                     role=role if role in _ITEM_ROLES else None,
                     prep_method=prep if prep in _PREP_METHODS else None,
@@ -2485,6 +2542,7 @@ def _parse_items(raw: dict[str, Any]) -> list[DetectedFoodItem]:
                     count=count,
                     bbox=bbox,
                     is_mixed_dish=is_mixed_dish,
+                    plate_dish_name=plate_dish_name,
                 )
             )
         except (KeyError, ValueError, TypeError, InvalidOperation) as exc:

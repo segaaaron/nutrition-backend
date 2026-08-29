@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Query, Response
 
@@ -33,9 +33,41 @@ router = APIRouter(tags=["nutrition"])
 _log = get_logger("nutrition.router")
 
 
-def _weight_insights_out(wi: WeightInsights | None) -> WeightInsightsOut | None:
+def _weight_insights_out(
+    wi: WeightInsights | None,
+    *,
+    kcal_target: int | None = None,
+    tdee: int | None = None,
+) -> WeightInsightsOut | None:
     if wi is None:
         return None
+    projected: float | None = None
+    if (
+        kcal_target is not None
+        and tdee is not None
+        and wi.weight_gap_direction != "maintain"
+    ):
+        from app.nutrition.domain.weight_projection import expected_weekly_change
+        proj = expected_weekly_change(kcal_target=kcal_target, tdee=tdee)
+        projected = float(proj.weekly_kg)
+
+    # Recompute ETA using the real projected rate when available.
+    # The declared weekly_rate_kg may exceed the actual deficit after safety
+    # caps (min(500 kcal, 25% TDEE)), producing an ETA that the plan cannot
+    # honour. Using the real rate gives the user a promise the plan can keep.
+    estimated_weeks = wi.estimated_weeks
+    estimated_date = wi.estimated_date
+    if (
+        projected is not None
+        and wi.weight_to_lose_kg is not None
+        and wi.weight_to_lose_kg > 0
+    ):
+        actual_rate = abs(projected)  # kg/week (positive)
+        if actual_rate > 0:
+            weeks = int(round(float(wi.weight_to_lose_kg) / actual_rate))
+            estimated_weeks = weeks
+            estimated_date = date.today() + timedelta(weeks=weeks)
+
     return WeightInsightsOut(
         bmi=wi.bmi,
         bmi_category=wi.bmi_category,
@@ -48,18 +80,20 @@ def _weight_insights_out(wi: WeightInsights | None) -> WeightInsightsOut | None:
         weight_gap_direction=wi.weight_gap_direction,
         weekly_rate_kg=wi.weekly_rate_kg,
         weekly_rate_label=wi.weekly_rate_label,
-        estimated_weeks=wi.estimated_weeks,
-        estimated_date=wi.estimated_date,
+        estimated_weeks=estimated_weeks,
+        estimated_date=estimated_date,
         latam_context_note=wi.latam_context_note,
+        projected_weekly_kg_actual=projected,
     )
 
 
 def _to_resp(g: NutritionalGoals, wi: WeightInsights | None = None) -> GoalsResponse:
+    kcal_target = (g.kcal_min + g.kcal_max) // 2
     return GoalsResponse(
         id=g.id,
         kcal_min=g.kcal_min,
         kcal_max=g.kcal_max,
-        kcal_target=(g.kcal_min + g.kcal_max) // 2,
+        kcal_target=kcal_target,
         protein_g=g.protein_g,
         carbs_g=g.carbs_g,
         fat_g=g.fat_g,
@@ -72,7 +106,7 @@ def _to_resp(g: NutritionalGoals, wi: WeightInsights | None = None) -> GoalsResp
         valid_to=g.valid_to,
         fiber_target_g=g.fiber_target_g,
         sodium_target_mg=g.sodium_target_mg,
-        weight_insights=_weight_insights_out(wi),
+        weight_insights=_weight_insights_out(wi, kcal_target=kcal_target, tdee=g.tdee),
     )
 
 

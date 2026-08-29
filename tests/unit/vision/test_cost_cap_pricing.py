@@ -129,9 +129,10 @@ async def test_pre_check_uses_mini_pricing(
     # 2000 (2026-07-24, protein second-look + soup decomp + snack small-items
     # prompts added ~90 more input tokens) ->
     # 1900 (2026-07-25, size_category field + calibration instructions added ~80 tokens) ->
-    # 1800 (2026-08-27, is_mixed_dish field + bilingual examples added ~120 tokens).
+    # 1800 (2026-08-27, is_mixed_dish field + bilingual examples added ~120 tokens) ->
+    # 1700 (2026-08-29, LATAM names rule + soup base identification added ~90 tokens).
     cap = Decimal("1.50")
-    assert cap / est >= 1800, f"estimate={est} too high, only {cap/est:.0f} calls/day"
+    assert cap / est >= 1700, f"estimate={est} too high, only {cap/est:.0f} calls/day"
 
 
 @pytest.mark.asyncio

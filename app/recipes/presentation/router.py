@@ -219,8 +219,10 @@ async def list_foods(
     cursor: str | None = None,
 ) -> FoodListResponse:
     last_score, last_id = _decode_cursor(cursor)
+    q_norm = q.strip().lower() if q else None
     query = FoodSearchQuery(
-        q=q,
+        q=q_norm,
+        locale=locale,
         country=country,
         verified_only=verified_only,
         limit=limit,
